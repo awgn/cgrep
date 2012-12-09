@@ -8,7 +8,7 @@ import Data.Char
 
 import Control.Monad (forM)
 import System.Directory
-import System.FilePath ((</>))
+import System.FilePath ((</>), takeFileName)
 import System.Console.CmdArgs
 
 
@@ -69,16 +69,20 @@ getCgrepOptions = do
 
 -- from Realworld in Haskell...
 
-getRecursiveContents :: FilePath -> IO [FilePath]
 
-getRecursiveContents topdir = do
+getRecursiveContents :: FilePath -> [String] -> IO [FilePath]
+
+
+getRecursiveContents topdir prune = do
   names <- getDirectoryContents topdir
   let properNames = filter (`notElem` [".", ".."]) names
-  paths <- forM properNames $ \name -> do
-    let path = topdir </> name
+  paths <- forM properNames $ \fname -> do
+    let path = topdir </> fname
     isDirectory <- doesDirectoryExist path
     if isDirectory
-      then getRecursiveContents path
+      then if (takeFileName path `elem` prune)
+           then return []
+           else getRecursiveContents path prune
       else return [path]
   return (concat paths)
 
@@ -88,7 +92,7 @@ main = do
     opts  <- cmdArgsRun options
     fopts <- getCgrepOptions 
     
-    files <- getRecursiveContents "."
+    files <- getRecursiveContents "." (pruneDir fopts)
 
     print opts 
     print fopts
