@@ -63,12 +63,13 @@ getCgrepOptions :: IO CgrepOptions
 getCgrepOptions = do
     home <- getHomeDirectory
     let f1 = home </> "." ++ cgreprc
+    let f2 = "/etc" </> cgreprc
     b1 <- doesFileExist f1
-    b2 <- doesFileExist $ "/etc" </> cgreprc
+    b2 <- doesFileExist f2 
     if (b1)
     then readFile f1 >>= \s -> return (read (uncomment s) :: CgrepOptions)
     else if (b2)
-         then readFile f1 >>= \s -> return (read (uncomment s) :: CgrepOptions)
+         then readFile f2 >>= \s -> return (read (uncomment s) :: CgrepOptions)
          else return $ CgrepOptions [] []
 
 
