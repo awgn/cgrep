@@ -50,9 +50,14 @@ data  CgrepOptions = CgrepOptions
                     } deriving (Show,Read)
 
 
+-- remove # comment lines from file
+--
+
 uncomment :: String -> String
 uncomment =  unlines . (dropWhile $ isPrefixOf "#" . dropWhile isSpace) . lines
 
+-- parse CgrepOptions from ~/.cgreprc, or /etc/cgreprc 
+--
 
 getCgrepOptions :: IO CgrepOptions
 getCgrepOptions = do
@@ -69,9 +74,7 @@ getCgrepOptions = do
 
 -- from Realworld in Haskell...
 
-
 getRecursiveContents :: FilePath -> [String] -> IO [FilePath]
-
 
 getRecursiveContents topdir prune = do
   names <- getDirectoryContents topdir
