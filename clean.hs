@@ -1,1 +1,0 @@
-rm cgrep *.hi *.o
