@@ -6,11 +6,12 @@ import Data.Data
 import Data.List
 import Data.Char
 
-import Control.Monad (forM)
+import Control.Monad (forM,liftM,when)
 import System.Directory
 import System.FilePath ((</>), takeFileName)
 import System.Console.CmdArgs
-
+import System.Environment
+import System.IO
 
 cgreprc :: FilePath
 cgreprc = "cgreprc2" 
@@ -91,13 +92,45 @@ getRecursiveContents topdir prune = do
   return (concat paths)
 
 
+-- read patterns from file
+-- TODO: add support for info
+
+readPatternsFromFile :: String -> IO [String]
+readPatternsFromFile f = do
+    if null f
+    then return []
+    else liftM words $ readFile f 
+
+
+isCppIdentifier :: String -> Bool
+isCppIdentifier = all (\c -> isAlphaNum c || c == '_') 
+
+
 main = do
+
     -- read command-line and file options
     opts  <- cmdArgsRun options
     fopts <- getCgrepOptions 
-    
     files <- getRecursiveContents "." (pruneDir fopts)
 
-    print opts 
+    -- load patterns:
+    patterns <- if (null $ file opts)
+                then return $ others opts
+                else readPatternsFromFile $ file opts
+
+    -- check whether patterns list is empty, display help message if it's the case
+    when (null patterns) $ withArgs ["--help"] $ cmdArgsRun options >> return ()  
+
+    -- check whether patterns require regex
+    opts' <- if (not $ all isCppIdentifier patterns) 
+             then putStrLn "cgrep: pattern(s) require regex search -> -e forced." >> return opts{ regex = True }
+             else return opts
+    
+    -- check whether is a terminal device 
+    isTerm <- hIsTerminalDevice stdin
+
+    print opts'  
     print fopts
     print files
+    print patterns
+    print isTerm
