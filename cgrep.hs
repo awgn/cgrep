@@ -7,9 +7,9 @@ import Data.List
 import Data.Char
 import Data.Maybe
 
-import Control.Monad (forM,liftM,when,msum)
+import Control.Monad (forM,liftM,filterM,when,msum)
 import System.Directory
-import System.FilePath ((</>), takeFileName)
+import System.FilePath ((</>), takeFileName, takeExtension)
 import System.Console.CmdArgs
 import System.Environment
 import System.IO
@@ -81,19 +81,21 @@ getCgrepOptions = do
 
 -- from Realworld in Haskell...
 
-getRecursiveContents :: FilePath -> [String] -> IO [FilePath]
+getRecursiveContents :: FilePath -> [String] -> [String] -> IO [FilePath]
 
-getRecursiveContents topdir prune = do
+getRecursiveContents topdir filetype prunedir = do
   names <- getDirectoryContents topdir
   let properNames = filter (`notElem` [".", ".."]) names
   paths <- forM properNames $ \fname -> do
     let path = topdir </> fname
     isDirectory <- doesDirectoryExist path
     if isDirectory
-      then if (takeFileName path `elem` prune)
+      then if (takeFileName path `elem` prunedir)
            then return []
-           else getRecursiveContents path prune
-      else return [path]
+           else getRecursiveContents path filetype prunedir
+      else if (takeExtension path `elem` filetype)
+           then return [path]
+           else return []
   return (concat paths)
 
 
@@ -116,17 +118,18 @@ isCppIdentifier = all (\c -> isAlphaNum c || c == '_')
 main :: IO ()
 main = do
 
-    -- read command-line and file options
+    -- read command-line options 
     opts  <- cmdArgsRun options
-    fopts <- getCgrepOptions 
-    files <- getRecursiveContents "." (pruneDir fopts)
-
-    -- load patterns:
-    patterns <- if (null $ file opts) then return $ others opts
-                                      else readPatternsFromFile $ file opts
 
     -- check whether patterns list is empty, display help message if it's the case
-    when (null patterns) $ withArgs ["--help"] $ cmdArgsRun options >> return ()  
+    when (null $ others opts) $ withArgs ["--help"] $ cmdArgsRun options >> return ()  
+
+    -- read Cgrep config options
+    conf  <- getCgrepOptions 
+
+    -- load patterns:
+    patterns <- if (null $ file opts) then return $ [head $ others opts]
+                                      else readPatternsFromFile $ file opts
 
     -- check whether patterns require regex
     opts' <- if (not $ all isCppIdentifier patterns) then putStrLn "cgrep: pattern(s) require regex search -> forced." >> return opts{ regex = True }
@@ -135,8 +138,16 @@ main = do
     -- check whether is a terminal device 
     isTerm <- hIsTerminalDevice stdin
 
-    print opts'  
-    print fopts
-    print files
-    print patterns
-    print isTerm
+    -- retrieve files to parse
+    let paths = if (null $ file opts) then tail $ others opts
+                                      else others opts
+
+    -- retrieve the list of files to parse
+    files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
+                                 else filterM doesFileExist paths
+
+    putStrLn $ "opts :" ++ show opts'  
+    putStrLn $ "conf :" ++ show conf
+    putStrLn $ "pat  :" ++ show patterns
+    putStrLn $ "paths:" ++ show paths
+    putStrLn $ "files:" ++ show files
