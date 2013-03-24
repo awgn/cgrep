@@ -42,7 +42,7 @@ options = cmdArgsMode $ Options {
                                     comment = False                 &= help "grep in comments",
                                     string = False                  &= help "grep in string literals",
                                     others = []                     &= args
-                                } &= summary "Cgrep. Usage: cgreap [OPTION] [PATTERN] files..." &= program "cgrep"
+                                } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
 
 
 data  CgrepOptions = CgrepOptions
@@ -94,15 +94,18 @@ getRecursiveContents topdir prune = do
 
 readPatternsFromFile :: String -> IO [String]
 readPatternsFromFile f = do
-    if null f
-    then return []
-    else liftM words $ readFile f 
+    if null f then return []
+              else liftM words $ readFile f 
 
 
 isCppIdentifier :: String -> Bool
 isCppIdentifier = all (\c -> isAlphaNum c || c == '_') 
 
 
+-- main
+--
+
+main :: IO ()
 main = do
 
     -- read command-line and file options
@@ -111,17 +114,15 @@ main = do
     files <- getRecursiveContents "." (pruneDir fopts)
 
     -- load patterns:
-    patterns <- if (null $ file opts)
-                then return $ others opts
-                else readPatternsFromFile $ file opts
+    patterns <- if (null $ file opts) then return $ others opts
+                                      else readPatternsFromFile $ file opts
 
     -- check whether patterns list is empty, display help message if it's the case
     when (null patterns) $ withArgs ["--help"] $ cmdArgsRun options >> return ()  
 
     -- check whether patterns require regex
-    opts' <- if (not $ all isCppIdentifier patterns) 
-             then putStrLn "cgrep: pattern(s) require regex search -> -e forced." >> return opts{ regex = True }
-             else return opts
+    opts' <- if (not $ all isCppIdentifier patterns) then putStrLn "cgrep: pattern(s) require regex search -> forced." >> return opts{ regex = True }
+                                                     else return opts
     
     -- check whether is a terminal device 
     isTerm <- hIsTerminalDevice stdin
