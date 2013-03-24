@@ -5,8 +5,9 @@ module Main where
 import Data.Data
 import Data.List
 import Data.Char
+import Data.Maybe
 
-import Control.Monad (forM,liftM,when)
+import Control.Monad (forM,liftM,when,msum)
 import System.Directory
 import System.FilePath ((</>), takeFileName)
 import System.Console.CmdArgs
@@ -63,15 +64,10 @@ uncomment =  unlines . (dropWhile $ isPrefixOf "#" . dropWhile isSpace) . lines
 getCgrepOptions :: IO CgrepOptions
 getCgrepOptions = do
     home <- getHomeDirectory
-    let f1 = home </> "." ++ cgreprc
-    let f2 = "/etc" </> cgreprc
-    b1 <- doesFileExist f1
-    b2 <- doesFileExist f2 
-    if (b1)
-    then readFile f1 >>= \s -> return (read (uncomment s) :: CgrepOptions)
-    else if (b2)
-         then readFile f2 >>= \s -> return (read (uncomment s) :: CgrepOptions)
-         else return $ CgrepOptions [] []
+    conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->  do
+                doesFileExist f >>= \b -> if b then return (Just f) else return Nothing
+    if (isJust conf) then (readFile $ fromJust conf) >>= \xs -> return (read (uncomment xs) :: CgrepOptions) 
+                     else return $ CgrepOptions [] []
 
 
 -- from Realworld in Haskell...
