@@ -28,19 +28,27 @@ data Options = Options
                 code    :: Bool,
                 comment :: Bool,
                 string  :: Bool,
-                others  :: [String]
+                others  :: [String],
+                -- General:
+                jobs      :: Int,
+                multiline :: Bool,
+                recursive :: Bool
+
                } deriving (Data, Typeable, Show)
 
 
 options = cmdArgsMode $ Options {
-                                    file = ""       &= typ "FILE"   &= help "read PATTERNs from file"   &= groupname "Pattern:",
-                                    word = False                    &= help "force word matching",
+                                    file  = ""       &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
+                                    word  = False                   &= help "force word matching",
                                     regex = False                   &= help "regex matching",
                                     icase = False                   &= help "ignore case distinctions",
 
-                                    code = False                    &= help "grep in valid c/c+ source code" &= groupname "Context:",
+                                    code = False                    &= help "grep in valid c/c+ source code" &= groupname "Context",
                                     comment = False                 &= help "grep in comments",
                                     string = False                  &= help "grep in string literals",
+                                    jobs   = 1                      &= help "number of jobs" &= groupname "General",
+                                    multiline = False               &= help "enable multi-line matching",
+                                    recursive = False               &= help "enable recursive search",
                                     others = []                     &= args
                                 } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
 
