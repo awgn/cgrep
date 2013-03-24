@@ -52,11 +52,12 @@ data  CgrepOptions = CgrepOptions
                     } deriving (Show,Read)
 
 
--- remove # comment lines from file
+-- remove # comment lines from config file
 --
 
-uncomment :: String -> String
-uncomment =  unlines . (dropWhile $ isPrefixOf "#" . dropWhile isSpace) . lines
+rmCommentLines :: String -> String
+rmCommentLines =  unlines . (filter $ not . isPrefixOf "#" . dropWhile isSpace) . lines
+
 
 -- parse CgrepOptions from ~/.cgreprc, or /etc/cgreprc 
 --
@@ -66,7 +67,7 @@ getCgrepOptions = do
     home <- getHomeDirectory
     conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->  do
                 doesFileExist f >>= \b -> if b then return (Just f) else return Nothing
-    if (isJust conf) then (readFile $ fromJust conf) >>= \xs -> return (read (uncomment xs) :: CgrepOptions) 
+    if (isJust conf) then (readFile $ fromJust conf) >>= \xs -> return (read (rmCommentLines xs) :: CgrepOptions) 
                      else return $ CgrepOptions [] []
 
 
