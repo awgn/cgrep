@@ -7,6 +7,8 @@ import Data.List
 import Data.Char
 import Data.Maybe
 
+import Control.Concurrent.Async
+
 import Control.Monad (forM,liftM,filterM,when,msum)
 import System.Directory
 import System.FilePath ((</>), takeFileName, takeExtension)
@@ -112,6 +114,10 @@ isCppIdentifier :: String -> Bool
 isCppIdentifier = all (\c -> isAlphaNum c || c == '_') 
 
 
+simpleThread :: FilePath -> IO FilePath
+simpleThread xs = return xs
+
+
 -- main
 --
 
@@ -146,8 +152,18 @@ main = do
     files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
                                  else filterM doesFileExist paths
 
+    -- run grep threads
+    futures <- mapM (async . simpleThread) files
+
     putStrLn $ "opts :" ++ show opts'  
     putStrLn $ "conf :" ++ show conf
     putStrLn $ "pat  :" ++ show patterns
     putStrLn $ "paths:" ++ show paths
     putStrLn $ "files:" ++ show files
+    
+    -- wait for threads results
+    results <- sequence $ map wait futures
+    
+    putStrLn $ "results: " ++ show results
+
+
