@@ -29,20 +29,20 @@ options = cmdArgsMode $ Options
           {
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
                 word  = False              &= help "force word matching",
-                regex = False              &= help "regex matching",
+                regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
-                code = False               &= help "grep in valid c/c+ source code" &= groupname "Context",
-                comment = False            &= help "grep in comments",
-                string = False             &= help "grep in string literals",
+                code = False               &= help "grep in C/C++ source code" &= explicit &= name "c" &= name "code" &= groupname "Context",
+                comment = False            &= help "grep in comments"          &= explicit &= name "m" &= name "comment",
+                string = False             &= help "grep in string literals"   &= explicit &= name "s" &= name "string",
                 
-                no_filename = False        &= help "suppress the file name prefix on output" &= groupname "Output control",
-                no_linenumber= False       &= help "suppress the line number on output lines",
+                no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
+                no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
 
                 jobs   = 1                 &= help "number of jobs" &= groupname "General",
                 multiline = False          &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
-                invert_match = False       &= help "select non-matching lines",
+                invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
                 others = []                &= args
           } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
 
