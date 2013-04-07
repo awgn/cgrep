@@ -30,7 +30,7 @@ options = cmdArgsMode $ Options
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
                 word  = False              &= help "force word matching",
                 regex = False              &= help "regex matching",
-                icase = False              &= help "ignore case distinctions",
+                ignore_case = False        &= help "ignore case distinctions",
 
                 code = False               &= help "grep in valid c/c+ source code" &= groupname "Context",
                 comment = False            &= help "grep in comments",

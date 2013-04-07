@@ -10,7 +10,7 @@ data Options = Options
                 file    :: String,
                 word    :: Bool,
                 regex   :: Bool,
-                icase   :: Bool,
+                ignore_case :: Bool,
                 -- Context:
                 code    :: Bool,
                 comment :: Bool,
