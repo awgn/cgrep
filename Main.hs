@@ -22,7 +22,7 @@ import Cgrep
 import qualified Data.ByteString.Char8 as B
 
 cgreprc :: FilePath
-cgreprc = "cgreprc2" 
+cgreprc = "cgreprc-new" 
 
 
 options = cmdArgsMode $ Options 

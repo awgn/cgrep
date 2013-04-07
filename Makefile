@@ -10,14 +10,14 @@ HC=ghc
 
 .PHONY: all clean
 
-all: cgrep 
+all: cgrep-new 
 
-cgrep: Main.hs Cgrep.hs CgrepSimple.hs
+cgrep-new: Main.hs Cgrep.hs CgrepSimple.hs
 		$(HC) $(GHCFLAGS) $< -o $@
 
 install: all
-		cp cgrep  ${INSTDIR}/bin/
+		cp cgrep-new  ${INSTDIR}/bin/
         
 clean:
-	   @rm -f cgrep
+	   @rm -f cgrep-new
 	   @rm -f *.o *.hi
