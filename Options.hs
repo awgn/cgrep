@@ -16,10 +16,14 @@ data Options = Options
                 comment :: Bool,
                 string  :: Bool,
                 others  :: [String],
+                -- Output:
+                no_filename     :: Bool,
+                no_linenumber   :: Bool,
                 -- General:
                 jobs      :: Int,
                 multiline :: Bool,
-                recursive :: Bool
+                recursive :: Bool,
+                invert_match :: Bool
 
                } deriving (Data, Typeable, Show)
 

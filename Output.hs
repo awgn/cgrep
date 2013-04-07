@@ -8,4 +8,7 @@ data Output = Output FilePath Int B.ByteString [B.ByteString]
 
 
 showOutput :: Options -> Output -> String
-showOutput _ (Output f n l _) = f ++ ":" ++ show n ++ ":" ++ (B.unpack l)
+showOutput Options { no_filename = False, no_linenumber = False } (Output f n l _) = f ++ ":" ++ show n ++ ":" ++ (B.unpack l)
+showOutput Options { no_filename = False, no_linenumber = True  } (Output f n l _) = f ++ ":" ++ (B.unpack l)
+showOutput Options { no_filename = True , no_linenumber = False } (Output f n l _) = show n ++ ":" ++ (B.unpack l)
+showOutput Options { no_filename = True , no_linenumber = True  } (Output f n l _) = (B.unpack l)

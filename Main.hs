@@ -27,18 +27,23 @@ cgreprc = "cgreprc-new"
 
 options = cmdArgsMode $ Options 
           {
-                file  = ""       &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
-                word  = False                   &= help "force word matching",
-                regex = False                   &= help "regex matching",
-                icase = False                   &= help "ignore case distinctions",
+                file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
+                word  = False              &= help "force word matching",
+                regex = False              &= help "regex matching",
+                icase = False              &= help "ignore case distinctions",
 
-                code = False                    &= help "grep in valid c/c+ source code" &= groupname "Context",
-                comment = False                 &= help "grep in comments",
-                string = False                  &= help "grep in string literals",
-                jobs   = 1                      &= help "number of jobs" &= groupname "General",
-                multiline = False               &= help "enable multi-line matching",
-                recursive = False               &= help "enable recursive search",
-                others = []                     &= args
+                code = False               &= help "grep in valid c/c+ source code" &= groupname "Context",
+                comment = False            &= help "grep in comments",
+                string = False             &= help "grep in string literals",
+                
+                no_filename = False        &= help "suppress the file name prefix on output" &= groupname "Output control",
+                no_linenumber= False       &= help "suppress the line number on output lines",
+
+                jobs   = 1                 &= help "number of jobs" &= groupname "General",
+                multiline = False          &= help "enable multi-line matching",
+                recursive = False          &= help "enable recursive search",
+                invert_match = False       &= help "select non-matching lines",
+                others = []                &= args
           } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
 
 
