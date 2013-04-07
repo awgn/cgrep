@@ -1,11 +1,10 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 
 module Main where
 
-import Data.Data
 import Data.List
 import Data.Char
 import Data.Maybe
+import Data.Data()
 
 import Control.Concurrent.Async
 
@@ -16,27 +15,11 @@ import System.Console.CmdArgs
 import System.Environment
 import System.IO
 
+import Options
+import Cgrep
+
 cgreprc :: FilePath
 cgreprc = "cgreprc2" 
-
-data Options = Options 
-               {
-                -- Pattern:
-                file    :: String,
-                word    :: Bool,
-                regex   :: Bool,
-                icase   :: Bool,
-                -- Context:
-                code    :: Bool,
-                comment :: Bool,
-                string  :: Bool,
-                others  :: [String],
-                -- General:
-                jobs      :: Int,
-                multiline :: Bool,
-                recursive :: Bool
-
-               } deriving (Data, Typeable, Show)
 
 
 options = cmdArgsMode $ Options 
@@ -115,9 +98,6 @@ isCppIdentifier :: String -> Bool
 isCppIdentifier = all (\c -> isAlphaNum c || c == '_') 
 
 
-simpleThread :: FilePath -> IO FilePath
-simpleThread xs = return xs
-
 
 -- main
 --
@@ -154,13 +134,13 @@ main = do
                                  else filterM doesFileExist paths
 
     -- run cgrep threads
-    futures <- mapM (async . simpleThread) files
+    futures <- mapM (async . ((cgrep opts') opts' patterns)) files
 
-    putStrLn $ "opts :" ++ show opts'  
-    putStrLn $ "conf :" ++ show conf
-    putStrLn $ "pat  :" ++ show patterns
-    putStrLn $ "paths:" ++ show paths
-    putStrLn $ "files:" ++ show files
+    -- putStrLn $ "opts :" ++ show opts'  
+    -- putStrLn $ "conf :" ++ show conf
+    -- putStrLn $ "pat  :" ++ show patterns
+    -- putStrLn $ "paths:" ++ show paths
+    -- putStrLn $ "files:" ++ show files
     
     -- wait for threads results
     results <- sequence $ map wait futures
