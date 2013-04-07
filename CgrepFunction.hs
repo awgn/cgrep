@@ -3,7 +3,6 @@ module CgrepFunction where
 import Options
 import Output
 
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import qualified Data.ByteString.Char8 as B
 
-type CgrepFunction = Options -> [T.Text] -> FilePath -> IO [Output] 
+type CgrepFunction = Options -> [B.ByteString] -> FilePath -> IO [Output] 
