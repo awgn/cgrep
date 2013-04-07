@@ -39,20 +39,21 @@ data Options = Options
                } deriving (Data, Typeable, Show)
 
 
-options = cmdArgsMode $ Options {
-                                    file  = ""       &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
-                                    word  = False                   &= help "force word matching",
-                                    regex = False                   &= help "regex matching",
-                                    icase = False                   &= help "ignore case distinctions",
+options = cmdArgsMode $ Options 
+          {
+                file  = ""       &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
+                word  = False                   &= help "force word matching",
+                regex = False                   &= help "regex matching",
+                icase = False                   &= help "ignore case distinctions",
 
-                                    code = False                    &= help "grep in valid c/c+ source code" &= groupname "Context",
-                                    comment = False                 &= help "grep in comments",
-                                    string = False                  &= help "grep in string literals",
-                                    jobs   = 1                      &= help "number of jobs" &= groupname "General",
-                                    multiline = False               &= help "enable multi-line matching",
-                                    recursive = False               &= help "enable recursive search",
-                                    others = []                     &= args
-                                } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
+                code = False                    &= help "grep in valid c/c+ source code" &= groupname "Context",
+                comment = False                 &= help "grep in comments",
+                string = False                  &= help "grep in string literals",
+                jobs   = 1                      &= help "number of jobs" &= groupname "General",
+                multiline = False               &= help "enable multi-line matching",
+                recursive = False               &= help "enable recursive search",
+                others = []                     &= args
+          } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
 
 
 data  CgrepOptions = CgrepOptions
@@ -146,13 +147,13 @@ main = do
 
     -- retrieve files to parse
     let paths = if (null $ file opts) then tail $ others opts
-                                      else others opts
+                                       else others opts
 
     -- retrieve the list of files to parse
     files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
                                  else filterM doesFileExist paths
 
-    -- run grep threads
+    -- run cgrep threads
     futures <- mapM (async . simpleThread) files
 
     putStrLn $ "opts :" ++ show opts'  
