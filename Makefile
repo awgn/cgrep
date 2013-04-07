@@ -1,7 +1,8 @@
 # (C) 2011-13 Nicola Bonelli <nicola.bonelli@cnit.it>
 #
 
-GHCFLAGS= --make -O2 -Wall -threaded -with-rtsopts="-N" 
+#GHCFLAGS= --make -O2 -Wall -threaded -with-rtsopts="-N2" 
+GHCFLAGS= --make -O3 -Wall  -threaded 
 
 INSTDIR=/usr/local
 

@@ -19,6 +19,9 @@ import Options
 import Output
 import Cgrep
 
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+
 cgreprc :: FilePath
 cgreprc = "cgreprc2" 
 
@@ -87,21 +90,17 @@ getRecursiveContents topdir filetype prunedir = do
 
 
 -- read patterns from file
--- TODO: add support for info
 
-readPatternsFromFile :: String -> IO [String]
+
+readPatternsFromFile :: FilePath -> IO [T.Text]
 readPatternsFromFile f = do
     if null f then return []
-              else liftM words $ readFile f 
+              else liftM T.words $ T.readFile f 
 
 
-isCppIdentifier :: String -> Bool
-isCppIdentifier = all (\c -> isAlphaNum c || c == '_') 
+isCppIdentifier :: T.Text -> Bool
+isCppIdentifier xs = all (\c -> isAlphaNum c || c == '_') $ T.unpack xs
 
-
-
--- main
---
 
 main :: IO ()
 main = do
@@ -116,7 +115,7 @@ main = do
     conf  <- getCgrepOptions 
 
     -- load patterns:
-    patterns <- if (null $ file opts) then return $ [head $ others opts]
+    patterns <- if (null $ file opts) then return $ [T.pack $ head $ others opts]
                                       else readPatternsFromFile $ file opts
 
     -- check whether patterns require regex
@@ -134,18 +133,14 @@ main = do
     files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
                                  else filterM doesFileExist paths
 
+
     -- run cgrep threads
     futures <- mapM (async . ((cgrep opts') opts' patterns)) files
 
-    -- putStrLn $ "opts :" ++ show opts'  
-    -- putStrLn $ "conf :" ++ show conf
-    -- putStrLn $ "pat  :" ++ show patterns
-    -- putStrLn $ "paths:" ++ show paths
-    -- putStrLn $ "files:" ++ show files
-    
+
     -- wait for threads results
     results <- sequence $ map wait futures
-    
+
     forM_ (concat results) $ \o -> do
         putStrLn $ showOutput opts' o
 

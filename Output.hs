@@ -3,7 +3,7 @@ module Output where
 import qualified Data.Text as T
 import Options
 
-data Output = Output FilePath Int T.Text [String]
+data Output = Output FilePath Int T.Text [T.Text]
                 deriving (Show,Eq)
 
 
