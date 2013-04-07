@@ -1,8 +1,5 @@
 module Cgrep where
 
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import Control.Monad(liftM)
 import Options
 
 import CgrepFunction

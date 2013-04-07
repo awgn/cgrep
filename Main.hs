@@ -8,7 +8,7 @@ import Data.Data()
 
 import Control.Concurrent.Async
 
-import Control.Monad (forM,liftM,filterM,when,msum)
+import Control.Monad (forM,forM_,liftM,filterM,when,msum)
 import System.Directory
 import System.FilePath ((</>), takeFileName, takeExtension)
 import System.Console.CmdArgs
@@ -16,6 +16,7 @@ import System.Environment
 import System.IO
 
 import Options
+import Output
 import Cgrep
 
 cgreprc :: FilePath
@@ -145,6 +146,6 @@ main = do
     -- wait for threads results
     results <- sequence $ map wait futures
     
-    putStrLn $ "results: " ++ show results
-
+    forM_ (concat results) $ \o -> do
+        putStrLn $ showOutput opts' o
 

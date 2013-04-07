@@ -11,7 +11,7 @@ HC=ghc
 
 all: cgrep 
 
-cgrep: cgrep.hs
+cgrep: Main.hs Cgrep.hs CgrepSimple.hs
 		$(HC) $(GHCFLAGS) $< -o $@
 
 install: all
