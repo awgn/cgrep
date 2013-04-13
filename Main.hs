@@ -25,7 +25,7 @@ import Options
 import Output
 import Cgrep
 
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Char8 as C
 
 cgreprc :: FilePath
 cgreprc = "cgreprc-new" 
@@ -102,14 +102,14 @@ getRecursiveContents topdir filetype prunedir = do
 -- read patterns from file
 
 
-readPatternsFromFile :: FilePath -> IO [B.ByteString]
+readPatternsFromFile :: FilePath -> IO [C.ByteString]
 readPatternsFromFile f = do
     if null f then return []
-              else liftM B.words $ B.readFile f 
+              else liftM C.words $ C.readFile f 
 
 
-isCppIdentifier :: B.ByteString -> Bool
-isCppIdentifier xs = all (\c -> isAlphaNum c || c == '_') $ B.unpack xs
+isCppIdentifier :: C.ByteString -> Bool
+isCppIdentifier xs = C.all (\c -> isAlphaNum c || c == '_') xs
 
 
 main :: IO ()
@@ -125,7 +125,7 @@ main = do
     conf  <- getCgrepOptions 
 
     -- load patterns:
-    patterns <- if (null $ file opts) then return $ [B.pack $ head $ others opts]
+    patterns <- if (null $ file opts) then return $ [C.pack $ head $ others opts]
                                       else readPatternsFromFile $ file opts
 
     -- check whether patterns require regex
