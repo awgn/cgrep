@@ -5,8 +5,14 @@ import Data.List
 import Data.Char
 import Data.Maybe
 import Data.Data()
+import Data.Function
 
-import Control.Concurrent.Async
+import Control.Monad.STM
+import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM.TVar
+import GHC.Conc
+
+-- import Control.Concurrent.Async
 
 import Control.Monad (forM,forM_,liftM,filterM,when,msum)
 import System.Directory
@@ -137,14 +143,54 @@ main = do
     files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
                                  else filterM doesFileExist paths
 
+    -- set concurrent level
 
-    -- run cgrep threads
-    futures <- mapM (async . ((cgrep opts') opts' patterns)) files
+    setNumCapabilities $ jobs opts
 
+    -- create Transactional Chan and Vars...
+    --
+   
+    done    <- newTVarIO False
+    running <- newTVarIO (jobs opts')
 
-    -- wait for threads results
-    results <- sequence $ map wait futures
+    in_chan  <- newTChanIO 
+    out_chan <- newTChanIO
 
-    forM_ (concat results) $ \o -> do
-        putStrLn $ showOutput opts' o
+    -- Launch worker threads...
+
+    forM_ [1 .. jobs opts] $ \_ -> forkIO $ fix (\action -> do
+        (is_done, empty) <- atomically $ do
+            d <- readTVar done 
+            e <- isEmptyTChan in_chan
+            return (d,e)
+        if (empty && is_done) 
+            then do atomically $ modifyTVar running (\x -> (x-1)) 
+                    return ()
+            else do f <- atomically $ tryReadTChan in_chan
+                    if (isJust f) 
+                        then do
+                            out <- (cgrep opts') opts' patterns (fromJust f)
+                            atomically $ writeTChan out_chan out
+                            action
+                        else action
+        )
+
+    -- This thread push files name in in_chan:
+    
+    mapM_ (\f -> atomically $ writeTChan in_chan f ) files
+    
+    atomically $ writeTVar done True
+
+    fix (\action -> do
+        (empty,workers) <- atomically $ do
+            e <- isEmptyTChan out_chan
+            r <- readTVar running
+            return (e,r)
+        if (empty && (workers == 0))
+            then return ()
+            else do
+                outlines <- atomically $ readTChan out_chan 
+                forM_ outlines $ \line -> putStrLn $ showOutput opts' line 
+                action
+        )
 
