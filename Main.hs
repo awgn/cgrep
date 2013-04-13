@@ -10,7 +10,6 @@ import Data.Function
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TVar
-import GHC.Conc
 
 -- import Control.Concurrent.Async
 
@@ -142,10 +141,6 @@ main = do
     -- retrieve the list of files to parse
     files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
                                  else filterM doesFileExist paths
-
-    -- set concurrent level
-
-    setNumCapabilities $ jobs opts
 
     -- create Transactional Chan and Vars...
     --
