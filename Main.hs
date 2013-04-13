@@ -7,6 +7,7 @@ import Data.Maybe
 import Data.Data()
 import Data.Function
 
+import Control.Concurrent
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TVar
