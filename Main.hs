@@ -131,8 +131,8 @@ main = do
                                       else readPatternsFromFile $ file opts
 
     -- check whether patterns require regex
-    opts' <- if (not $ all isCppIdentifier patterns) then putStrLn "cgrep: pattern(s) require regex search -> forced." >> return opts{ regex = True }
-                                                     else return opts
+    -- opts' <- if (not $ all isCppIdentifier patterns) then putStrLn "cgrep: pattern(s) require regex search -> forced." >> return opts{ regex = True }
+    --                                                 else return opts
     
     -- check whether is a terminal device 
     isTerm <- hIsTerminalDevice stdin
@@ -148,7 +148,7 @@ main = do
     -- create Transactional Chan and Vars...
     --
    
-    running <- newTVarIO (jobs opts')
+    running <- newTVarIO (jobs opts)
 
     in_chan  <- newTChanIO 
     out_chan <- newTChanIO
@@ -163,7 +163,7 @@ main = do
                  atomically $ modifyTVar' running (subtract 1) 
                  return ()
              _  -> do
-                out <- (cgrep opts') opts' patterns f
+                out <- (cgrep opts) opts patterns f
                 when (not $ null out) $ atomically $ writeTChan out_chan out 
                 action
         )
@@ -174,7 +174,7 @@ main = do
 
     -- Enqueue finish message:
    
-    mapM_ (\f -> atomically $ writeTChan in_chan f ) $ replicate (jobs opts') "" 
+    mapM_ (\f -> atomically $ writeTChan in_chan f ) $ replicate (jobs opts) "" 
    
 
     -- Dump output until workers are running  
@@ -185,13 +185,13 @@ main = do
             r <- readTVar running
             return (e,r)
         case empty of 
-             True -> if (run == 0 && n == jobs opts') 
+             True -> if (run == 0 && n == jobs opts) 
                         then return ()
                         else threadDelay 1 >> action n
              _ -> do
                  out <- atomically $ readTChan out_chan
                  case out of
                       [] -> action $ n+1
-                      _  -> (forM_ out $ \line -> putStrLn $ showOutput opts' line) >> action n
+                      _  -> (forM_ out $ \line -> putStrLn $ showOutput opts line) >> action n
         )  0
 
