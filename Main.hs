@@ -146,7 +146,6 @@ main = do
     -- create Transactional Chan and Vars...
     --
    
-    done    <- newTVarIO False
     running <- newTVarIO (jobs opts')
 
     in_chan  <- newTChanIO 
@@ -155,38 +154,42 @@ main = do
     -- Launch worker threads...
 
     forM_ [1 .. jobs opts] $ \_ -> forkIO $ fix (\action -> do
-        (is_done, empty) <- atomically $ do
-            d <- readTVar done 
-            e <- isEmptyTChan in_chan
-            return (d,e)
-        if (empty && is_done) 
-            then do atomically $ modifyTVar running (\x -> (x-1)) 
-                    return ()
-            else do f <- atomically $ tryReadTChan in_chan
-                    if (isJust f) 
-                        then do
-                            out <- (cgrep opts') opts' patterns (fromJust f)
-                            atomically $ writeTChan out_chan out
-                            action
-                        else action
+        f <- atomically $ readTChan in_chan
+        case f of 
+             "" -> do
+                 atomically (modifyTVar' running (subtract 1 )) 
+                 atomically $ writeTChan out_chan [] 
+                 return ()
+             _  -> do
+                out <- (cgrep opts') opts' patterns f
+                when (not $ null out) $ atomically $ writeTChan out_chan out 
+                action
         )
 
     -- This thread push files name in in_chan:
     
-    mapM_ (\f -> atomically $ writeTChan in_chan f ) files
-    
-    atomically $ writeTVar done True
+    mapM_ (\f -> atomically $ writeTChan in_chan f ) files 
 
-    fix (\action -> do
-        (empty,workers) <- atomically $ do
+    -- Enqueue finish message:
+   
+    mapM_ (\f -> atomically $ writeTChan in_chan f ) $ replicate (jobs opts') "" 
+   
+
+    -- Dump output until workers are running  
+
+    fix (\action n -> do
+        (empty, run) <- atomically $ do 
             e <- isEmptyTChan out_chan
             r <- readTVar running
             return (e,r)
-        if (empty && (workers == 0))
-            then return ()
-            else do
-                outlines <- atomically $ readTChan out_chan 
-                forM_ outlines $ \line -> putStrLn $ showOutput opts' line 
-                action
-        )
+        case empty of 
+             True -> if (run == 0 && n == jobs opts') then return ()
+                                                      else threadDelay 1 >> action n
+             _    -> do
+                 out <- atomically $ readTChan out_chan
+                 forM_ out $ \line -> putStrLn $ showOutput opts' line 
+                 case out of
+                      [] -> action $ n+1
+                      _  -> action n
+        )  0
 
