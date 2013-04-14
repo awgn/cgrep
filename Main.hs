@@ -21,9 +21,9 @@ import System.Console.CmdArgs
 import System.Environment
 import System.IO
 
-import Options
-import Output
-import Cgrep
+import CGrep.Options
+import CGrep.Output
+import CGrep.CGrep
 
 import qualified Data.ByteString.Char8 as C
 

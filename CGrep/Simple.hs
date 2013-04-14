@@ -1,11 +1,12 @@
-module CgrepSimple (cgrepSimpleLine, cgrepSimpleToken) where
-
-import CgrepFunction
-import Output
-import Options 
+module CGrep.Simple (cgrepSimpleLine, cgrepSimpleToken) where
 
 import qualified Data.ByteString.Char8 as C
 import Control.Monad(liftM)
+
+import CGrep.Function
+import CGrep.Output
+import CGrep.Options 
+
 
 cgrepSimpleLine :: CgrepFunction
 cgrepSimpleLine opt pats f = do

@@ -11,12 +11,15 @@ HC=ghc
 
 all: cgrep-new 
 
-cgrep-new: Main.hs Cgrep.hs CgrepSimple.hs
+SRC = Main.hs
+
+
+cgrep-new: $(SRC) 
 		$(HC) $(GHCFLAGS) $< -o $@
 
 install: all
 		cp cgrep-new  ${INSTDIR}/bin/
-        
+
 clean:
 	   @rm -f cgrep-new
 	   @rm -f *.o *.hi

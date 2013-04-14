@@ -1,7 +1,7 @@
-module Output where
+module CGrep.Output where
 
 import qualified Data.ByteString.Char8 as C
-import Options
+import CGrep.Options
 
 data Output = Output FilePath Int C.ByteString [C.ByteString]
                 deriving (Show,Eq)

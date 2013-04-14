@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Options where
+module CGrep.Options where
 
 import Data.Data
 

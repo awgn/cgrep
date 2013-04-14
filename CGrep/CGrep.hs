@@ -1,9 +1,8 @@
-module Cgrep where
+module CGrep.CGrep where
 
-import Options
-
-import CgrepFunction
-import CgrepSimple
+import CGrep.Options
+import CGrep.Function
+import CGrep.Simple
 
 
 cgrep :: Options -> CgrepFunction

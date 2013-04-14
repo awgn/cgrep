@@ -1,7 +1,7 @@
-module CgrepFunction where
+module CGrep.Function where
 
-import Options
-import Output
+import CGrep.Options
+import CGrep.Output
 
 import qualified Data.ByteString.Char8 as C
 
