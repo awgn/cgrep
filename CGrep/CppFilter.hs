@@ -39,8 +39,3 @@ simpleWordGrep opt f ps (n, l) =
    where tokens  = filter (`elem` (LC.words l)) ps   
 
 
-
-xor :: Bool -> Bool -> Bool
-a `xor` b = a && (not b) || (not a) && b
-
-

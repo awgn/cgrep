@@ -16,10 +16,6 @@ cgrepBoyerMoore opt pats f = do
     return $ concat $ map (simpleBoyerMoore opt f pats) content
 
 
-xor :: Bool -> Bool -> Bool
-a `xor` b = a && (not b) || (not a) && b
-
-
 simpleBoyerMoore :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -> [Output]
 simpleBoyerMoore opt f ps (n, l) =
     if ((null pfilt) `xor` (invert_match opt)) 
