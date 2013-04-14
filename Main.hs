@@ -7,6 +7,7 @@ import Data.Maybe
 import Data.Data()
 import Data.Function
 
+import Control.Exception as E
 import Control.Concurrent
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
@@ -155,18 +156,17 @@ main = do
 
     -- Launch worker threads...
 
-    forM_ [1 .. jobs opts] $ \_ -> forkIO $ fix (\action -> do
-        f <- atomically $ readTChan in_chan
-        case f of 
-             "" -> do
-                 atomically $ writeTChan out_chan [] 
-                 atomically $ modifyTVar' running (subtract 1) 
-                 return ()
-             _  -> do
-                out <- (cgrep opts) opts patterns f
-                when (not $ null out) $ atomically $ writeTChan out_chan out 
-                action
-        )
+    forM_ [1 .. jobs opts] $ \_ -> forkIO $ 
+        fix (\action -> do 
+                f <- atomically $ readTChan in_chan
+                case f of 
+                     "" -> return ()
+                     _  -> do
+                        out <- (cgrep opts) opts patterns f
+                        when (not $ null out) $ atomically $ writeTChan out_chan out 
+                        action
+            ) `E.catch` (\ex -> putStrLn $ "Exception: " ++ show (ex :: IOException)) `finally` (atomically $ writeTChan out_chan []) >> (atomically (modifyTVar' running (subtract 1))) 
+
 
     -- This thread push files name in in_chan:
     
@@ -180,14 +180,8 @@ main = do
     -- Dump output until workers are running  
 
     fix (\action n -> do
-        (empty, run) <- atomically $ do 
-            e <- isEmptyTChan out_chan
-            r <- readTVar running
-            return (e,r)
-        case empty of 
-             True -> if (run == 0 && n == jobs opts) 
-                        then return ()
-                        else threadDelay 1 >> action n
+        case (n == jobs opts) of 
+             True -> return ()
              _ -> do
                  out <- atomically $ readTChan out_chan
                  case out of
