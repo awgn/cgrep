@@ -157,8 +157,8 @@ main = do
         f <- atomically $ readTChan in_chan
         case f of 
              "" -> do
-                 atomically (modifyTVar' running (subtract 1 )) 
                  atomically $ writeTChan out_chan [] 
+                 atomically $ modifyTVar' running (subtract 1) 
                  return ()
              _  -> do
                 out <- (cgrep opts') opts' patterns f
@@ -183,13 +183,13 @@ main = do
             r <- readTVar running
             return (e,r)
         case empty of 
-             True -> if (run == 0 && n == jobs opts') then return ()
-                                                      else threadDelay 1 >> action n
-             _    -> do
+             True -> if (run == 0 && n == jobs opts') 
+                        then return ()
+                        else threadDelay 1 >> action n
+             _ -> do
                  out <- atomically $ readTChan out_chan
-                 forM_ out $ \line -> putStrLn $ showOutput opts' line 
                  case out of
                       [] -> action $ n+1
-                      _  -> action n
+                      _  -> (forM_ out $ \line -> putStrLn $ showOutput opts' line) >> action n
         )  0
 
