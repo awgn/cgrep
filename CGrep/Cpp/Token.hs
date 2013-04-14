@@ -121,7 +121,7 @@ isOperOrPunct _ = False
 
 dropWhite :: Source -> (Source, Offset, Lineno)
 dropWhite xs = (xs', doff, dnl)
-                where xs' = C.dropWhile (`elem` " \t\n\\") xs
+                where xs' = C.dropWhile (`elem` " \\\a\b\t\n\v\f\r") xs
                       doff = fromIntegral $ (C.length xs) - C.length (xs')
                       dnl  = C.length $ C.filter (=='\n') (C.take doff xs)
 
