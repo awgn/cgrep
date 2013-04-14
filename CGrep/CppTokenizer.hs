@@ -24,8 +24,8 @@ cgrepCppTokenizer opt ps f = do
 
 mkContextFilter :: Options -> Cpp.ContextFilter
 mkContextFilter opt = if (not (code opt && comment opt && string opt) )
-                       then Cpp.ContextFilter { Cpp.getCode = True, Cpp.getComment = True, Cpp.getLiteral = True }
-                       else Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt }
+                       then Cpp.ContextFilter { Cpp.getCode = True,     Cpp.getComment = False, Cpp.getLiteral = True }
+                       else Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = False, Cpp.getLiteral = string opt }
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
