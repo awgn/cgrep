@@ -20,6 +20,7 @@ a `xor` b = a && (not b) || (not a) && b
 
 simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -> [Output]
 simpleLineGrep opt f ps (n, l) =
-    if ((null pfilt) `xor` (invert_match opt)) then []
-                    else [Output f n l pfilt]
+    if ((null pfilt) `xor` (invert_match opt)) 
+      then []
+      else [StrictOutput f n l pfilt]
     where pfilt = filter (`C.isInfixOf` l) ps    

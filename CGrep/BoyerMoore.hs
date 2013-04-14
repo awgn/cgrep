@@ -22,6 +22,7 @@ a `xor` b = a && (not b) || (not a) && b
 
 simpleBoyerMoore :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -> [Output]
 simpleBoyerMoore opt f ps (n, l) =
-    if ((null pfilt) `xor` (invert_match opt)) then []
-                    else [Output f n l pfilt]
+    if ((null pfilt) `xor` (invert_match opt)) 
+      then []
+      else [StrictOutput f n l pfilt]
     where pfilt = filter (\p -> not . null $ C.indices p l) ps    
