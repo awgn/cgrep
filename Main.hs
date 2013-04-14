@@ -41,7 +41,7 @@ options = cmdArgsMode $ Options
                 code = False               &= help "grep in C/C++ source code" &= explicit &= name "c" &= name "code" &= groupname "Context",
                 comment = False            &= help "grep in comments"          &= explicit &= name "m" &= name "comment",
                 string = False             &= help "grep in string literals"   &= explicit &= name "s" &= name "string",
-                
+                tokens = []                &= help "C/C++ filter: identifier, keyword, directive, header, number, string, char, oper",
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
 
@@ -49,8 +49,9 @@ options = cmdArgsMode $ Options
                 multiline = False          &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
-                boyer_moore = False        &= help "use Boyer-Moore algorithm", 
+                boyer_moore = False        &= help "use Boyer-Moore algorithm",
                 others = []                &= args
+
           } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
 
 

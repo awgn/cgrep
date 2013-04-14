@@ -15,7 +15,7 @@ data Options = Options
                 code    :: Bool,
                 comment :: Bool,
                 string  :: Bool,
-                others  :: [String],
+                tokens  :: [String],
                 -- Output:
                 no_filename     :: Bool,
                 no_linenumber   :: Bool,
@@ -24,7 +24,8 @@ data Options = Options
                 multiline :: Bool,
                 recursive :: Bool,
                 invert_match :: Bool,
-                boyer_moore :: Bool
-
+                boyer_moore :: Bool,
+                
+                others :: [String]
                } deriving (Data, Typeable, Show)
 
