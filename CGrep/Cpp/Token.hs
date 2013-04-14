@@ -20,7 +20,7 @@
 
 module CGrep.Cpp.Token(Token(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                             isHeaderName, isString, isChar, isOperOrPunct, 
-                            tokens)  where
+                            tokens, tokenFilter)  where
 import Data.Int                                                             
 import Data.Char 
 import Data.Maybe
@@ -49,8 +49,20 @@ tokens xs = runGetToken (ys, n, l, Null)
                 (ys,n, l) = dropWhite xs
 
 
-tokenFilter :: String -> Token -> Bool
-tokenFilter _ _ = True
+tokenFilter :: [String] -> Token -> Bool
+tokenFilter [] _     =  False
+tokenFilter (x:xs) t =  mkTokenFilter x t || tokenFilter xs t
+    
+
+mkTokenFilter :: String -> (Token -> Bool)
+mkTokenFilter "identifier" = isIdentifier
+mkTokenFilter "directive"  = isDirective
+mkTokenFilter "keyword"    = isKeyword
+mkTokenFilter "header"     = isHeaderName
+mkTokenFilter "string"     = isString
+mkTokenFilter "char"       = isChar
+mkTokenFilter "oper"       = isOperOrPunct
+mkTokenFilter xs           = error $ "Cpp.Token: '" ++ xs ++ "' unknown token type"
 
 
 data Token = TIdentifier  { toString :: String, offset :: Int64 , lineno :: Int64 } |
