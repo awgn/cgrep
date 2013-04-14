@@ -24,18 +24,18 @@ cgrepCppFilter opt ps f = do
 
 simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, LC.ByteString) -> [Output]
 simpleLineGrep opt f ps (n, l) = 
-   if ((null tokens) `xor` (invert_match opt)) 
+   if ((null tks) `xor` (invert_match opt)) 
      then []
-     else [LazyOutput f n l (map C.unpack tokens)]
-   where tokens  = filter (\p -> not . null $ LC.indices p l) ps   
+     else [LazyOutput f n l (map C.unpack tks)]
+   where tks  = filter (\p -> not . null $ LC.indices p l) ps   
 
 
 
 simpleWordGrep :: Options -> FilePath -> [LC.ByteString] -> (Int, LC.ByteString) -> [Output]
 simpleWordGrep opt f ps (n, l) = 
-   if ((null tokens) `xor` (invert_match opt)) 
+   if ((null tks) `xor` (invert_match opt)) 
      then []
-     else [LazyOutput f n l (map LC.unpack tokens)]
-   where tokens  = filter (`elem` (LC.words l)) ps   
+     else [LazyOutput f n l (map LC.unpack tks)]
+   where tks  = filter (`elem` (LC.words l)) ps   
 
 
