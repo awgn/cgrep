@@ -225,13 +225,13 @@ getTokenIdOrKeyword _ _ = Nothing
 
 
 getTokenOpOrPunct source _ = go source (min 4 (C.length source)) 
-                                where go _ 0   
-                                        | C.length source > 0 = error $ "getTokenOpOrPunct: error " ++ show source
-                                        | otherwise = Nothing
-                                      go src len 
-                                        | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TOperOrPunct sub 0 0 
-                                        | otherwise = go src (len-1)
-                                            where sub = C.unpack (C.take len src)
+    where go _ 0   
+            | C.length source > 0 = error $ "getTokenOpOrPunct: error " ++ show source
+            | otherwise = Nothing
+          go src len 
+            | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TOperOrPunct sub 0 0 
+            | otherwise = go src (len-1)
+                where sub = C.unpack (C.take len src)
                                                                                                               
 
 getLiteral :: Char -> Char -> Bool -> C.ByteString -> String
