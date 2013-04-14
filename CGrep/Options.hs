@@ -23,7 +23,8 @@ data Options = Options
                 jobs      :: Int,
                 multiline :: Bool,
                 recursive :: Bool,
-                invert_match :: Bool
+                invert_match :: Bool,
+                boyer_moore :: Bool
 
                } deriving (Data, Typeable, Show)
 
