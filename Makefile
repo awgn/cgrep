@@ -22,4 +22,4 @@ install: all
 
 clean:
 	   @rm -f cgrep-new
-	   @rm -f *.o *.hi
+	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi
