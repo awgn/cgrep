@@ -16,8 +16,8 @@ cgrepCppFilter opt ps f = do
     source <- LC.readFile f
     let filtered =  Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt } source
     let content = zip [1..] $ LC.lines filtered
-    return $ concat $ map (if (word opt) then simpleLineGrep opt f ps
-                                         else simpleWordGrep opt f lps) content
+    return $ concat $ map (if (word opt) then simpleWordGrep opt f lps
+                                         else simpleLineGrep opt f ps) content
         where lps = map LC.fromChunks (map (:[]) ps)
 
 
