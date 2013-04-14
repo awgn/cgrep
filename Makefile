@@ -23,4 +23,4 @@ install: all
 
 clean:
 	   @rm -f cgrep-new
-	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi
+	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi CGrep/Cpp/*.o CGrep/Cpp/*.hi 
