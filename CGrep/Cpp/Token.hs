@@ -18,7 +18,7 @@
 
 {-# LANGUAGE ViewPatterns #-} 
 
-module Cpp.Token(Token(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
+module CGrep.Cpp.Token(Token(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                             isHeaderName, isString, isChar, isOperOrPunct, 
                             tokens)  where
 import Data.Int                                                             
@@ -28,81 +28,90 @@ import Data.Set as S
 import Data.Array 
 import Control.Monad
  
-import qualified Cpp.Source as Cpp
+import qualified CGrep.Cpp.Source as Cpp
+
 import qualified Data.ByteString.Lazy.Char8 as C
 
-type TokenizerState = (Source, Offset, State)
+type TokenizerState = (Source, Offset, Lineno, State)
+
 type Source = Cpp.Source
 type Offset = Int64
+type Lineno = Int64
 
 
 -- Tokenize the source code in a list 
--- Precondition: the c++ source code must not be not ill-formed
+-- Precondition: the c++ source code must be well-formed
 --
 
 tokens :: Source -> [Token]
-tokens xs = runGetToken (ys, n, Null)  
-                where
-                    (ys,n) = dropWhite xs
+tokens xs = runGetToken (ys, n, l, Null)  
+            where
+                (ys,n, l) = dropWhite xs
 
-data Token = TIdentifier  { toString :: String, offset :: Int64 } |
-             TDirective   { toString :: String, offset :: Int64 } |
-             TKeyword     { toString :: String, offset :: Int64 } |
-             TNumber      { toString :: String, offset :: Int64 } |
-             THeaderName  { toString :: String, offset :: Int64 } |
-             TString      { toString :: String, offset :: Int64 } |
-             TChar        { toString :: String, offset :: Int64 } |
-             TOperOrPunct { toString :: String, offset :: Int64 }
+
+tokenFilter :: String -> Token -> Bool
+tokenFilter _ _ = True
+
+
+data Token = TIdentifier  { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             TDirective   { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             TKeyword     { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             TNumber      { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             THeaderName  { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             TString      { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             TChar        { toString :: String, offset :: Int64 , lineno :: Int64 } |
+             TOperOrPunct { toString :: String, offset :: Int64 , lineno :: Int64 }
                 deriving (Show, Eq)  
 
 
 isIdentifier :: Token -> Bool
-isIdentifier (TIdentifier _ _)  = True
+isIdentifier (TIdentifier _ _ _)  = True
 isIdentifier _ = False
 
 
 isKeyword :: Token -> Bool
-isKeyword (TKeyword _ _)  = True
+isKeyword (TKeyword _ _ _)  = True
 isKeyword _ = False
 
 
 isDirective :: Token -> Bool
-isDirective (TDirective _ _)  = True
+isDirective (TDirective _ _ _)  = True
 isDirective _ = False
 
 
 isLiteralNumber :: Token -> Bool
-isLiteralNumber (TNumber _ _) = True
+isLiteralNumber (TNumber _ _ _) = True
 isLiteralNumber _ = False
 
 
 isHeaderName :: Token -> Bool
-isHeaderName (THeaderName _ _)  = True
+isHeaderName (THeaderName _ _ _)  = True
 isHeaderName _ = False
 
 
 isString :: Token -> Bool
-isString (TString _ _) = True
+isString (TString _ _ _) = True
 isString _ = False
 
 
 isChar :: Token -> Bool
-isChar (TChar _ _) = True
+isChar (TChar _ _ _) = True
 isChar _ = False
 
 
 isOperOrPunct :: Token -> Bool
-isOperOrPunct (TOperOrPunct _ _)  = True
+isOperOrPunct (TOperOrPunct _ _ _)  = True
 isOperOrPunct _ = False
 
 
 -- Drop leading whitespace and count them
 --
 
-dropWhite :: Source -> (Source,Int64)
-dropWhite xs = (xs', count)
+dropWhite :: Source -> (Source, Offset, Lineno)
+dropWhite xs = (xs', doff, dnl)
                 where xs' = C.dropWhile (`elem` " \t\n\\") xs
-                      count = fromIntegral $ (C.length xs) - C.length (xs')
+                      doff = fromIntegral $ (C.length xs) - C.length (xs')
+                      dnl  = C.length $ C.filter (=='\n') (C.take doff xs)
 
 
 data State = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif |
@@ -131,25 +140,26 @@ nextState _  _  = Null
 
 runGetToken :: TokenizerState -> [Token]
 
-runGetToken ((C.uncons  -> Nothing), _, _) = []
-runGetToken ts = token : runGetToken ns
-                    where (token, ns) = getToken ts
+runGetToken ((C.uncons  -> Nothing), _, _, _) = []
+runGetToken tstate = token : runGetToken ns
+                    where (token, ns) = getToken tstate
 
 
 getToken :: TokenizerState -> (Token, TokenizerState)
 
-getToken ((C.uncons -> Nothing), _, _) = error "getToken"
-getToken (xs, off, state) = let token = fromJust $ getTokenDirective xs state   `mplus`
-                                                   getTokenHeaderName xs state  `mplus`
-                                                   getTokenNumber xs state      `mplus`
-                                                   getTokenIdOrKeyword xs state `mplus`
-                                                   getTokenString xs state      `mplus`
-                                                   getTokenChar xs state        `mplus`
-                                                   getTokenOpOrPunct xs state
-                                len = fromIntegral $ length (toString token)
-                                (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
-                            in
-                                (token { offset = off }, (xs', off + len + w, nextState(toString token) state))
+getToken ((C.uncons -> Nothing), _, _, _) = error "getToken"
+getToken (xs, off, ln, state) = let token = fromJust $ 
+                                        getTokenDirective xs state       `mplus`
+                                        getTokenHeaderName xs state      `mplus`
+                                        getTokenNumber xs state          `mplus`
+                                        getTokenIdOrKeyword xs state     `mplus`
+                                        getTokenString xs state          `mplus`
+                                        getTokenChar xs state            `mplus`
+                                        getTokenOpOrPunct xs state
+                                    len = fromIntegral $ length (toString token)
+                                    (xs', w, n) = dropWhite $ C.drop (fromIntegral len) xs
+                               in
+                                   (token { offset = off, lineno = ln }, (xs', off + len + w, ln + n, nextState(toString token) state))
 
 
 getTokenIdOrKeyword, getTokenNumber, getTokenHeaderName, 
@@ -157,35 +167,36 @@ getTokenIdOrKeyword, getTokenNumber, getTokenHeaderName,
 
 
 getTokenDirective xs  state 
-    | state == Hash = Just (TDirective name 0)
+    | state == Hash = Just (TDirective name 0 0)
     | otherwise = Nothing
                       where name = C.unpack $ C.takeWhile (\c -> isAlphaNum c || c == '_') xs
 
 getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state 
     | state /= Include  = Nothing
-    | x == '<'          = Just $ THeaderName (getLiteral '<'  '>'  False xs) 0
-    | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs) 0
+    | x == '<'          = Just $ THeaderName (getLiteral '<'  '>'  False xs) 0 0
+    | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs) 0 0
     | otherwise         = error $ "getTokenHeaderName: error near " ++ C.unpack xs 
+
 getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName"
 getTokenHeaderName _ _ = error "getTokenHeaderName"
 
 
 getTokenNumber xs@(C.uncons -> Just (x,_)) _
-    | isDigit x = Just $ TNumber (C.unpack $ C.takeWhile (\c -> c `S.member` S.fromList "0123456789abcdefABCDEF.xXeEuUlL") xs) 0
+    | isDigit x = Just $ TNumber (C.unpack $ C.takeWhile (\c -> c `S.member` S.fromList "0123456789abcdefABCDEF.xXeEuUlL") xs) 0 0
     | otherwise = Nothing
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
 getTokenNumber _ _ = Nothing
 
 
 getTokenString xs@(C.uncons -> Just (x,_)) _
-    | x == '"' = Just $ TString (getLiteral '"'  '"'  False xs) 0
+    | x == '"' = Just $ TString (getLiteral '"'  '"'  False xs) 0 0
     | otherwise = Nothing
 getTokenString (C.uncons -> Nothing) _ = Nothing
 getTokenString _ _ = Nothing
 
 
 getTokenChar xs@(C.uncons -> Just (x,_)) _
-    | x == '\'' = Just $ TChar  (getLiteral '\'' '\'' False xs) 0
+    | x == '\'' = Just $ TChar  (getLiteral '\'' '\'' False xs) 0 0
     | otherwise = Nothing
 getTokenChar (C.uncons -> Nothing) _ = Nothing
 getTokenChar _ _ = Nothing
@@ -193,8 +204,8 @@ getTokenChar _ _ = Nothing
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar x = Nothing 
-    | name `S.member` keywords = Just $ TKeyword name 0
-    | otherwise                = Just $ TIdentifier name 0
+    | name `S.member` keywords = Just $ TKeyword name 0 0
+    | otherwise                = Just $ TIdentifier name 0 0
                                     where isIdentifierChar = (\c -> isAlphaNum c || c == '_') 
                                           name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
@@ -206,7 +217,7 @@ getTokenOpOrPunct source _ = go source (min 4 (C.length source))
                                         | C.length source > 0 = error $ "getTokenOpOrPunct: error " ++ show source
                                         | otherwise = Nothing
                                       go src len 
-                                        | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TOperOrPunct sub 0 
+                                        | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TOperOrPunct sub 0 0 
                                         | otherwise = go src (len-1)
                                             where sub = C.unpack (C.take len src)
                                                                                                               
