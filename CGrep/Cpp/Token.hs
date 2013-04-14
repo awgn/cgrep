@@ -218,7 +218,7 @@ getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar x = Nothing 
     | name `S.member` keywords = Just $ TKeyword name 0 0
     | otherwise                = Just $ TIdentifier name 0 0
-                                    where isIdentifierChar = (\c -> isAlphaNum c || c == '_') 
+                                    where isIdentifierChar = (\c -> isAlphaNum c || c == '_' || c == '$') -- GNU allows $ in identifiers 
                                           name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing
