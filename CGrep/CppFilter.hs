@@ -12,20 +12,35 @@ import CGrep.Options
 import qualified CGrep.Cpp.Filter as Cpp
 
 cgrepCppFilter :: CgrepFunction
-cgrepCppFilter opt pats f = do
+cgrepCppFilter opt ps f = do
     source <- LC.readFile f
     let filtered =  Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt } source
-    let content = (zip [1..]) $ LC.lines filtered
-    return $ concat $ map (simpleWordsGrep opt f pats) content
+    let content = zip [1..] $ LC.lines filtered
+    return $ concat $ map (if (word opt) then simpleLineGrep opt f ps
+                                         else simpleWordGrep opt f lps) content
+        where lps = map LC.fromChunks (map (:[]) ps)
+
+
+
+simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, LC.ByteString) -> [Output]
+simpleLineGrep opt f ps (n, l) = 
+   if ((null tokens) `xor` (invert_match opt)) 
+     then []
+     else [LazyOutput f n l (map C.unpack tokens)]
+   where tokens  = filter (\p -> not . null $ LC.indices p l) ps   
+
+
+
+simpleWordGrep :: Options -> FilePath -> [LC.ByteString] -> (Int, LC.ByteString) -> [Output]
+simpleWordGrep opt f ps (n, l) = 
+   if ((null tokens) `xor` (invert_match opt)) 
+     then []
+     else [LazyOutput f n l (map LC.unpack tokens)]
+   where tokens  = filter (`elem` (LC.words l)) ps   
+
 
 
 xor :: Bool -> Bool -> Bool
 a `xor` b = a && (not b) || (not a) && b
 
 
-simpleWordsGrep :: Options -> FilePath -> [C.ByteString] -> (Int, LC.ByteString) -> [Output]
-simpleWordsGrep opt f ps (n, l) =
-    if ((null pfilt) `xor` (invert_match opt)) 
-      then []
-      else [LazyOutput f n l pfilt]
-    where pfilt = filter (\p -> not . null $ LC.indices p l) ps    

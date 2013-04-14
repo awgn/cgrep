@@ -5,8 +5,8 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 
 import CGrep.Options
 
-data Output = StrictOutput FilePath Int  C.ByteString [C.ByteString] |
-              LazyOutput   FilePath Int LC.ByteString [C.ByteString] 
+data Output = StrictOutput FilePath Int  C.ByteString [String] |
+              LazyOutput   FilePath Int LC.ByteString [String] 
                 deriving (Show,Eq)
 
 
