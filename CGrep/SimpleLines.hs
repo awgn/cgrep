@@ -22,5 +22,5 @@ simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -
 simpleLineGrep opt f ps (n, l) =
     if ((null pfilt) `xor` (invert_match opt)) 
       then []
-      else [StrictOutput f n l pfilt]
+      else [StrictOutput f n l (map C.unpack pfilt)]
     where pfilt = filter (`C.isInfixOf` l) ps    

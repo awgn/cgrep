@@ -22,5 +22,5 @@ simpleWordsGrep :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) 
 simpleWordsGrep opt f ps (n, l) =
     if ((null pfilt) `xor` (invert_match opt)) 
       then []
-      else [StrictOutput f n l pfilt]
+      else [StrictOutput f n l (map C.unpack pfilt)]
     where pfilt = filter (`elem` C.words l) ps    
