@@ -15,14 +15,19 @@ import qualified CGrep.Cpp.Token  as Cpp
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
     source <- LC.readFile f
-    let filtered =  Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt } source
+    let filtered =  Cpp.filter (mkContextFilter opt) source
+    let tks = Cpp.tokens filtered
     let content = zip [1..] $ LC.lines filtered
-    let xxx = Cpp.tokens filtered
-    print xxx
+    print $ filter (Cpp.tokenFilter (tokens opt)) tks
     return $ concat $ map (if (word opt) then simpleWordGrep opt f lps
                                          else simpleLineGrep opt f ps) content
         where lps = map LC.fromChunks (map (:[]) ps)
 
+
+mkContextFilter :: Options -> Cpp.ContextFilter
+mkContextFilter opt = if (not (code opt && comment opt && string opt) )
+                       then Cpp.ContextFilter { Cpp.getCode = True, Cpp.getComment = True, Cpp.getLiteral = True }
+                       else Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt }
 
 
 simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, LC.ByteString) -> [Output]
