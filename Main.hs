@@ -175,7 +175,7 @@ main = do
 
     -- This thread push files name in in_chan:
     
-    mapM_ (\f -> atomically . writeTChan in_chan $ Just f) files 
+    mapM_ (atomically . writeTChan in_chan . Just) files 
 
 
     -- Enqueue finish message:
