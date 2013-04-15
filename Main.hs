@@ -12,8 +12,6 @@ import Control.Concurrent
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 
--- import Control.Concurrent.Async
-
 import Control.Monad 
 import System.Directory
 import System.FilePath ((</>), takeFileName, takeExtension)
@@ -30,6 +28,8 @@ import qualified Data.ByteString.Char8 as C
 cgreprc :: FilePath
 cgreprc = "cgreprc.hs" 
 
+version :: String
+version = "2.0"
 
 options = cmdArgsMode $ Options 
           {
@@ -52,7 +52,7 @@ options = cmdArgsMode $ Options
                 boyer_moore = False        &= help "use Boyer-Moore algorithm",
                 others = []                &= args
 
-          } &= summary "Cgrep. Usage: cgrep [OPTION] [PATTERN] files..." &= program "cgrep"
+          } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
 
 
 data  CgrepOptions = CgrepOptions
