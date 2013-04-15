@@ -8,10 +8,14 @@ import CGrep.Function
 import CGrep.Output
 import CGrep.Options 
 
+import Control.Monad (when)
 
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
     content <- liftM (zip [1..] . C.lines) (strictReadFile f)
+
+    when (debug opt) $ print content
+    
     return $ concatMap (if word opt then simpleWordGrep opt f ps
                                     else simpleLineGrep opt f ps) content
 

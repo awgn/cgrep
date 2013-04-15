@@ -3,7 +3,7 @@ module CGrep.BoyerMoore (cgrepBoyerMoore) where
 import Data.ByteString.Search as C
 
 import qualified Data.ByteString.Char8 as C
-import Control.Monad(liftM)
+import Control.Monad(liftM, when)
 
 import CGrep.Function
 import CGrep.Output
@@ -13,6 +13,9 @@ import CGrep.Options
 cgrepBoyerMoore :: CgrepFunction
 cgrepBoyerMoore opt pats f = do
     content <- liftM (zip [1..] . C.lines) (strictReadFile f)
+
+    when (debug opt) $ print content
+
     return $ concatMap (simpleBoyerMoore opt f pats) content
 
 

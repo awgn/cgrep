@@ -7,6 +7,8 @@ import CGrep.Function
 import CGrep.Output
 import CGrep.Options 
 
+import Control.Monad (when)
+
 import qualified CGrep.Cpp.Filter as Cpp
 import qualified CGrep.Cpp.Token  as Cpp
 
@@ -14,10 +16,15 @@ import qualified CGrep.Cpp.Token  as Cpp
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
     src <- lazyReadFile f
+
     let source   = Cpp.filter (mkContextFilter opt) src
     let tks      = filter (Cpp.tokenFilter $ tokens opt) (Cpp.tokens source)
+
+    when (debug opt) $ print tks
+
     let content  = LC.lines source
     let tks_res  = simpleTokenGrep opt f lps tks 
+
     return $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in LazyOutput f (ln+1) (content !! ln) [] ) tks_res
         where lps = map C.unpack ps
 

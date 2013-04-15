@@ -50,6 +50,7 @@ options = cmdArgsMode $ Options
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
                 boyer_moore = False        &= help "use Boyer-Moore algorithm",
+                debug = False              &= help "debug mode",
                 others = []                &= args
 
           } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
@@ -149,7 +150,12 @@ main = do
                     then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
                     else filterM doesFileExist paths
 
-    
+    -- debug
+   
+    when (debug opts) $ do
+        putStrLn ("pattern: " ++ show patterns)
+        putStrLn ("files  : " ++ show files) 
+
     -- create Transactional Chan and Vars...
     --
    
