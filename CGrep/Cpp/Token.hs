@@ -16,7 +16,7 @@
 --
 -- ass: C++11 code ass'istant 
 
-{-# LANGUAGE ViewPatterns #-} 
+{-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Cpp.Token(Token(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                             isHeaderName, isString, isChar, isOperOrPunct, 
@@ -54,7 +54,7 @@ tokenFilter [] _     =  False
 tokenFilter (x:xs) t =  mkTokenFilter x t || tokenFilter xs t
     
 
-mkTokenFilter :: String -> (Token -> Bool)
+mkTokenFilter :: String -> Token -> Bool
 mkTokenFilter "identifier" = isIdentifier
 mkTokenFilter "directive"  = isDirective
 mkTokenFilter "keyword"    = isKeyword
@@ -77,42 +77,42 @@ data Token = TIdentifier  { toString :: String, offset :: Int64 , lineno :: Int6
 
 
 isIdentifier :: Token -> Bool
-isIdentifier (TIdentifier _ _ _)  = True
+isIdentifier (TIdentifier {})  = True
 isIdentifier _ = False
 
 
 isKeyword :: Token -> Bool
-isKeyword (TKeyword _ _ _)  = True
+isKeyword (TKeyword {})  = True
 isKeyword _ = False
 
 
 isDirective :: Token -> Bool
-isDirective (TDirective _ _ _)  = True
+isDirective (TDirective {})  = True
 isDirective _ = False
 
 
 isLiteralNumber :: Token -> Bool
-isLiteralNumber (TNumber _ _ _) = True
+isLiteralNumber (TNumber {}) = True
 isLiteralNumber _ = False
 
 
 isHeaderName :: Token -> Bool
-isHeaderName (THeaderName _ _ _)  = True
+isHeaderName (THeaderName {})  = True
 isHeaderName _ = False
 
 
 isString :: Token -> Bool
-isString (TString _ _ _) = True
+isString (TString {}) = True
 isString _ = False
 
 
 isChar :: Token -> Bool
-isChar (TChar _ _ _) = True
+isChar (TChar {}) = True
 isChar _ = False
 
 
 isOperOrPunct :: Token -> Bool
-isOperOrPunct (TOperOrPunct _ _ _)  = True
+isOperOrPunct (TOperOrPunct {})  = True
 isOperOrPunct _ = False
 
 
@@ -122,7 +122,7 @@ isOperOrPunct _ = False
 dropWhite :: Source -> (Source, Offset, Lineno)
 dropWhite xs = (xs', doff, dnl)
                 where xs' = C.dropWhile (`elem` " \\\a\b\t\n\v\f\r") xs
-                      doff = fromIntegral $ (C.length xs) - C.length (xs')
+                      doff = fromIntegral $ C.length xs - C.length xs'
                       dnl  = C.length $ C.filter (=='\n') (C.take doff xs)
 
 
@@ -152,14 +152,14 @@ nextState _  _  = Null
 
 runGetToken :: TokenizerState -> [Token]
 
-runGetToken ((C.uncons  -> Nothing), _, _, _) = []
+runGetToken (C.uncons  -> Nothing, _, _, _) = []
 runGetToken tstate = token : runGetToken ns
-                    where (token, ns) = getToken tstate
+    where (token, ns) = getToken tstate
 
 
 getToken :: TokenizerState -> (Token, TokenizerState)
 
-getToken ((C.uncons -> Nothing), _, _, _) = error "getToken"
+getToken (C.uncons -> Nothing, _, _, _) = error "getToken"
 getToken (xs, off, ln, state) = let token = fromJust $ 
                                         getTokenDirective xs state       `mplus`
                                         getTokenHeaderName xs state      `mplus`
@@ -218,7 +218,7 @@ getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar x = Nothing 
     | name `S.member` keywords = Just $ TKeyword name 0 0
     | otherwise                = Just $ TIdentifier name 0 0
-                                    where isIdentifierChar = (\c -> isAlphaNum c || c == '_' || c == '$') -- GNU allows $ in identifiers 
+                                    where isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers 
                                           name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing

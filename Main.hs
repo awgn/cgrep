@@ -14,7 +14,7 @@ import Control.Concurrent.STM.TChan
 
 -- import Control.Concurrent.Async
 
-import Control.Monad (forM,forM_,liftM,filterM,when,msum)
+import Control.Monad 
 import System.Directory
 import System.FilePath ((</>), takeFileName, takeExtension)
 import System.Console.CmdArgs
@@ -66,7 +66,7 @@ data  CgrepOptions = CgrepOptions
 --
 
 rmCommentLines :: String -> String
-rmCommentLines =  unlines . (filter $ not . isPrefixOf "#" . dropWhile isSpace) . lines
+rmCommentLines =  unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines
 
 
 -- parse CgrepOptions from ~/.cgreprc, or /etc/cgreprc 
@@ -75,10 +75,10 @@ rmCommentLines =  unlines . (filter $ not . isPrefixOf "#" . dropWhile isSpace) 
 getCgrepOptions :: IO CgrepOptions
 getCgrepOptions = do
     home <- getHomeDirectory
-    conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->  do
+    conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
                 doesFileExist f >>= \b -> if b then return (Just f) else return Nothing
-    if (isJust conf) then (readFile $ fromJust conf) >>= \xs -> return (read (rmCommentLines xs) :: CgrepOptions) 
-                     else return $ CgrepOptions [] []
+    if isJust conf then readFile (fromJust conf) >>= \xs -> return (read (rmCommentLines xs) :: CgrepOptions) 
+                   else return $ CgrepOptions [] []
 
 
 -- from Realworld in Haskell...
@@ -92,10 +92,10 @@ getRecursiveContents topdir filetype prunedir = do
     let path = topdir </> fname
     isDirectory <- doesDirectoryExist path
     if isDirectory
-      then if (takeFileName path `elem` prunedir)
+      then if takeFileName path `elem` prunedir
            then return []
            else getRecursiveContents path filetype prunedir
-      else if (takeExtension path `elem` filetype)
+      else if takeExtension path `elem` filetype
            then return [path]
            else return []
   return (concat paths)
@@ -105,13 +105,13 @@ getRecursiveContents topdir filetype prunedir = do
 
 
 readPatternsFromFile :: FilePath -> IO [C.ByteString]
-readPatternsFromFile f = do
+readPatternsFromFile f = 
     if null f then return []
               else liftM C.words $ C.readFile f 
 
 
 isCppIdentifier :: C.ByteString -> Bool
-isCppIdentifier xs = C.all (\c -> isAlphaNum c || c == '_') xs
+isCppIdentifier = C.all (\c -> isAlphaNum c || c == '_') 
 
 
 main :: IO ()
@@ -121,14 +121,14 @@ main = do
     opts  <- cmdArgsRun options
 
     -- check whether patterns list is empty, display help message if it's the case
-    when (null $ others opts) $ withArgs ["--help"] $ cmdArgsRun options >> return ()  
+    when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)  
 
     -- read Cgrep config options
     conf  <- getCgrepOptions 
 
     -- load patterns:
-    patterns <- if (null $ file opts) then return $ [C.pack $ head $ others opts]
-                                      else readPatternsFromFile $ file opts
+    patterns <- if null $ file opts then return [C.pack $ head $ others opts]
+                                    else readPatternsFromFile $ file opts
 
     -- check whether patterns require regex
     -- opts' <- if (not $ all isCppIdentifier patterns) then putStrLn "cgrep: pattern(s) require regex search -> forced." >> return opts{ regex = True }
@@ -138,12 +138,12 @@ main = do
     isTerm <- hIsTerminalDevice stdin
 
     -- retrieve files to parse
-    let paths = if (null $ file opts) then tail $ others opts
-                                       else others opts
+    let paths = if null $ file opts then tail $ others opts
+                                    else others opts
 
     -- retrieve the list of files to parse
-    files <- if (recursive opts) then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
-                                 else filterM doesFileExist paths
+    files <- if recursive opts then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
+                               else filterM doesFileExist paths
 
     -- create Transactional Chan and Vars...
     --
@@ -161,32 +161,31 @@ main = do
                          atomically $ writeTChan out_chan []
                          return ()
                      _  -> do
-                        out <- (cgrep opts) opts patterns f
-                        when (not $ null out) $ atomically $ writeTChan out_chan out 
+                        out <- cgrep opts opts patterns f
+                        unless (null out) $ atomically $ writeTChan out_chan out 
                         action
-
-                `E.catch` (\ex -> putStrLn ("Exception: " ++ show (ex :: SomeException)) >> action)
+                `E.catch` (\ex -> putStrLn ("parse error: " ++ show (ex :: SomeException)) >> action)
             )   
 
 
     -- This thread push files name in in_chan:
     
-    mapM_ (\f -> atomically $ writeTChan in_chan f ) files 
+    mapM_ (atomically . writeTChan in_chan) files 
 
     -- Enqueue finish message:
    
-    mapM_ (\f -> atomically $ writeTChan in_chan f ) $ replicate (jobs opts) "" 
+    mapM_ (atomically . writeTChan in_chan) $ replicate (jobs opts) "" 
    
 
     -- Dump output until workers are running  
 
-    fix (\action n -> do
-        case (n == jobs opts) of 
+    fix (\action n -> 
+        case n == jobs opts of 
              True -> return ()
              _ -> do
                  out <- atomically $ readTChan out_chan
                  case out of
                       [] -> action $ n+1
-                      _  -> (forM_ out $ \line -> putStrLn $ showOutput opts line) >> action n
+                      _  -> forM_ out (putStrLn . showOutput opts) >> action n
         )  0
 

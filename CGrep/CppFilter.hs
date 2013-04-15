@@ -16,15 +16,15 @@ cgrepCppFilter opt ps f = do
     source <- LC.readFile f
     let filtered =  Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt } source
     let content = zip [1..] $ LC.lines filtered
-    return $ concat $ map (if (word opt) then simpleWordGrep opt f lps
-                                         else simpleLineGrep opt f ps) content
-        where lps = map LC.fromChunks (map (:[]) ps)
+    return $ concatMap (if word opt then simpleWordGrep opt f lps
+                                    else simpleLineGrep opt f ps) content
+        where lps = map (LC.fromChunks . (:[])) ps
 
 
 
 simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, LC.ByteString) -> [Output]
 simpleLineGrep opt f ps (n, l) = 
-   if ((null tks) `xor` (invert_match opt)) 
+   if null tks `xor` invert_match opt 
      then []
      else [LazyOutput f n l (map C.unpack tks)]
    where tks  = filter (\p -> not . null $ LC.indices p l) ps   
@@ -33,9 +33,9 @@ simpleLineGrep opt f ps (n, l) =
 
 simpleWordGrep :: Options -> FilePath -> [LC.ByteString] -> (Int, LC.ByteString) -> [Output]
 simpleWordGrep opt f ps (n, l) = 
-   if ((null tks) `xor` (invert_match opt)) 
+   if null tks `xor` invert_match opt 
      then []
      else [LazyOutput f n l (map LC.unpack tks)]
-   where tks  = filter (`elem` (LC.words l)) ps   
+   where tks  = filter (`elem` LC.words l) ps   
 
 
