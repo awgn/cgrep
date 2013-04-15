@@ -141,10 +141,15 @@ main = do
     let paths = if null $ file opts then tail $ others opts
                                     else others opts
 
-    -- retrieve the list of files to parse
-    files <- if recursive opts then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
-                               else filterM doesFileExist paths
 
+    -- retrieve the list of files to parse
+
+    files <- liftM (\l -> if null l && not isTerm then [""] else l) $
+                if recursive opts 
+                    then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
+                    else filterM doesFileExist paths
+
+    
     -- create Transactional Chan and Vars...
     --
    
