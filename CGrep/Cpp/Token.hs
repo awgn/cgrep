@@ -60,6 +60,7 @@ mkTokenFilter "directive"  = isDirective
 mkTokenFilter "keyword"    = isKeyword
 mkTokenFilter "header"     = isHeaderName
 mkTokenFilter "string"     = isString
+mkTokenFilter "number"     = isLiteralNumber
 mkTokenFilter "char"       = isChar
 mkTokenFilter "oper"       = isOperOrPunct
 mkTokenFilter xs           = error $ "Cpp.Token: '" ++ xs ++ "' unknown token type"
