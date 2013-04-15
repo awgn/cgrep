@@ -8,19 +8,19 @@ INSTDIR=/usr/local
 
 HC=ghc
 
-.PHONY: all clean
+.PHONY: all clean install cgrep
 
-all: cgrep-new 
+all: cgrep 
 
 SRC = Main.hs
 
 
-cgrep-new: $(SRC) 
-		$(HC) $(GHCFLAGS) $< -o $@
+cgrep: $(SRC) 
+		$(HC) $(GHCFLAGS) $< -o bin/$@
 
 install: all
-		cp cgrep-new  ${INSTDIR}/bin/
+		cp bin/cgrep ${INSTDIR}/bin/
 
 clean:
-	   @rm -f cgrep-new
+	   @rm -f bin/cgrep
 	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi CGrep/Cpp/*.o CGrep/Cpp/*.hi 
