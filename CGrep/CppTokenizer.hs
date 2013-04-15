@@ -13,7 +13,7 @@ import qualified CGrep.Cpp.Token  as Cpp
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
-    src <- LC.readFile f
+    src <- lazyReadFile f
     let source   = Cpp.filter (mkContextFilter opt) src
     let tks      = filter (Cpp.tokenFilter $ tokens opt) (Cpp.tokens source)
     let content  = LC.lines source

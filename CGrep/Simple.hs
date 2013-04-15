@@ -11,7 +11,7 @@ import CGrep.Options
 
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
-    content <- liftM (zip [1..] . C.lines) (C.readFile f)
+    content <- liftM (zip [1..] . C.lines) (strictReadFile f)
     return $ concatMap (if word opt then simpleWordGrep opt f ps
                                     else simpleLineGrep opt f ps) content
 

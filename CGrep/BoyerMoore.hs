@@ -12,7 +12,7 @@ import CGrep.Options
 
 cgrepBoyerMoore :: CgrepFunction
 cgrepBoyerMoore opt pats f = do
-    content <- liftM (zip [1..] . C.lines) (C.readFile f)
+    content <- liftM (zip [1..] . C.lines) (strictReadFile f)
     return $ concatMap (simpleBoyerMoore opt f pats) content
 
 

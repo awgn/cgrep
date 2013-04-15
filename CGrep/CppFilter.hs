@@ -13,7 +13,7 @@ import qualified CGrep.Cpp.Filter as Cpp
 
 cgrepCppFilter :: CgrepFunction
 cgrepCppFilter opt ps f = do
-    source <- LC.readFile f
+    source <- lazyReadFile f
     let filtered =  Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = string opt } source
     let content = zip [1..] $ LC.lines filtered
     return $ concatMap (if word opt then simpleWordGrep opt f lps
