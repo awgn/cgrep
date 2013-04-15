@@ -11,7 +11,6 @@ import Control.Exception as E
 import Control.Concurrent
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
-import Control.Concurrent.STM.TVar
 
 -- import Control.Concurrent.Async
 
@@ -149,8 +148,6 @@ main = do
     -- create Transactional Chan and Vars...
     --
    
-    running <- newTVarIO (jobs opts)
-
     in_chan  <- newTChanIO 
     out_chan <- newTChanIO
 
@@ -160,12 +157,16 @@ main = do
         fix (\action -> do 
                 f <- atomically $ readTChan in_chan
                 case f of 
-                     "" -> return ()
+                     "" -> do   
+                         atomically $ writeTChan out_chan []
+                         return ()
                      _  -> do
                         out <- (cgrep opts) opts patterns f
                         when (not $ null out) $ atomically $ writeTChan out_chan out 
                         action
-            ) `E.catch` (\ex -> putStrLn $ "Exception: " ++ show (ex :: IOException)) `finally` (atomically $ writeTChan out_chan []) >> (atomically (modifyTVar' running (subtract 1))) 
+
+                `E.catch` (\ex -> putStrLn ("Exception: " ++ show (ex :: SomeException)) >> action)
+            )   
 
 
     -- This thread push files name in in_chan:
