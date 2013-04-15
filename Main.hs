@@ -157,11 +157,11 @@ main = do
         fix (\action -> do 
                 f <- atomically $ readTChan in_chan
                 case f of 
-                     "" -> do   
+                     Nothing -> do   
                          atomically $ writeTChan out_chan []
                          return ()
-                     _  -> do
-                        out <- cgrep opts opts patterns f
+                     Just f' -> do
+                        out <- cgrep opts opts patterns f'
                         unless (null out) $ atomically $ writeTChan out_chan out 
                         action
                 `E.catch` (\ex -> putStrLn ("parse error: " ++ show (ex :: SomeException)) >> action)
@@ -170,11 +170,12 @@ main = do
 
     -- This thread push files name in in_chan:
     
-    mapM_ (atomically . writeTChan in_chan) files 
+    mapM_ (\f -> atomically . writeTChan in_chan $ Just f) files 
+
 
     -- Enqueue finish message:
    
-    mapM_ (atomically . writeTChan in_chan) $ replicate (jobs opts) "" 
+    mapM_ (atomically . writeTChan in_chan) $ replicate (jobs opts) Nothing 
    
 
     -- Dump output until workers are running  
