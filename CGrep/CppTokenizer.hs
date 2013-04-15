@@ -18,7 +18,7 @@ cgrepCppTokenizer opt ps f = do
     let tks      = filter (Cpp.tokenFilter $ tokens opt) (Cpp.tokens source)
     let content  = LC.lines source
     let tks_res  = simpleTokenGrep opt f lps tks 
-    return $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in LazyOutput f ln (content !! ln) [] ) tks_res
+    return $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in LazyOutput f (ln+1) (content !! ln) [] ) tks_res
         where lps = map C.unpack ps
 
 
