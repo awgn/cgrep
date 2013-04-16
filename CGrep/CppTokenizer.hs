@@ -12,6 +12,7 @@ import Control.Monad (when)
 import qualified CGrep.Cpp.Filter as Cpp
 import qualified CGrep.Cpp.Token  as Cpp
 
+import Data.List
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
@@ -37,14 +38,13 @@ cgrepCppTokenizer opt ps f = do
 
 
 mkContextFilter :: Options -> Cpp.ContextFilter
-mkContextFilter opt = if not (code opt && comment opt && string opt) 
+mkContextFilter opt = if not (code opt && comment opt && literal opt) 
                        then Cpp.ContextFilter { Cpp.getCode = True,     Cpp.getComment = False, Cpp.getLiteral = True }
-                       else Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = False, Cpp.getLiteral = string opt }
+                       else Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = False, Cpp.getLiteral = literal opt }
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (\t -> (Cpp.toString t `elem` ps) `xor` invert_match opt) 
-
+simpleTokenGrep opt _ ps = filter (\tok -> (let heystack = Cpp.toString tok in any (`isInfixOf` heystack) ps) `xor` invert_match opt) 
 
 
 
