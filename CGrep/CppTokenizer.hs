@@ -19,14 +19,14 @@ cgrepCppTokenizer opt ps f = do
     src <- lazyReadFile f
 
     let source   = Cpp.filter (mkContextFilter opt) src
-    let tks      = filter (Cpp.tokenFilter $ Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
-                                                               Cpp.filtDirective  = directive opt,
-                                                               Cpp.filtKeyword    = keyword opt,
-                                                               Cpp.filtHeader     = header opt, 
-                                                               Cpp.filtString     = string opt,
-                                                               Cpp.filtNumber     = number opt,
-                                                               Cpp.filtChar       = char opt,
-                                                               Cpp.filtOper       = oper opt}) (Cpp.tokens source)
+    let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
+                                                             Cpp.filtDirective  = directive opt,
+                                                             Cpp.filtKeyword    = keyword opt,
+                                                             Cpp.filtHeader     = header opt, 
+                                                             Cpp.filtString     = string opt,
+                                                             Cpp.filtNumber     = number opt,
+                                                             Cpp.filtChar       = char opt,
+                                                             Cpp.filtOper       = oper opt}) (Cpp.tokens source)
 
     when (debug opt) $ print tks 
 
