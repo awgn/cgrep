@@ -18,7 +18,7 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Cpp.Token(Token(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
+module CGrep.Cpp.Token(Token(..), TokenFilter(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                             isHeaderName, isString, isChar, isOperOrPunct, 
                             tokens, tokenFilter)  where
 import Data.Int                                                             
@@ -49,21 +49,30 @@ tokens xs = runGetToken (ys, n, l, Null)
                 (ys,n, l) = dropWhite xs
 
 
-tokenFilter :: [String] -> Token -> Bool
-tokenFilter [] _     =  False
-tokenFilter (x:xs) t =  mkTokenFilter x t || tokenFilter xs t
-    
+data TokenFilter = TokenFilter 
+                   {
+                        filtIdentifier :: Bool,     
+                        filtDirective  :: Bool,
+                        filtKeyword    :: Bool,
+                        filtHeader     :: Bool,
+                        filtString     :: Bool,
+                        filtNumber     :: Bool,
+                        filtChar       :: Bool,
+                        filtOper       :: Bool
 
-mkTokenFilter :: String -> Token -> Bool
-mkTokenFilter "identifier" = isIdentifier
-mkTokenFilter "directive"  = isDirective
-mkTokenFilter "keyword"    = isKeyword
-mkTokenFilter "header"     = isHeaderName
-mkTokenFilter "string"     = isString
-mkTokenFilter "number"     = isLiteralNumber
-mkTokenFilter "char"       = isChar
-mkTokenFilter "oper"       = isOperOrPunct
-mkTokenFilter xs           = error $ "Cpp.Token: '" ++ xs ++ "' unknown token type"
+                   } deriving (Show,Read,Eq)
+
+
+tokenFilter :: TokenFilter -> Token -> Bool
+
+tokenFilter filt (TIdentifier{})  = filtIdentifier filt
+tokenFilter filt (TDirective{})   = filtDirective  filt
+tokenFilter filt (TKeyword{})     = filtKeyword    filt
+tokenFilter filt (THeaderName{})  = filtHeader     filt
+tokenFilter filt (TNumber{})      = filtNumber     filt
+tokenFilter filt (TString{})      = filtString     filt
+tokenFilter filt (TChar{})        = filtChar       filt
+tokenFilter filt (TOperOrPunct{}) = filtOper       filt 
 
 
 data Token = TIdentifier  { toString :: String, offset :: Int64 , lineno :: Int64 } |

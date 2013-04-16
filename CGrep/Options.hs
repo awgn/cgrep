@@ -11,14 +11,26 @@ data Options = Options
                 word    :: Bool,
                 regex   :: Bool,
                 ignore_case :: Bool,
+                
                 -- Context:
                 code    :: Bool,
                 comment :: Bool,
-                string  :: Bool,
-                tokens  :: [String],
+                literal :: Bool,
+                
+                -- C/C++ Token:
+                identifier :: Bool,
+                keyword    :: Bool,
+                directive  :: Bool,
+                header     :: Bool,
+                number     :: Bool,
+                string     :: Bool,
+                char       :: Bool,
+                oper       :: Bool,
+
                 -- Output:
                 no_filename     :: Bool,
                 no_linenumber   :: Bool,
+                
                 -- General:
                 jobs      :: Int,
                 multiline :: Bool,

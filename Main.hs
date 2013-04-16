@@ -40,8 +40,18 @@ options = cmdArgsMode $ Options
 
                 code = False               &= help "grep in C/C++ source code" &= explicit &= name "c" &= name "code" &= groupname "Context",
                 comment = False            &= help "grep in comments"          &= explicit &= name "m" &= name "comment",
-                string = False             &= help "grep in string literals"   &= explicit &= name "s" &= name "string",
-                tokens = []                &= help "C/C++ filter: identifier, keyword, directive, header, number, string, char, oper",
+                literal = False            &= help "grep in string literals"   &= explicit &= name "l" &= name "literal",
+
+                identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "C/C++ Token",
+                keyword = False            &= help "keywords" &= explicit &= name "keyword",
+                directive = False          &= help "preproc directives" &= explicit &= name "directive",
+                header = False             &= help "headers name" &= explicit &= name "header",
+                number = False             &= help "literal numbers" &= explicit &= name "number",
+                string = False             &= help "literal strings" &= explicit &= name "string",
+                char = False               &= help "literal chars" &= explicit &= name "char",
+                oper = False               &= help "operators" &= explicit &= name "oper",
+
+
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
 
