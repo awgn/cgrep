@@ -8,6 +8,7 @@ import CGrep.Function
 import CGrep.Output
 import CGrep.Options 
 
+import CGrep.StringLike
 
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
@@ -24,7 +25,10 @@ simpleLineGrep opt f ps (n, l) =
     if null pfilt `xor` invert_match opt 
       then []
       else [StrictOutput f n l (map C.unpack pfilt)]
-    where pfilt = filter (`C.isInfixOf` l) ps    
+    where pfilt = filter (`subMatch` l) ps    
+          subMatch = if ignore_case opt 
+                       then ciIsInfixOf 
+                       else C.isInfixOf
 
 
 simpleWordGrep :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -> [Output]
@@ -32,6 +36,9 @@ simpleWordGrep opt f ps (n, l) =
     if null pfilt `xor` invert_match opt 
       then []
       else [StrictOutput f n l (map C.unpack pfilt)]
-    where pfilt = filter (`elem` C.words l) ps    
-
+    where pfilt = filter (`match` gwords l) ps    
+          match a = if ignore_case opt 
+                      then any (ciEqual a) 
+                      else elem a 
+            
 

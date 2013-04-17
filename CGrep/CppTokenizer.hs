@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 import CGrep.Function
 import CGrep.Output
 import CGrep.Options 
+import CGrep.StringLike
 
 import Control.Monad (when)
 
@@ -44,7 +45,8 @@ mkContextFilter opt = if not (code opt && comment opt && literal opt)
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (\tok -> (let heystack = Cpp.toString tok in any (`isInfixOf` heystack) ps) `xor` invert_match opt) 
-
+simpleTokenGrep opt _ ps = filter (\tok -> (let heystack = Cpp.toString tok in any (`isInfix` heystack) ps) `xor` invert_match opt) 
+                            where isInfix | ignore_case opt = ciIsInfixOf  
+                                          | otherwise       = isInfixOf
 
 
