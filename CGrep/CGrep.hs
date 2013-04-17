@@ -3,10 +3,10 @@ module CGrep.CGrep where
 import CGrep.Options
 import CGrep.Function
 
-import CGrep.BoyerMoore
-import CGrep.CppFilter
-import CGrep.CppTokenizer
-import CGrep.Simple
+import CGrep.Strategy.Simple
+import CGrep.Strategy.BoyerMoore
+import CGrep.Strategy.Context
+import CGrep.Strategy.Tokenizer
 
 
 cgrep :: Options -> CgrepFunction

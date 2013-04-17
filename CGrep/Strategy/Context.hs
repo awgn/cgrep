@@ -1,4 +1,4 @@
-module CGrep.CppFilter (cgrepCppFilter) where
+module CGrep.Strategy.Context (cgrepCppFilter) where
 
 import Data.ByteString.Lazy.Search as LC
 

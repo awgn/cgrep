@@ -1,4 +1,4 @@
-module CGrep.Simple (cgrepSimple) where
+module CGrep.Strategy.Simple (cgrepSimple) where
 
 import qualified Data.ByteString.Char8 as C
 

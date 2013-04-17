@@ -23,4 +23,4 @@ install: all
 
 clean:
 	   @rm -f bin/cgrep
-	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi CGrep/Cpp/*.o CGrep/Cpp/*.hi 
+	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi CGrep/Cpp/*.o CGrep/Cpp/*.hi CGrep/Strategy/*.o CGrep/Strategy/*.hi

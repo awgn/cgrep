@@ -1,4 +1,4 @@
-module CGrep.BoyerMoore (cgrepBoyerMoore) where
+module CGrep.Strategy.BoyerMoore (cgrepBoyerMoore) where
 
 import Data.ByteString.Search as C
 
