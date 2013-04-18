@@ -5,7 +5,6 @@ import CGrep.Output
 import CGrep.StringLike
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as LC
 
 type CgrepFunction = Options -> [C.ByteString] -> FilePath -> IO [Output] 
 
