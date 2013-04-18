@@ -63,6 +63,7 @@ runFilter :: FiltState -> Char -> (FiltState, Char)
 runFilter filtstate c = (state', charFilter (cxtFilter cxt (cfilter filtstate)) c)
                         where (cxt, state') = charParser (pchar filtstate, c) filtstate
 
+{-# INLINE charFilter #-}
 
 charFilter :: Bool -> Char -> Char
 charFilter  _ '\n' = '\n'
@@ -70,6 +71,8 @@ charFilter  cond c
     | cond = c
     | otherwise = ' '
 
+
+{-# INLINE cxtFilter #-}
 
 cxtFilter :: Context -> ContextFilter -> Bool
 cxtFilter Code    = getCode 
