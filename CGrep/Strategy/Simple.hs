@@ -16,29 +16,5 @@ cgrepSimple opt ps f = do
 
     when (debug opt) $ print content
     
-    return $ concatMap (if word opt then simpleWordGrep opt f ps
-                                    else simpleLineGrep opt f ps) content
-
-
-simpleLineGrep :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -> [Output]
-simpleLineGrep opt f ps (n, l) =
-    if null pfilt `xor` invert_match opt 
-      then []
-      else [StrictOutput f n l (map C.unpack pfilt)]
-    where pfilt = filter (`subMatch` l) ps    
-          subMatch = if ignore_case opt 
-                       then ciIsInfixOf 
-                       else C.isInfixOf
-
-
-simpleWordGrep :: Options -> FilePath -> [C.ByteString] -> (Int, C.ByteString) -> [Output]
-simpleWordGrep opt f ps (n, l) =
-    if null pfilt `xor` invert_match opt 
-      then []
-      else [StrictOutput f n l (map C.unpack pfilt)]
-    where pfilt = filter (`match` gwords l) ps    
-          match a = if ignore_case opt 
-                      then any (ciEqual a) 
-                      else elem a 
-            
+    return $ concatMap (basicGrep opt f ps) content
 

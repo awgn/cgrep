@@ -34,7 +34,7 @@ cgrepCppTokenizer opt ps f = do
     let content  = LC.lines source
     let tks_res  = simpleTokenGrep opt f lps tks 
 
-    return $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in LazyOutput f (ln+1) (content !! ln) [] ) tks_res
+    return $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) tks_res
         where lps = map C.unpack ps
 
 
@@ -45,8 +45,8 @@ mkContextFilter opt = if not (code opt && comment opt && literal opt)
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (\tok -> (let heystack = Cpp.toString tok in any (`isInfix` heystack) ps) `xor` invert_match opt) 
-                            where isInfix | ignore_case opt = ciIsInfixOf  
-                                          | otherwise       = isInfixOf
+simpleTokenGrep opt _ ps = filter (\t ->  not . null $ (grep (word opt) (ignore_case opt) (invert_match opt) ps $ Cpp.toString t) ) 
+
+
 
 
