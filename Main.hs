@@ -46,7 +46,7 @@ cgreprc :: FilePath
 cgreprc = "cgreprc.hs" 
 
 version :: String
-version = "2.1"
+version = "2.2"
 
 options = cmdArgsMode $ Options 
           {
