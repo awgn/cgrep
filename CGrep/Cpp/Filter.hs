@@ -17,8 +17,6 @@
 --
 -- ass: C++11 code ass'istant 
 
-{-# LANGUAGE ViewPatterns #-} 
-
 
 module CGrep.Cpp.Filter (Context(..), ContextFilter(..), CGrep.Cpp.Filter.filter)  where
 

@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-} 
 {-# LANGUAGE ViewPatterns #-} 
-{-# LANGUAGE BangPatterns #-} 
 
 module CGrep.StringLike(StringLike(..), toStrict) where
 
@@ -52,7 +51,7 @@ instance StringLike [Char] where
         | not wordmatch && not ignorecase = filter (\p -> (p `isInfixOf` s) `xor` invert) patterns   
         | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
         | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> (any (p `ciEqual`) ws) `xor` invert) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
 
 
     ciEqual =  (==) `on` map toLower 
@@ -78,7 +77,7 @@ instance StringLike C.ByteString where
         | not wordmatch && not ignorecase = filter (\p -> (p `C.isInfixOf` s) `xor` invert) patterns   
         | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
         | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert ) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> (any (p `ciEqual`) ws) `xor` invert) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
     
     ciEqual = (==) `on` C.map toLower 
 
@@ -102,10 +101,10 @@ instance StringLike LC.ByteString where
 
 
     grep wordmatch ignorecase invert patterns s 
-        | not wordmatch && not ignorecase = map (patterns!!) (map snd $ filter (\p -> (not . null $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..]))
+        | not wordmatch && not ignorecase = map ((patterns!!) . snd) $ filter (\p -> (not . null $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
         | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
         | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> (any (p `ciEqual`) ws) `xor` invert) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
 
     ciEqual = (==) `on` LC.map toLower 
 
