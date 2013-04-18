@@ -2,7 +2,7 @@
 {-# LANGUAGE ViewPatterns #-} 
 {-# LANGUAGE BangPatterns #-} 
 
-module CGrep.StringLike(StringLike(..)) where
+module CGrep.StringLike(StringLike(..), toStrict) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
@@ -15,6 +15,7 @@ import Data.String
 import Data.Char
 import Data.List
 
+
 -- | StringLike class
 --                                            
 
@@ -23,8 +24,13 @@ xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
 
 
-class StringLike a  where
+toStrict :: LC.ByteString -> C.ByteString
+toStrict = C.concat . LC.toChunks
 
+
+class (IsString a) => StringLike a  where
+
+    toString     :: (IsString a) => a -> String
     gwords       :: (IsString a) => a -> [a]
     grep         :: (IsString a) => Bool -> Bool -> Bool -> [a] -> a -> [a]
     ciEqual      :: (IsString a) => a -> a -> Bool
@@ -33,6 +39,8 @@ class StringLike a  where
 
 
 instance StringLike [Char] where
+
+    toString a = a :: String
 
     gwords s = case dropWhile isSpace' s of                 
                 "" -> []                                 
@@ -58,6 +66,8 @@ instance StringLike [Char] where
 
 instance StringLike C.ByteString where
 
+    toString = C.unpack 
+
     gwords s = case C.dropWhile isSpace' s of                 
                 (C.uncons -> Nothing) -> []                                 
                 s' -> w : gwords s''                    
@@ -80,12 +90,10 @@ instance StringLike C.ByteString where
     ciIsInfixOf needle haystack = any (ciIsPrefixOf needle) (C.tails haystack)
 
 
-toStrict :: LC.ByteString -> C.ByteString
-toStrict = C.concat . LC.toChunks
-
-
 instance StringLike LC.ByteString where
 
+    toString = LC.unpack 
+    
     gwords s = case LC.dropWhile isSpace' s of                 
                 (LC.uncons -> Nothing) -> []                                 
                 s' -> w : gwords s''                    
