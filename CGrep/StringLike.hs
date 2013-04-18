@@ -49,7 +49,7 @@ instance StringLike [Char] where
     
     grep wordmatch ignorecase invert patterns s 
         | not wordmatch && not ignorecase = filter (\p -> (p `isInfixOf` s) `xor` invert) patterns   
-        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
+        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> ((p `isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
         | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
         | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
 
@@ -67,17 +67,19 @@ instance StringLike C.ByteString where
 
     toString = C.unpack 
 
-    gwords s = case C.dropWhile isSpace' s of                 
-                (C.uncons -> Nothing) -> []                                 
-                s' -> w : gwords s''                    
-                    where (w, s'') = C.break isSpace' s'    
-               where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
+    gwords = filter (not . C.null) . C.splitWith (`notElem` '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) 
+
+    -- gwords s = case C.dropWhile isSpace' s of                 
+    --             (C.uncons -> Nothing) -> []                                 
+    --             s' -> w : gwords s''                    
+    --                 where (w, s'') = C.break isSpace' s'    
+    --            where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
 
     grep wordmatch ignorecase invert patterns s 
         | not wordmatch && not ignorecase = filter (\p -> (p `C.isInfixOf` s) `xor` invert) patterns   
-        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
-        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert ) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
+        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> ((p `C.isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
+        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> (p `ciIsInfixOf` s && any (p `ciEqual`) ws) `xor` invert) patterns   
     
     ciEqual = (==) `on` C.map toLower 
 
