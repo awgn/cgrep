@@ -14,9 +14,7 @@ import Data.String
 import Data.Char
 import Data.List
 
-
--- | StringLike class
---                                            
+import Control.Monad (liftM)
 
 
 xor :: Bool -> Bool -> Bool
@@ -27,31 +25,45 @@ toStrict :: LC.ByteString -> C.ByteString
 toStrict = C.concat . LC.toChunks
 
 
+-- | StringLike class
+--                                            
+
 class (IsString a) => StringLike a  where
 
-    toString     :: (IsString a) => a -> String
-    gwords       :: (IsString a) => a -> [a]
-    grep         :: (IsString a) => Bool -> Bool -> Bool -> [a] -> a -> [a]
-    ciEqual      :: (IsString a) => a -> a -> Bool
-    ciIsPrefixOf :: (IsString a) => a -> a -> Bool
-    ciIsInfixOf  :: (IsString a) => a -> a -> Bool
+    slToString    :: (IsString a) => a -> String
+
+    slReadFile    :: (IsString a) => Bool -> FilePath -> IO a
+    slGetContents :: (IsString a) => Bool -> IO a
+
+    slWords       :: (IsString a) => a -> [a]
+    slGrep        :: (IsString a) => Bool -> Bool -> [a] -> a -> [a]
+
+    ciEqual       :: (IsString a) => a -> a -> Bool
+    ciIsPrefixOf  :: (IsString a) => a -> a -> Bool
+    ciIsInfixOf   :: (IsString a) => a -> a -> Bool
 
 
 instance StringLike [Char] where
 
-    toString a = a :: String
+    slToString = id 
 
-    gwords s = case dropWhile isSpace' s of                 
+    slWords s = case dropWhile isSpace' s of                 
                 "" -> []                                 
-                s' -> w : gwords s''                    
+                s' -> w : slWords s''                    
                     where (w, s'') = break isSpace' s'    
                where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
     
-    grep wordmatch ignorecase invert patterns s 
-        | not wordmatch && not ignorecase = filter (\p -> (p `isInfixOf` s) `xor` invert) patterns   
-        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> ((p `isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
-        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
+    slGrep wordmatch invert patterns s 
+        | wordmatch  = let ws = slWords s in filter (\p -> ((p `isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
+        | otherwise  = filter (\p -> (p `isInfixOf` s) `xor` invert) patterns   
+
+    slReadFile ignoreCase f 
+        | ignoreCase = liftM (map toLower) $ readFile f 
+        | otherwise  = readFile f
+
+    slGetContents ignoreCase 
+        | ignoreCase = liftM (map toLower) getContents
+        | otherwise  = getContents
 
 
     ciEqual =  (==) `on` map toLower 
@@ -65,22 +77,22 @@ instance StringLike [Char] where
 
 instance StringLike C.ByteString where
 
-    toString = C.unpack 
+    slToString = C.unpack 
 
-    gwords = filter (not . C.null) . C.splitWith (`notElem` '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) 
+    slWords = filter (not . C.null) . C.splitWith (`notElem` '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) 
 
-    -- gwords s = case C.dropWhile isSpace' s of                 
-    --             (C.uncons -> Nothing) -> []                                 
-    --             s' -> w : gwords s''                    
-    --                 where (w, s'') = C.break isSpace' s'    
-    --            where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
+    slGrep wordmatch invert patterns s 
+        | wordmatch = let ws = slWords s in filter (\p -> ((p `C.isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
+        | otherwise = filter (\p -> (p `C.isInfixOf` s) `xor` invert) patterns   
 
-    grep wordmatch ignorecase invert patterns s 
-        | not wordmatch && not ignorecase = filter (\p -> (p `C.isInfixOf` s) `xor` invert) patterns   
-        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> ((p `C.isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
-        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> (p `ciIsInfixOf` s && any (p `ciEqual`) ws) `xor` invert) patterns   
-    
+    slReadFile ignoreCase f
+        | ignoreCase = liftM (C.map toLower) $ C.readFile f
+        | otherwise  = C.readFile f
+
+    slGetContents ignoreCase 
+        | ignoreCase = liftM (C.map toLower) C.getContents
+        | otherwise  = C.getContents
+
     ciEqual = (==) `on` C.map toLower 
 
     ciIsPrefixOf (C.uncons -> Nothing) _   =  True
@@ -93,20 +105,27 @@ instance StringLike C.ByteString where
 
 instance StringLike LC.ByteString where
 
-    toString = LC.unpack 
+    slToString = LC.unpack 
     
-    gwords s = case LC.dropWhile isSpace' s of                 
+    slWords s = case LC.dropWhile isSpace' s of                 
                 (LC.uncons -> Nothing) -> []                                 
-                s' -> w : gwords s''                    
+                s' -> w : slWords s''                    
                     where (w, s'') = LC.break isSpace' s'    
                where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
 
 
-    grep wordmatch ignorecase invert patterns s 
-        | not wordmatch && not ignorecase = map ((patterns!!) . snd) $ filter (\p -> (not . null $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
-        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
-        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
-        | otherwise                       = let ws = gwords s in filter (\p -> any (p `ciEqual`) ws `xor` invert) patterns   
+    slGrep wordmatch invert patterns s 
+        | wordmatch = let ws = slWords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
+        | otherwise = map ((patterns!!) . snd) $ filter (\p -> (not . null $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
+
+    slReadFile ignoreCase f
+        | ignoreCase = liftM (LC.map toLower) $ LC.readFile f 
+        | otherwise  = LC.readFile f
+
+    slGetContents ignoreCase 
+        | ignoreCase = liftM (LC.map toLower) LC.getContents
+        | otherwise  = LC.getContents
+    
 
     ciEqual = (==) `on` LC.map toLower 
 

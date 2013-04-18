@@ -16,7 +16,9 @@ import qualified CGrep.Cpp.Token  as Cpp
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
-    src <- strictReadFile f
+
+    src <- if f == "" then slGetContents (ignore_case opt)  
+                      else slReadFile (ignore_case opt) f
 
     let source   = Cpp.filter (mkContextFilter opt) src
     let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
@@ -44,7 +46,7 @@ mkContextFilter opt = if not (code opt && comment opt && literal opt)
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (\t ->  not . null $ grep (word opt) (ignore_case opt) (invert_match opt) ps $ Cpp.toString t) 
+simpleTokenGrep opt _ ps = filter (\t ->  not . null $ slGrep (word opt) (invert_match opt) ps $ Cpp.toString t) 
 
 
 

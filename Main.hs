@@ -137,8 +137,12 @@ main = do
     conf  <- getCgrepOptions 
 
     -- load patterns:
-    patterns <- if null $ file opts then return [C.pack $ head $ others opts]
-                                    else readPatternsFromFile $ file opts
+    patterns <- (if null $ file opts then return [C.pack $ head $ others opts]
+                                     else readPatternsFromFile $ file opts ) >>= \ps ->
+                    if ignore_case opts 
+                      then return $ map (C.map toLower) ps 
+                      else return ps
+
 
     -- check whether patterns require regex
     -- opts' <- if (not $ all isCppIdentifier patterns) then putStrLn "cgrep: pattern(s) require regex search -> forced." >> return opts{ regex = True }
