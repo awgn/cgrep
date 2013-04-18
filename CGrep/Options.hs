@@ -36,7 +36,6 @@ data Options = Options
                 multiline :: Bool,
                 recursive :: Bool,
                 invert_match :: Bool,
-                boyer_moore :: Bool,
 
                 debug  :: Bool,
                 others :: [String]

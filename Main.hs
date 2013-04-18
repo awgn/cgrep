@@ -59,7 +59,6 @@ options = cmdArgsMode $ Options
                 multiline = False          &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
-                boyer_moore = False        &= help "use Boyer-Moore algorithm",
                 debug = False              &= help "debug mode",
                 others = []                &= args
 
