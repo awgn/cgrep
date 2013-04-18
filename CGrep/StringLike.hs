@@ -1,10 +1,14 @@
 {-# LANGUAGE FlexibleInstances #-} 
 {-# LANGUAGE ViewPatterns #-} 
+{-# LANGUAGE BangPatterns #-} 
 
-module CGrep.StringLike where
+module CGrep.StringLike(StringLike(..)) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
+
+-- import Data.ByteString.Search as C
+import Data.ByteString.Lazy.Search as LC
 
 import Data.Function
 import Data.String
@@ -12,11 +16,17 @@ import Data.Char
 import Data.List
 
 -- | StringLike class
---
+--                                            
+
+
+xor :: Bool -> Bool -> Bool
+a `xor` b = a && not b || not a && b
+
 
 class StringLike a  where
 
     gwords       :: (IsString a) => a -> [a]
+    grep         :: (IsString a) => Bool -> Bool -> Bool -> [a] -> a -> [a]
     ciEqual      :: (IsString a) => a -> a -> Bool
     ciIsPrefixOf :: (IsString a) => a -> a -> Bool
     ciIsInfixOf  :: (IsString a) => a -> a -> Bool
@@ -30,6 +40,13 @@ instance StringLike [Char] where
                     where (w, s'') = break isSpace' s'    
                where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
     
+    grep wordmatch ignorecase invert patterns s 
+        | not wordmatch && not ignorecase = filter (\p -> (p `isInfixOf` s) `xor` invert) patterns   
+        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
+        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> (any (p `ciEqual`) ws) `xor` invert) patterns   
+
+
     ciEqual =  (==) `on` map toLower 
     
     ciIsPrefixOf [] _           =  True
@@ -40,12 +57,19 @@ instance StringLike [Char] where
 
 
 instance StringLike C.ByteString where
+
     gwords s = case C.dropWhile isSpace' s of                 
                 (C.uncons -> Nothing) -> []                                 
                 s' -> w : gwords s''                    
                     where (w, s'') = C.break isSpace' s'    
                where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
 
+    grep wordmatch ignorecase invert patterns s 
+        | not wordmatch && not ignorecase = filter (\p -> (p `C.isInfixOf` s) `xor` invert) patterns   
+        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
+        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert ) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> (any (p `ciEqual`) ws) `xor` invert) patterns   
+    
     ciEqual = (==) `on` C.map toLower 
 
     ciIsPrefixOf (C.uncons -> Nothing) _   =  True
@@ -56,12 +80,24 @@ instance StringLike C.ByteString where
     ciIsInfixOf needle haystack = any (ciIsPrefixOf needle) (C.tails haystack)
 
 
+toStrict :: LC.ByteString -> C.ByteString
+toStrict = C.concat . LC.toChunks
+
+
 instance StringLike LC.ByteString where
+
     gwords s = case LC.dropWhile isSpace' s of                 
                 (LC.uncons -> Nothing) -> []                                 
                 s' -> w : gwords s''                    
                     where (w, s'') = LC.break isSpace' s'    
                where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
+
+
+    grep wordmatch ignorecase invert patterns s 
+        | not wordmatch && not ignorecase = map (patterns!!) (map snd $ filter (\p -> (not . null $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..]))
+        | wordmatch     && not ignorecase = let ws = gwords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
+        | not wordmatch &&     ignorecase = filter (\p -> (p `ciIsInfixOf` s) `xor` invert) patterns   
+        | otherwise                       = let ws = gwords s in filter (\p -> (any (p `ciEqual`) ws) `xor` invert) patterns   
 
     ciEqual = (==) `on` LC.map toLower 
 
