@@ -1,7 +1,7 @@
 module CGrep.Strategy.Tokenizer (cgrepCppTokenizer) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as LC
+-- import qualified Data.ByteString.Lazy.Char8 as LC
 
 import CGrep.Function
 import CGrep.Output
@@ -16,7 +16,7 @@ import qualified CGrep.Cpp.Token  as Cpp
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
-    src <- lazyReadFile f
+    src <- strictReadFile f
 
     let source   = Cpp.filter (mkContextFilter opt) src
     let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
@@ -30,7 +30,7 @@ cgrepCppTokenizer opt ps f = do
 
     when (debug opt) $ print tks 
 
-    let content  = LC.lines source
+    let content  = C.lines source
     let tks_res  = simpleTokenGrep opt f lps tks 
 
     return $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) tks_res

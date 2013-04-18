@@ -21,7 +21,7 @@
 module CGrep.Cpp.Token(Token(..), TokenFilter(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                             isHeaderName, isString, isChar, isOperOrPunct, 
                             tokens, tokenFilter)  where
-import Data.Int                                                             
+-- import Data.Int                                                             
 import Data.Char 
 import Data.Maybe
 import Data.Set as S
@@ -30,13 +30,13 @@ import Control.Monad
  
 import qualified CGrep.Cpp.Source as Cpp
 
-import qualified Data.ByteString.Lazy.Char8 as C
+import qualified Data.ByteString.Char8 as C
 
 type TokenizerState = (Source, Offset, Lineno, State)
 
 type Source = Cpp.Source
-type Offset = Int64
-type Lineno = Int64
+type Offset = Int
+type Lineno = Int
 
 
 -- Tokenize the source code in a list 
@@ -75,14 +75,14 @@ tokenFilter filt (TChar{})        = filtChar       filt
 tokenFilter filt (TOperOrPunct{}) = filtOper       filt 
 
 
-data Token = TIdentifier  { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             TDirective   { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             TKeyword     { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             TNumber      { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             THeaderName  { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             TString      { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             TChar        { toString :: String, offset :: Int64 , lineno :: Int64 } |
-             TOperOrPunct { toString :: String, offset :: Int64 , lineno :: Int64 }
+data Token = TIdentifier  { toString :: String, offset :: Int , lineno :: Int } |
+             TDirective   { toString :: String, offset :: Int , lineno :: Int } |
+             TKeyword     { toString :: String, offset :: Int , lineno :: Int } |
+             TNumber      { toString :: String, offset :: Int , lineno :: Int } |
+             THeaderName  { toString :: String, offset :: Int , lineno :: Int } |
+             TString      { toString :: String, offset :: Int , lineno :: Int } |
+             TChar        { toString :: String, offset :: Int , lineno :: Int } |
+             TOperOrPunct { toString :: String, offset :: Int , lineno :: Int }
                 deriving (Show, Eq)  
 
 
