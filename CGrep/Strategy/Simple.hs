@@ -5,10 +5,7 @@ import qualified Data.ByteString.Char8 as C
 import Control.Monad(liftM,when)
 
 import CGrep.Function
-import CGrep.Output
 import CGrep.Options 
-
-import CGrep.StringLike
 
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do

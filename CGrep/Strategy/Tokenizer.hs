@@ -13,7 +13,6 @@ import Control.Monad (when)
 import qualified CGrep.Cpp.Filter as Cpp
 import qualified CGrep.Cpp.Token  as Cpp
 
-import Data.List
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do

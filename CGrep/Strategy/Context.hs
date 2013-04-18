@@ -1,12 +1,9 @@
 module CGrep.Strategy.Context (cgrepCppContext) where
 
-import Data.ByteString.Lazy.Search as LC
-
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
 
 import CGrep.Function
-import CGrep.Output
 import CGrep.Options 
 
 import CGrep.StringLike
