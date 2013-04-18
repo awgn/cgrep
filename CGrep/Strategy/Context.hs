@@ -1,4 +1,4 @@
-module CGrep.Strategy.Context (cgrepCppFilter) where
+module CGrep.Strategy.Context (cgrepCppContext) where
 
 import Data.ByteString.Lazy.Search as LC
 
@@ -15,8 +15,8 @@ import Control.Monad (when)
 
 import qualified CGrep.Cpp.Filter as Cpp
 
-cgrepCppFilter :: CgrepFunction
-cgrepCppFilter opt ps f = do
+cgrepCppContext :: CgrepFunction
+cgrepCppContext opt ps f = do
     source <- lazyReadFile f
     
     let filtered =  Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = literal opt } source
