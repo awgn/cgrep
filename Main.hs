@@ -31,7 +31,7 @@ import Control.Concurrent.STM.TChan
 
 import Control.Monad 
 import System.Directory
-import System.FilePath ((</>), takeFileName, takeExtension)
+import System.FilePath ((</>), takeFileName)
 import System.Console.CmdArgs
 import System.Environment
 import System.IO
@@ -39,6 +39,7 @@ import System.IO
 import CGrep.Options
 import CGrep.Output
 import CGrep.CGrep
+import CGrep.Lang
 
 import qualified Data.ByteString.Char8 as C
 
@@ -46,7 +47,7 @@ cgreprc :: FilePath
 cgreprc = "cgreprc.hs" 
 
 version :: String
-version = "2.2"
+version = "2.3"
 
 options = cmdArgsMode $ Options 
           {
@@ -84,7 +85,7 @@ options = cmdArgsMode $ Options
 
 data  CgrepOptions = CgrepOptions
                     {
-                        fileType :: [String],
+                        language :: [Lang],
                         pruneDir :: [String]
                     } deriving (Show,Read)
 
@@ -110,9 +111,9 @@ getCgrepOptions = do
 
 -- from Realworld in Haskell...
 
-getRecursiveContents :: FilePath -> [String] -> [String] -> IO [FilePath]
+getRecursiveContents :: FilePath -> [Lang] -> [String] -> IO [FilePath]
 
-getRecursiveContents topdir filetype prunedir = do
+getRecursiveContents topdir langs prunedir = do
   names <- getDirectoryContents topdir
   let properNames = filter (`notElem` [".", ".."]) names
   paths <- forM properNames $ \fname -> do
@@ -121,10 +122,10 @@ getRecursiveContents topdir filetype prunedir = do
     if isDirectory
       then if takeFileName path `elem` prunedir
            then return []
-           else getRecursiveContents path filetype prunedir
-      else if takeExtension path `elem` filetype
-           then return [path]
-           else return []
+           else getRecursiveContents path langs prunedir
+      else case lookupLang path >>= (`elemIndex` langs) of 
+            Nothing -> return []
+            _       -> return [path]
   return (concat paths)
 
 
@@ -177,7 +178,7 @@ main = do
 
     files <- liftM (\l -> if null l && not isTerm then [""] else l) $
                 if recursive opts 
-                    then liftM concat $ forM paths $ \p -> getRecursiveContents p (map ("." ++) $ fileType conf) (pruneDir conf)
+                    then liftM concat $ forM paths $ \p -> getRecursiveContents p (language conf) (pruneDir conf)
                     else filterM doesFileExist paths
 
     -- debug
