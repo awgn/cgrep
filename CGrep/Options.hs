@@ -48,6 +48,7 @@ data Options = Options
                 -- Output:
                 no_filename     :: Bool,
                 no_linenumber   :: Bool,
+                lang_map        :: Bool,
                 
                 -- General:
                 jobs      :: Int,

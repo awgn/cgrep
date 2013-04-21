@@ -35,6 +35,7 @@ import System.FilePath ((</>), takeFileName)
 import System.Console.CmdArgs
 import System.Environment
 import System.IO
+import System.Exit
 
 import CGrep.Options
 import CGrep.Output
@@ -68,10 +69,10 @@ options = cmdArgsMode $ Options
                 string = False             &= help "literal strings" &= explicit &= name "string",
                 char = False               &= help "literal chars" &= explicit &= name "char",
                 oper = False               &= help "operators" &= explicit &= name "oper",
-
-
+                
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
+                lang_map = False           &= help "show language -> ext map",
 
                 jobs   = 1                 &= help "number of jobs" &= groupname "General",
                 multiline = False          &= help "enable multi-line matching",
@@ -147,6 +148,9 @@ main = do
 
     -- read command-line options 
     opts  <- cmdArgsRun options
+    
+    -- display lang-map...
+    when (lang_map opts) $ dumpLangMap langMap >> exitSuccess 
 
     -- check whether patterns list is empty, display help message if it's the case
     when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)  

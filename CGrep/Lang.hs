@@ -30,7 +30,11 @@ data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Ha
 
 
 data FileType = Name String | Ext String
-                    deriving (Show,Eq,Ord)
+                    deriving (Eq, Ord)
+
+instance Show FileType where
+    show (Name x) = x
+    show (Ext  e) = "*." ++ e
 
 
 type LangMapType    = Map.Map Lang [FileType]
@@ -81,10 +85,10 @@ lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':
 
 dumpLangMap :: LangMapType -> IO ()
 dumpLangMap m = forM_ (Map.toList m) $ \(lang, ex) ->
-                putStrLn $ show lang ++ replicate (16 - length (show lang)) ' ' ++ "-> " ++ show ex
+                putStrLn $ show lang ++ replicate (12 - length (show lang)) ' ' ++ "-> " ++ show ex
 
 
 dumpLangRevMap :: LangRevMapType -> IO ()
 dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, lang) -> 
-                    putStrLn $ show ext ++ replicate (16 - length (show ext)) ' ' ++ "-> " ++ show lang
+                    putStrLn $ show ext ++ replicate (12 - length (show ext)) ' ' ++ "-> " ++ show lang
 
