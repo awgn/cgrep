@@ -29,10 +29,10 @@ import CGrep.Lang
               
 import Data.List
 
-cgrep :: FilePath -> Options -> CgrepFunction
-cgrep path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
-                    Nothing -> cgrepDispatch opt{identifier = False, keyword = False, directive = False, header = False, string = False, char = False, oper = False }
-                    _       -> cgrepDispatch opt
+sanitizeOptions  :: FilePath -> Options -> Options
+sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
+                            Nothing -> opt {identifier = False, keyword = False, directive = False, header = False, string = False, char = False, oper = False }
+                            _       -> opt
 
 
 cgrepDispatch :: Options -> CgrepFunction
