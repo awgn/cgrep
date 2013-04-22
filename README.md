@@ -4,7 +4,7 @@ CodeGrep. Advanced grep tool for source codes
 Usage
 -----
 
-Cgrep 2.1. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 2.3. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -17,11 +17,11 @@ Pattern:
 
 Context:
 
-    -c --code           grep in C/C++ source code
+    -c --code           grep in source code
     -m --comment        grep in comments
     -l --literal        grep in string literals
 
-C/C++ Token:
+C/C++ language:
 
        --identifier     identifiers
        --keyword        keywords
@@ -36,6 +36,7 @@ Output control:
 
     -h --no-filename    suppress the file name prefix on output
     -N --no-line-umber  suppress the line number on output lines
+       --lang-map       show language -> ext map
 
 General:
 
