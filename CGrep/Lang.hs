@@ -25,7 +25,7 @@ import Control.Applicative
 
 data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Haskell | 
                 Html | Java | Javascript | Latex | LUA | Make | OCaml | ObjectiveC | 
-                Perl | PHP | Python | Ruby | Scala | Tcl | Sh | Verilog | Vim
+                Perl | PHP | Python | Ruby | Scala | Tcl | Shell | Verilog | Vim
                     deriving (Read, Show, Eq, Ord, Bounded)
 
 
@@ -68,7 +68,7 @@ langMap = Map.fromList [
             (Ruby,      [Ext "rb", Ext "ruby"]),
             (Scala,     [Ext "scala"]),
             (Tcl,       [Ext "tcl", Ext "tk"]),
-            (Sh,        [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]),
+            (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]),
             (Verilog,   [Ext "v", Ext "vh", Ext "sv"]),
             (Vim,       [Ext "vim"])
           ]
