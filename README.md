@@ -1,5 +1,5 @@
-Cgrep: Advanced grep for C/C++ source codes
-===========================================
+CodeGrep. Advanced grep tool for source codes
+=============================================
 
 Usage
 -----
