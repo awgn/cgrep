@@ -57,11 +57,11 @@ options = cmdArgsMode $ Options
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
-                code = False               &= help "grep in C/C++ source code" &= explicit &= name "c" &= name "code" &= groupname "Context",
-                comment = False            &= help "grep in comments"          &= explicit &= name "m" &= name "comment",
-                literal = False            &= help "grep in string literals"   &= explicit &= name "l" &= name "literal",
+                code = False               &= help "grep in source code"     &= explicit &= name "c" &= name "code" &= groupname "Context",
+                comment = False            &= help "grep in comments"        &= explicit &= name "m" &= name "comment",
+                literal = False            &= help "grep in string literals" &= explicit &= name "l" &= name "literal",
 
-                identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "C/C++ Token",
+                identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "C/C++ language",
                 keyword = False            &= help "keywords" &= explicit &= name "keyword",
                 directive = False          &= help "preproc directives" &= explicit &= name "directive",
                 header = False             &= help "headers name" &= explicit &= name "header",
