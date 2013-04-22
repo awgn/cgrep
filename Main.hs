@@ -207,7 +207,7 @@ main = do
                          atomically $ writeTChan out_chan []
                          return ()
                      Just f' -> do
-                        out <- cgrep opts opts patterns f'
+                        out <- cgrep f' opts opts patterns f'
                         unless (null out) $ atomically $ writeTChan out_chan out 
                         action
                 `E.catch` (\ex -> putStrLn ("parse error: " ++ show (ex :: SomeException)) >> action)
