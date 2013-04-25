@@ -24,7 +24,7 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Function
 import CGrep.Options 
 import CGrep.StringLike
-import CGrep.Filter 
+import CGrep.ContextFilter 
 
 import Control.Monad (when)
 

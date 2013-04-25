@@ -17,7 +17,7 @@
 --
 
 
-module CGrep.Filter (Context(..), ContextFilter(..), CGrep.Filter.filterContext)  where
+module CGrep.ContextFilter (Context(..), ContextFilter(..), filterContext)  where
 
 import qualified Data.ByteString.Char8 as C
 
