@@ -44,8 +44,11 @@ cgrepRegex opt ps f = do
                      else source
 
     let content  = zip [1..] $ C.lines filtered 
-
-    when (debug opt) $ print content
+    
+    when (debug opt) $ do
+        C.putStrLn filtered
+        print opt 
+        print content
 
     return $ concatMap (basicRegex opt f ps) content
 

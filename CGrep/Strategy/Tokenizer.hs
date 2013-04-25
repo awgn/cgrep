@@ -35,10 +35,12 @@ import qualified CGrep.Cpp.Token  as Cpp
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
-    src <- if f == "" then slGetContents (ignore_case opt)  
-                      else slReadFile (ignore_case opt) f
+    source <- if f == "" then slGetContents (ignore_case opt)  
+                         else slReadFile (ignore_case opt) f
 
-    let source   = filterContext (mkContextFilter opt) src
+    let filtered = filterContext (mkContextFilter opt) source
+    
+    
     let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
                                                              Cpp.filtDirective  = directive opt,
                                                              Cpp.filtKeyword    = keyword opt,
@@ -48,7 +50,10 @@ cgrepCppTokenizer opt ps f = do
                                                              Cpp.filtChar       = char opt,
                                                              Cpp.filtOper       = oper opt}) (Cpp.tokens source)
 
-    when (debug opt) $ print tks 
+    when (debug opt) $ do 
+        C.putStrLn filtered
+        print opt
+        print tks 
 
     let content  = C.lines source
     let tks_res  = simpleTokenGrep opt f lps tks 

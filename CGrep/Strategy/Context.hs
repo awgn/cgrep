@@ -36,9 +36,13 @@ cgrepCppContext opt ps f = do
                          else slReadFile (ignore_case opt) f
     
     let filtered = filterContext ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
-    let content  = zip [1..] $ C.lines filtered 
+    
+    let content = zip [1..] $ C.lines filtered
 
-    when (debug opt) $ print content
-
+    when (debug opt) $ do
+        C.putStrLn filtered
+        print opt 
+        print content
+    
     return $ concatMap (basicGrep opt f ps) content
 

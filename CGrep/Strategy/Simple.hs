@@ -33,7 +33,9 @@ cgrepSimple opt ps f = do
                                               then slGetContents (ignore_case opt) 
                                               else slReadFile (ignore_case opt) f
 
-    when (debug opt) $ print content
+    when (debug opt) $ do 
+        print opt
+        print content
     
     return $ concatMap (basicGrep opt f ps) content
 
