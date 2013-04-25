@@ -19,11 +19,10 @@
 
 module CGrep.Filter (Context(..), ContextFilter(..), CGrep.Filter.filterContext)  where
 
-import qualified CGrep.Cpp.Source as Cpp
 import qualified Data.ByteString.Char8 as C
 
 
-type Source = Cpp.Source
+type Source = C.ByteString
 
 
 data Context = Code | Comment | Literal

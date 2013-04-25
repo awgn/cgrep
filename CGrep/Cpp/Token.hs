@@ -28,13 +28,12 @@ import Data.Set as S
 import Data.Array 
 import Control.Monad
  
-import qualified CGrep.Cpp.Source as Cpp
-
 import qualified Data.ByteString.Char8 as C
 
 type TokenizerState = (Source, Offset, Lineno, State)
 
-type Source = Cpp.Source
+type Source = C.ByteString
+
 type Offset = Int
 type Lineno = Int
 
