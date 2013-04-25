@@ -17,9 +17,9 @@
 --
 
 
-module CGrep.ContextFilter (Context(..), ContextFilter(..), filterContext)  where
+module CGrep.Filter (Context(..), ContextFilter(..), filterContext)  where
 
-import CGrep.ContextParser
+import CGrep.Parser
 
 import CGrep.Lang
 import Data.Maybe

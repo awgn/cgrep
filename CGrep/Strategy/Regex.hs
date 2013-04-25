@@ -26,7 +26,7 @@ import CGrep.Function
 import CGrep.Options 
 import CGrep.StringLike
 import CGrep.Output
-import CGrep.ContextFilter 
+import CGrep.Filter 
 import CGrep.Lang
 
 import Control.Monad (when)

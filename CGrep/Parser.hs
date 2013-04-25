@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-} 
 
-module CGrep.ContextParser  where
+module CGrep.Parser  where
 
 
 data Context = Code | Comment | Literal
