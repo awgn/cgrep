@@ -25,10 +25,10 @@ import CGrep.Function
 import CGrep.Output
 import CGrep.Options 
 import CGrep.StringLike
+import CGrep.Filter 
 
 import Control.Monad (when)
 
-import qualified CGrep.Cpp.Filter as Cpp
 import qualified CGrep.Cpp.Token  as Cpp
 
 
@@ -38,7 +38,7 @@ cgrepCppTokenizer opt ps f = do
     src <- if f == "" then slGetContents (ignore_case opt)  
                       else slReadFile (ignore_case opt) f
 
-    let source   = Cpp.filter (mkContextFilter opt) src
+    let source   = filterContext (mkContextFilter opt) src
     let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
                                                              Cpp.filtDirective  = directive opt,
                                                              Cpp.filtKeyword    = keyword opt,
@@ -57,10 +57,10 @@ cgrepCppTokenizer opt ps f = do
         where lps = map C.unpack ps
 
 
-mkContextFilter :: Options -> Cpp.ContextFilter
+mkContextFilter :: Options -> ContextFilter
 mkContextFilter opt = if not (code opt && comment opt && literal opt) 
-                       then Cpp.ContextFilter { Cpp.getCode = True,     Cpp.getComment = False, Cpp.getLiteral = True }
-                       else Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = False, Cpp.getLiteral = literal opt }
+                       then ContextFilter { getCode = True,     getComment = False, getLiteral = True }
+                       else ContextFilter { getCode = code opt, getComment = False, getLiteral = literal opt }
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]

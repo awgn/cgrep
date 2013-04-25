@@ -26,11 +26,12 @@ import CGrep.Function
 import CGrep.Options 
 import CGrep.StringLike
 import CGrep.Output
+import CGrep.Filter 
+
 import Control.Monad (when)
 
 import Text.Regex.Posix
 
-import qualified CGrep.Cpp.Filter as Cpp
 
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
@@ -39,7 +40,7 @@ cgrepRegex opt ps f = do
                          else slReadFile (ignore_case opt) f
     
     let filtered = if code opt || comment opt || literal opt
-                     then Cpp.filter Cpp.ContextFilter { Cpp.getCode = code opt, Cpp.getComment = comment opt, Cpp.getLiteral = literal opt } source
+                     then filterContext ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
                      else source
 
     let content  = zip [1..] $ C.lines filtered 

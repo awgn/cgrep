@@ -17,7 +17,7 @@
 --
 
 
-module CGrep.Cpp.Filter (Context(..), ContextFilter(..), CGrep.Cpp.Filter.filter)  where
+module CGrep.Filter (Context(..), ContextFilter(..), CGrep.Filter.filterContext)  where
 
 import qualified CGrep.Cpp.Source as Cpp
 import qualified Data.ByteString.Char8 as C
@@ -36,8 +36,8 @@ data ContextFilter = ContextFilter { getCode    :: Bool,
                      } deriving (Eq, Show)
 
 
-filter :: ContextFilter -> Source -> Source
-filter filt src =  snd $ C.mapAccumL runFilter (FiltState CodeState filt ' ') src 
+filterContext :: ContextFilter -> Source -> Source
+filterContext filt src =  snd $ C.mapAccumL runFilter (FiltState CodeState filt ' ') src 
 
 
 -- States:
