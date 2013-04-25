@@ -1,7 +1,25 @@
-{-# LANGUAGE TemplateHaskell #-} 
+--
+-- Copyright (c) 2012-2013 Bonelli Nicola <bonelli@antifork.org>
+--
+-- This program is free software; you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation; either version 2 of the License, or
+-- (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with this program; if not, write to the Free Software
+-- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+--
+
 
 module CGrep.Parser  where
 
+import Data.List
 
 data Context = Code | Comment | Literal
                 deriving (Eq, Show)
@@ -16,7 +34,7 @@ data FiltState = FiltState
                  {
                     cstate  :: ContextState,
                     cfilter :: ContextFilter,
-                    pchar   :: [Char]
+                    pchar   :: String
                  } deriving (Eq, Show)
 
 
@@ -32,6 +50,37 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 
 -- Parser...
 --
+
+parser1 :: Char -> FilterFunction
+parser1 comm (p,c) filtstate@(FiltState StateCode _ _) 
+    | c == comm = (Code, filtstate { cstate = StateComment,  pchar = app1 p c })
+    | c == '"'  = (Code, filtstate { cstate = StateLiteral,  pchar = app1 p c })
+    | c == '\'' = (Code, filtstate { cstate = StateLiteral2, pchar = app1 p c }) 
+    | otherwise = (Code, filtstate { pchar = app1 p c } )
+parser1 _ (_,c) filtstate@(FiltState StateComment _ _)
+    | c == '\n' = (Comment, filtstate { cstate = StateCode, pchar = app1 [] c })
+    | otherwise = (Comment, filtstate { pchar = app1 [] c })
+parser1 _ (p,c) filtstate@(FiltState StateLiteral _ _)
+    | p /= "\\" && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c }) 
+parser1 _ (p,c) filtstate@(FiltState StateLiteral2 _ _)
+    | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c})
+
+
+likeShell :: FilterFunction
+likeShell = parser1 '#'
+
+likeErlang :: FilterFunction
+likeErlang = parser1 '%'
+
+likeLatex :: FilterFunction
+likeLatex = parser1 '%'
+
+likeVim :: FilterFunction
+likeVim = parser1 '"'
+
+
 
 likeCpp :: FilterFunction
 likeCpp (p,c) filtstate@(FiltState StateCode _ _) 
@@ -78,21 +127,25 @@ likeHaskell (p,c) filtstate@(FiltState StateLiteral2 _ _)
     | otherwise = (Literal, filtstate { pchar = app1 p c})
 
 
-likeShell :: FilterFunction
-likeShell (p,c) filtstate@(FiltState StateCode _ _) 
-    |              c == '#'  = (Code, filtstate { cstate = StateComment,  pchar = app1 p c })
-    |              c == '"'  = (Code, filtstate { cstate = StateLiteral,  pchar = app1 p c })
-    |              c == '\'' = (Code, filtstate { cstate = StateLiteral2, pchar = app1 p c }) 
-    | otherwise = (Code, filtstate { pchar = app1 p c } )
-likeShell (_,c) filtstate@(FiltState StateComment _ _)
-    | c == '\n' = (Comment, filtstate { cstate = StateCode, pchar = app1 [] c })
-    | otherwise = (Comment, filtstate { pchar = app1 [] c })
-likeShell (p,c) filtstate@(FiltState StateLiteral _ _)
-    | p /= "\\" && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app1 p c })
-    | otherwise = (Literal, filtstate { pchar = app1 p c }) 
-likeShell (p,c) filtstate@(FiltState StateLiteral2 _ _)
-    | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
-    | otherwise = (Literal, filtstate { pchar = app1 p c})
+likePerl :: FilterFunction
+likePerl (p,c) filtstate@(FiltState StateCode _ _) 
+    |               c == '#'  = (Code, filtstate { cstate = StateComment,  pchar = app3 p c })
+    | p == "=po" && c == 'd'  = (Code, filtstate { cstate = StateComment2,  pchar = app3 p c })
+    |               c == '"'  = (Code, filtstate { cstate = StateLiteral,  pchar = app3 p c })
+    |               c == '\'' = (Code, filtstate { cstate = StateLiteral2, pchar = app3 p c }) 
+    | otherwise = (Code, filtstate { pchar = app3 p c } )
+likePerl (_,c) filtstate@(FiltState StateComment _ _)
+    | c == '\n' = (Comment, filtstate { cstate = StateCode, pchar = app3 [] c })
+    | otherwise = (Comment, filtstate { pchar = app3 [] c })
+likePerl (p,c) filtstate@(FiltState StateComment2 _ _)
+    | p == "=cu" && c == 't' = (Comment, filtstate { cstate = StateCode, pchar = app3 [] c })
+    | otherwise = (Comment, filtstate { pchar = app3 [] c })
+likePerl (p,c) filtstate@(FiltState StateLiteral _ _)
+    | not("\\" `isSuffixOf` p) && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app3 p c })
+    | otherwise = (Literal, filtstate { pchar = app3 p c }) 
+likePerl (p,c) filtstate@(FiltState StateLiteral2 _ _)
+    | not("\\" `isSuffixOf` p) && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app3 p c })
+    | otherwise = (Literal, filtstate { pchar = app3 p c})
 
 
 {-# INLINE app1 #-}

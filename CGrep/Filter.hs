@@ -61,21 +61,21 @@ filterMap = Map.fromList [
             (Cpp,        filterFunction likeCpp),
             (Csharp,     filterFunction likeCpp),
             (Css,        filterUndefined),
-            (CMake,      filterUndefined),
+            (CMake,      filterFunction likeShell),
             (D,          filterFunction likeCpp),
-            (Erlang,     filterUndefined),
+            (Erlang,     filterFunction likeErlang),
             (Fsharp,     filterUndefined),
             (Go,         filterFunction likeCpp),
             (Haskell,    filterFunction likeHaskell),
             (Html,       filterUndefined),
             (Java,       filterFunction likeCpp),
             (Javascript, filterFunction likeCpp),
-            (Latex ,     filterUndefined),
+            (Latex ,     filterFunction likeErlang),
             (LUA ,       filterUndefined),
             (Make,       filterFunction likeShell),
             (OCaml ,     filterUndefined),
             (ObjectiveC, filterFunction likeCpp),
-            (Perl,       filterUndefined),
+            (Perl,       filterFunction likePerl),
             (PHP,        filterUndefined),
             (Python,     filterUndefined),
             (Ruby,       filterUndefined),
@@ -83,7 +83,7 @@ filterMap = Map.fromList [
             (Tcl,        filterFunction likeShell),
             (Shell,      filterFunction likeShell),
             (Verilog,    filterFunction likeCpp),
-            (Vim,        filterUndefined)
+            (Vim,        filterFunction likeVim)
            ]
 
 
