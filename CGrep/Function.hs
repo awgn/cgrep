@@ -24,6 +24,7 @@ import CGrep.StringLike
 
 import qualified Data.ByteString.Char8 as C
 
+
 type CgrepFunction = Options -> [C.ByteString] -> FilePath -> IO [Output] 
 
 
