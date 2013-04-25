@@ -57,7 +57,7 @@ options = cmdArgsMode $ Options
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
-                code = False               &= help "grep in source code"     &= explicit &= name "c" &= name "code" &= groupname "Context",
+                code = False               &= help "grep in source code"     &= explicit &= name "c" &= name "code" &= groupname "Context filters",
                 comment = False            &= help "grep in comments"        &= explicit &= name "m" &= name "comment",
                 literal = False            &= help "grep in string literals" &= explicit &= name "l" &= name "literal",
 

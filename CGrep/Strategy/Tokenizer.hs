@@ -26,6 +26,7 @@ import CGrep.Output
 import CGrep.Options 
 import CGrep.StringLike
 import CGrep.ContextFilter 
+import CGrep.Lang
 
 import Control.Monad (when)
 
@@ -38,7 +39,7 @@ cgrepCppTokenizer opt ps f = do
     source <- if f == "" then slGetContents (ignore_case opt)  
                          else slReadFile (ignore_case opt) f
 
-    let filtered = filterContext (mkContextFilter opt) source
+    let filtered = filterContext (lookupLang f) (mkContextFilter opt) source
     
     
     let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 

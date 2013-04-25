@@ -25,6 +25,8 @@ import CGrep.Function
 import CGrep.Options 
 import CGrep.StringLike
 import CGrep.ContextFilter 
+import CGrep.Lang
+
 
 import Control.Monad (when)
 
@@ -35,7 +37,7 @@ cgrepCppContext opt ps f = do
     source <- if f == "" then slGetContents (ignore_case opt)
                          else slReadFile (ignore_case opt) f
     
-    let filtered = filterContext ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
+    let filtered = filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
     
     let content = zip [1..] $ C.lines filtered
 

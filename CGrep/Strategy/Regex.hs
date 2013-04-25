@@ -27,6 +27,7 @@ import CGrep.Options
 import CGrep.StringLike
 import CGrep.Output
 import CGrep.ContextFilter 
+import CGrep.Lang
 
 import Control.Monad (when)
 
@@ -40,7 +41,7 @@ cgrepRegex opt ps f = do
                          else slReadFile (ignore_case opt) f
     
     let filtered = if code opt || comment opt || literal opt
-                     then filterContext ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
+                     then filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
                      else source
 
     let content  = zip [1..] $ C.lines filtered 
