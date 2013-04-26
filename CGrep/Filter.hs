@@ -44,10 +44,6 @@ filterFunction funFilt filtstate c = (state', charFilter (cxtFilter cxt (cfilter
                         where (cxt, state') = funFilt (pchar filtstate, c) filtstate
 
 
-filterUndefined :: FiltState -> Char -> (FiltState, Char) 
-filterUndefined s c = (s, c)
-
-
 -- runFilter map:
 --
     
@@ -67,7 +63,7 @@ filterMap = Map.fromList [
             (Fsharp,     filterFunction likeFsharp),
             (Go,         filterFunction likeCpp),
             (Haskell,    filterFunction likeHaskell),
-            (Html,       filterUndefined),
+            (Html,       filterFunction likeHtml),
             (Java,       filterFunction likeCpp),
             (Javascript, filterFunction likeCpp),
             (Latex ,     filterFunction likeErlang),
@@ -76,8 +72,8 @@ filterMap = Map.fromList [
             (ObjectiveC, filterFunction likeCpp),
             (Perl,       filterFunction likePerl),
             (PHP,        filterFunction likePHP),
-            (Python,     filterUndefined),
-            (Ruby,       filterUndefined),
+            (Python,     filterFunction likePython),
+            (Ruby,       filterFunction likeRuby),
             (Scala,      filterFunction likeCpp),
             (Tcl,        filterFunction likeShell),
             (Shell,      filterFunction likeShell),
