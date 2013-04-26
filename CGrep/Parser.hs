@@ -95,7 +95,6 @@ likeCpp (p,c) fs@(FiltState StateCode _ _)
     | $(m "//")         = (Code, fs { cstate = StateComment2, pchar = [] })
     | $(m '"')          = (Code, fs { cstate = StateLiteral,  pchar = [] })
     | $(m '\'')         = (Code, fs { cstate = StateLiteral2, pchar = [] }) 
-    | $(m "\\\\")       = (Code, fs { cstate = StateComment2, pchar = [] })
     | otherwise         = (Code, fs { pchar = app1 p c } )
 
 likeCpp (_,c) fs@(FiltState StateComment2 _ _)

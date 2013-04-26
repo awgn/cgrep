@@ -4,7 +4,7 @@ CodeGrep. Advanced grep tool for source codes
 Usage
 -----
 
-Cgrep 2.3. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 2.4. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
