@@ -42,6 +42,7 @@ data FiltState = FiltState
 data ContextState = StateCode       | 
                     StateComment    | 
                     StateComment2   | 
+                    StateComment3   | 
                     StateLiteral    |
                     StateLiteral2
                         deriving (Eq, Show)
@@ -52,8 +53,8 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 --
 
 parser1 :: Char -> FilterFunction
-parser1 comm (p,c) filtstate@(FiltState StateCode _ _) 
-    | c == comm = (Code, filtstate { cstate = StateComment,  pchar = app1 p c })
+parser1 c0 (p,c) filtstate@(FiltState StateCode _ _) 
+    | c == c0   = (Code, filtstate { cstate = StateComment,  pchar = app1 p c })
     | c == '"'  = (Code, filtstate { cstate = StateLiteral,  pchar = app1 p c })
     | c == '\'' = (Code, filtstate { cstate = StateLiteral2, pchar = app1 p c }) 
     | otherwise = (Code, filtstate { pchar = app1 p c } )
@@ -79,7 +80,6 @@ likeLatex = parser1 '%'
 
 likeVim :: FilterFunction
 likeVim = parser1 '"'
-
 
 
 likeCpp :: FilterFunction
@@ -139,13 +139,70 @@ likePerl (_,c) filtstate@(FiltState StateComment _ _)
     | otherwise = (Comment, filtstate { pchar = app3 [] c })
 likePerl (p,c) filtstate@(FiltState StateComment2 _ _)
     | p == "=cu" && c == 't' = (Comment, filtstate { cstate = StateCode, pchar = app3 [] c })
-    | otherwise = (Comment, filtstate { pchar = app3 [] c })
+    | otherwise = (Comment, filtstate { pchar = app3 p c })
 likePerl (p,c) filtstate@(FiltState StateLiteral _ _)
     | not("\\" `isSuffixOf` p) && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app3 p c })
     | otherwise = (Literal, filtstate { pchar = app3 p c }) 
 likePerl (p,c) filtstate@(FiltState StateLiteral2 _ _)
     | not("\\" `isSuffixOf` p) && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app3 p c })
     | otherwise = (Literal, filtstate { pchar = app3 p c})
+
+
+likeCSS :: FilterFunction
+likeCSS (p,c) filtstate@(FiltState StateCode _ _) 
+    | p == "/"  && c == '*'  = (Code, filtstate { cstate = StateComment,   pchar = app1 p c })
+    |              c == '"'  = (Code, filtstate { cstate = StateLiteral,   pchar = app1 p c })
+    |              c == '\'' = (Code, filtstate { cstate = StateLiteral2,  pchar = app1 p c }) 
+    | otherwise = (Code, filtstate { pchar = app1 p c } )
+likeCSS (p,c) filtstate@(FiltState StateComment _ _)
+    | p == "*" && c == '/'  = (Comment, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Comment, filtstate { pchar = app1 p c })
+likeCSS (p,c) filtstate@(FiltState StateLiteral _ _)
+    | p /= "\\" && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c }) 
+likeCSS (p,c) filtstate@(FiltState StateLiteral2 _ _)
+    | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c})
+
+
+likeFsharp :: FilterFunction
+likeFsharp (p,c) filtstate@(FiltState StateCode _ _) 
+    | p == "/"  && c == '/'  = (Code, filtstate { cstate = StateComment2,  pchar = app1 p c })
+    | p == "("  && c == '*'  = (Code, filtstate { cstate = StateComment,   pchar = app1 p c })
+    |              c == '"'  = (Code, filtstate { cstate = StateLiteral,   pchar = app1 p c })
+    |              c == '\'' = (Code, filtstate { cstate = StateLiteral2,  pchar = app1 p c }) 
+    | p == "\\" && c == '\\' = (Code, filtstate { pchar = app1 p ' ' })
+    | otherwise = (Code, filtstate { pchar = app1 p c } )
+likeFsharp (_,c) filtstate@(FiltState StateComment2 _ _)
+    | c == '\n' = (Comment, filtstate { cstate = StateCode, pchar = app1 [] c })
+    | otherwise = (Comment, filtstate { pchar = app1 [] c })
+likeFsharp (p,c) filtstate@(FiltState StateComment _ _)
+    | p == "*" && c == ')'  = (Comment, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Comment, filtstate { pchar = app1 p c })
+likeFsharp (p,c) filtstate@(FiltState StateLiteral _ _)
+    | p /= "\\" && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c }) 
+likeFsharp (p,c) filtstate@(FiltState StateLiteral2 _ _)
+    | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c})
+
+
+likeOCaml :: FilterFunction
+likeOCaml (p,c) filtstate@(FiltState StateCode _ _) 
+    | p == "("  && c == '*'  = (Code, filtstate { cstate = StateComment,   pchar = app1 p c })
+    |              c == '"'  = (Code, filtstate { cstate = StateLiteral,   pchar = app1 p c })
+    |              c == '\'' = (Code, filtstate { cstate = StateLiteral2,  pchar = app1 p c }) 
+    | p == "\\" && c == '\\' = (Code, filtstate { pchar = app1 p ' ' })
+    | otherwise = (Code, filtstate { pchar = app1 p c } )
+likeOCaml (p,c) filtstate@(FiltState StateComment _ _)
+    | p == "*" && c == ')'  = (Comment, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Comment, filtstate { pchar = app1 p c })
+likeOCaml (p,c) filtstate@(FiltState StateLiteral _ _)
+    | p /= "\\" && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c }) 
+likeOCaml (p,c) filtstate@(FiltState StateLiteral2 _ _)
+    | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c})
 
 
 {-# INLINE app1 #-}
