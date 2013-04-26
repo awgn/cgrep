@@ -24,7 +24,7 @@ import Control.Monad
 import Control.Applicative
 
 data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Haskell | 
-                Html | Java | Javascript | Latex | LUA | Make | OCaml | ObjectiveC | 
+                Html | Java | Javascript | Latex | Make | OCaml | ObjectiveC | 
                 Perl | PHP | Python | Ruby | Scala | Tcl | Shell | Verilog | Vim
                     deriving (Read, Show, Eq, Ord, Bounded)
 
@@ -58,7 +58,6 @@ langMap = Map.fromList [
             (Java,      [Ext "java"]),
             (Javascript,[Ext "js"]),
             (Latex ,    [Ext "latex", Ext "tex"]),
-            (LUA ,      [Ext "lua"]),
             (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"]),
             (OCaml ,    [Ext "ml", Ext "mli"]),
             (ObjectiveC,[Ext "m", Ext "mi"]),

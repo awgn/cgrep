@@ -42,7 +42,6 @@ data FiltState = FiltState
 data ContextState = StateCode       | 
                     StateComment    | 
                     StateComment2   | 
-                    StateComment3   | 
                     StateLiteral    |
                     StateLiteral2
                         deriving (Eq, Show)
@@ -202,6 +201,31 @@ likeOCaml (p,c) filtstate@(FiltState StateLiteral _ _)
     | otherwise = (Literal, filtstate { pchar = app1 p c }) 
 likeOCaml (p,c) filtstate@(FiltState StateLiteral2 _ _)
     | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Literal, filtstate { pchar = app1 p c})
+
+
+likePHP :: FilterFunction
+likePHP (p,c) filtstate@(FiltState StateCode _ _) 
+    | p == "/"  && c == '*'  = (Code, filtstate { cstate = StateComment,   pchar = app1 p c })
+    | p == "/"  && c == '/'  = (Code, filtstate { cstate = StateComment2,  pchar = app1 p c })
+    |              c == '#'  = (Code, filtstate { cstate = StateComment2,  pchar = app3 p c })
+    |              c == '"'  = (Code, filtstate { cstate = StateLiteral,   pchar = app1 p c })
+    |              c == '\'' = (Code, filtstate { cstate = StateLiteral2,  pchar = app1 p c }) 
+    | p == "\\" && c == '\\' = (Code, filtstate { pchar = app1 p ' ' })
+    | otherwise = (Code, filtstate { pchar = app1 p c } )
+likePHP (_,c) filtstate@(FiltState StateComment2 _ _)
+    | c == '\n' = (Comment, filtstate { cstate = StateCode, pchar = app1 [] c })
+    | otherwise = (Comment, filtstate { pchar = app1 [] c })
+likePHP (p,c) filtstate@(FiltState StateComment _ _)
+    | p == "*" && c == '/'  = (Comment, filtstate { cstate = StateCode, pchar = app1 p c })
+    | otherwise = (Comment, filtstate { pchar = app1 p c })
+likePHP (p,c) filtstate@(FiltState StateLiteral _ _)
+    | p /= "\\" && c == '"'  = (Code,    filtstate { cstate = StateCode, pchar = app1 p c })
+    | p == "\\" && c == '\\' = (Literal, filtstate { pchar = app1 p ' '})
+    | otherwise = (Literal, filtstate { pchar = app1 p c }) 
+likePHP (p,c) filtstate@(FiltState StateLiteral2 _ _)
+    | p /= "\\" && c == '\'' = (Code, filtstate { cstate = StateCode, pchar = app1 p c })
+    | p == "\\" && c == '\\' = (Literal, filtstate { pchar = app1 p ' ' })
     | otherwise = (Literal, filtstate { pchar = app1 p c})
 
 
