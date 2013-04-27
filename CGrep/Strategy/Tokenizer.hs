@@ -70,7 +70,7 @@ mkContextFilter opt = if not (code opt && comment opt && literal opt)
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (\t ->  not . null $ slGrep (word opt) (invert_match opt) ps $ Cpp.toString t) 
+simpleTokenGrep opt _ ps = filter (not . null . slGrep (word opt) (invert_match opt) ps . Cpp.toString) 
 
 
 

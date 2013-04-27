@@ -105,7 +105,8 @@ getCgrepOptions :: IO CgrepOptions
 getCgrepOptions = do
     home <- getHomeDirectory
     conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
-                doesFileExist f >>= \b -> if b then return (Just f) else return Nothing
+                doesFileExist f >>= \b -> 
+                    return $ if b then Just f else Nothing
     if isJust conf then readFile (fromJust conf) >>= \xs -> return (read (rmCommentLines xs) :: CgrepOptions) 
                    else return $ CgrepOptions [] []
 
@@ -161,9 +162,9 @@ main = do
     -- load patterns:
     patterns <- (if null $ file opts then return [C.pack $ head $ others opts]
                                      else readPatternsFromFile $ file opts ) >>= \ps ->
-                    if ignore_case opts 
-                      then return $ map (C.map toLower) ps 
-                      else return ps
+                    return $ if ignore_case opts 
+                                then map (C.map toLower) ps 
+                                else ps
 
 
     -- check whether patterns require regex
@@ -227,9 +228,9 @@ main = do
     -- Dump output until workers are running  
 
     fix (\action n -> 
-        case n == jobs opts of 
-             True -> return ()
-             _ -> do
+         if jobs opts == n  
+            then return ()
+            else do
                  out <- atomically $ readTChan out_chan
                  case out of
                       [] -> action $ n+1

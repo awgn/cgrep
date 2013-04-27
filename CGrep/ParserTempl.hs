@@ -29,21 +29,18 @@ class DFABuilder a where
     l  :: a -> Q Exp         -- last match
 
 instance DFABuilder Char where
-    m cur = let c = mkName "c"
-               in [| cur == $(global c) |]
+    m cur = let c = mkName "c" in [| cur == $(global c) |]
     l _ = undefined
 
+
+mkInvariant xs = (mkName "c", mkName "p", init xs, last xs)
+
 instance DFABuilder String where
-    m xs = let c = mkName "c"
-               p = mkName "p"
-               pre = init xs
-               cur = last xs
+
+    m xs = let (c,p,pre,cur) = mkInvariant xs    
            in [| cur == $(global c) && pre `isSuffixOf` $(global p) |]
 
-    l xs = let c = mkName "c"
-               p = mkName "p"
-               pre = init xs
-               cur = last xs
+    l xs = let (c,p,pre,cur) = mkInvariant xs    
            in [| cur == $(global c) && not(pre `isSuffixOf` $(global p)) |]
 
 
