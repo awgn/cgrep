@@ -26,6 +26,7 @@ import CGrep.Function
 import CGrep.Options 
 import CGrep.StringLike
 
+
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
 

@@ -29,6 +29,7 @@ import CGrep.Lang
               
 import Data.List
 
+
 sanitizeOptions  :: FilePath -> Options -> Options
 sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
                             Nothing -> opt {identifier = False, keyword = False, directive = False, header = False, string = False, char = False, oper = False }
