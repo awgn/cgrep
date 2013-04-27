@@ -1,27 +1,15 @@
-# (C) 2011-13 Nicola Bonelli <nicola.bonelli@cnit.it>
-#
+MAKE_DIRECTORIES:= src
 
-# GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" -eventlog # -with-rtsopts="-N" 
-GHCFLAGS= --make -ddump-splices -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" # -prof -auto-all 
+.PHONY: all clean install
 
-INSTDIR=/usr/local
+all: $(MAKE_DIRECTORIES)
+clean: $(MAKE_DIRECTORIES)
+install: $(MAKE_DIRECTORIES)
 
-HC=ghc
+.PHONY: $(MAKE_DIRECTORIES)
 
-.PHONY: all clean install cgrep
+$(MAKE_DIRECTORIES):
+	        @$(MAKE) --keep-going --directory=$@ $(MAKECMDGOALS)
 
-all: cgrep 
-
-SRC = Main.hs
-
-
-cgrep: $(SRC) 
-		@mkdir -p bin/
-		$(HC) $(GHCFLAGS) $< -o bin/$@
-
-install: all
-		cp bin/cgrep ${INSTDIR}/bin/
-
-clean:
-	   @rm -f bin/cgrep
-	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi CGrep/Cpp/*.o CGrep/Cpp/*.hi CGrep/Strategy/*.o CGrep/Strategy/*.hi
+.PHONY: $(MAKECMDGOALS)
+	        $(MAKECMDGOALS): $(MAKE_DIRECTORIES)

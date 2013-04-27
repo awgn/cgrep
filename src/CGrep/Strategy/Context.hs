@@ -20,13 +20,15 @@ module CGrep.Strategy.Context (cgrepCppContext) where
 
 import qualified Data.ByteString.Char8 as C
 
+import Control.Monad (when)
+
 import CGrep.Function
 import CGrep.Options 
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
+import CGrep.Util
 
-import Control.Monad (when)
 
 
 cgrepCppContext :: CgrepFunction

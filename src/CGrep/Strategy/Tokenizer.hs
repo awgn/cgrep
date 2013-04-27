@@ -30,7 +30,7 @@ import CGrep.Lang
 
 import Control.Monad (when)
 
-import qualified CGrep.Cpp.Token  as Cpp
+import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
 
 cgrepCppTokenizer :: CgrepFunction

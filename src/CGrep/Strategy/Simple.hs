@@ -16,22 +16,27 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Function where
-
-import CGrep.Options
-import CGrep.Output
-import CGrep.StringLike
+module CGrep.Strategy.Simple (cgrepSimple) where
 
 import qualified Data.ByteString.Char8 as C
 
+import Control.Monad(liftM,when)
 
-type CgrepFunction = Options -> [C.ByteString] -> FilePath -> IO [Output] 
+import CGrep.Function
+import CGrep.Options 
+import CGrep.StringLike
+import CGrep.Util
 
+cgrepSimple :: CgrepFunction
+cgrepSimple opt ps f = do
 
-basicGrep :: (StringLike a) => Options -> FilePath -> [a] -> (Int, a) -> [Output]
-basicGrep opt f patterns (n, line) =
-    if null patfilt
-      then []
-      else [Output f n line (map slToString patfilt)]
-    where patfilt = slGrep (word opt) (invert_match opt) patterns line  
+    content <- liftM (zip [1..] . C.lines) $ if f == "" 
+                                              then slGetContents (ignore_case opt) 
+                                              else slReadFile (ignore_case opt) f
+
+    when (debug opt) $ do 
+        print opt
+        print content
+    
+    return $ concatMap (basicGrep opt f ps) content
 

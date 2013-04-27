@@ -22,7 +22,6 @@
 module CGrep.Parser  where
 
 import CGrep.ParserTempl
-import Data.List
 
 data Context = Code | Comment | Literal
                 deriving (Eq, Show)

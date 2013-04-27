@@ -18,7 +18,7 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Cpp.Token(Token(..), TokenFilter(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
+module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                             isHeaderName, isString, isChar, isOperOrPunct, 
                             tokens, tokenFilter)  where
 -- import Data.Int                                                             

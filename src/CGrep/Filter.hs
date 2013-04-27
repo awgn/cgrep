@@ -36,15 +36,30 @@ filterContext Nothing     _ src =  src
 filterContext (Just lang) filt src =  snd $ C.mapAccumL (fromJust $ Map.lookup lang filterMap) (FiltState StateCode filt []) src 
 
 
--- filter functions:
+-- filter function:
 --
 
 filterFunction :: FilterFunction -> FiltState -> Char -> (FiltState, Char) 
 filterFunction funFilt filtstate c = (state', charFilter (cxtFilter cxt (cfilter filtstate)) c)
                         where (cxt, state') = funFilt (pchar filtstate, c) filtstate
 
+{-# INLINE charFilter #-}
 
--- runFilter map:
+charFilter :: Bool -> Char -> Char
+charFilter  _  '\n' = '\n'
+charFilter  True  c =  c
+charFilter  _ _     = ' '
+
+
+{-# INLINE cxtFilter #-}
+
+cxtFilter :: Context -> ContextFilter -> Bool
+cxtFilter Code    = getCode 
+cxtFilter Comment = getComment 
+cxtFilter Literal = getLiteral 
+
+
+-- filter language map:
 --
     
 type FilterType =  FiltState -> Char -> (FiltState, Char) 
@@ -80,21 +95,5 @@ filterMap = Map.fromList [
             (Verilog,    filterFunction likeCpp),
             (Vim,        filterFunction likeVim)
            ]
-
-
-{-# INLINE charFilter #-}
-
-charFilter :: Bool -> Char -> Char
-charFilter  _  '\n' = '\n'
-charFilter  True  c =  c
-charFilter  _ _     = ' '
-
-
-{-# INLINE cxtFilter #-}
-
-cxtFilter :: Context -> ContextFilter -> Bool
-cxtFilter Code    = getCode 
-cxtFilter Comment = getComment 
-cxtFilter Literal = getLiteral 
 
 
