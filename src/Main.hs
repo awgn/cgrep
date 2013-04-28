@@ -51,16 +51,18 @@ import qualified Data.ByteString.Char8 as C
 getRecursiveContents :: FilePath -> [Lang] -> [String] -> IO [FilePath]
 
 getRecursiveContents topdir langs prunedir = do
+
   names <- getDirectoryContents topdir
   let properNames = filter (`notElem` [".", ".."]) names
   paths <- forM properNames $ \fname -> do
     let path = topdir </> fname
+    let filename = takeFileName path
     isDirectory <- doesDirectoryExist path
     if isDirectory
-      then if takeFileName path `elem` prunedir
+      then if filename `elem` prunedir
            then return []
            else getRecursiveContents path langs prunedir
-      else case lookupLang path >>= (`elemIndex` langs) of 
+      else case lookupLang filename >>= (`elemIndex` langs) of 
             Nothing -> return []
             _       -> return [path]
   return (concat paths)
