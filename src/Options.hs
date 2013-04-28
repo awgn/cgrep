@@ -49,6 +49,7 @@ data Options = Options
                 no_filename     :: Bool,
                 no_linenumber   :: Bool,
                 lang_map        :: Bool,
+                lang          :: [String],
                 
                 -- General:
                 jobs      :: Int,

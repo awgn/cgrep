@@ -56,6 +56,7 @@ options = cmdArgsMode $ Options
                 
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
+                lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
                 lang_map = False           &= help "show language -> ext map",
 
                 jobs   = 1                 &= help "number of jobs" &= groupname "General",
@@ -73,6 +74,18 @@ data  CgrepOptions = CgrepOptions
                         language :: [Lang],
                         pruneDir :: [String]
                     } deriving (Show,Read)
+
+
+-- parse cmdArg language list:
+--
+
+parseLangList :: [String] -> ([Lang], [Lang], [Lang])
+parseLangList  = foldl run ([],[],[]) 
+                    where run :: ([Lang], [Lang], [Lang]) -> String -> ([Lang], [Lang], [Lang])
+                          run (l1, l2, l3) l
+                            | ('+':xs) <- l = (l1, (prettyRead xs "Lang") : l2, l3)
+                            | ('-':xs) <- l = (l1, l2, (prettyRead xs "Lang") : l3)
+                            | otherwise     = ((prettyRead l  "Lang") : l1, l2, l3)  
 
 
 -- parse CgrepOptions from ~/.cgreprc, or /etc/cgreprc 
