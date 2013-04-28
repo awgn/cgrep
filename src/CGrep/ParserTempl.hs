@@ -19,9 +19,37 @@
 {-# LANGUAGE TemplateHaskell, QuasiQuotes, FlexibleInstances, TypeSynonymInstances #-} 
 
 module CGrep.ParserTempl where
-     
+
+import CGrep.ParserData
+
 import Data.List
 import Language.Haskell.TH
+
+
+parser1 :: Char -> Q Exp
+parser1 c0 = [| 
+              \(p,c) fs -> case fs of 
+              FiltState StateCode _ _ ->        case () of 
+                                                _  | c == c0      -> (Code, fs { cstate = StateComment,  pchar = [] })
+                                                   | c == '"'     -> (Code, fs { cstate = StateLiteral,  pchar = [] })
+                                                   | c == '\''    -> (Code, fs { cstate = StateLiteral2, pchar = [] }) 
+                                                   | otherwise    -> (Code, fs { pchar = app1 p c } )
+
+              FiltState StateComment _ _  ->    case () of 
+                                                _  | c == '\n'    -> (Comment, fs { cstate = StateCode, pchar = [] })
+                                                   | otherwise    -> (Comment, fs { pchar = app1 [] c })
+              
+              FiltState StateComment2 _ _  ->   undefined 
+
+              FiltState StateLiteral _ _  ->    case () of 
+                                                _  | c == '"' && p /= "\\"  -> (Code,    fs { cstate = StateCode, pchar = [] })
+                                                   | otherwise    -> (Literal, fs { pchar = app1 p c }) 
+
+              FiltState StateLiteral2 _ _  ->   case () of 
+                                                _  | c == '\'' && p /= "\\" -> (Code,    fs { cstate = StateCode, pchar = [] })
+                                                   | otherwise    -> (Literal, fs { pchar = app1 p c})
+             |]
+
 
 
 class DFABuilder a where

@@ -29,37 +29,12 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 -- Parser...
 --
 
-parser1 :: Char -> FilterFunction
-parser1 c0 (p,c) fs@(FiltState StateCode _ _) 
-    | c == c0           = (Code, fs { cstate = StateComment,  pchar = [] })
-    | $(m '"')          = (Code, fs { cstate = StateLiteral,  pchar = [] })
-    | $(m '\'')         = (Code, fs { cstate = StateLiteral2, pchar = [] }) 
-    | otherwise         = (Code, fs { pchar = app1 p c } )
+likeShell, likeErlang, likeLatex, likeVim :: FilterFunction
 
-parser1 _ (_,c) fs@(FiltState StateComment _ _)
-    | $(m '\n')         = (Comment, fs { cstate = StateCode, pchar = [] })
-    | otherwise         = (Comment, fs { pchar = app1 [] c })
-
-parser1 _ (p,c) fs@(FiltState StateLiteral _ _)
-    | $(l "\\\"")       = (Code,    fs { cstate = StateCode, pchar = [] })
-    | otherwise         = (Literal, fs { pchar = app1 p c }) 
-
-parser1 _ (p,c) fs@(FiltState StateLiteral2 _ _)
-    | $(l "\\'")        = (Code,    fs { cstate = StateCode, pchar = [] })
-    | otherwise         = (Literal, fs { pchar = app1 p c})
-
-
-likeShell :: FilterFunction
-likeShell = parser1 '#'
-
-likeErlang :: FilterFunction
-likeErlang = parser1 '%'
-
-likeLatex :: FilterFunction
-likeLatex = parser1 '%'
-
-likeVim :: FilterFunction
-likeVim = parser1 '"'
+likeShell  = $(parser1 '#')
+likeErlang = $(parser1 '%')
+likeLatex  = $(parser1 '%')
+likeVim    = $(parser1 '"')
 
 
 -- C/C++ ------------------
