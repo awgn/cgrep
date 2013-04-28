@@ -98,7 +98,7 @@ getCgrepOptions = do
     conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
                 doesFileExist f >>= \b -> 
                     return $ if b then Just f else Nothing
-    if isJust conf then readFile (fromJust conf) >>= \xs -> return (read (dropComments xs) :: CgrepOptions) 
+    if isJust conf then readFile (fromJust conf) >>= \xs -> return (prettyRead (dropComments xs) "CgrepOptions" :: CgrepOptions) 
                    else return $ CgrepOptions [] []
     where dropComments :: String -> String
           dropComments = unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines
