@@ -168,9 +168,7 @@ main = do
     -- Dump output until workers are running  
 
     fix (\action n -> 
-         if jobs opts == n  
-            then return ()
-            else do
+         unless (jobs opts == n) $ do
                  out <- atomically $ readTChan out_chan
                  case out of
                       [] -> action $ n+1

@@ -83,9 +83,9 @@ parseLangList :: [String] -> ([Lang], [Lang], [Lang])
 parseLangList  = foldl run ([],[],[]) 
                     where run :: ([Lang], [Lang], [Lang]) -> String -> ([Lang], [Lang], [Lang])
                           run (l1, l2, l3) l
-                            | ('+':xs) <- l = (l1, (prettyRead xs "Lang") : l2, l3)
-                            | ('-':xs) <- l = (l1, l2, (prettyRead xs "Lang") : l3)
-                            | otherwise     = ((prettyRead l  "Lang") : l1, l2, l3)  
+                            | '+':xs <- l = (l1, prettyRead xs "Lang" : l2, l3)
+                            | '-':xs <- l = (l1, l2, prettyRead xs "Lang" : l3)
+                            | otherwise   = (prettyRead l  "Lang" : l1, l2, l3)  
 
 
 -- parse CgrepOptions from ~/.cgreprc, or /etc/cgreprc 

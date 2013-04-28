@@ -127,7 +127,7 @@ instance StringLike LC.ByteString where
 
     slGrep wordmatch invert patterns s 
         | wordmatch = let ws = slWords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
-        | otherwise = map ((patterns!!) . snd) $ filter (\p -> (notNull $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
+        | otherwise = map ((patterns!!) . snd) $ filter (\p -> notNull (LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
 
     slReadFile ignoreCase f
         | ignoreCase = liftM (LC.map toLower) $ LC.readFile f 

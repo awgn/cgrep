@@ -42,7 +42,8 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 filterContext :: Maybe Lang -> ContextFilter -> Source -> Source
 
 filterContext Nothing     _ src =  src 
-filterContext (Just lang) filt src =  snd $ C.mapAccumL (fromJust $ Map.lookup lang filterMap) (FiltState StateCode filt []) src 
+filterContext (Just lang) filt src =  
+    snd $ C.mapAccumL (fromJust $ Map.lookup lang filterMap) (FiltState StateCode filt []) src 
 
 
 -- filter function:
@@ -56,7 +57,8 @@ filterFunction funFilt filtstate c = (state', charFilter (cxtFilter cxt (cfilter
 --
 
 
-likeShell, likeErlang, likeLatex, likeVim, likePython, likeCSS, likeOCaml, likeHtml, likeCpp, likeHaskell, likePerl, likeRuby, likeFsharp, likePHP :: FilterFunction
+likeShell, likeErlang, likeLatex, likeVim, likePython, likeCSS, likeOCaml, 
+    likeHtml, likeCpp, likeHaskell, likePerl, likeRuby, likeFsharp, likePHP :: FilterFunction
 
 likeShell   =  $(parser1 ("#",  "\n"))
 likeErlang  =  $(parser1 ("%",  "\n"))
