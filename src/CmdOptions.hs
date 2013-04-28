@@ -57,7 +57,7 @@ options = cmdArgsMode $ Options
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
                 lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
-                lang_map = False           &= help "show language -> ext map",
+                lang_map = False           &= help "show language list and extentions",
 
                 jobs   = 1                 &= help "number of jobs" &= groupname "General",
                 multiline = False          &= help "enable multi-line matching",

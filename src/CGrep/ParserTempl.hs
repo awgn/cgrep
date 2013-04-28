@@ -25,8 +25,9 @@ import Language.Haskell.TH
 
 
 class DFABuilder a where
-    m  :: a -> Q Exp         -- match
-    l  :: a -> Q Exp         -- last match
+    m  :: a -> Q Exp         -- full match
+    l  :: a -> Q Exp         -- last match (only the last char matches) 
+
 
 instance DFABuilder Char where
     m cur = let c = mkName "c" in [| cur == $(global c) |]
@@ -34,6 +35,7 @@ instance DFABuilder Char where
 
 
 mkInvariant xs = (mkName "c", mkName "p", init xs, last xs)
+
 
 instance DFABuilder String where
 
