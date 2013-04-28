@@ -47,8 +47,8 @@ options = cmdArgsMode $ Options
 
                 identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "C/C++ language",
                 keyword = False            &= help "keywords" &= explicit &= name "keyword",
-                directive = False          &= help "preproc directives" &= explicit &= name "directive",
-                header = False             &= help "headers name" &= explicit &= name "header",
+                directive = False          &= help "preprocessing directives" &= explicit &= name "directive",
+                header = False             &= help "headers names" &= explicit &= name "header",
                 number = False             &= help "literal numbers" &= explicit &= name "number",
                 string = False             &= help "literal strings" &= explicit &= name "string",
                 char = False               &= help "literal chars" &= explicit &= name "char",
@@ -57,7 +57,7 @@ options = cmdArgsMode $ Options
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
                 lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
-                lang_map = False           &= help "show language list and extentions",
+                lang_map = False           &= help "output list of language mapping",
 
                 jobs   = 1                 &= help "number of jobs" &= groupname "General",
                 multiline = False          &= help "enable multi-line matching",
