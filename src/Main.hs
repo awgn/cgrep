@@ -106,12 +106,16 @@ main = do
     let paths = if null $ file opts then tail $ others opts
                                     else others opts
 
+    -- parse cmd line language list:
+
+    let (l0, l1, l2) = parseLangList (lang opts)
+
 
     -- retrieve the list of files to parse
 
     files <- liftM (\l -> if null l && not isTerm then [""] else l) $
                 if recursive opts 
-                    then liftM concat $ forM paths $ \p -> getRecursiveContents p (language conf) (pruneDir conf)
+                    then liftM concat $ forM paths $ \p -> getRecursiveContents p ((if null l0 then language conf else l0 `union` l1) \\ l2) (pruneDir conf)
                     else filterM doesFileExist paths
 
     -- debug
