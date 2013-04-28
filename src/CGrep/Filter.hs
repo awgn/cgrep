@@ -22,7 +22,7 @@ module CGrep.Filter (Context(..), ContextFilter(..), filterContext)  where
 
 import CGrep.Template
 
-import CGrep.ParserData
+import CGrep.FilterData
 import CGrep.Lang
 
 import Data.Maybe

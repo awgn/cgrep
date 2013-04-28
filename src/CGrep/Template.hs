@@ -20,7 +20,7 @@
 
 module CGrep.Template where
 
-import CGrep.ParserData
+import CGrep.FilterData
 
 import Data.List
 import Language.Haskell.TH
@@ -44,11 +44,11 @@ parser1 (c0,c1) = [| \(p,c) fs -> case fs of
     FiltState StateComment3 _ _  ->     undefined 
 
     FiltState StateLiteral _ _  ->      case () of 
-                                         _  | c == '"' && p /= "\\"  -> (Code,    fs { cstate = StateCode, pchars = [] })
+                                         _  | c == '"' && p /= "\\"  -> (Code,    fs { pchars = [], cstate = StateCode })
                                             | otherwise              -> (Literal, fs { pchars = $(global app) p c }) 
 
     FiltState StateLiteral2 _ _  ->     case () of 
-                                         _  | c == '\'' && p /= "\\" -> (Code,    fs { cstate = StateCode, pchars = [] })
+                                         _  | c == '\'' && p /= "\\" -> (Code,    fs { pchars = [], cstate = StateCode })
                                             | otherwise              -> (Literal, fs { pchars = $(global app) p c })
     |]
         where len = max (length c0) (length c1)
@@ -59,28 +59,28 @@ parser2 :: (String, String) -> (String, String) -> Q Exp
 parser2 (c0,c1) (c2,c3) = [| \(p,c) fs -> case fs of 
 
     FiltState StateCode _ _ ->          case () of
-                                        _   | matches p c c0        -> (Code, fs { cstate = StateComment,  pchars = [] })
-                                            | matches p c c2        -> (Code, fs { cstate = StateComment2, pchars = [] })
-                                            | c == '"'              -> (Code, fs { cstate = StateLiteral,  pchars = [] })
-                                            | c == '\''             -> (Code, fs { cstate = StateLiteral2, pchars = [] }) 
+                                        _   | matches p c c0        -> (Code, fs { pchars = [], cstate = StateComment  })
+                                            | matches p c c2        -> (Code, fs { pchars = [], cstate = StateComment2 })
+                                            | c == '"'              -> (Code, fs { pchars = [], cstate = StateLiteral  })
+                                            | c == '\''             -> (Code, fs { pchars = [], cstate = StateLiteral2 }) 
                                             | otherwise             -> (Code, fs { pchars  = $(global app) p c } )
 
     FiltState StateComment _ _ ->       case () of
-                                        _   | matches p c c1        -> (Comment, fs { cstate = StateCode, pchars = [] })
+                                        _   | matches p c c1        -> (Comment, fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Comment, fs { pchars = $(global app) p c })
     
     FiltState StateComment2 _ _ ->      case () of
-                                        _   | matches p c c3        -> (Comment, fs { cstate = StateCode, pchars = [] })
+                                        _   | matches p c c3        -> (Comment, fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Comment, fs { pchars = $(global app) [] c })
 
     FiltState StateComment3 _ _  ->     undefined 
     
     FiltState StateLiteral _ _ ->       case () of
-                                        _   | mlast p c "\\\""      -> (Code,    fs { cstate = StateCode, pchars = [] })
+                                        _   | mlast p c "\\\""      -> (Code,    fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Literal, fs { pchars = $(global app) p c }) 
     
     FiltState StateLiteral2 _ _ ->      case () of
-                                        _   | mlast p c "\\\'"      -> (Code,    fs { cstate = StateCode, pchars = [] })
+                                        _   | mlast p c "\\\'"      -> (Code,    fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Literal, fs { pchars = $(global app) p c})
     |]
         where len = max (length c0) (length c1)
@@ -91,31 +91,31 @@ parser3 :: (String, String) -> (String, String) -> (String,String) -> Q Exp
 parser3 (c0,c1) (c2,c3) (c4,c5) = [| \(p,c) fs -> case fs of 
 
     FiltState StateCode _ _ ->          case () of
-                                        _   | matches p c c0        -> (Code, fs { cstate = StateComment,  pchars = [] })
-                                            | matches p c c2        -> (Code, fs { cstate = StateComment2, pchars = [] })
-                                            | matches p c c4        -> (Code, fs { cstate = StateComment3, pchars = [] })
-                                            | c == '"'              -> (Code, fs { cstate = StateLiteral,  pchars = [] })
-                                            | c == '\''             -> (Code, fs { cstate = StateLiteral2, pchars = [] }) 
+                                        _   | matches p c c0        -> (Code, fs { pchars = [], cstate = StateComment  })
+                                            | matches p c c2        -> (Code, fs { pchars = [], cstate = StateComment2 })
+                                            | matches p c c4        -> (Code, fs { pchars = [], cstate = StateComment3 })
+                                            | c == '"'              -> (Code, fs { pchars = [], cstate = StateLiteral  })
+                                            | c == '\''             -> (Code, fs { pchars = [], cstate = StateLiteral2 }) 
                                             | otherwise             -> (Code, fs { pchars  = $(global app) p c } )
 
     FiltState StateComment _ _ ->       case () of
-                                        _   | matches p c c1        -> (Comment, fs { cstate = StateCode, pchars = [] })
+                                        _   | matches p c c1        -> (Comment, fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Comment, fs { pchars = $(global app) p c })
     
     FiltState StateComment2 _ _ ->      case () of
-                                        _   | matches p c c3        -> (Comment, fs { cstate = StateCode, pchars = [] })
+                                        _   | matches p c c3        -> (Comment, fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Comment, fs { pchars = $(global app) [] c })
 
     FiltState StateComment3 _ _ ->      case () of
-                                        _   | matches p c c5        -> (Comment, fs { cstate = StateCode, pchars = [] })
+                                        _   | matches p c c5        -> (Comment, fs { pchars = [], cstate = StateCode  })
                                             | otherwise             -> (Comment, fs { pchars = $(global app) [] c })
     
     FiltState StateLiteral _ _ ->       case () of
-                                        _   | mlast p c "\\\""      -> (Code,    fs { cstate = StateCode, pchars = [] })
+                                        _   | mlast p c "\\\""      -> (Code,    fs { pchars = [], cstate = StateCode })
                                             | otherwise             -> (Literal, fs { pchars = $(global app) p c }) 
     
     FiltState StateLiteral2 _ _ ->      case () of
-                                        _   | mlast p c "\\\'"      -> (Code,    fs { cstate = StateCode, pchars = [] })
+                                        _   | mlast p c "\\\'"      -> (Code,    fs { pchars = [], cstate = StateCode })
                                             | otherwise             -> (Literal, fs { pchars = $(global app) p c})
     |]
         where len = max (length c0) (length c1)
