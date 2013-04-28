@@ -21,32 +21,8 @@
 
 module CGrep.Parser  where
 
+import CGrep.ParserData
 import CGrep.ParserTempl
-
-data Context = Code | Comment | Literal
-                deriving (Eq, Show)
-
-
-data ContextFilter = ContextFilter { getCode    :: Bool,
-                                     getComment :: Bool,
-                                     getLiteral :: Bool 
-                     } deriving (Eq, Show)
-
-data FiltState = FiltState 
-                 {
-                    cstate  :: ContextState,
-                    cfilter :: ContextFilter,
-                    pchar   :: String
-                 } deriving (Eq, Show)
-
-
-
-data ContextState = StateCode       | 
-                    StateComment    | 
-                    StateComment2   | 
-                    StateLiteral    |
-                    StateLiteral2
-                        deriving (Eq, Show)
 
 type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 

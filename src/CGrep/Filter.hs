@@ -20,8 +20,9 @@
 module CGrep.Filter (Context(..), ContextFilter(..), filterContext)  where
 
 import CGrep.Parser
-
+import CGrep.ParserData
 import CGrep.Lang
+
 import Data.Maybe
 
 import qualified Data.ByteString.Char8 as C
@@ -29,6 +30,11 @@ import qualified Data.Map as Map
 
 
 type Source = C.ByteString
+
+
+-- filter Context:
+--
+
 
 filterContext :: Maybe Lang -> ContextFilter -> Source -> Source
 
