@@ -16,10 +16,12 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE TemplateHaskell #-} 
 
 module CGrep.Filter (Context(..), ContextFilter(..), filterContext)  where
 
-import CGrep.Parser
+import CGrep.Template
+
 import CGrep.ParserData
 import CGrep.Lang
 
@@ -31,6 +33,7 @@ import qualified Data.Map as Map
 
 type Source = C.ByteString
 
+type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 
 -- filter Context:
 --
@@ -47,7 +50,31 @@ filterContext (Just lang) filt src =  snd $ C.mapAccumL (fromJust $ Map.lookup l
 
 filterFunction :: FilterFunction -> FiltState -> Char -> (FiltState, Char) 
 filterFunction funFilt filtstate c = (state', charFilter (cxtFilter cxt (cfilter filtstate)) c)
-                        where (cxt, state') = funFilt (pchar filtstate, c) filtstate
+                        where (cxt, state') = funFilt (pchars filtstate, c) filtstate
+
+-- parsers templates:
+--
+
+
+likeShell, likeErlang, likeLatex, likeVim, likePython, likeCSS, likeOCaml, likeHtml, likeCpp, likeHaskell, likePerl, likeRuby, likeFsharp, likePHP :: FilterFunction
+
+likeShell   =  $(parser1 ("#",  "\n"))
+likeErlang  =  $(parser1 ("%",  "\n"))
+likeLatex   =  $(parser1 ("%",  "\n"))
+likeVim     =  $(parser1 ("\"", "\n"))
+likePython  =  $(parser1 ("#",  "\n"))
+likeCSS     =  $(parser1 ("/*",  "*/"))
+likeOCaml   =  $(parser1 ("(*",  "*)"))
+likeHtml    =  $(parser1 ("<!--",  "-->"))
+
+likeCpp     =  $(parser2 ("/*", "*/") ("//", "\n"))
+likeHaskell =  $(parser2 ("{-", "-}") ("--", "\n"))
+likePerl    =  $(parser2 ("=pod", "=cut") ("#", "\n"))
+likeRuby    =  $(parser2 ("=begin", "=end") ("#", "\n"))
+likeFsharp  =  $(parser2 ("(*", "*)") ("//", "\n"))
+
+likePHP     =  $(parser3 ("#", "\n") ("/*", "*/") ("//", "\n"))
+
 
 {-# INLINE charFilter #-}
 

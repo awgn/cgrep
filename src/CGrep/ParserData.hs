@@ -27,7 +27,7 @@ data FiltState = FiltState
                  {
                     cstate  :: ContextState,
                     cfilter :: ContextFilter,
-                    pchar   :: String
+                    pchars  :: String
                  } deriving (Eq, Show)
 
 
@@ -40,6 +40,7 @@ data ContextFilter = ContextFilter { getCode    :: Bool,
 data ContextState = StateCode       | 
                     StateComment    | 
                     StateComment2   | 
+                    StateComment3   | 
                     StateLiteral    |
                     StateLiteral2
                         deriving (Eq, Show)
