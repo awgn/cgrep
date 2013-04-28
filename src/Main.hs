@@ -112,19 +112,25 @@ main = do
 
     let (l0, l1, l2) = parseLangList (lang opts)
 
+    -- language enabled:
+
+    let lang_enabled = (if null l0 then language conf else l0 `union` l1) \\ l2
+
+    when (debug opts) $ 
+        putStrLn $ "languages : " ++ show lang_enabled
 
     -- retrieve the list of files to parse
 
     files <- liftM (\l -> if null l && not isTerm then [""] else l) $
                 if recursive opts 
-                    then liftM concat $ forM paths $ \p -> getRecursiveContents p ((if null l0 then language conf else l0 `union` l1) \\ l2) (pruneDir conf)
+                    then liftM concat $ forM paths $ \p -> getRecursiveContents p lang_enabled (pruneDir conf)
                     else filterM doesFileExist paths
 
     -- debug
    
     when (debug opts) $ do
-        putStrLn ("pattern: " ++ show patterns)
-        putStrLn ("files  : " ++ show files) 
+        putStrLn ("pattern   : " ++ show patterns)
+        putStrLn ("files     : " ++ show files) 
 
     -- create Transactional Chan and Vars...
     --
