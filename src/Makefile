@@ -1,8 +1,8 @@
 # (C) 2011-13 Nicola Bonelli <nicola.bonelli@cnit.it>
 #
 
-GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" -eventlog # -with-rtsopts="-N" 
-#GHCFLAGS= --make -ddump-splices -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" # -prof -auto-all 
+#GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" -eventlog # -with-rtsopts="-N" 
+GHCFLAGS= --make -ddump-splices -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" # -prof -auto-all 
 
 INSTDIR=/usr/local
 
