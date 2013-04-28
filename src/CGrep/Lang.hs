@@ -19,7 +19,7 @@
 module CGrep.Lang where
 
 import qualified Data.Map as Map
-import System.FilePath(takeExtension)
+import System.FilePath(takeExtension, takeFileName)
 import Control.Monad 
 import Control.Applicative
 
@@ -79,7 +79,7 @@ langRevMap = Map.fromList $ concatMap (\(lang, xs) -> map (\x -> (x,lang)) xs ) 
 -- utility functions 
 
 lookupLang :: FilePath -> Maybe Lang
-lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap <|> Map.lookup (Name f) langRevMap 
+lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap <|> Map.lookup (Name $ takeFileName f) langRevMap 
 
 
 dumpLangMap :: LangMapType -> IO ()
