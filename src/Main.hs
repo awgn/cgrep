@@ -37,12 +37,12 @@ import System.Environment
 import System.IO
 import System.Exit
 
-import CGrep.Options
 import CGrep.Output
 import CGrep.CGrep
 import CGrep.Lang
 
 import CmdOptions
+import Options
 
 import qualified Data.ByteString.Char8 as C
 

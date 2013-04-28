@@ -18,7 +18,6 @@
 
 module CGrep.CGrep where
 
-import CGrep.Options
 import CGrep.Function
 
 import CGrep.Strategy.Regex
@@ -28,6 +27,7 @@ import CGrep.Strategy.Tokenizer
 import CGrep.Lang
               
 import Data.List
+import Options
 
 
 sanitizeOptions  :: FilePath -> Options -> Options

@@ -23,9 +23,10 @@ import qualified Data.ByteString.Char8 as C
 import Control.Monad(liftM,when)
 
 import CGrep.Function
-import CGrep.Options 
 import CGrep.StringLike
 import CGrep.Util
+
+import Options 
 
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do

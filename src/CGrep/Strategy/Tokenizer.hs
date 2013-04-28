@@ -23,12 +23,13 @@ import qualified Data.ByteString.Char8 as C
 
 import CGrep.Function
 import CGrep.Output
-import CGrep.Options 
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
 
 import Control.Monad (when)
+
+import Options 
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 

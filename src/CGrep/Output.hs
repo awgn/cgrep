@@ -20,8 +20,8 @@
 
 module CGrep.Output where
 
-import CGrep.Options
 import CGrep.StringLike
+import Options
 
 data Output = forall a. (StringLike a) => Output FilePath Int a [String]
 

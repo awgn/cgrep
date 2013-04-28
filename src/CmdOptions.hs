@@ -28,10 +28,10 @@ import Data.List (isPrefixOf)
 import Data.Char
 import Data.Maybe(isJust,fromJust)
 
-import CGrep.Options
 import CGrep.Lang
 
 import Config
+import Options
 
 
 options = cmdArgsMode $ Options 

@@ -18,10 +18,10 @@
 
 module CGrep.Util where
 
-import CGrep.Options
 import CGrep.Output
 import CGrep.StringLike
 
+import Options
 
 basicGrep :: (StringLike a) => Options -> FilePath -> [a] -> (Int, a) -> [Output]
 basicGrep opt f patterns (n, line) =

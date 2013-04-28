@@ -18,7 +18,7 @@
 
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module CGrep.Options where
+module Options where
 
 import Data.Data
 

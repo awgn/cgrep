@@ -23,7 +23,6 @@ module CGrep.Strategy.Regex (cgrepRegex) where
 import qualified Data.ByteString.Char8 as C
 
 import CGrep.Function
-import CGrep.Options 
 import CGrep.StringLike
 import CGrep.Output
 import CGrep.Filter 
@@ -33,6 +32,7 @@ import Control.Monad (when)
 
 import Text.Regex.Posix
 
+import Options 
 
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
