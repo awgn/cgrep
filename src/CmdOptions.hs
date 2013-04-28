@@ -26,7 +26,7 @@ import Control.Monad
 
 import Data.List (isPrefixOf)
 import Data.Char
-import Data.Maybe(isJust,fromJust)
+import Data.Maybe
 
 import CGrep.Lang
 
@@ -89,4 +89,16 @@ getCgrepOptions = do
                    else return $ CgrepOptions [] []
     where dropComments :: String -> String
           dropComments = unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines
+
+
+prettyRead :: Read a => String -> String -> a
+prettyRead xs ys = case value of
+                        Just v -> v
+                        _      -> error $ "parse error: '" ++ xs ++ "' bad " ++ ys ++ "!"
+                   where value = readMaybe xs
+              
+
+readMaybe :: Read a => String -> Maybe a
+readMaybe = fmap fst . listToMaybe . reads
+
 
