@@ -33,6 +33,7 @@ import Control.Monad (when)
 import Text.Regex.Posix
 
 import Options 
+import Util
 
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
@@ -61,7 +62,4 @@ basicRegex opt f patterns (n, line) =
       else [Output f n line (map slToString patfilt)]
     where patfilt = filter (\p -> (line =~ p :: Bool) `xor` invert_match opt) patterns   
 
-
-xor :: Bool -> Bool -> Bool
-a `xor` b = a && not b || not a && b
 

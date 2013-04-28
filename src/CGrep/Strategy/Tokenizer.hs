@@ -26,10 +26,10 @@ import CGrep.Output
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
-
 import Control.Monad (when)
 
 import Options 
+import Util
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
@@ -71,7 +71,7 @@ mkContextFilter opt = if not (code opt && comment opt && literal opt)
 
 
 simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (not . null . slGrep (word opt) (invert_match opt) ps . Cpp.toString) 
+simpleTokenGrep opt _ ps = filter (notNull . slGrep (word opt) (invert_match opt) ps . Cpp.toString) 
 
 
 

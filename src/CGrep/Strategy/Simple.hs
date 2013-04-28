@@ -24,7 +24,7 @@ import Control.Monad(liftM,when)
 
 import CGrep.Function
 import CGrep.StringLike
-import CGrep.Util
+import CGrep.Common
 
 import Options 
 

@@ -24,7 +24,6 @@ module CGrep.StringLike(StringLike(..), toStrict) where
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
 
--- import Data.ByteString.Search as C
 import Data.ByteString.Lazy.Search as LC
 
 import Data.Function
@@ -34,13 +33,7 @@ import Data.List
 
 import Control.Monad (liftM)
 
-
-xor :: Bool -> Bool -> Bool
-a `xor` b = a && not b || not a && b
-
-
-toStrict :: LC.ByteString -> C.ByteString
-toStrict = C.concat . LC.toChunks
+import Util
 
 
 -- | StringLike class
@@ -134,7 +127,7 @@ instance StringLike LC.ByteString where
 
     slGrep wordmatch invert patterns s 
         | wordmatch = let ws = slWords s in filter (\p -> (p `elem` ws) `xor` invert) patterns   
-        | otherwise = map ((patterns!!) . snd) $ filter (\p -> (not . null $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
+        | otherwise = map ((patterns!!) . snd) $ filter (\p -> (notNull $ LC.indices (fst p) s) `xor` invert) (zip (map toStrict patterns) [0..])
 
     slReadFile ignoreCase f
         | ignoreCase = liftM (LC.map toLower) $ LC.readFile f 

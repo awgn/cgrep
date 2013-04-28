@@ -26,7 +26,7 @@ import CGrep.Function
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
-import CGrep.Util
+import CGrep.Common
 
 import Options 
 

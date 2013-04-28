@@ -16,12 +16,13 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Util where
+module CGrep.Common where
 
 import CGrep.Output
 import CGrep.StringLike
 
 import Options
+
 
 basicGrep :: (StringLike a) => Options -> FilePath -> [a] -> (Int, a) -> [Output]
 basicGrep opt f patterns (n, line) =
