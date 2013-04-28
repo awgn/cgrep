@@ -16,7 +16,7 @@ SRC = Main.hs
 
 
 cgrep: $(SRC) 
-		@mkdir -p bin/
+		@mkdir -p ../bin/
 		$(HC) $(GHCFLAGS) $< -o ../bin/$@
 
 install: all
