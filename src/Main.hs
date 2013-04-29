@@ -144,9 +144,7 @@ main = do
         fix (\action -> do 
                 f <- atomically $ readTChan in_chan
                 case f of 
-                     Nothing -> do   
-                         atomically $ writeTChan out_chan []
-                         return ()
+                     Nothing -> atomically $ writeTChan out_chan []
                      Just f' -> do
                         out <- let op = sanitizeOptions f' opts in cgrepDispatch op op patterns f'
                         unless (null out) $ atomically $ writeTChan out_chan out 
@@ -167,8 +165,10 @@ main = do
 
     -- Dump output until workers are running  
 
+    let stop = jobs opts
+
     fix (\action n -> 
-         unless (jobs opts == n) $ do
+         unless (n == stop) $ do
                  out <- atomically $ readTChan out_chan
                  case out of
                       [] -> action $ n+1
