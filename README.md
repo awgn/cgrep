@@ -1,10 +1,10 @@
-CodeGrep. Advanced grep tool for source codes
-=============================================
+CGrep. A context-aware multi-language grep tool for source codes
+================================================================
 
 Usage
 -----
 
-Cgrep 2.4. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 2.6. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -36,7 +36,9 @@ Output control:
 
     -h --no-filename    suppress the file name prefix on output
     -N --no-line-umber  suppress the line number on output lines
-       --lang-map       show language -> ext map
+       --lang=ITEM      specify languages to grep for. ie: Cpp, +Haskell,
+                        -Makefile
+       --lang-map       output list of language mapping
 
 General:
 
