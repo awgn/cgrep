@@ -57,7 +57,7 @@ langMap = Map.fromList [
             (Html,      [Ext "htm", Ext "html"]),
             (Java,      [Ext "java"]),
             (Javascript,[Ext "js"]),
-            (Latex ,    [Ext "latex", Ext "tex"]),
+            (Latex,     [Ext "latex", Ext "tex"]),
             (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"]),
             (OCaml ,    [Ext "ml", Ext "mli"]),
             (ObjectiveC,[Ext "m", Ext "mi"]),

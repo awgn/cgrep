@@ -67,7 +67,7 @@ likeVim     =  $(parser1 ("\"", "\n"))
 likePython  =  $(parser1 ("#",  "\n"))
 likeCSS     =  $(parser1 ("/*",  "*/"))
 likeOCaml   =  $(parser1 ("(*",  "*)"))
-likeHtml    =  $(parser1 ("<!--",  "-->"))
+likeHtml    =  $(parser1 ("<!--","-->"))
 
 likeCpp     =  $(parser2 ("/*", "*/") ("//", "\n"))
 likeHaskell =  $(parser2 ("{-", "-}") ("--", "\n"))
