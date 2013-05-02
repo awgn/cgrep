@@ -37,7 +37,7 @@ parser1 (c0,c1) = [| \(p,c) fs -> case fs of
 
     FiltState StateComment _ _  ->      case () of 
                                          _ | matches p c c1 -> (Comment, fs { pchars = [], cstate = StateCode })
-                                           | otherwise      -> (Comment, fs { pchars = $(global app) [] c })
+                                           | otherwise      -> (Comment, fs { pchars = $(global app) p c })
      
     FiltState StateComment2 _ _  ->     undefined 
 
@@ -71,7 +71,7 @@ parser2 (c0,c1) (c2,c3) = [| \(p,c) fs -> case fs of
     
     FiltState StateComment2 _ _ ->      case () of
                                         _   | matches p c c3        -> (Comment, fs { pchars = [], cstate = StateCode  })
-                                            | otherwise             -> (Comment, fs { pchars = $(global app) [] c })
+                                            | otherwise             -> (Comment, fs { pchars = $(global app) p c })
 
     FiltState StateComment3 _ _  ->     undefined 
     
@@ -104,11 +104,11 @@ parser3 (c0,c1) (c2,c3) (c4,c5) = [| \(p,c) fs -> case fs of
     
     FiltState StateComment2 _ _ ->      case () of
                                         _   | matches p c c3        -> (Comment, fs { pchars = [], cstate = StateCode  })
-                                            | otherwise             -> (Comment, fs { pchars = $(global app) [] c })
+                                            | otherwise             -> (Comment, fs { pchars = $(global app) p c })
 
     FiltState StateComment3 _ _ ->      case () of
                                         _   | matches p c c5        -> (Comment, fs { pchars = [], cstate = StateCode  })
-                                            | otherwise             -> (Comment, fs { pchars = $(global app) [] c })
+                                            | otherwise             -> (Comment, fs { pchars = $(global app) p c })
     
     FiltState StateLiteral _ _ ->       case () of
                                         _   | mlast p c "\\\""      -> (Code,    fs { pchars = [], cstate = StateCode })
