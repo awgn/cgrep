@@ -50,7 +50,7 @@ cgrepCppTokenizer opt ps f = do
                                                              Cpp.filtString     = string opt,
                                                              Cpp.filtNumber     = number opt,
                                                              Cpp.filtChar       = char opt,
-                                                             Cpp.filtOper       = oper opt}) (Cpp.tokens source)
+                                                             Cpp.filtOper       = oper opt}) (Cpp.tokens filtered)
 
     when (debug opt) $ do 
         C.putStrLn filtered
