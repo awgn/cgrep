@@ -150,36 +150,41 @@ mlast :: String -> Char -> String -> Char -> Bool
 mlast p c pre cur = cur == c && not (pre `isSuffixOf` p) 
 
 
-
 {-# INLINE app0 #-}
+
 app0 :: String -> Char -> String
 app0 _ c = [c]
 
 
 {-# INLINE app1 #-}
+
 app1 :: String -> Char -> String
 app1 _ c = [c]
 
 
 {-# INLINE app2 #-}
+
 app2 :: String -> Char -> String
 app2 (_:x:[]) c = [x,c]
 app2 xs c = xs ++ [c]
 
 
 {-# INLINE app3 #-}
+
 app3 :: String -> Char -> String
 app3 (_:x:y:[]) c = [x,y,c]
 app3 xs c = xs ++ [c]
 
 
 {-# INLINE app4 #-}
+
 app4 :: String -> Char -> String
 app4 (_:x:y:z:[]) c = [x,y,z,c]
 app4 xs c = xs ++ [c]
 
 
 {-# INLINE app5 #-}
+
 app5 :: String -> Char -> String
 app5 (_:x:y:w:z:[]) c = [x,y,w,z,c]
 app5 xs c = xs ++ [c]
