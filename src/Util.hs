@@ -24,7 +24,12 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 
 toStrict :: LC.ByteString -> C.ByteString
 toStrict = C.concat . LC.toChunks
-
+ 
+ 
+toMaybe :: a -> Bool -> Maybe a
+toMaybe a True  = Just a
+toMaybe _ False = Nothing
+    
 
 notNull :: [a] -> Bool
 notNull = not . null
