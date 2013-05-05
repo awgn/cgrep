@@ -30,6 +30,8 @@ import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 
 import Control.Monad 
+import Control.Applicative
+
 import System.Console.CmdArgs
 import System.Directory
 import System.FilePath ((</>), takeFileName)
@@ -43,6 +45,7 @@ import CGrep.Lang
 
 import CmdOptions
 import Options
+import Util
 
 import qualified Data.ByteString.Char8 as C
 
@@ -63,7 +66,7 @@ getRecursiveContents topdir langs prunedir =
                     then if filename `elem` prunedir
                          then return []
                          else getRecursiveContents path langs prunedir
-                    else case lookupLang filename >>= (`elemIndex` langs) of 
+                    else case lookupLang filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of 
                             Nothing -> return []
                             _       -> return [path]
            else return [[topdir]]

@@ -4,7 +4,7 @@ CGrep. A context-aware multi-language grep tool for source codes
 Usage
 -----
 
-Cgrep 2.6. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 2.7. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
