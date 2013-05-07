@@ -49,31 +49,27 @@ import Util
 
 import qualified Data.ByteString.Char8 as C
 
--- from Realworld in Haskell...
+-- push file names in TChan...
 
-getRecursiveContents :: FilePath -> [Lang] -> [String] -> IO [FilePath]
-
-getRecursiveContents topdir langs prunedir = 
-  liftM concat $ do
+putRecursiveContents :: TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> IO ()
+putRecursiveContents inchan topdir langs prunedir = do
     dir <-  doesDirectoryExist topdir 
     if dir then do
             names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents topdir
-            forM names $ \n -> do
+            forM_ names $ \n -> do
                 let path = topdir </> n
                 let filename = takeFileName path
                 isDirectory <- doesDirectoryExist path
                 if isDirectory
-                    then if filename `elem` prunedir
-                         then return []
-                         else getRecursiveContents path langs prunedir
+                    then unless (filename `elem` prunedir) $ 
+                         putRecursiveContents inchan path langs prunedir
                     else case lookupLang filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of 
-                            Nothing -> return []
-                            _       -> return [path]
-           else return [[topdir]]
+                            Nothing -> return ()
+                            _       -> atomically $ writeTChan inchan (Just path)
+           else atomically $ writeTChan inchan (Just topdir)
 
 
 -- read patterns from file
-
 
 readPatternsFromFile :: FilePath -> IO [C.ByteString]
 readPatternsFromFile f = 
@@ -84,7 +80,7 @@ readPatternsFromFile f =
 
 main :: IO ()
 main = do
-
+    
     -- read command-line options 
     opts  <- cmdArgsRun options
     
@@ -109,6 +105,7 @@ main = do
     isTerm <- hIsTerminalDevice stdin
 
     -- retrieve files to parse
+    
     let paths = if null $ file opts then tail $ others opts
                                     else others opts
 
@@ -120,29 +117,19 @@ main = do
 
     let lang_enabled = (if null l0 then language conf else l0 `union` l1) \\ l2
 
-    when (debug opts) $ 
-        putStrLn $ "languages : " ++ show lang_enabled
-
-    -- retrieve the list of files to parse
-
-    files <- liftM (\l -> if null l && not isTerm then [""] else l) $
-                if recursive opts 
-                    then liftM concat $ forM paths $ \p -> getRecursiveContents p lang_enabled (pruneDir conf)
-                    else filterM doesFileExist paths
-
-    -- debug
-   
     when (debug opts) $ do
-        putStrLn ("pattern   : " ++ show patterns)
-        putStrLn ("files     : " ++ show files) 
+        putStrLn $ "languages : " ++ show lang_enabled
+        putStrLn $ "pattern   : " ++ show patterns
+        putStrLn $ "isTerm    : " ++ show isTerm 
+
 
     -- create Transactional Chan and Vars...
-    --
    
     in_chan  <- newTChanIO 
     out_chan <- newTChanIO
-
-    -- Launch worker threads...
+    
+    
+    -- launch worker threads...
 
     forM_ [1 .. jobs opts] $ \_ -> forkIO $ 
         fix (\action -> do 
@@ -157,17 +144,22 @@ main = do
             )   
 
 
-    -- This thread push files name in in_chan:
+    -- push the files to grep for...
     
-    mapM_ (atomically . writeTChan in_chan . Just) files 
+    _ <- forkIO $ do
 
+        if recursive opts
+            then forM_ paths $ \p -> putRecursiveContents in_chan p lang_enabled (pruneDir conf)
+            else do
+                files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
+                forM_ files (atomically . writeTChan in_chan . Just)
+    
+        -- enqueue finish messages:
 
-    -- Enqueue finish message:
+        mapM_ (atomically . writeTChan in_chan) $ replicate (jobs opts) Nothing 
+
    
-    mapM_ (atomically . writeTChan in_chan) $ replicate (jobs opts) Nothing 
-   
-
-    -- Dump output until workers are running  
+    -- dump output until workers are running  
 
     let stop = jobs opts
 
