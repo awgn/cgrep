@@ -2,7 +2,7 @@
 #
 
 #GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -with-rtsopts="-A1G -N" -eventlog # -with-rtsopts="-N" 
-GHCFLAGS= --make -ddump-splices -O2 -Wall -threaded -rtsopts -with-rtsopts="-A128M -k8M -N" # -prof -auto-all 
+GHCFLAGS= --make -ddump-splices -O2 -Wall -threaded -rtsopts -with-rtsopts="-A128M -N" # -prof -auto-all 
 
 INSTDIR=/usr/local
 
