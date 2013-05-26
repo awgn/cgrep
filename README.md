@@ -1,5 +1,5 @@
-CGrep. A context-aware grep tool for source codes
-=================================================
+CGrep: a context-aware grep for source codes
+============================================
 
 Usage
 -----
