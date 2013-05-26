@@ -18,10 +18,12 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), isIdentifier, isKeyword, isDirective, isLiteralNumber, 
-                            isHeaderName, isString, isChar, isOperOrPunct, 
-                            tokens, tokenFilter)  where
--- import Data.Int                                                             
+module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), tokenizer, tokenFilter, 
+                            isIdentifier, isKeyword, isDirective, isLiteralNumber, 
+                            isHeaderName, isString, isChar, isOperOrPunct 
+                            )  where
+-- import Data.Int
+
 import Data.Char 
 import Data.Maybe
 import Data.Set as S
@@ -38,14 +40,13 @@ type Offset = Int
 type Lineno = Int
 
 
--- Tokenize the source code in a list 
+-- Tokenize the source code in a list of Token 
 -- Precondition: the c++ source code must be well-formed
 --
 
-tokens :: Source -> [Token]
-tokens xs = runGetToken (ys, n, l, Null)  
-            where
-                (ys,n, l) = dropWhite xs
+tokenizer :: Source -> [Token]
+tokenizer xs = runGetToken (ys, n, l, Null)  
+            where (ys,n, l) = dropWhite xs
 
 
 data TokenFilter = TokenFilter 

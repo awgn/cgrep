@@ -42,7 +42,6 @@ cgrepCppTokenizer opt ps f = do
 
     let filtered = filterContext (lookupLang f) (mkContextFilter opt) source
     
-    
     let tks      = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
                                                              Cpp.filtDirective  = directive opt,
                                                              Cpp.filtKeyword    = keyword opt,
@@ -50,7 +49,7 @@ cgrepCppTokenizer opt ps f = do
                                                              Cpp.filtString     = string opt,
                                                              Cpp.filtNumber     = number opt,
                                                              Cpp.filtChar       = char opt,
-                                                             Cpp.filtOper       = oper opt}) (Cpp.tokens filtered)
+                                                             Cpp.filtOper       = oper opt}) (Cpp.tokenizer filtered)
 
     when (debug opt) $ do 
         C.putStrLn filtered
