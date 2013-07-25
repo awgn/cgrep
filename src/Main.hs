@@ -156,7 +156,7 @@ main = do
     
         -- enqueue finish messages:
 
-        mapM_ (atomically . writeTChan in_chan) $ replicate (jobs opts) Nothing 
+        replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
 
    
     -- dump output until workers are running  
