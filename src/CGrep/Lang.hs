@@ -84,10 +84,10 @@ lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':
 
 dumpLangMap :: LangMapType -> IO ()
 dumpLangMap m = forM_ (Map.toList m) $ \(lang, ex) ->
-                putStrLn $ show lang ++ replicate (12 - length (show lang)) ' ' ++ "-> " ++ show ex
+                putStrLn $ show lang ++ [ ' ' | _ <- [length (show lang)..12]] ++ "-> " ++ show ex
 
 
 dumpLangRevMap :: LangRevMapType -> IO ()
 dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, lang) -> 
-                    putStrLn $ show ext ++ replicate (12 - length (show ext)) ' ' ++ "-> " ++ show lang
+                    putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show lang
 
