@@ -20,7 +20,7 @@ module CGrep.Strategy.Simple (cgrepSimple) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad(liftM,when)
+import Control.Monad(when)
 
 import CGrep.Function
 import CGrep.StringLike
@@ -31,9 +31,12 @@ import Options
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
 
-    content <- liftM (zip [1..] . C.lines) $ if f == "" 
-                                              then slGetContents (ignore_case opt) 
-                                              else slReadFile (ignore_case opt) f
+    source <- if f == "" then slGetContents (ignore_case opt)  
+                         else slReadFile (ignore_case opt) f
+    
+    let multi_source = spanMultiLine (multiline opt) source
+    
+    let content = (zip [1..] . C.lines) multi_source 
 
     when (debug opt) $ do 
         print opt

@@ -39,7 +39,9 @@ cgrepCppContext opt ps f = do
     
     let filtered = filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
     
-    let content = zip [1..] $ C.lines filtered
+    let multi_filtered = spanMultiLine (multiline opt) filtered
+    
+    let content = zip [1..] $ C.lines multi_filtered
 
     when (debug opt) $ do
         C.putStrLn filtered

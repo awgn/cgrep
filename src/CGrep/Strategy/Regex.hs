@@ -27,6 +27,7 @@ import CGrep.StringLike
 import CGrep.Output
 import CGrep.Filter 
 import CGrep.Lang
+import CGrep.Common
 
 import Control.Monad (when)
 
@@ -45,7 +46,10 @@ cgrepRegex opt ps f = do
                      then filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
                      else source
 
-    let content  = zip [1..] $ C.lines filtered 
+
+    let multi_filtered = spanMultiLine (multiline opt) filtered
+
+    let content  = zip [1..] $ C.lines multi_filtered 
     
     when (debug opt) $ do
         C.putStrLn filtered
