@@ -17,11 +17,23 @@
 --
 
 module CGrep.Common where
+ 
+import qualified Data.ByteString.Char8 as C
 
 import CGrep.Output
 import CGrep.StringLike
 
 import Options
+
+
+spanGroup :: Int -> [a] -> [[a]]
+spanGroup _ [] = []
+spanGroup 1 xs = map (: []) xs
+spanGroup n xs = take n xs : spanGroup n (tail xs)
+
+spanMultiLine :: Int -> C.ByteString -> C.ByteString
+spanMultiLine 1 xs = xs
+spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
 
 
 basicGrep :: (StringLike a) => Options -> FilePath -> [a] -> (Int, a) -> [Output]
