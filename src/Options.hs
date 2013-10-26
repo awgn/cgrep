@@ -53,7 +53,7 @@ data Options = Options
                 
                 -- General:
                 jobs         :: Int,
-                multiline    :: Bool,
+                multiline    :: Int,
                 recursive    :: Bool,
                 invert_match :: Bool,
 

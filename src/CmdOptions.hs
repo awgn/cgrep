@@ -60,7 +60,7 @@ options = cmdArgsMode $ Options
                 lang_map = False           &= help "output list of language mapping",
 
                 jobs   = 1                 &= help "number of jobs" &= groupname "General",
-                multiline = False          &= help "enable multi-line matching",
+                multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
                 debug = False              &= help "debug mode",

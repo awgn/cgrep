@@ -154,7 +154,7 @@ main = do
                 files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)
     
-        -- enqueue finish messages:
+        -- enqueue EOF messages:
 
         replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
 
