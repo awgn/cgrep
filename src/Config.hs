@@ -19,7 +19,7 @@
 module Config where
 
 version :: String
-version = "2.8"
+version = "2.9"
 
 cgreprc :: FilePath
 cgreprc = "cgreprc.hs" 
