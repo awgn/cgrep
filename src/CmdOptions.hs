@@ -41,11 +41,11 @@ options = cmdArgsMode $ Options
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
-                code = False               &= help "grep in source code"     &= explicit &= name "c" &= name "code" &= groupname "Context filters",
+                code = False               &= help "grep in source code"     &= explicit &= name "c" &= name "code" &= groupname "\nContext filters (generic)",
                 comment = False            &= help "grep in comments"        &= explicit &= name "m" &= name "comment",
                 literal = False            &= help "grep in string literals" &= explicit &= name "l" &= name "literal",
 
-                identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "C/C++ language",
+                identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "\nC/C++ language",
                 keyword = False            &= help "keywords" &= explicit &= name "keyword",
                 directive = False          &= help "preprocessing directives" &= explicit &= name "directive",
                 header = False             &= help "headers names" &= explicit &= name "header",
@@ -54,12 +54,12 @@ options = cmdArgsMode $ Options
                 char = False               &= help "literal chars" &= explicit &= name "char",
                 oper = False               &= help "operators" &= explicit &= name "oper",
                 
-                no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "Output control",
+                no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
                 lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
                 lang_map = False           &= help "output list of language mapping",
 
-                jobs   = 1                 &= help "number of jobs" &= groupname "General",
+                jobs   = 1                 &= help "number of jobs" &= groupname "\nGeneral",
                 multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 

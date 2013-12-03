@@ -31,6 +31,7 @@ spanGroup _ [] = []
 spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
 
+
 spanMultiLine :: Int -> C.ByteString -> C.ByteString
 spanMultiLine 1 xs = xs
 spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
