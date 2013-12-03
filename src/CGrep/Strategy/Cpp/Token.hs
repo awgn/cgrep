@@ -83,18 +83,18 @@ data Token = TIdentifier  { toString :: String, offset :: Int , lineno :: Int } 
              TString      { toString :: String, offset :: Int , lineno :: Int } |
              TChar        { toString :: String, offset :: Int , lineno :: Int } |
              TOperOrPunct { toString :: String, offset :: Int , lineno :: Int }
-                deriving (Show)  
+                deriving (Show, Eq)  
 
-instance Eq Token where
-    (TIdentifier { toString = l }) == (TIdentifier { toString = r }) = l == r
-    (TDirective  { toString = l }) == (TDirective  { toString = r }) = l == r
-    (TKeyword    { toString = l }) == (TKeyword    { toString = r }) = l == r
-    (TNumber     { toString = l }) == (TNumber     { toString = r }) = l == r
-    (THeaderName { toString = l }) == (THeaderName { toString = r }) = l == r
-    (TString     { toString = l }) == (TString     { toString = r }) = l == r
-    (TChar       { toString = l }) == (TChar       { toString = r }) = l == r
-    (TOperOrPunct{ toString = l }) == (TOperOrPunct{ toString = r }) = l == r
-    _ == _ = False
+-- instance Eq Token where
+--     (TIdentifier { toString = l }) == (TIdentifier { toString = r }) = l == r
+--     (TDirective  { toString = l }) == (TDirective  { toString = r }) = l == r
+--     (TKeyword    { toString = l }) == (TKeyword    { toString = r }) = l == r
+--     (TNumber     { toString = l }) == (TNumber     { toString = r }) = l == r
+--     (THeaderName { toString = l }) == (THeaderName { toString = r }) = l == r
+--     (TString     { toString = l }) == (TString     { toString = r }) = l == r
+--     (TChar       { toString = l }) == (TChar       { toString = r }) = l == r
+--     (TOperOrPunct{ toString = l }) == (TOperOrPunct{ toString = r }) = l == r
+--     _ == _ = False
 
 
 isIdentifier :: Token -> Bool
