@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 2.8. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 3.0. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -31,6 +31,7 @@ C/C++ language:
        --string         literal strings
        --char           literal chars
        --oper           operators
+    -S --snippet        "code"
 
 Output control:
 
