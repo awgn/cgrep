@@ -44,6 +44,7 @@ data Options = Options
                 string      :: Bool,
                 char        :: Bool,
                 oper        :: Bool,
+                snippet     :: Bool,
 
                 -- Output:
                 no_filename   :: Bool,

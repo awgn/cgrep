@@ -53,6 +53,7 @@ options = cmdArgsMode $ Options
                 string = False             &= help "literal strings" &= explicit &= name "string",
                 char = False               &= help "literal chars" &= explicit &= name "char",
                 oper = False               &= help "operators" &= explicit &= name "oper",
+                snippet = False            &= help "\"code\"" &= explicit &= name "S" &= name "snippet",
                 
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",

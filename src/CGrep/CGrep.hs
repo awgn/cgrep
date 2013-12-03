@@ -32,13 +32,13 @@ import Options
 
 sanitizeOptions  :: FilePath -> Options -> Options
 sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
-                            Nothing -> opt {identifier = False, keyword = False, directive = False, header = False, string = False, char = False, oper = False }
+                            Nothing -> opt {identifier = False, keyword = False, directive = False, header = False, string = False, char = False, oper = False, snippet = False }
                             _       -> opt
 
 
 cgrepDispatch :: Options -> CgrepFunction
-cgrepDispatch Options { regex = False, code = False, comment = False, literal = False, identifier = False, keyword = False, directive = False, header = False, number = False, string = False, char = False, oper = False } = cgrepSimple
-cgrepDispatch Options { regex = False, identifier = False, keyword = False, directive = False, header = False, number = False, string = False, char = False, oper = False } = cgrepCppContext
+cgrepDispatch Options { regex = False, code = False, comment = False, literal = False, identifier = False, keyword = False, directive = False, header = False, number = False, string = False, char = False, oper = False, snippet = False } = cgrepSimple
+cgrepDispatch Options { regex = False, identifier = False, keyword = False, directive = False, header = False, number = False, string = False, char = False, oper = False, snippet = False } = cgrepCppContext
 cgrepDispatch Options { regex = False } = cgrepCppTokenizer
 cgrepDispatch Options { regex = True  } = cgrepRegex
 
