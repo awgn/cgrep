@@ -206,9 +206,9 @@ getTokenDirective xs  state
 
 getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state 
     | state /= Include  = Nothing
-    | x == '<'          = Just $ THeaderName (getLiteral '<'  '>'  False xs) 0 0
-    | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs) 0 0
-    | otherwise         = error $ "getTokenHeaderName: error near " ++ C.unpack xs 
+    | x == '<'          = Just $ THeaderName (getLiteral '<'  '>'  False xs)   0 0
+    | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs)   0 0
+    | otherwise         = Just $ THeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0 0
 
 getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName"
 getTokenHeaderName _ _ = error "getTokenHeaderName"
@@ -239,8 +239,7 @@ getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar x = Nothing 
     | name `S.member` keywords = Just $ TKeyword name 0 0
     | otherwise                = Just $ TIdentifier name 0 0
-                                    where isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers 
-                                          name = C.unpack $ C.takeWhile isIdentifierChar xs
+                                    where name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing
 
@@ -267,6 +266,12 @@ getLiteral b e True (C.uncons -> Just (x,xs))
                     where
                         (C.uncons -> Just(x',xs')) = xs
 getLiteral _  _ _ _ = []
+
+
+
+isIdentifierChar :: Char -> Bool 
+isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers 
+
 
 
 operOrPunct :: Array Int (S.Set String) 
