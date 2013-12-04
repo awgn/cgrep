@@ -107,12 +107,12 @@ compareGroup :: WordMatch -> InvertMatch -> [Cpp.Token] -> [Cpp.Token] -> Bool
 compareGroup wordmatch invert l r =  and $ map (\(l',r') -> compareToken wordmatch invert l' r') $ zip l r 
 
 compareToken :: WordMatch -> InvertMatch -> Cpp.Token -> Cpp.Token -> Bool
-compareToken True invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                  = invert `xor` True 
+-- compareToken True invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                  = invert `xor` True 
 compareToken True invert (Cpp.TIdentifier { Cpp.toString = "_" }) (Cpp.TIdentifier {})                  = invert `xor` True 
 compareToken True invert (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r })  = invert `xor` (l == r)  
 compareToken True invert l r                                                                            = invert `xor` (Cpp.toString l == Cpp.toString r)
 
-compareToken False invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                 = invert `xor` True
+-- compareToken False invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                 = invert `xor` True
 compareToken False invert (Cpp.TIdentifier { Cpp.toString = "_" }) (Cpp.TIdentifier {})                 = invert `xor` True
 compareToken False invert (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) = invert `xor` (l `isInfixOf` r)
 compareToken False invert l r                                                                           = invert `xor` (Cpp.toString l `isInfixOf` Cpp.toString r)
