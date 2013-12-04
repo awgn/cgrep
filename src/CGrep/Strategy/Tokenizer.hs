@@ -32,6 +32,7 @@ import Control.Monad (when)
 -- import Debug.Trace
 
 import Data.List
+import Data.Function
 
 import Options 
 import Util
@@ -43,7 +44,7 @@ cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
     source <- if f == "" then slGetContents (ignore_case opt)  
-                         else slReadFile (ignore_case opt) f
+                            else slReadFile (ignore_case opt) f
 
     let filtered = filterContext (lookupLang f) (mkContextFilter opt) source
     
@@ -64,7 +65,7 @@ cgrepCppTokenizer opt ps f = do
     let content  = C.lines source
 
     let ts_res  = if snippet opt 
-                     then sortBy (\t1 t2 -> Cpp.offset t1 `compare` Cpp.offset t2) $ nub $ simpleTokenMatch opt f lpt all_ts 
+                     then sortBy (compare `on` Cpp.offset) $ nub $ simpleTokenMatch opt f lpt all_ts 
                      else simpleTokenGrep  opt f lps ts
     
     when (debug opt) $ do 
@@ -75,8 +76,8 @@ cgrepCppTokenizer opt ps f = do
 
     return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
         where lps = map C.unpack ps
-              lpt = map (Cpp.tokenizer . (filterContext (Just Cpp) sourceCodeFilter)) ps 
-              outputEqual (Output f n _ _) (Output f' n' _ _) = (f == f') && (n == n') 
+              lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
+              outputEqual (Output f' n' _ _) (Output f'' n'' _ _) = (f' == f'') && (n' == n'') 
 
 mkContextFilter :: Options -> ContextFilter
 mkContextFilter opt = if not (code opt && comment opt && literal opt) 
@@ -95,7 +96,7 @@ simpleTokenGrep opt _ ps = filter (notNull . slGrep (word opt) (invert_match opt
 simpleTokenMatch :: Options -> FilePath -> [[Cpp.Token]] -> [Cpp.Token] -> [Cpp.Token]
 -- simpleTokenMatch opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
 simpleTokenMatch _ _ [] _ = []
-simpleTokenMatch opt f (g:gs) ts = (map (ts !!) (findIndices (compareGroup (word opt) (invert_match opt) g) tokenGroups)) ++ simpleTokenMatch opt f gs ts 
+simpleTokenMatch opt f (g:gs) ts = map (ts !!) (findIndices (compareGroup (word opt) (invert_match opt) g) tokenGroups) ++ simpleTokenMatch opt f gs ts 
     where tokenGroups = spanGroup (length g) ts
 
 
@@ -104,7 +105,7 @@ type InvertMatch = Bool
 
 
 compareGroup :: WordMatch -> InvertMatch -> [Cpp.Token] -> [Cpp.Token] -> Bool
-compareGroup wordmatch invert l r =  and $ map (\(l',r') -> compareToken wordmatch invert l' r') $ zip l r 
+compareGroup wordmatch invert l r =  all (uncurry (compareToken wordmatch invert)) (zip l r) 
 
 compareToken :: WordMatch -> InvertMatch -> Cpp.Token -> Cpp.Token -> Bool
 -- compareToken True invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                  = invert `xor` True 
