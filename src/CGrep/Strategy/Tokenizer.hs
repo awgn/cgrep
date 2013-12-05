@@ -76,9 +76,10 @@ cgrepCppTokenizer opt ps f = do
     
     when (debug opt) $ do 
         -- C.putStrLn filtered
-        putStrLn $ "options: " ++ show opt
-        putStrLn $ "snippet: " ++ show lpt
-        putStrLn $ "tokens : " ++ show ts_res
+        putStrLn $ "options:  " ++ show opt
+        putStrLn $ "snippet:  " ++ show lpt
+        putStrLn $ "tokens :  " ++ show ts_res
+        putStrLn $ "patterns: " ++ show lpt
 
     return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
         where lps = map C.unpack ps
