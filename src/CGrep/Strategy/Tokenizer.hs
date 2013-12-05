@@ -33,11 +33,17 @@ import Control.Monad (when)
 
 import Data.List
 import Data.Function
+import qualified Data.Map.Strict as Map
 
 import Options 
 import Util
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
+
+
+-- traceShow :: (Show a) => String -> a -> Bool
+-- traceShow msg x | trace (msg ++ ": " ++ show x) False = undefined
+-- traceShow msg x = True
 
 
 cgrepCppTokenizer :: CgrepFunction
@@ -106,36 +112,60 @@ type InvertMatch = Bool
 type Pattern     = Cpp.Token
 
 groupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> Bool
-groupCompare (wordmatch,invert) l r =  all fst $ tokensGroupCompare (wordmatch,invert) l r 
+groupCompare (wordmatch,invert) l r = groupCompareMatch ts &&
+                                      groupCompareSemantic ts
+        where ts = tokensGroupCompare (wordmatch,invert) l r               
 
 
-tokensGroupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> [(Bool, String)]
+{-# INLINE groupCompareMatch #-}
+
+groupCompareMatch :: [(Bool, (String, [String]))] -> Bool
+groupCompareMatch = all fst 
+
+{-# INLINE groupCompareSemantic #-}
+
+-- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
+--       that must compare equal in corresponding occurrences  
+--       
+
+groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
+-- groupCompareSemantic xs | trace ("semantic: " ++ show xs) False = undefined
+groupCompareSemantic ts =  Map.foldr (\xs r -> r && all (== head xs) xs) True m  
+        where m =  Map.mapWithKey (\k xs -> if k == "_" || k == "$" 
+                                              then []
+                                              else xs ) $ Map.fromListWith (++) (map snd ts)
+        
+
+tokensGroupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
 tokensGroupCompare (wordmatch,invert) l r = map (uncurry (tokensCompare (wordmatch,invert))) (zip l r)
 
 
-tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,String)
+tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
 
 tokensCompare (True, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isPattern l =  (invert `xor` patternCompare True l r, "")
-        | otherwise   =  (invert `xor` (l == r), "")
+        | isPattern l =  (invert `xor` patternMatch True l r,  (l,[r]))
+        | otherwise   =  (invert `xor` (l == r), ("", []))
 tokensCompare (False, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isPattern l =  (invert `xor` patternCompare False l r, "")
-        | otherwise   =  (invert `xor` (l `isInfixOf` r) , "")
+        | isPattern l =  (invert `xor` patternMatch False l r, (l,[r]))
+        | otherwise   =  (invert `xor` (l `isInfixOf` r) , ("", []))
 tokensCompare (wordmatch, invert) l r   
-        | wordmatch   =  (invert `xor` (l == r), "") 
-        | otherwise   =  (invert `xor` (Cpp.toString l `isInfixOf` Cpp.toString r), "")
+        | wordmatch   =  (invert `xor` (l == r), ("", [])) 
+        | otherwise   =  (invert `xor` (Cpp.toString l `isInfixOf` Cpp.toString r), ("",[]))
 
+ 
+{-# INLINE isPattern #-}
 
 isPattern :: String -> Bool
 isPattern s | ('_':_) <- s  = True
             | ('$':_) <- s  = True
             | otherwise     = False
 
+{-# INLINE patternMatch #-}
 
-patternCompare :: WordMatch -> String -> String -> Bool
-patternCompare _ ('_':_) _ = True
-patternCompare _ ('$':_) _ = True
-patternCompare wordmatch l r 
+patternMatch :: WordMatch -> String -> String -> Bool
+patternMatch _ ('_':_) _ = True
+patternMatch _ ('$':_) _ = True
+patternMatch wordmatch l r 
     | wordmatch = l == r
     | otherwise = l `isInfixOf` r
     
