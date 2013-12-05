@@ -148,12 +148,14 @@ tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,(Stri
 tokensCompare (True, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
         | isPattern l =  (invert `xor` patternMatch True l r,  (l,[r]))
         | otherwise   =  (invert `xor` (l == r), ("", []))
+
 tokensCompare (False, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
         | isPattern l =  (invert `xor` patternMatch False l r, (l,[r]))
         | otherwise   =  (invert `xor` (l `isInfixOf` r) , ("", []))
+
 tokensCompare (wordmatch, invert) l r   
-        | wordmatch   =  (invert `xor` (l == r), ("", [])) 
-        | otherwise   =  (invert `xor` (Cpp.toString l `isInfixOf` Cpp.toString r), ("",[]))
+        | wordmatch   =  (invert `xor` Cpp.tokenCompare l r, ("", [])) 
+        | otherwise   =  (invert `xor` Cpp.tokenCompare l r, ("",[]))
 
  
 {-# INLINE isPattern #-}
