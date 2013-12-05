@@ -20,7 +20,7 @@
 
 module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), tokenizer, tokenFilter, 
                             isIdentifier, isKeyword, isDirective, isLiteralNumber, 
-                            isHeaderName, isString, isChar, isOperOrPunct 
+                            isHeaderName, isString, isChar, isOperOrPunct, tokenCompare
                             )  where
 -- import Data.Int
 
@@ -85,16 +85,16 @@ data Token = TIdentifier  { toString :: String, offset :: Int , lineno :: Int } 
              TOperOrPunct { toString :: String, offset :: Int , lineno :: Int }
                 deriving (Show, Eq)  
 
--- instance Eq Token where
---     (TIdentifier { toString = l }) == (TIdentifier { toString = r }) = l == r
---     (TDirective  { toString = l }) == (TDirective  { toString = r }) = l == r
---     (TKeyword    { toString = l }) == (TKeyword    { toString = r }) = l == r
---     (TNumber     { toString = l }) == (TNumber     { toString = r }) = l == r
---     (THeaderName { toString = l }) == (THeaderName { toString = r }) = l == r
---     (TString     { toString = l }) == (TString     { toString = r }) = l == r
---     (TChar       { toString = l }) == (TChar       { toString = r }) = l == r
---     (TOperOrPunct{ toString = l }) == (TOperOrPunct{ toString = r }) = l == r
---     _ == _ = False
+tokenCompare :: Token -> Token -> Bool
+tokenCompare (TIdentifier { toString = l }) (TIdentifier { toString = r }) = l == r
+tokenCompare (TDirective  { toString = l }) (TDirective  { toString = r }) = l == r
+tokenCompare (TKeyword    { toString = l }) (TKeyword    { toString = r }) = l == r
+tokenCompare (TNumber     { toString = l }) (TNumber     { toString = r }) = l == r
+tokenCompare (THeaderName { toString = l }) (THeaderName { toString = r }) = l == r
+tokenCompare (TString     { toString = l }) (TString     { toString = r }) = l == r
+tokenCompare (TChar       { toString = l }) (TChar       { toString = r }) = l == r
+tokenCompare (TOperOrPunct{ toString = l }) (TOperOrPunct{ toString = r }) = l == r
+tokenCompare _ _ = False
 
 
 isIdentifier :: Token -> Bool
