@@ -137,7 +137,9 @@ groupCompareSemantic ts =  Map.foldr (\xs r -> r && all (== head xs) xs) True m
         
 
 tokensGroupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
-tokensGroupCompare (wordmatch,invert) l r = map (uncurry (tokensCompare (wordmatch,invert))) (zip l r)
+tokensGroupCompare (wordmatch,invert) l r 
+    | length r >= length l = map (uncurry (tokensCompare (wordmatch,invert))) (zip l r)
+    | otherwise = [ (False, ("", [])) ]
 
 
 tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
