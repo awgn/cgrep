@@ -31,7 +31,7 @@ C/C++ language:
        --string         literal strings
        --char           literal chars
        --oper           operators
-    -S --snippet        "code"
+    -S --snippet        "code" e.g. "_(_ && _)" search for move ctors
 
 Output control:
 
