@@ -65,19 +65,20 @@ cgrepCppTokenizer opt ps f = do
     let content  = C.lines source
 
     let ts_res  = if snippet opt 
-                     then sortBy (compare `on` Cpp.offset) $ nub $ simpleTokenMatch opt f lpt all_ts 
-                     else simpleTokenGrep  opt f lps ts
+                     then sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f lpt all_ts 
+                     else tokenGrep  opt f lps ts
     
     when (debug opt) $ do 
-        C.putStrLn filtered
-        print opt
-        print lpt
-        print ts_res
+        -- C.putStrLn filtered
+        putStrLn $ "options: " ++ show opt
+        putStrLn $ "snippet: " ++ show lpt
+        putStrLn $ "tokens : " ++ show ts_res
 
     return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
         where lps = map C.unpack ps
               lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
               outputEqual (Output f' n' _ _) (Output f'' n'' _ _) = (f' == f'') && (n' == n'') 
+
 
 mkContextFilter :: Options -> ContextFilter
 mkContextFilter opt = if not (code opt && comment opt && literal opt) 
@@ -89,33 +90,54 @@ sourceCodeFilter :: ContextFilter
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
 
 
-simpleTokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-simpleTokenGrep opt _ ps = filter (notNull . slGrep (word opt) (invert_match opt) ps . Cpp.toString) 
+tokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
+tokenGrep opt _ ps = filter (notNull . slGrep (word opt) (invert_match opt) ps . Cpp.toString) 
 
 
-simpleTokenMatch :: Options -> FilePath -> [[Cpp.Token]] -> [Cpp.Token] -> [Cpp.Token]
--- simpleTokenMatch opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
-simpleTokenMatch _ _ [] _ = []
-simpleTokenMatch opt f (g:gs) ts = map (ts !!) (findIndices (compareGroup (word opt) (invert_match opt) g) tokenGroups) ++ simpleTokenMatch opt f gs ts 
+tokensMatch :: Options -> FilePath -> [[Cpp.Token]] -> [Cpp.Token] -> [Cpp.Token]
+-- tokensMatch opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
+tokensMatch _ _ [] _ = []
+tokensMatch opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word opt, invert_match opt) g) tokenGroups) ++ tokensMatch opt f gs ts 
     where tokenGroups = spanGroup (length g) ts
 
 
 type WordMatch   = Bool
 type InvertMatch = Bool
+type Pattern     = Cpp.Token
+
+groupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> Bool
+groupCompare (wordmatch,invert) l r =  all fst $ tokensGroupCompare (wordmatch,invert) l r 
 
 
-compareGroup :: WordMatch -> InvertMatch -> [Cpp.Token] -> [Cpp.Token] -> Bool
-compareGroup wordmatch invert l r =  all (uncurry (compareToken wordmatch invert)) (zip l r) 
+tokensGroupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> [(Bool, String)]
+tokensGroupCompare (wordmatch,invert) l r = map (uncurry (tokensCompare (wordmatch,invert))) (zip l r)
 
-compareToken :: WordMatch -> InvertMatch -> Cpp.Token -> Cpp.Token -> Bool
--- compareToken True invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                  = invert `xor` True 
-compareToken True invert (Cpp.TIdentifier { Cpp.toString = "_" }) (Cpp.TIdentifier {})                  = invert `xor` True 
-compareToken True invert (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r })  = invert `xor` (l == r)  
-compareToken True invert l r                                                                            = invert `xor` (Cpp.toString l == Cpp.toString r)
 
--- compareToken False invert (Cpp.TIdentifier {}) (Cpp.TIdentifier { Cpp.toString = "_" })                 = invert `xor` True
-compareToken False invert (Cpp.TIdentifier { Cpp.toString = "_" }) (Cpp.TIdentifier {})                 = invert `xor` True
-compareToken False invert (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) = invert `xor` (l `isInfixOf` r)
-compareToken False invert l r                                                                           = invert `xor` (Cpp.toString l `isInfixOf` Cpp.toString r)
+tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,String)
+
+tokensCompare (True, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
+        | isPattern l =  (invert `xor` patternCompare True l r, "")
+        | otherwise   =  (invert `xor` (l == r), "")
+tokensCompare (False, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
+        | isPattern l =  (invert `xor` patternCompare False l r, "")
+        | otherwise   =  (invert `xor` (l `isInfixOf` r) , "")
+tokensCompare (wordmatch, invert) l r   
+        | wordmatch   =  (invert `xor` (l == r), "") 
+        | otherwise   =  (invert `xor` (Cpp.toString l `isInfixOf` Cpp.toString r), "")
+
+
+isPattern :: String -> Bool
+isPattern s | ('_':_) <- s  = True
+            | ('$':_) <- s  = True
+            | otherwise     = False
+
+
+patternCompare :: WordMatch -> String -> String -> Bool
+patternCompare _ ('_':_) _ = True
+patternCompare _ ('$':_) _ = True
+patternCompare wordmatch l r 
+    | wordmatch = l == r
+    | otherwise = l `isInfixOf` r
+    
 
 
