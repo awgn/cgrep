@@ -180,7 +180,7 @@ runGetToken tstate = token : runGetToken ns
 
 getToken :: TokenizerState -> (Token, TokenizerState)
 
-getToken (C.uncons -> Nothing, _, _, _) = error "getToken"
+getToken (C.uncons -> Nothing, _, _, _) = error $ "getToken: internal error"
 getToken (xs, off, ln, state) = let token = fromJust $ 
                                         getTokenDirective xs state       `mplus`
                                         getTokenHeaderName xs state      `mplus`
@@ -210,8 +210,8 @@ getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
     | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs)   0 0
     | otherwise         = Just $ THeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0 0
 
-getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName"
-getTokenHeaderName _ _ = error "getTokenHeaderName"
+getTokenHeaderName (C.uncons -> Nothing) _ = error $ "getTokenHeaderName: internal error"
+getTokenHeaderName _ _ = error $ "getTokenHeaderName: internal error"
 
 
 getTokenNumber xs@(C.uncons -> Just (x,_)) _
@@ -246,7 +246,7 @@ getTokenIdOrKeyword _ _ = Nothing
 
 getTokenOpOrPunct source _ = go source (min 4 (C.length source)) 
     where go _ 0   
-            | C.length source > 0 = error $ "getTokenOpOrPunct: error " ++ show source
+            | C.length source > 0 = error $ "getTokenOpOrPunct: error near " ++ show source
             | otherwise = Nothing
           go src len 
             | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TOperOrPunct sub 0 0 
