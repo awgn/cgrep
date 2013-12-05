@@ -202,7 +202,7 @@ getTokenIdOrKeyword, getTokenNumber, getTokenHeaderName,
 getTokenDirective xs  state 
     | state == Hash = Just (TDirective name 0 0)
     | otherwise = Nothing
-                      where name = C.unpack $ C.takeWhile (\c -> isAlphaNum c || c == '_') xs
+                      where name = C.unpack $ C.takeWhile isIdentifierChar xs
 
 getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state 
     | state /= Include  = Nothing
