@@ -170,9 +170,7 @@ isPattern s | ('_':_) <- s  = True
 patternMatch :: WordMatch -> String -> String -> Bool
 patternMatch _ ('_':_) _ = True
 patternMatch _ ('$':_) _ = True
-patternMatch wordmatch l r 
-    | wordmatch = l == r
-    | otherwise = l `isInfixOf` r
+patternMatch _ _ _       = undefined 
     
 
 
