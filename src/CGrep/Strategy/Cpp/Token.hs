@@ -213,10 +213,28 @@ getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
 getTokenHeaderName (C.uncons -> Nothing) _ = error $ "getTokenHeaderName: internal error"
 getTokenHeaderName _ _ = error $ "getTokenHeaderName: internal error"
 
+-- parser of token number is still somewhat heuristic!
+
+validDigitSet1 :: S.Set Char   
+validDigitSet1 = S.fromList "0123456789abcdefABCDEF.xXeE+-uUlL"
+
+validDigitSet2 :: S.Set Char   
+validDigitSet2 = S.fromList "0123456789.eE+-uUlL"
 
 getTokenNumber xs@(C.uncons -> Just (x,_)) _
-    | isDigit x = Just $ TNumber (C.unpack $ C.takeWhile (\c -> c `S.member` S.fromList "0123456789abcdefABCDEF.xXeEuUlL") xs) 0 0
+    | x == '0'  = Just $ TNumber (C.unpack $ getNumber validDigitSet1 xs) 0 0 
+    | isDigit x = Just $ TNumber (C.unpack $ getNumber validDigitSet2 xs) 0 0
+    | x == '.'  = let num = getNumber validDigitSet2 xs in 
+                    if isValidFloat num 
+                      then Just $ TNumber (C.unpack num) 0 0
+                      else Nothing
     | otherwise = Nothing
+                    where getNumber digit = C.takeWhile (\c -> c `S.member` digit)
+                          isValidFloat (C.uncons -> Just (_,xs')) 
+                            | (C.uncons -> Just (y,_)) <- xs' = isDigit y
+                            | otherwise = False
+                          isValidFloat _ = False
+
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
 getTokenNumber _ _ = Nothing
 
