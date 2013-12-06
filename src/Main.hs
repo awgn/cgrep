@@ -46,6 +46,7 @@ import CGrep.Lang
 import CmdOptions
 import Options
 import Util
+import Debug
 
 import qualified Data.ByteString.Char8 as C
 
@@ -117,10 +118,9 @@ main = do
 
     let lang_enabled = (if null l0 then language conf else l0 `union` l1) \\ l2
 
-    when (debug opts) $ do
-        putStrLn $ "languages : " ++ show lang_enabled
-        putStrLn $ "pattern   : " ++ show patterns
-        putStrLn $ "isTerm    : " ++ show isTerm 
+    putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled 
+    putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
+    putStrLevel1 (debug opts) $ "isTerm    : " ++ show isTerm 
 
 
     -- create Transactional Chan and Vars...

@@ -20,17 +20,18 @@ module CGrep.Strategy.Simple (cgrepSimple) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad(when)
-
 import CGrep.Function
 import CGrep.StringLike
 import CGrep.Common
 
 import Options 
+import Debug
 
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
 
+    putStrLevel1 (debug opt) $ "strategy  : running simple parser on " ++ f ++ "..."
+    
     source <- if f == "" then slGetContents (ignore_case opt)  
                          else slReadFile (ignore_case opt) f
     
@@ -38,9 +39,7 @@ cgrepSimple opt ps f = do
     
     let content = (zip [1..] . C.lines) multi_source 
 
-    when (debug opt) $ do 
-        print opt
-        print content
+    putStrLevel2 (debug opt) $ show content
     
     return $ concatMap (basicGrep opt f ps) content
 

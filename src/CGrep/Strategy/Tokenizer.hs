@@ -37,6 +37,7 @@ import qualified Data.Map.Strict as Map
 
 import Options 
 import Util
+import Debug
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
@@ -49,8 +50,12 @@ import qualified CGrep.Strategy.Cpp.Token  as Cpp
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
+    putStrLevel1 (debug opt) $ if (snippet opt) 
+                                    then "strategy  : running C/C++ semantic grep on " ++ f ++ "..."
+                                    else "strategy  : running C/C++ tokenizer on " ++ f ++ "..."
+
     source <- if f == "" then slGetContents (ignore_case opt)  
-                            else slReadFile (ignore_case opt) f
+                         else slReadFile (ignore_case opt) f
 
     let filtered = filterContext (lookupLang f) (mkContextFilter opt) source
     
@@ -74,12 +79,9 @@ cgrepCppTokenizer opt ps f = do
                      then sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f lpt all_ts 
                      else tokenGrep  opt f lps ts
     
-    when (debug opt) $ do 
-        -- C.putStrLn filtered
-        putStrLn $ "options:  " ++ show opt
-        putStrLn $ "snippet:  " ++ show lpt
-        putStrLn $ "tokens :  " ++ show ts_res
-        putStrLn $ "patterns: " ++ show lpt
+    putStrLevel2 (debug opt) $ "snippet:  " ++ show lpt
+    putStrLevel2 (debug opt) $ "tokens :  " ++ show ts_res
+    putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
 
     return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
         where lps = map C.unpack ps

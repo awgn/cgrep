@@ -58,7 +58,7 @@ data Options = Options
                 recursive    :: Bool,
                 invert_match :: Bool,
 
-                debug        :: Bool,
+                debug        :: Int,
                 others       :: [String]
 
                } deriving (Data, Typeable, Show)

@@ -20,7 +20,6 @@ module CGrep.Strategy.Context (cgrepCppContext) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad (when)
 
 import CGrep.Function
 import CGrep.StringLike
@@ -29,7 +28,7 @@ import CGrep.Lang
 import CGrep.Common
 
 import Options 
-
+import Debug
 
 cgrepCppContext :: CgrepFunction
 cgrepCppContext opt ps f = do
@@ -43,10 +42,7 @@ cgrepCppContext opt ps f = do
     
     let content = zip [1..] $ C.lines multi_filtered
 
-    when (debug opt) $ do
-        C.putStrLn filtered
-        print opt 
-        print content
-    
+    -- putStrLevel3 (debug opt) "---\n" ++ filtered ++ "\n---"
+
     return $ concatMap (basicGrep opt f ps) content
 

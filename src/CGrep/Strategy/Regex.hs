@@ -29,15 +29,16 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 
-import Control.Monad (when)
-
 import Text.Regex.Posix
 
 import Options 
 import Util
+import Debug
 
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
+    
+    putStrLevel1 (debug opt) $ "strategy  : running regex on " ++ f ++ "..."
 
     source <- if f == "" then slGetContents (ignore_case opt)
                          else slReadFile (ignore_case opt) f
@@ -51,10 +52,7 @@ cgrepRegex opt ps f = do
 
     let content  = zip [1..] $ C.lines multi_filtered 
     
-    when (debug opt) $ do
-        C.putStrLn filtered
-        print opt 
-        print content
+    -- putStrLevel3 (debug opt) filtered 
 
     return $ concatMap (basicRegex opt f ps) content
 

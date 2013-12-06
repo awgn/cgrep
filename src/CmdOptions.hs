@@ -64,7 +64,7 @@ options = cmdArgsMode $ Options
                 multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
-                debug = False              &= help "debug mode",
+                debug = 0                  &= help "debug level: 1, 2 or 3",
                 others = []                &= args
 
           } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
