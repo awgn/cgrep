@@ -17,9 +17,9 @@ Pattern:
 
 Context:
 
-    -c --code           grep in source code
-    -m --comment        grep in comments
-    -l --literal        grep in string literals
+    -c --code           search in source code
+    -m --comment        search in comments
+    -l --literal        search in string literals
 
 C/C++ language:
 
@@ -39,16 +39,17 @@ Output control:
     -N --no-line-umber  suppress the line number on output lines
        --lang=ITEM      specify languages to grep for. ie: Cpp, +Haskell,
                         -Makefile
-       --lang-map       output list of language mapping
-
-General:
-
+       --lang-map       print the list of language mapping
     -j --jobs=INT       number of jobs
        --multiline=INT  enable multi-line matching
-
     -r --recursive      enable recursive search
        --invert-match   select non-matching lines
+       --max-count=INT  stop search in files after INT matches
+       --count          print only a count of matching lines per file
+
+Miscellaneous:
 
     -d --debug=INT      debug level: 1, 2 or 3
     -? --help           Display help message
     -V --version        Print version information
+

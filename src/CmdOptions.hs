@@ -58,7 +58,7 @@ options = cmdArgsMode $ Options
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
                 lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
-                lang_map = False           &= help "output list of language mapping",
+                lang_map = False           &= help "print the list of language mapping",
                 max_count = maxBound       &= help "stop search in files after INT matches" &= explicit &= name "max-count", 
                 count = False              &= help "print only a count of matching lines per file" &= explicit &= name "count", 
 
