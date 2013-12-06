@@ -140,7 +140,7 @@ main = do
                 case f of 
                      Nothing -> atomically $ writeTChan out_chan []
                      Just f' -> do
-                        out <- let op = sanitizeOptions f' opts in cgrepDispatch op op patterns f'
+                        out <- let op = sanitizeOptions f' opts in liftM (take (max_count opts)) $ cgrepDispatch op op patterns f'
                         unless (null out) $ atomically $ writeTChan out_chan out 
                         action
                 `E.catch` (\ex -> putStrLn ("parse error: " ++ show (ex :: SomeException)) >> action)

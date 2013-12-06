@@ -26,8 +26,11 @@ import Options
 data Output = forall a. (StringLike a) => Output FilePath Int a [String]
 
 showOutput :: Options -> Output -> String
-showOutput Options { no_filename = False, no_linenumber = False } (Output f n l _) = f ++ ":" ++ show n ++ ":" ++ slToString l
-showOutput Options { no_filename = False, no_linenumber = True  } (Output f _ l _) = f ++ ":" ++ slToString l
-showOutput Options { no_filename = True , no_linenumber = False } (Output _ n l _) = show n ++ ":" ++ slToString l
-showOutput Options { no_filename = True , no_linenumber = True  } (Output _ _ l _) = slToString l
+showOutput Options { no_filename = False, no_linenumber = False , count = False } (Output f n l _) = f ++ ":" ++ show n ++ ":" ++ slToString l
+showOutput Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l _) = f ++ ":" ++ slToString l
+showOutput Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l _) = show n ++ ":" ++ slToString l
+showOutput Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l _) = slToString l
+showOutput Options { count = True } (Output f n _ _) = f ++ ":" ++ show n
+
+
 

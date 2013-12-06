@@ -57,6 +57,8 @@ data Options = Options
                 multiline    :: Int,
                 recursive    :: Bool,
                 invert_match :: Bool,
+                max_count    :: Int,
+                count        :: Bool,
 
                 debug        :: Int,
                 others       :: [String]

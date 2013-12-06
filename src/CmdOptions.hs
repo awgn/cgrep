@@ -41,9 +41,9 @@ options = cmdArgsMode $ Options
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
-                code = False               &= help "grep in source code"     &= explicit &= name "c" &= name "code" &= groupname "\nContext filters (generic)",
-                comment = False            &= help "grep in comments"        &= explicit &= name "m" &= name "comment",
-                literal = False            &= help "grep in string literals" &= explicit &= name "l" &= name "literal",
+                code = False               &= help "search in source code"     &= explicit &= name "c" &= name "code" &= groupname "\nContext filters (generic)",
+                comment = False            &= help "search in comments"        &= explicit &= name "m" &= name "comment",
+                literal = False            &= help "search in string literals" &= explicit &= name "l" &= name "literal",
 
                 identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "\nC/C++ language",
                 keyword = False            &= help "keywords" &= explicit &= name "keyword",
@@ -59,12 +59,15 @@ options = cmdArgsMode $ Options
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
                 lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
                 lang_map = False           &= help "output list of language mapping",
+                max_count = maxBound       &= help "stop search in files after INT matches" &= explicit &= name "max-count", 
+                count = False              &= help "print only a count of matching lines per file" &= explicit &= name "count", 
 
-                jobs   = 1                 &= help "number of jobs" &= groupname "\nGeneral",
+                jobs   = 1                 &= help "number of jobs",
                 multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
-                debug = 0                  &= help "debug level: 1, 2 or 3",
+
+                debug = 0                  &= help "debug level: 1, 2 or 3" &= groupname "\nMiscellaneous",
                 others = []                &= args
 
           } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
