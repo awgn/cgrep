@@ -116,7 +116,7 @@ main = do
 
     -- language enabled:
 
-    let lang_enabled = (if null l0 then language conf else l0 `union` l1) \\ l2
+    let lang_enabled = (if null l0 then languages conf else l0 `union` l1) \\ l2
 
     putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled 
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
@@ -149,7 +149,7 @@ main = do
     _ <- forkIO $ do
 
         if recursive opts
-            then forM_ paths $ \p -> putRecursiveContents in_chan p lang_enabled (pruneDir conf)
+            then forM_ paths $ \p -> putRecursiveContents in_chan p lang_enabled (pruneDirs conf)
             else do
                 files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)

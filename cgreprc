@@ -1,0 +1,15 @@
+#
+# config file...
+# 
+
+CgrepOptions 
+{
+    languages = [Awk, C, Cpp, Csharp, Css, CMake, D, Erlang, Fsharp, Go, 
+                 Haskell, Html, Java, Javascript, Latex, Make, OCaml, 
+                 ObjectiveC , Perl, PHP , Python, Ruby, Scala, Tcl, Shell, 
+                 Verilog, Vim ],
+    
+    pruneDirs = [".svn", ".git"] 
+} 
+
+

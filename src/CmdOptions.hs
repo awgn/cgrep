@@ -72,8 +72,8 @@ options = cmdArgsMode $ Options
 
 data  CgrepOptions = CgrepOptions
                     {
-                        language :: [Lang],
-                        pruneDir :: [String]
+                        languages :: [Lang],
+                        pruneDirs :: [String]
                     } deriving (Show,Read)
 
 

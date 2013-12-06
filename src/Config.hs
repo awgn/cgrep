@@ -22,6 +22,6 @@ version :: String
 version = "3.3"
 
 cgreprc :: FilePath
-cgreprc = "cgreprc.hs" 
+cgreprc = "cgreprc" 
 
 
