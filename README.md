@@ -44,11 +44,11 @@ Output control:
 General:
 
     -j --jobs=INT       number of jobs
-       --multiline      enable multi-line matching
+       --multiline=INT  enable multi-line matching
 
     -r --recursive      enable recursive search
        --invert-match   select non-matching lines
 
-    -d --debug          debug mode
+    -d --debug=INT      debug level: 1, 2 or 3
     -? --help           Display help message
     -V --version        Print version information
