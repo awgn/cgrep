@@ -39,7 +39,7 @@ cgrepSimple opt ps f = do
     
     let content = (zip [1..] . C.lines) multi_source 
 
-    putStrLevel2 (debug opt) $ show content
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack source ++ "\n---"
     
     return $ concatMap (basicGrep opt f ps) content
 

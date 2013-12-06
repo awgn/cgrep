@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Strategy.Context (cgrepCppContext) where
+module CGrep.Strategy.Context (cgrepContext) where
 
 import qualified Data.ByteString.Char8 as C
 
@@ -30,8 +30,8 @@ import CGrep.Common
 import Options 
 import Debug
 
-cgrepCppContext :: CgrepFunction
-cgrepCppContext opt ps f = do
+cgrepContext :: CgrepFunction
+cgrepContext opt ps f = do
     
     putStrLevel1 (debug opt) $ "strategy  : running context-aware parser on " ++ f ++ "..."
     
@@ -44,7 +44,7 @@ cgrepCppContext opt ps f = do
     
     let content = zip [1..] $ C.lines multi_filtered
 
-    -- putStrLevel3 (debug opt) "---\n" ++ filtered ++ "\n---"
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
     return $ concatMap (basicGrep opt f ps) content
 

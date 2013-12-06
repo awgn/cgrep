@@ -32,14 +32,44 @@ import Options
 
 sanitizeOptions  :: FilePath -> Options -> Options
 sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
-                            Nothing -> opt {identifier = False, keyword = False, directive = False, header = False, string = False, char = False, oper = False, snippet = False }
+                            Nothing -> opt {identifier = False, 
+                                            keyword    = False, 
+                                            directive  = False, 
+                                            header     = False, 
+                                            string     = False, 
+                                            char       = False, 
+                                            oper       = False, 
+                                            snippet    = False 
+                                            }
                             _       -> opt
+
+hasContextOpt :: Options -> Bool
+hasContextOpt Options{ code = c, comment = m, literal = l } = c || m || l
+
+hasRegexOpt :: Options -> Bool
+hasRegexOpt Options{ regex = x } = x
+
+hasTokenizerOpt :: Options -> Bool
+hasTokenizerOpt Options{ identifier = i, 
+                         keyword    = k, 
+                         directive  = d, 
+                         header     = h, 
+                         number     = n, 
+                         string     = s, 
+                         char       = c, 
+                         oper       = o} = i || k || d || h || n || s || c || o
+
+hasSemanticOpt :: Options -> Bool
+hasSemanticOpt Options{ snippet = s } = s
 
 
 cgrepDispatch :: Options -> CgrepFunction
-cgrepDispatch Options { regex = False, code = False, comment = False, literal = False, identifier = False, keyword = False, directive = False, header = False, number = False, string = False, char = False, oper = False, snippet = False } = cgrepSimple
-cgrepDispatch Options { regex = False, identifier = False, keyword = False, directive = False, header = False, number = False, string = False, char = False, oper = False, snippet = False } = cgrepCppContext
-cgrepDispatch Options { regex = False } = cgrepCppTokenizer
-cgrepDispatch Options { regex = True  } = cgrepRegex
 
+cgrepDispatch opt 
+    | not (hasRegexOpt opt) && not (hasContextOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepSimple
+    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepContext
+    | not (hasRegexOpt opt) = cgrepCppTokenizer
+    | hasRegexOpt opt       = cgrepRegex
+    | otherwise             = undefined
 
+     

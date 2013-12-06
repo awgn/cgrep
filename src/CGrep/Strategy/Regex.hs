@@ -52,7 +52,7 @@ cgrepRegex opt ps f = do
 
     let content  = zip [1..] $ C.lines multi_filtered 
     
-    -- putStrLevel3 (debug opt) filtered 
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
     return $ concatMap (basicRegex opt f ps) content
 

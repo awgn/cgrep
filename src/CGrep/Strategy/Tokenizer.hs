@@ -28,9 +28,6 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 
-import Control.Monad (when)
--- import Debug.Trace
-
 import Data.List
 import Data.Function
 import qualified Data.Map.Strict as Map
@@ -42,16 +39,11 @@ import Debug
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
 
--- traceShow :: (Show a) => String -> a -> Bool
--- traceShow msg x | trace (msg ++ ": " ++ show x) False = undefined
--- traceShow msg x = True
-
-
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
     putStrLevel1 (debug opt) $ if (snippet opt) 
-                                    then "strategy  : running C/C++ semantic grep on " ++ f ++ "..."
+                                    then "strategy  : running C/C++ semantic parser on " ++ f ++ "..."
                                     else "strategy  : running C/C++ tokenizer on " ++ f ++ "..."
 
     source <- if f == "" then slGetContents (ignore_case opt)  
@@ -83,6 +75,8 @@ cgrepCppTokenizer opt ps f = do
     putStrLevel2 (debug opt) $ "tokens :  " ++ show ts_res
     putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
 
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
+    
     return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
         where lps = map C.unpack ps
               lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
