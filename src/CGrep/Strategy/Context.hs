@@ -33,6 +33,8 @@ import Debug
 cgrepCppContext :: CgrepFunction
 cgrepCppContext opt ps f = do
     
+    putStrLevel1 (debug opt) $ "strategy  : running context-aware parser on " ++ f ++ "..."
+    
     source <- if f == "" then slGetContents (ignore_case opt)
                          else slReadFile (ignore_case opt) f
     
