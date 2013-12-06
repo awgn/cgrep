@@ -216,10 +216,10 @@ getTokenHeaderName _ _ = error $ "getTokenHeaderName: internal error"
 -- parser of token number is still somewhat heuristic!
 
 validDigitSet1 :: S.Set Char   
-validDigitSet1 = S.fromList "0123456789abcdefABCDEF.xXeE+-uUlL"
+validDigitSet1 = S.fromList "0123456789abcdefABCDEF.xXeEuUlL"
 
 validDigitSet2 :: S.Set Char   
-validDigitSet2 = S.fromList "0123456789.eE+-uUlL"
+validDigitSet2 = S.fromList "0123456789.eEuUlL"
 
 getTokenNumber xs@(C.uncons -> Just (x,_)) _
     | x == '0'  = Just $ TNumber (C.unpack $ getNumber validDigitSet1 xs) 0 0 

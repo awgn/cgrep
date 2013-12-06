@@ -71,8 +71,7 @@ cgrepCppTokenizer opt ps f = do
                      then sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f lpt all_ts 
                      else tokenGrep  opt f lps ts
     
-    putStrLevel2 (debug opt) $ "snippet:  " ++ show lpt
-    putStrLevel2 (debug opt) $ "tokens :  " ++ show ts_res
+    putStrLevel2 (debug opt) $ "tokens :  " ++ show all_ts
     putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
@@ -128,7 +127,7 @@ groupCompareMatch = all fst
 groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
 -- groupCompareSemantic xs | trace ("semantic: " ++ show xs) False = undefined
 groupCompareSemantic ts =  Map.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  Map.mapWithKey (\k xs -> if k == "_" || k == "$" 
+        where m =  Map.mapWithKey (\k xs -> if k == "_" || k == "$" || k == "000"
                                               then []
                                               else xs ) $ Map.fromListWith (++) (map snd ts)
         
@@ -142,31 +141,40 @@ tokensGroupCompare (wordmatch,invert) l r
 tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
 
 tokensCompare (True, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isPattern l =  (invert `xor` patternMatch True l r,  (l,[r]))
-        | otherwise   =  (invert `xor` (l == r), ("", []))
+        | isWildCard l =  (invert `xor` patternMatch True l r,  (l,[r]))
+        | otherwise    =  (invert `xor` (l == r), ("", []))
 
 tokensCompare (False, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isPattern l =  (invert `xor` patternMatch False l r, (l,[r]))
-        | otherwise   =  (invert `xor` (l `isInfixOf` r) , ("", []))
+        | isWildCard l =  (invert `xor` patternMatch False l r, (l,[r]))
+        | otherwise    =  (invert `xor` (l `isInfixOf` r) , ("", []))
+
+tokensCompare (True, invert) (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
+        | isWildCard l =  (invert `xor` patternMatch True l r,  (l,[r]))
+        | otherwise    =  (invert `xor` (l == r), ("", []))
+
+tokensCompare (False, invert) (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
+        | isWildCard l =  (invert `xor` patternMatch False l r, (l,[r]))
+        | otherwise    =  (invert `xor` (l `isInfixOf` r) , ("", []))
 
 tokensCompare (wordmatch, invert) l r   
         | wordmatch   =  (invert `xor` Cpp.tokenCompare l r, ("", [])) 
         | otherwise   =  (invert `xor` Cpp.tokenCompare l r, ("",[]))
 
  
-{-# INLINE isPattern #-}
+{-# INLINE isWildCard #-}
 
-isPattern :: String -> Bool
-isPattern s | ('_':_) <- s  = True
-            | ('$':_) <- s  = True
-            | otherwise     = False
+isWildCard :: String -> Bool
+isWildCard s | ('_':_) <- s  = True
+             | ('$':_) <- s  = True
+             | s == "000"    = True
+             | otherwise     = False
 
 {-# INLINE patternMatch #-}
 
 patternMatch :: WordMatch -> String -> String -> Bool
 patternMatch _ ('_':_) _ = True
 patternMatch _ ('$':_) _ = True
+patternMatch _ "000"   _ = True
 patternMatch _ _ _       = undefined 
     
-
 
