@@ -9,7 +9,7 @@ CgrepOptions
                  ObjectiveC , Perl, PHP , Python, Ruby, Scala, Tcl, Shell, 
                  Verilog, Vim ],
     
-    pruneDirs = [".svn", ".git"] 
+    pruneDirs = [".svn", ".git", "CMakeFiles" ] 
 } 
 
 

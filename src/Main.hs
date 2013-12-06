@@ -47,6 +47,7 @@ import CmdOptions
 import Options
 import Util
 import Debug
+import Config
 
 import qualified Data.ByteString.Char8 as C
 
@@ -85,6 +86,8 @@ main = do
     -- read command-line options 
     opts  <- cmdArgsRun options
     
+    putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
+    
     -- display lang-map...
     when (lang_map opts) $ dumpLangMap langMap >> exitSuccess 
 
@@ -103,6 +106,7 @@ main = do
 
 
     -- check whether is a terminal device 
+    
     isTerm <- hIsTerminalDevice stdin
 
     -- retrieve files to parse
@@ -120,14 +124,13 @@ main = do
 
     putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled 
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
+    putStrLevel1 (debug opts) $ "files     : " ++ show paths
     putStrLevel1 (debug opts) $ "isTerm    : " ++ show isTerm 
-
 
     -- create Transactional Chan and Vars...
    
     in_chan  <- newTChanIO 
     out_chan <- newTChanIO
-    
     
     -- launch worker threads...
 
@@ -158,8 +161,7 @@ main = do
 
         replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
 
-   
-    -- dump output until workers are running  
+    -- dump output until workers are done
 
     let stop = jobs opts
 
