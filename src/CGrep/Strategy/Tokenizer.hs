@@ -107,6 +107,7 @@ type WordMatch   = Bool
 type InvertMatch = Bool
 type Pattern     = Cpp.Token
 
+
 groupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> Bool
 groupCompare (wordmatch,invert) l r = groupCompareMatch ts &&
                                       groupCompareSemantic ts

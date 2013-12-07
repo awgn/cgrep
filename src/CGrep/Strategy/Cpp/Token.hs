@@ -29,7 +29,8 @@ import Data.Maybe
 import Data.Set as S
 import Data.Array 
 import Control.Monad
- 
+-- import Debug.Trace
+
 import qualified Data.ByteString.Char8 as C
 
 type TokenizerState = (Source, Offset, Lineno, State)
@@ -213,30 +214,67 @@ getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
 getTokenHeaderName (C.uncons -> Nothing) _ = error $ "getTokenHeaderName: internal error"
 getTokenHeaderName _ _ = error $ "getTokenHeaderName: internal error"
 
--- parser of token number is still somewhat heuristic!
 
-validDigitSet1 :: S.Set Char   
-validDigitSet1 = S.fromList "0123456789abcdefABCDEF.xXeEuUlL"
-
-validDigitSet2 :: S.Set Char   
-validDigitSet2 = S.fromList "0123456789.eEuUlL"
-
-getTokenNumber xs@(C.uncons -> Just (x,_)) _
-    | x == '0'  = Just $ TNumber (C.unpack $ getNumber validDigitSet1 xs) 0 0 
-    | isDigit x = Just $ TNumber (C.unpack $ getNumber validDigitSet2 xs) 0 0
-    | x == '.'  = let num = getNumber validDigitSet2 xs in 
-                    if isValidFloat num 
-                      then Just $ TNumber (C.unpack num) 0 0
-                      else Nothing
+getTokenNumber ys@(C.uncons -> Just (x,_)) _   
+    | x == '.' || isDigit x  = let ts = getNumber ys NumberNothing in 
+                                case ts of 
+                                    ""     -> Nothing 
+                                    "."    -> Nothing 
+                                    _      -> Just $ TNumber ts 0 0
     | otherwise = Nothing
-                    where getNumber digit = C.takeWhile (\c -> c `S.member` digit)
-                          isValidFloat (C.uncons -> Just (_,xs')) 
-                            | (C.uncons -> Just (y,_)) <- xs' = isDigit y
-                            | otherwise = False
-                          isValidFloat _ = False
 
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
-getTokenNumber _ _ = Nothing
+
+
+validHexSet, validOctSet, validDecSet, validFloatSet :: S.Set Char
+
+validHexSet   = S.fromList "0123456789abcdefABCDEFxXuUlL"
+validOctSet   = S.fromList "01234567uUlL"
+validDecSet   = S.fromList "0123456789uUlL"
+validFloatSet = S.fromList "0123456789"
+
+data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberFloat | NumberExp 
+                    deriving (Show,Eq,Enum)
+
+getNumber :: C.ByteString -> NumberState -> String
+-- getNumber xs s | trace ("state = " ++ show s) False = undefined
+
+getNumber (C.uncons -> Nothing) _ = ""
+getNumber (C.uncons -> Just (x,xs)) state 
+    |  state == NumberNothing =  case () of _ 
+                                                | x == '0'  -> x : getNumber xs NumberOHF
+                                                | x == '.'  -> x : getNumber xs NumberFloat
+                                                | isDigit x -> x : getNumber xs NumberDec
+                                                | otherwise -> ""
+    |  state == NumberOHF     =  case () of _
+                                                | x `S.member` validHexSet -> x : getNumber xs NumberHex
+                                                | x == '.'  -> x : getNumber xs NumberFloat
+                                                | otherwise -> x : getNumber xs NumberOct
+
+    |  state == NumberDec     =  case () of _
+                                                | x `S.member` validDecSet -> x : getNumber xs NumberDec
+                                                | x == '.'  -> x : getNumber xs NumberFloat
+                                                | x == 'e' || x == 'E'  -> x : getNumber xs NumberExp
+                                                | otherwise -> ""
+
+    |  state == NumberOct     =  case () of _
+                                                | x `S.member` validOctSet -> x : getNumber xs NumberOct
+                                                | otherwise -> ""
+
+    |  state == NumberHex     =  case () of _
+                                                | x `S.member` validHexSet -> x : getNumber xs NumberHex
+                                                | otherwise -> ""
+
+    |  state == NumberFloat   =  case () of _
+                                                | x `S.member` validFloatSet -> x : getNumber xs NumberFloat
+                                                | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
+                                                | otherwise                  -> ""
+    |  state == NumberExp     =  case () of _
+                                                | x `S.member` validFloatSet -> x : getNumber xs NumberFloat
+                                                | x == '+' || x == '-'       -> x : getNumber xs NumberFloat
+                                                | otherwise                  -> ""
+
+getNumber  _ _ = undefined
 
 
 getTokenString xs@(C.uncons -> Just (x,_)) _
