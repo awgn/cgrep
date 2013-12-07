@@ -181,7 +181,7 @@ runGetToken tstate = token : runGetToken ns
 
 getToken :: TokenizerState -> (Token, TokenizerState)
 
-getToken (C.uncons -> Nothing, _, _, _) = error $ "getToken: internal error"
+getToken (C.uncons -> Nothing, _, _, _) = error "getToken: internal error"
 getToken (xs, off, ln, state) = let token = fromJust $ 
                                         getTokenDirective xs state       `mplus`
                                         getTokenHeaderName xs state      `mplus`
@@ -211,8 +211,8 @@ getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
     | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs)   0 0
     | otherwise         = Just $ THeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0 0
 
-getTokenHeaderName (C.uncons -> Nothing) _ = error $ "getTokenHeaderName: internal error"
-getTokenHeaderName _ _ = error $ "getTokenHeaderName: internal error"
+getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName: internal error"
+getTokenHeaderName _ _ = error "getTokenHeaderName: internal error"
 
 
 getTokenNumber ys@(C.uncons -> Just (x,_)) _   

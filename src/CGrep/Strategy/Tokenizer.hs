@@ -42,9 +42,8 @@ import qualified CGrep.Strategy.Cpp.Token  as Cpp
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
-    putStrLevel1 (debug opt) $ if (snippet opt) 
-                                    then "strategy  : running C/C++ semantic parser on " ++ f ++ "..."
-                                    else "strategy  : running C/C++ tokenizer on " ++ f ++ "..."
+    putStrLevel1 (debug opt) $ if snippet opt then "strategy  : running C/C++ semantic parser on " ++ f ++ "..."
+                                              else "strategy  : running C/C++ tokenizer on " ++ f ++ "..."
 
     source <- if f == "" then slGetContents (ignore_case opt)  
                          else slReadFile (ignore_case opt) f
@@ -128,14 +127,14 @@ groupCompareMatch = all fst
 groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
 -- groupCompareSemantic xs | trace ("semantic: " ++ show xs) False = undefined
 groupCompareSemantic ts =  Map.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  Map.mapWithKey (\k xs -> if k == "_" || k == "$" || k == "000"
+        where m =  Map.mapWithKey (\k xs -> if k `elem` ["_","$","000"]
                                               then []
                                               else xs ) $ Map.fromListWith (++) (map snd ts)
         
 
 tokensGroupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
 tokensGroupCompare (wordmatch,invert) l r 
-    | length r >= length l = map (uncurry (tokensCompare (wordmatch,invert))) (zip l r)
+    | length r >= length l = zipWith (tokensCompare (wordmatch,invert)) l r
     | otherwise = [ (False, ("", [])) ]
 
 
