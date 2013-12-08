@@ -27,6 +27,7 @@ type Match  = (Int, [String])
 
 data Output = forall a. (StringLike a) => Output FilePath Int a [String]
 
+
 mkOutput :: (StringLike a) => FilePath -> a -> [Match] -> [Output]
 mkOutput f source ms = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) ms 
     where ls = slLines source  
@@ -38,5 +39,6 @@ showOutput Options { no_filename = False, no_linenumber = True  , count = False 
 showOutput Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l _) = show n ++ ":" ++ slToString l
 showOutput Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l _) = slToString l
 showOutput Options { count = True } (Output f n _ _) = f ++ ":" ++ show n
+
 
 

@@ -55,7 +55,7 @@ cgrepCppTokenizer opt ps f = do
     
     let all_ts = Cpp.tokenizer filtered
 
-    let ts = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
+    let tfilt  = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
                                                        Cpp.filtDirective  = directive opt,
                                                        Cpp.filtKeyword    = keyword opt,
                                                        Cpp.filtHeader     = header opt, 
@@ -64,21 +64,29 @@ cgrepCppTokenizer opt ps f = do
                                                        Cpp.filtChar       = char opt,
                                                        Cpp.filtOper       = oper opt}) all_ts
 
-    let content  = C.lines source
 
-    let ts_res  = if snippet opt 
+    let tmatches  = if snippet opt 
                      then sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f lpt all_ts 
-                     else tokenGrep  opt f lps ts
+                     else tokenGrep opt f lps tfilt
     
+    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [])) tmatches :: [(Int, [String])]
+
     putStrLevel2 (debug opt) $ "tokens :  " ++ show all_ts
     putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
+    putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
-    return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
-        where lps = map C.unpack ps
-              lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
-              outputEqual (Output f' n' _ _) (Output f'' n'' _ _) = (f' == f'') && (n' == n'') 
+    return $ mkOutput f source matches
+        
+        where  lps = map C.unpack ps
+               lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
+    
+    -- let content  = C.lines source
+    -- return $ nubBy outputEqual $ map (\t -> let ln = fromIntegral (Cpp.lineno t) in Output f (ln+1) (content !! ln) [] ) ts_res
+    --     where lps = map C.unpack ps
+    --           lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
+    --           outputEqual (Output f' n' _ _) (Output f'' n'' _ _) = (f' == f'') && (n' == n'') 
 
 
 mkContextFilter :: Options -> ContextFilter
