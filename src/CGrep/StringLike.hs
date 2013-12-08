@@ -43,10 +43,12 @@ class (IsString a) => StringLike a  where
 
     slToString    :: (IsString a) => a -> String
 
+    slWords       :: (IsString a) => a -> [a]
+    slLines       :: (IsString a) => a -> [a]
+
     slReadFile    :: (IsString a) => Bool -> FilePath -> IO a
     slGetContents :: (IsString a) => Bool -> IO a
 
-    slWords       :: (IsString a) => a -> [a]
     slGrep        :: (IsString a) => Bool -> Bool -> [a] -> a -> [a]
 
     ciEqual       :: (IsString a) => a -> a -> Bool
@@ -58,12 +60,9 @@ instance StringLike [Char] where
 
     slToString = id 
 
-    slWords s = case dropWhile isSpace' s of                 
-                "" -> []                                 
-                s' -> w : slWords s''                    
-                    where (w, s'') = break isSpace' s'    
-               where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
-    
+    slWords = words
+    slLines = lines
+
     slGrep wordmatch invert patterns s 
         | wordmatch  = let ws = slWords s in filter (\p -> ((p `isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
         | otherwise  = filter (\p -> (p `isInfixOf` s) `xor` invert) patterns   
@@ -90,7 +89,10 @@ instance StringLike C.ByteString where
 
     slToString = C.unpack 
 
-    slWords = filter (not . C.null) . C.splitWith (`notElem` '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) 
+    -- slWords = filter (not . C.null) . C.splitWith (`notElem` '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']) 
+    
+    slWords = C.words 
+    slLines = C.lines
 
     slGrep wordmatch invert patterns s 
         | wordmatch = let ws = slWords s in filter (\p -> ((p `C.isInfixOf` s) && (p `elem` ws)) `xor` invert) patterns   
@@ -118,11 +120,14 @@ instance StringLike LC.ByteString where
 
     slToString = LC.unpack 
     
-    slWords s = case LC.dropWhile isSpace' s of                 
-                (LC.uncons -> Nothing) -> []                                 
-                s' -> w : slWords s''                    
-                    where (w, s'') = LC.break isSpace' s'    
-               where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
+    slWords = LC.words
+    slLines = LC.lines
+
+    -- slWords s = case LC.dropWhile isSpace' s of                 
+    --             (LC.uncons -> Nothing) -> []                                 
+    --             s' -> w : slWords s''                    
+    --                 where (w, s'') = LC.break isSpace' s'    
+    --            where isSpace' c = notElem c $ '_' : '$' : ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] 
 
 
     slGrep wordmatch invert patterns s 
