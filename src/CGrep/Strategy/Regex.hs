@@ -29,10 +29,7 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 
-import Text.Regex.Posix
-
 import Options 
-import Util
 import Debug
 
 cgrepRegex :: CgrepFunction
@@ -47,21 +44,15 @@ cgrepRegex opt ps f = do
                      then filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
                      else source
 
-
     let multi_filtered = spanMultiLine (multiline opt) filtered
 
     let content  = zip [1..] $ C.lines multi_filtered 
     
+    let matches = concatMap (basicRegex opt ps) content
+
+    putStrLevel2 (debug opt) $ "matches: " ++ show matches
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
-    return $ concatMap (basicRegex opt f ps) content
-
-
-basicRegex :: (StringLike a, RegexLike Regex a, RegexMaker Regex CompOption ExecOption a) => Options -> FilePath -> [a] -> (Int, a) -> [Output]
-basicRegex opt f patterns (n, line) =
-    if null patfilt
-      then []
-      else [Output f n line (map slToString patfilt)]
-    where patfilt = filter (\p -> (line =~ p :: Bool) `xor` invert_match opt) patterns   
+    return $ mkOutput f source matches
 
 

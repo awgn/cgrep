@@ -23,6 +23,7 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Function
 import CGrep.StringLike
 import CGrep.Common
+import CGrep.Output
 
 import Options 
 import Debug
@@ -39,7 +40,10 @@ cgrepSimple opt ps f = do
     
     let content = (zip [1..] . C.lines) multi_source 
 
+    let matches = concatMap (basicGrep opt ps) content
+
+    putStrLevel2 (debug opt) $ "matches: " ++ show matches
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack source ++ "\n---"
-    
-    return $ concatMap (basicGrep opt f ps) content
+
+    return $ mkOutput f source matches 
 

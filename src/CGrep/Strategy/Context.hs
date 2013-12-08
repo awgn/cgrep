@@ -26,6 +26,7 @@ import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Output
 
 import Options 
 import Debug
@@ -43,8 +44,11 @@ cgrepContext opt ps f = do
     let multi_filtered = spanMultiLine (multiline opt) filtered
     
     let content = zip [1..] $ C.lines multi_filtered
+    
+    let matches = concatMap (basicGrep opt ps) content
 
+    putStrLevel2 (debug opt) $ "matches: " ++ show matches
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
-    return $ concatMap (basicGrep opt f ps) content
+    return $ mkOutput f source matches 
 

@@ -15,6 +15,8 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+       
+{-# LANGUAGE FlexibleContexts #-} 
 
 module CGrep.Common where
  
@@ -23,8 +25,10 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Output
 import CGrep.StringLike
 
-import Options
+import Text.Regex.Posix
 
+import Options
+import Util
 
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []
@@ -37,10 +41,19 @@ spanMultiLine 1 xs = xs
 spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
 
 
-basicGrep :: (StringLike a) => Options -> FilePath -> [a] -> (Int, a) -> [Output]
-basicGrep opt f patterns (n, line) =
-    if null patfilt
+basicGrep :: (StringLike a) => Options -> [a] -> (Int, a) -> [Match]
+basicGrep opt patterns (n, line) = 
+    if null pfilt then []
+                  else [ (n, map slToString pfilt) ]
+        where pfilt = slGrep (word opt) (invert_match opt) patterns line
+ 
+
+basicRegex :: (StringLike a, RegexLike Regex a, RegexMaker Regex CompOption ExecOption a) => Options -> [a] -> (Int, a) -> [Match]
+basicRegex opt patterns (n, line) =
+    if null pfilt
       then []
-      else [Output f n line (map slToString patfilt)]
-    where patfilt = slGrep (word opt) (invert_match opt) patterns line  
+      else [ (n, map slToString pfilt)]
+    where pfilt = filter (\p -> (line =~ p :: Bool) `xor` invert_match opt) patterns   
+
+
 
