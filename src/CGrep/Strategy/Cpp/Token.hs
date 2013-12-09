@@ -249,7 +249,8 @@ getNumber (C.uncons -> Just (x,xs)) state
     |  state == NumberOHF     =  case () of _
                                                 | x `S.member` validHexSet -> x : getNumber xs NumberHex
                                                 | x == '.'  -> x : getNumber xs NumberFloat
-                                                | otherwise -> x : getNumber xs NumberOct
+                                                | isDigit x -> x : getNumber xs NumberOct
+                                                | otherwise -> ""
 
     |  state == NumberDec     =  case () of _
                                                 | x `S.member` validDecSet -> x : getNumber xs NumberDec
