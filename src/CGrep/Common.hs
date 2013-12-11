@@ -43,9 +43,11 @@ spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
 
 basicGrep :: (StringLike a) => Options -> [a] -> (Int, a) -> [Match]
 basicGrep opt patterns (n, line) = 
-    if null pfilt then []
-                  else [ (n, map slToString pfilt) ]
-        where pfilt = slGrep (word_match opt) (invert_match opt) patterns line
+    if null pfilt then if (invert_match opt) then [ (n, map slToString patterns) ]
+                                             else []
+                  else if (invert_match opt) then [] 
+                                             else [ (n, map slToString pfilt) ]
+        where pfilt = slGrep (word_match opt) patterns line
  
 
 basicRegex :: Options -> [C.ByteString] -> (Int, C.ByteString) -> [Match]

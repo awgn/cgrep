@@ -70,7 +70,6 @@ cgrepCppSemantic opt ps f = do
         
 
 type WordMatch   = Bool
-type InvertMatch = Bool
 type Pattern     = Cpp.Token
 
 
@@ -102,14 +101,14 @@ filterIndicies ns ps = map snd $ filter (\(n, _) -> not (n `elem` ns)) ps
 filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
 -- filterMatchingTokens opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
 filterMatchingTokens _ _ [] _ = []
-filterMatchingTokens opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word_match opt, invert_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
+filterMatchingTokens opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
     where tokenGroups = spanGroup (length g) ts
 
 
-groupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> Bool
-groupCompare (wordmatch,invert) l r = groupCompareMatch ts &&
-                                      groupCompareSemantic ts
-        where ts = tokensGroupCompare (wordmatch,invert) l r               
+groupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> Bool
+groupCompare wordmatch l r = groupCompareMatch ts &&
+                             groupCompareSemantic ts
+        where ts = tokensGroupCompare wordmatch l r               
 
 
 {-# INLINE groupCompareMatch #-}
@@ -131,33 +130,33 @@ groupCompareSemantic ts =  Map.foldr (\xs r -> r && all (== head xs) xs) True m
                                               else xs ) $ Map.fromListWith (++) (map snd ts)
         
 
-tokensGroupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
-tokensGroupCompare (wordmatch,invert) l r 
-    | length r >= length l = zipWith (tokensCompare (wordmatch,invert)) l r
+tokensGroupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
+tokensGroupCompare wordmatch l r 
+    | length r >= length l = zipWith (tokensCompare wordmatch) l r
     | otherwise = [ (False, ("", [])) ]
 
 
-tokensCompare :: (WordMatch, InvertMatch) -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
+tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
 
-tokensCompare (True, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isWildCard l =  (invert `xor` patternMatch True l r,  (l,[r]))
-        | otherwise    =  (invert `xor` (l == r), ("", []))
+tokensCompare True (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
+        | isWildCard l =  (patternMatch True l r,  (l,[r]))
+        | otherwise    =  ((l == r), ("", []))
 
-tokensCompare (False, invert) (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isWildCard l =  (invert `xor` patternMatch False l r, (l,[r]))
-        | otherwise    =  (invert `xor` (l `isInfixOf` r) , ("", []))
+tokensCompare False (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
+        | isWildCard l =  (patternMatch False l r, (l,[r]))
+        | otherwise    =  ((l `isInfixOf` r) , ("", []))
 
-tokensCompare (True, invert) (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
-        | isWildCard l =  (invert `xor` patternMatch True l r,  (l,[r]))
-        | otherwise    =  (invert `xor` (l == r), ("", []))
+tokensCompare True (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
+        | isWildCard l =  (patternMatch True l r,  (l,[r]))
+        | otherwise    =  ((l == r), ("", []))
 
-tokensCompare (False, invert) (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
-        | isWildCard l =  (invert `xor` patternMatch False l r, (l,[r]))
-        | otherwise    =  (invert `xor` (l `isInfixOf` r) , ("", []))
+tokensCompare False (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
+        | isWildCard l =  (patternMatch False l r, (l,[r]))
+        | otherwise    =  ((l `isInfixOf` r) , ("", []))
 
-tokensCompare (wordmatch, invert) l r   
-        | wordmatch   =  (invert `xor` Cpp.tokenCompare l r, ("", [])) 
-        | otherwise   =  (invert `xor` Cpp.tokenCompare l r, ("",[]))
+tokensCompare wordmatch l r   
+        | wordmatch   =  (Cpp.tokenCompare l r, ("", [])) 
+        | otherwise   =  (Cpp.tokenCompare l r, ("",[]))
 
  
 {-# INLINE isWildCard #-}
