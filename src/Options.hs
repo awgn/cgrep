@@ -60,6 +60,7 @@ data Options = Options
                 max_count    :: Int,
                 count        :: Bool,
                 show_match   :: Bool,
+                color        :: Bool,
 
                 debug        :: Int,
                 others       :: [String]

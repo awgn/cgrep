@@ -19,6 +19,9 @@
 {-# LANGUAGE ExistentialQuantification #-} 
 
 module CGrep.Output (Output(..), Match, mkOutput, showOutput) where
+ 
+import System.Console.ANSI
+import Data.String.Utils
 
 import CGrep.StringLike
 import Options
@@ -34,15 +37,40 @@ mkOutput f source = map (\(n, xs) -> Output f n (ls !! (n-1)) xs)
 
 
 showOutput :: Options -> Output -> String
-showOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ slToString l
-showOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = f ++ ":" ++ showTokens opt ts ++ slToString l
-showOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = show n ++ ":" ++ showTokens opt ts ++ slToString l
-showOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = showTokens opt ts ++ slToString l
-showOutput Options { count = True } (Output f n _ _) = f ++ ":" ++ show n
+showOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+showOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+showOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+showOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = showTokens opt ts ++ showLine opt ts l
+showOutput opt@ Options { count = True } (Output f n _ _) = showFile opt f ++ ":" ++ show n
+
+blue, bold, reset :: String
+
+blue    = setSGRCode [SetColor Foreground Vivid Blue]    
+bold    = setSGRCode [SetConsoleIntensity BoldIntensity] 
+reset   = setSGRCode []                                  
 
 
 showTokens :: Options -> [String] -> String
 showTokens Options { show_match = st } xs
     | st        = show xs 
     | otherwise = ""
+
+
+showFile :: Options -> String -> String
+showFile Options { color = c } f 
+    | c         = bold ++ blue ++ f ++ reset
+    | otherwise = f 
+
+
+showLine :: (StringLike a) => Options -> [String] -> a -> String
+showLine Options { color = c } ts l
+    | c         = hilightLine ts (slToString l) 
+    | otherwise = slToString l 
+
+
+hilightLine :: [String] -> String -> String
+hilightLine []      l = l
+hilightLine (t:ts)  l = hilightLine ts $ replace t (hilight t) l 
+    where hilight token = bold ++ token ++ reset
+
 
