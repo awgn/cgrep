@@ -59,6 +59,7 @@ data Options = Options
                 invert_match :: Bool,
                 max_count    :: Int,
                 count        :: Bool,
+                show_match   :: Bool,
 
                 debug        :: Int,
                 others       :: [String]

@@ -34,11 +34,14 @@ mkOutput f source ms = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) ms
 
 
 showOutput :: Options -> Output -> String
-showOutput Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = f ++ ":" ++ show n ++ ":" ++ show ts ++ ":" ++ slToString l
-showOutput Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = f ++ ":" ++ show ts ++ ":" ++ slToString l
-showOutput Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l _ ) = show n ++ ":" ++ slToString l
-showOutput Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l _ ) = slToString l
+showOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ slToString l
+showOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = f ++ ":" ++ showTokens opt ts ++ slToString l
+showOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = show n ++ ":" ++ showTokens opt ts ++ slToString l
+showOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = showTokens opt ts ++ slToString l
 showOutput Options { count = True } (Output f n _ _) = f ++ ":" ++ show n
 
-
+showTokens :: Options -> [String] -> String
+showTokens Options { show_match = st } xs
+    | st        = show xs 
+    | otherwise = ""
 
