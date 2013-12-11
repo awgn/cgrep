@@ -32,7 +32,6 @@ import Data.Function
 import qualified Data.Map.Strict as Map
 
 import Options 
-import Util
 import Debug
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
@@ -85,14 +84,14 @@ extendPatterns = concatMap getPatternSubsequence
 
 
 getPatternSubsequence :: [Pattern] -> [[Pattern]]
-getPatternSubsequence ps = map (\is -> filterIndicies is ps') idx
+getPatternSubsequence ps = map (`filterIndicies` ps') idx
     where ps' = zip [0..] ps
           idx = subsequences $ findIndices (\t -> case t of 
                                                    Cpp.TIdentifier { Cpp.toString = ('$':_) } -> True  
                                                    _ -> False) ps
 
 filterIndicies :: [Int] -> [(Int,Pattern)] -> [Pattern]
-filterIndicies ns ps = map snd $ filter (\(n, _) -> not (n `elem` ns)) ps
+filterIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
 
@@ -140,19 +139,19 @@ tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
 
 tokensCompare True (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
         | isWildCard l =  (patternMatch True l r,  (l,[r]))
-        | otherwise    =  ((l == r), ("", []))
+        | otherwise    =  (l == r, ("", []))
 
 tokensCompare False (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
         | isWildCard l =  (patternMatch False l r, (l,[r]))
-        | otherwise    =  ((l `isInfixOf` r) , ("", []))
+        | otherwise    =  (l `isInfixOf` r, ("", []))
 
 tokensCompare True (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
         | isWildCard l =  (patternMatch True l r,  (l,[r]))
-        | otherwise    =  ((l == r), ("", []))
+        | otherwise    =  (l == r, ("", []))
 
 tokensCompare False (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
         | isWildCard l =  (patternMatch False l r, (l,[r]))
-        | otherwise    =  ((l `isInfixOf` r) , ("", []))
+        | otherwise    =  (l `isInfixOf` r, ("", []))
 
 tokensCompare wordmatch l r   
         | wordmatch   =  (Cpp.tokenCompare l r, ("", [])) 

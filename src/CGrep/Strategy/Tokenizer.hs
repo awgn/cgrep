@@ -26,7 +26,6 @@ import CGrep.Output
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
-import CGrep.Common
 
 import Options 
 import Util
@@ -51,13 +50,13 @@ cgrepCppTokenizer opt ps f = do
     let all_ts = Cpp.tokenizer filtered
 
     let tfilt  = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
-                                                       Cpp.filtDirective  = directive opt,
-                                                       Cpp.filtKeyword    = keyword opt,
-                                                       Cpp.filtHeader     = header opt, 
-                                                       Cpp.filtString     = string opt,
-                                                       Cpp.filtNumber     = number opt,
-                                                       Cpp.filtChar       = char opt,
-                                                       Cpp.filtOper       = oper opt}) all_ts
+                                                           Cpp.filtDirective  = directive opt,
+                                                           Cpp.filtKeyword    = keyword opt,
+                                                           Cpp.filtHeader     = header opt, 
+                                                           Cpp.filtString     = string opt,
+                                                           Cpp.filtNumber     = number opt,
+                                                           Cpp.filtChar       = char opt,
+                                                           Cpp.filtOper       = oper opt}) all_ts
 
 
     let tmatches  = tokenGrep opt f lps tfilt
@@ -81,6 +80,6 @@ sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLitera
 
 
 tokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-tokenGrep opt _ ps = filter (notNull . slGrep (word opt) (invert_match opt) ps . Cpp.toString) 
+tokenGrep opt _ ps = filter (notNull . slGrep (word_match opt) ps . Cpp.toString) 
 
 

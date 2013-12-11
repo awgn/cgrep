@@ -71,8 +71,8 @@ instance StringLike [Char] where
     slToken = filter notNull . splitWhen (`notElem` validTokenChars) 
     
     slGrep wordmatch patterns s 
-        | wordmatch  = let ws = slToken s in filter (\p -> ((p `isInfixOf` s) && (p `elem` ws))) patterns   
-        | otherwise  = filter (\p -> (p `isInfixOf` s)) patterns   
+        | wordmatch  = let ws = slToken s in filter (\p -> (p `isInfixOf` s) && (p `elem` ws)) patterns   
+        | otherwise  = filter (`isInfixOf` s) patterns   
 
     slReadFile ignoreCase f 
         | ignoreCase = liftM (map toLower) $ readFile f 
@@ -101,8 +101,8 @@ instance StringLike C.ByteString where
     slToken = filter (not . C.null) . C.splitWith (`notElem` validTokenChars) 
 
     slGrep wordmatch patterns s 
-        | wordmatch = let ws = slToken s in filter (\p -> ((p `C.isInfixOf` s) && (p `elem` ws))) patterns   
-        | otherwise = filter (\p -> (p `C.isInfixOf` s)) patterns   
+        | wordmatch = let ws = slToken s in filter (\p -> (p `C.isInfixOf` s) && (p `elem` ws)) patterns   
+        | otherwise = filter (`C.isInfixOf` s) patterns   
 
     slReadFile ignoreCase f
         | ignoreCase = liftM (C.map toLower) $ C.readFile f
@@ -135,7 +135,7 @@ instance StringLike LC.ByteString where
                 where isSpace' c = c `notElem` validTokenChars 
 
     slGrep wordmatch patterns s 
-        | wordmatch = let ws = slToken s in filter (\p -> (p `elem` ws)) patterns   
+        | wordmatch = let ws = slToken s in filter (`elem` ws) patterns   
         | otherwise = map ((patterns!!) . snd) $ filter (\p -> notNull (LC.indices (fst p) s)) (zip (map toStrict patterns) [0..])
 
     slReadFile ignoreCase f

@@ -42,8 +42,8 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 filterContext :: Maybe Lang -> ContextFilter -> Source -> Source
 
 filterContext Nothing     _ src =  src 
-filterContext (Just lang) filt src =  
-    snd $ C.mapAccumL (fromJust $ Map.lookup lang filterMap) (FiltState StateCode filt []) src 
+filterContext (Just language) filt src =  
+    snd $ C.mapAccumL (fromJust $ Map.lookup language filterMap) (FiltState StateCode filt []) src 
 
 
 -- filter function:
