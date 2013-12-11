@@ -24,6 +24,8 @@ import CGrep.Strategy.Regex
 import CGrep.Strategy.Simple
 import CGrep.Strategy.Context
 import CGrep.Strategy.Tokenizer
+import CGrep.Strategy.Semantic
+
 import CGrep.Lang
               
 import Data.List
@@ -68,6 +70,7 @@ cgrepDispatch :: Options -> CgrepFunction
 cgrepDispatch opt 
     | not (hasRegexOpt opt) && not (hasContextOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepSimple
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepContext
+    | not (hasRegexOpt opt) && hasSemanticOpt opt = cgrepCppSemantic
     | not (hasRegexOpt opt) = cgrepCppTokenizer
     | hasRegexOpt opt       = cgrepRegex
     | otherwise             = undefined
