@@ -52,24 +52,22 @@ cgrepCppSemantic opt ps f = do
     -- parse source code, get the Cpp.Token list...
     --
     
-    let all_ts = Cpp.tokenizer filtered
+    let sourceTokens = Cpp.tokenizer filtered
 
-    
-    let tmatches  =  sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f lpt all_ts 
+    let patTokens = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps  
+
+    let tmatches = sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f patTokens sourceTokens
    
-
     let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [])) tmatches :: [(Int, [String])]
 
-    putStrLevel2 (debug opt) $ "tokens :  " ++ show all_ts
-    putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
+    putStrLevel2 (debug opt) $ "tokens :  " ++ show sourceTokens
+    putStrLevel2 (debug opt) $ "patterns: " ++ show patTokens
     putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
     return $ mkOutput f source matches
         
-        where  lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
-    
 
 sourceCodeFilter :: ContextFilter 
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
