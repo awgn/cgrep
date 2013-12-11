@@ -41,7 +41,7 @@ sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
                                             string     = False, 
                                             char       = False, 
                                             oper       = False, 
-                                            snippet    = False 
+                                            semantic   = False 
                                             }
                             _       -> opt
 
@@ -62,7 +62,7 @@ hasTokenizerOpt Options{ identifier = i,
                          oper       = o} = i || k || d || h || n || s || c || o
 
 hasSemanticOpt :: Options -> Bool
-hasSemanticOpt Options{ snippet = s } = s
+hasSemanticOpt Options{ semantic = s } = s
 
 
 cgrepDispatch :: Options -> CgrepFunction
