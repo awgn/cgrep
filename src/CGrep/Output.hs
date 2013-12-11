@@ -34,10 +34,10 @@ mkOutput f source ms = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) ms
 
 
 showOutput :: Options -> Output -> String
-showOutput Options { no_filename = False, no_linenumber = False , count = False } (Output f n l _) = f ++ ":" ++ show n ++ ":" ++ slToString l
-showOutput Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l _) = f ++ ":" ++ slToString l
-showOutput Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l _) = show n ++ ":" ++ slToString l
-showOutput Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l _) = slToString l
+showOutput Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = f ++ ":" ++ show n ++ ":" ++ show ts ++ ":" ++ slToString l
+showOutput Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = f ++ ":" ++ show ts ++ ":" ++ slToString l
+showOutput Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l _ ) = show n ++ ":" ++ slToString l
+showOutput Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l _ ) = slToString l
 showOutput Options { count = True } (Output f n _ _) = f ++ ":" ++ show n
 
 

@@ -56,4 +56,3 @@ basicRegex opt patterns (n, line) =
     where pfilt = filter (\p -> (line =~ p :: Bool) `xor` invert_match opt) patterns   
 
 
-
