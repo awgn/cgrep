@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 3.7. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 3.8. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -46,6 +46,8 @@ Output control:
        --invert-match   select non-matching lines
        --max-count=INT  stop search in files after INT matches
        --count          print only a count of matching lines per file
+       --show-match     show matching tokens in lines
+       --color          use colors to highlight the matching strings
 
 Miscellaneous:
 

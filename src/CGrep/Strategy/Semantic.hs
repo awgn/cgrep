@@ -55,17 +55,20 @@ cgrepCppSemantic opt ps f = do
 
     let patTokens = extendPatterns $ map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
 
-    let tmatches = sortBy (compare `on` Cpp.offset) $ nub $ filterMatchingTokens opt f patTokens sourceTokens
-   
-    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [])) tmatches :: [(Int, [String])]
+    let matchingTokens =  filterMatchingTokens opt f patTokens sourceTokens 
 
-    -- putStrLevel2 (debug opt) $ "tokens :  " ++ show sourceTokens
     putStrLevel2 (debug opt) $ "patterns: " ++ show patTokens
+    putStrLevel2 (debug opt) $ "matchingToken: " ++ show matchingTokens
+
+    let tokenMatches = sortBy (compare `on` Cpp.offset) $ nub matchingTokens
+
+    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [Cpp.toString t])) tokenMatches :: [(Int, [String])]
+
     putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
-    return $ mkOutput f source matches
+    return $ mkOutput f source (mergeMatches matches)
         
 
 type WordMatch   = Bool
@@ -74,7 +77,6 @@ type Pattern     = Cpp.Token
 
 sourceCodeFilter :: ContextFilter 
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
-
 
 
 -- extend patterns for optional tokens ($)...
@@ -94,14 +96,14 @@ filterIndicies :: [Int] -> [(Int,Pattern)] -> [Pattern]
 filterIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
-
 -- search for matching tokens...
 
 filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
 -- filterMatchingTokens opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
 filterMatchingTokens _ _ [] _ = []
-filterMatchingTokens opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
-    where tokenGroups = spanGroup (length g) ts
+filterMatchingTokens opt f (g:gs) ts = concatMap (take groupLen . (`drop` ts)) (findIndices (groupCompare (word_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
+    where tokenGroups = spanGroup groupLen ts
+          groupLen    = length g
 
 
 groupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> Bool

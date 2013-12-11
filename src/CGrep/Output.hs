@@ -18,10 +18,12 @@
 
 {-# LANGUAGE ExistentialQuantification #-} 
 
-module CGrep.Output (Output(..), Match, mkOutput, showOutput) where
+module CGrep.Output (Output(..), Match, mergeMatches, mkOutput, showOutput) where
  
 import System.Console.ANSI
 import Data.String.Utils
+import Data.List
+import Data.Function
 
 import CGrep.StringLike
 import Options
@@ -29,6 +31,12 @@ import Options
 type Match  = (Int, [String])
 
 data Output = forall a. (StringLike a) => Output FilePath Int a [String]
+
+
+mergeMatches :: [Match] -> [Match] 
+mergeMatches [] = []
+mergeMatches xs = map mergeGroup $ groupBy ((==) `on` fst) xs
+    where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)  
 
 
 mkOutput :: (StringLike a) => FilePath -> a -> [Match] -> [Output]
