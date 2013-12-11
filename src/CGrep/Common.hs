@@ -17,6 +17,7 @@
 --
        
 {-# LANGUAGE FlexibleContexts #-} 
+{-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Common where
  
@@ -28,7 +29,6 @@ import CGrep.StringLike
 import Text.Regex.Posix
 
 import Options
-import Util
 
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []
@@ -48,11 +48,16 @@ basicGrep opt patterns (n, line) =
         where pfilt = slGrep (word opt) (invert_match opt) patterns line
  
 
-basicRegex :: (StringLike a, RegexLike Regex a, RegexMaker Regex CompOption ExecOption a) => Options -> [a] -> (Int, a) -> [Match]
-basicRegex opt patterns (n, line) =
-    if null pfilt
-      then []
-      else [ (n, map slToString pfilt)]
-    where pfilt = filter (\p -> (line =~ p :: Bool) `xor` invert_match opt) patterns   
+basicRegex :: Options -> [C.ByteString] -> (Int, C.ByteString) -> [Match]
+basicRegex opt patterns (n, line) = let out = filter (not . C.null) pfilt 
+                                        in if null out then [] 
+                                                       else [(n, map slToString out)]
+    where pfilt = map (\p -> let  s = line =~ p :: C.ByteString in invertMatchString (invert_match opt) (p, s)) patterns 
+          
+
+invertMatchString :: Bool -> (C.ByteString, C.ByteString) -> C.ByteString
+invertMatchString False (_, xs) = xs 
+invertMatchString True  (p, C.uncons -> Nothing) =  p
+invertMatchString True  (_, _) = C.empty
 
 
