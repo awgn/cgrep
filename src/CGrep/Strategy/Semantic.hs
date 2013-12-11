@@ -54,13 +54,13 @@ cgrepCppSemantic opt ps f = do
     
     let sourceTokens = Cpp.tokenizer filtered
 
-    let patTokens = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps  
+    let patTokens = extendPatterns $ map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
 
-    let tmatches = sortBy (compare `on` Cpp.offset) $ nub $ tokensMatch opt f patTokens sourceTokens
+    let tmatches = sortBy (compare `on` Cpp.offset) $ nub $ filterMatchingTokens opt f patTokens sourceTokens
    
     let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [])) tmatches :: [(Int, [String])]
 
-    putStrLevel2 (debug opt) $ "tokens :  " ++ show sourceTokens
+    -- putStrLevel2 (debug opt) $ "tokens :  " ++ show sourceTokens
     putStrLevel2 (debug opt) $ "patterns: " ++ show patTokens
     putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
 
@@ -69,20 +69,41 @@ cgrepCppSemantic opt ps f = do
     return $ mkOutput f source matches
         
 
+type WordMatch   = Bool
+type InvertMatch = Bool
+type Pattern     = Cpp.Token
+
+
 sourceCodeFilter :: ContextFilter 
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
 
 
-tokensMatch :: Options -> FilePath -> [[Cpp.Token]] -> [Cpp.Token] -> [Cpp.Token]
--- tokensMatch opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
-tokensMatch _ _ [] _ = []
-tokensMatch opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word opt, invert_match opt) g) tokenGroups) ++ tokensMatch opt f gs ts 
+
+-- extend patterns for optional tokens ($)...
+
+extendPatterns :: [[Pattern]] -> [[Pattern]]
+extendPatterns = concatMap getPatternSubsequence 
+
+
+getPatternSubsequence :: [Pattern] -> [[Pattern]]
+getPatternSubsequence ps = map (\is -> filterIndicies is ps') idx
+    where ps' = zip [0..] ps
+          idx = subsequences $ findIndices (\t -> case t of 
+                                                   Cpp.TIdentifier { Cpp.toString = ('$':_) } -> True  
+                                                   _ -> False) ps
+
+filterIndicies :: [Int] -> [(Int,Pattern)] -> [Pattern]
+filterIndicies ns ps = map snd $ filter (\(n, _) -> not (n `elem` ns)) ps
+
+
+
+-- search for matching tokens...
+
+filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
+-- filterMatchingTokens opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
+filterMatchingTokens _ _ [] _ = []
+filterMatchingTokens opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word opt, invert_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
     where tokenGroups = spanGroup (length g) ts
-
-
-type WordMatch   = Bool
-type InvertMatch = Bool
-type Pattern     = Cpp.Token
 
 
 groupCompare :: (WordMatch,InvertMatch) -> [Pattern] -> [Cpp.Token] -> Bool
