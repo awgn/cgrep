@@ -102,7 +102,7 @@ filterIndicies ns ps = map snd $ filter (\(n, _) -> not (n `elem` ns)) ps
 filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
 -- filterMatchingTokens opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
 filterMatchingTokens _ _ [] _ = []
-filterMatchingTokens opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word opt, invert_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
+filterMatchingTokens opt f (g:gs) ts = map (ts !!) (findIndices (groupCompare (word_match opt, invert_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
     where tokenGroups = spanGroup (length g) ts
 
 

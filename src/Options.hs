@@ -26,7 +26,7 @@ data Options = Options
                {
                 -- Pattern:
                 file        :: String,
-                word        :: Bool,
+                word_match  :: Bool,
                 regex       :: Bool,
                 ignore_case :: Bool,
                 

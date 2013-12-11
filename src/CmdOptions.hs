@@ -37,7 +37,7 @@ import Options
 options = cmdArgsMode $ Options 
           {
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
-                word  = False              &= help "force word matching",
+                word_match  = False        &= help "force word matching" &=explicit &= name "word" &= name "w",
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 

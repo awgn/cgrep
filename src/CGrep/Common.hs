@@ -45,7 +45,7 @@ basicGrep :: (StringLike a) => Options -> [a] -> (Int, a) -> [Match]
 basicGrep opt patterns (n, line) = 
     if null pfilt then []
                   else [ (n, map slToString pfilt) ]
-        where pfilt = slGrep (word opt) (invert_match opt) patterns line
+        where pfilt = slGrep (word_match opt) (invert_match opt) patterns line
  
 
 basicRegex :: Options -> [C.ByteString] -> (Int, C.ByteString) -> [Match]
