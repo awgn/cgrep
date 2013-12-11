@@ -70,11 +70,6 @@ cgrepCppSemantic opt ps f = do
         
         where  lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
     
-mkContextFilter :: Options -> ContextFilter
-mkContextFilter opt = if not (code opt && comment opt && literal opt) 
-                       then ContextFilter { getCode = True,     getComment = False, getLiteral = True }
-                       else ContextFilter { getCode = code opt, getComment = False, getLiteral = literal opt }
-
 
 sourceCodeFilter :: ContextFilter 
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   

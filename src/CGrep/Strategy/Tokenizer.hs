@@ -26,6 +26,7 @@ import CGrep.Output
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
+import CGrep.Common
 
 import Options 
 import Util
@@ -74,11 +75,6 @@ cgrepCppTokenizer opt ps f = do
         where  lps = map C.unpack ps
                lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
     
-mkContextFilter :: Options -> ContextFilter
-mkContextFilter opt = if not (code opt && comment opt && literal opt) 
-                       then ContextFilter { getCode = True,     getComment = False, getLiteral = True }
-                       else ContextFilter { getCode = code opt, getComment = False, getLiteral = literal opt }
-
 
 sourceCodeFilter :: ContextFilter 
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   

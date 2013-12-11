@@ -18,12 +18,12 @@
 
 {-# LANGUAGE TemplateHaskell #-} 
 
-module CGrep.Filter (Context(..), ContextFilter(..), filterContext)  where
+module CGrep.Filter (Context(..), ContextFilter(..), filterContext, mkContextFilter)  where
 
 import CGrep.Template
-
 import CGrep.FilterData
 import CGrep.Lang
+import Options
 
 import Data.Maybe
 
@@ -52,6 +52,13 @@ filterContext (Just lang) filt src =
 filterFunction :: FilterFunction -> FiltState -> Char -> (FiltState, Char) 
 filterFunction funFilt filtstate c = (state', charFilter (cxtFilter cxt (cfilter filtstate)) c)
                         where (cxt, state') = funFilt (pchars filtstate, c) filtstate
+
+
+mkContextFilter :: Options -> ContextFilter
+mkContextFilter opt = if not (code opt && comment opt && literal opt) 
+                       then ContextFilter { getCode = True,     getComment = False, getLiteral = True }
+                       else ContextFilter { getCode = code opt, getComment = False, getLiteral = literal opt }
+
 
 -- parsers templates:
 --
