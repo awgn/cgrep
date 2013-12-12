@@ -61,7 +61,7 @@ cgrepCppTokenizer opt ps f = do
 
     let tmatches  = tokenGrep opt f lps tfilt
     
-    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [])) tmatches :: [(Int, [String])]
+    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [Cpp.toString t])) tmatches :: [(Int, [String])]
 
     putStrLevel2 (debug opt) $ "tokens :  " ++ show all_ts
     putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
@@ -69,7 +69,7 @@ cgrepCppTokenizer opt ps f = do
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
-    return $ mkOutput f source matches
+    return $ mkOutput f source (mergeMatches matches)
         
         where  lps = map C.unpack ps
                lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
