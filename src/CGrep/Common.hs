@@ -17,7 +17,6 @@
 --
        
 {-# LANGUAGE FlexibleContexts #-} 
-{-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Common where
  

@@ -39,6 +39,3 @@ xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
 
 
-
-
-
