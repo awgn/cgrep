@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-} 
 {-# LANGUAGE ViewPatterns #-} 
 
-module CGrep.StringLike(StringLike(..), toStrict) where
+module CGrep.StringLike(StringLike(..)) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
@@ -55,7 +55,7 @@ class (IsString a) => StringLike a  where
     slReadFile    :: (IsString a) => Bool -> FilePath -> IO a
     slGetContents :: (IsString a) => Bool -> IO a
 
-    slGrep        :: (IsString a) => Bool -> [a] -> a -> [a]
+    slSearch      :: (IsString a) => Bool -> [a] -> a -> [a]
 
     ciEqual       :: (IsString a) => a -> a -> Bool
     ciIsPrefixOf  :: (IsString a) => a -> a -> Bool
@@ -70,7 +70,7 @@ instance StringLike [Char] where
     slLines = lines
     slToken = filter notNull . splitWhen (`notElem` validTokenChars) 
     
-    slGrep wordmatch patterns s 
+    slSearch wordmatch patterns s 
         | wordmatch  = let ws = slToken s in filter (\p -> (p `isInfixOf` s) && (p `elem` ws)) patterns   
         | otherwise  = filter (`isInfixOf` s) patterns   
 
@@ -100,7 +100,7 @@ instance StringLike C.ByteString where
     slLines = C.lines
     slToken = filter (not . C.null) . C.splitWith (`notElem` validTokenChars) 
 
-    slGrep wordmatch patterns s 
+    slSearch wordmatch patterns s 
         | wordmatch = let ws = slToken s in filter (\p -> (p `C.isInfixOf` s) && (p `elem` ws)) patterns   
         | otherwise = filter (`C.isInfixOf` s) patterns   
 
@@ -134,7 +134,7 @@ instance StringLike LC.ByteString where
                         where (w, s'') = LC.break isSpace' s'    
                 where isSpace' c = c `notElem` validTokenChars 
 
-    slGrep wordmatch patterns s 
+    slSearch wordmatch patterns s 
         | wordmatch = let ws = slToken s in filter (`elem` ws) patterns   
         | otherwise = map ((patterns!!) . snd) $ filter (\p -> notNull (LC.indices (fst p) s)) (zip (map toStrict patterns) [0..])
 

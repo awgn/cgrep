@@ -47,7 +47,7 @@ basicGrep opt patterns (n, line)
                                         else []
     | otherwise   = if invert_match opt then [] 
                                         else [ (n, map slToString pfilt) ]
-        where pfilt = slGrep (word_match opt) patterns line
+        where pfilt = slSearch (word_match opt) patterns line
  
 
 basicRegex :: Options -> [C.ByteString] -> (Int, C.ByteString) -> [Match]

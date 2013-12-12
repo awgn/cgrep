@@ -80,6 +80,6 @@ sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLitera
 
 
 tokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-tokenGrep opt _ ps = filter (notNull . slGrep (word_match opt) ps . Cpp.toString) 
+tokenGrep opt _ ps = filter (notNull . slSearch (word_match opt) ps . Cpp.toString) 
 
 
