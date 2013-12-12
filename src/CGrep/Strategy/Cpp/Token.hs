@@ -233,7 +233,7 @@ validOctSet   = S.fromList "01234567uUlL"
 validDecSet   = S.fromList "0123456789uUlL"
 validFloatSet = S.fromList "0123456789"
 
-data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberFloat | NumberExp 
+data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberMayBeFloat | NumberFloat | NumberExp 
                     deriving (Show,Eq,Enum)
 
 getNumber :: C.ByteString -> NumberState -> String
@@ -243,18 +243,18 @@ getNumber (C.uncons -> Nothing) _ = ""
 getNumber (C.uncons -> Just (x,xs)) state 
     |  state == NumberNothing =  case () of _ 
                                                 | x == '0'  -> x : getNumber xs NumberOHF
-                                                | x == '.'  -> x : getNumber xs NumberFloat
+                                                | x == '.'  -> x : getNumber xs NumberMayBeFloat
                                                 | isDigit x -> x : getNumber xs NumberDec
                                                 | otherwise -> ""
     |  state == NumberOHF     =  case () of _
                                                 | x `S.member` validHexSet -> x : getNumber xs NumberHex
-                                                | x == '.'  -> x : getNumber xs NumberFloat
+                                                | x == '.'  -> x : getNumber xs NumberMayBeFloat
                                                 | isDigit x -> x : getNumber xs NumberOct
                                                 | otherwise -> ""
 
     |  state == NumberDec     =  case () of _
                                                 | x `S.member` validDecSet -> x : getNumber xs NumberDec
-                                                | x == '.'  -> x : getNumber xs NumberFloat
+                                                | x == '.'  -> x : getNumber xs NumberMayBeFloat
                                                 | x == 'e' || x == 'E'  -> x : getNumber xs NumberExp
                                                 | otherwise -> ""
 
@@ -266,13 +266,18 @@ getNumber (C.uncons -> Just (x,xs)) state
                                                 | x `S.member` validHexSet -> x : getNumber xs NumberHex
                                                 | otherwise -> ""
 
-    |  state == NumberFloat   =  case () of _
+    |  state == NumberMayBeFloat =  case () of _
+                                                | x `S.member` validDecSet   -> x : getNumber xs NumberFloat
+                                                | otherwise                  -> ""
+    
+    |  state == NumberFloat  =  case () of _
                                                 | x `S.member` validFloatSet -> x : getNumber xs NumberFloat
                                                 | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
                                                 | otherwise                  -> ""
+    
     |  state == NumberExp     =  case () of _
-                                                | x `S.member` validFloatSet -> x : getNumber xs NumberFloat
-                                                | x == '+' || x == '-'       -> x : getNumber xs NumberFloat
+                                                | x `S.member` validDecSet   -> x : getNumber xs NumberExp
+                                                | x == '+' || x == '-'       -> x : getNumber xs NumberExp
                                                 | otherwise                  -> ""
 
 getNumber  _ _ = undefined
