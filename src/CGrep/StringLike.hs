@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-} 
 {-# LANGUAGE ViewPatterns #-} 
 
-module CGrep.StringLike(StringLike(..)) where
+module CGrep.StringLike(StringLike(..), validTokenChars) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
@@ -50,7 +50,7 @@ class (IsString a) => StringLike a  where
 
     slWords       :: (IsString a) => a -> [a]
     slLines       :: (IsString a) => a -> [a]
-    slToken       :: (IsString a) => a -> [a]
+    slTokens      :: (IsString a) => a -> [a]
     
     slReadFile    :: (IsString a) => Bool -> FilePath -> IO a
     slGetContents :: (IsString a) => Bool -> IO a
@@ -66,12 +66,12 @@ instance StringLike [Char] where
 
     slToString = id 
 
-    slWords = words
-    slLines = lines
-    slToken = filter notNull . splitWhen (`notElem` validTokenChars) 
+    slWords  = words
+    slLines  = lines
+    slTokens = filter notNull . splitWhen (`notElem` validTokenChars) 
     
     slSearch wordmatch patterns s 
-        | wordmatch  = let ws = slToken s in filter (\p -> (p `isInfixOf` s) && (p `elem` ws)) patterns   
+        | wordmatch  = let ws = slTokens s in filter (\p -> (p `isInfixOf` s) && (p `elem` ws)) patterns   
         | otherwise  = filter (`isInfixOf` s) patterns   
 
     slReadFile ignoreCase f 
@@ -96,12 +96,12 @@ instance StringLike C.ByteString where
 
     slToString = C.unpack 
 
-    slWords = C.words 
-    slLines = C.lines
-    slToken = filter (not . C.null) . C.splitWith (`notElem` validTokenChars) 
+    slWords  = C.words 
+    slLines  = C.lines
+    slTokens = filter (not . C.null) . C.splitWith (`notElem` validTokenChars) 
 
     slSearch wordmatch patterns s 
-        | wordmatch = let ws = slToken s in filter (\p -> (p `C.isInfixOf` s) && (p `elem` ws)) patterns   
+        | wordmatch = let ws = slTokens s in filter (\p -> (p `C.isInfixOf` s) && (p `elem` ws)) patterns   
         | otherwise = filter (`C.isInfixOf` s) patterns   
 
     slReadFile ignoreCase f
@@ -126,16 +126,16 @@ instance StringLike LC.ByteString where
 
     slToString = LC.unpack 
     
-    slWords = LC.words
-    slLines = LC.lines
-    slToken s = case LC.dropWhile isSpace' s of                 
+    slWords  = LC.words
+    slLines  = LC.lines
+    slTokens s = case LC.dropWhile isSpace' s of                 
                     (LC.uncons -> Nothing) -> []                                 
-                    s' -> w : slToken s''                    
+                    s' -> w : slTokens s''                    
                         where (w, s'') = LC.break isSpace' s'    
                 where isSpace' c = c `notElem` validTokenChars 
 
     slSearch wordmatch patterns s 
-        | wordmatch = let ws = slToken s in filter (`elem` ws) patterns   
+        | wordmatch = let ws = slTokens s in filter (`elem` ws) patterns   
         | otherwise = map ((patterns!!) . snd) $ filter (\p -> notNull (LC.indices (fst p) s)) (zip (map toStrict patterns) [0..])
 
     slReadFile ignoreCase f
