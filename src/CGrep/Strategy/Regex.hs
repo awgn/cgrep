@@ -53,6 +53,6 @@ cgrepRegex opt ps f = do
     putStrLevel2 (debug opt) $ "matches: " ++ show matches
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
-    return $ mkOutput f source matches
+    return $ mkOutput opt f source matches
 
 

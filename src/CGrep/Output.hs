@@ -39,9 +39,16 @@ mergeMatches xs = map mergeGroup $ groupBy ((==) `on` fst) xs
     where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)  
 
 
-mkOutput :: (StringLike a) => FilePath -> a -> [Match] -> [Output]
-mkOutput f source = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) 
-    where ls = slLines source  
+invertMatches :: Int -> [Match] -> [Match]
+invertMatches n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n $ [ (i, []) | i <- [1..]] 
+    where idx = map fst xs
+
+
+mkOutput :: (StringLike a) => Options -> FilePath -> a -> [Match] -> [Output]
+mkOutput Options { invert_match = invert } f source 
+    | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatches (length ls)
+    | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) 
+        where ls = slLines source  
 
 
 showOutput :: Options -> Output -> String
@@ -50,6 +57,7 @@ showOutput opt@ Options { no_filename = False, no_linenumber = True  , count = F
 showOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
 showOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = showTokens opt ts ++ showLine opt ts l
 showOutput opt@ Options { count = True } (Output f n _ _) = showFile opt f ++ ":" ++ show n
+
 
 blue, bold, reset :: String
 

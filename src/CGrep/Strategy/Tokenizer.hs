@@ -69,7 +69,7 @@ cgrepCppTokenizer opt ps f = do
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
-    return $ mkOutput f source (mergeMatches matches)
+    return $ mkOutput opt f source (mergeMatches matches)
         
         where  lps = map C.unpack ps
                lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps

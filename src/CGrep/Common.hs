@@ -27,8 +27,8 @@ import CGrep.Output
 import CGrep.StringLike
 
 import Text.Regex.Posix
-
 import Options
+
 
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []
@@ -43,23 +43,16 @@ spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
 
 basicGrep :: (StringLike a) => Options -> [a] -> (Int, a) -> [Match]
 basicGrep opt patterns (n, line) 
-    | null  pfilt = if invert_match opt then [ (n, map slToString patterns) ]
-                                        else []
-    | otherwise   = if invert_match opt then [] 
-                                        else [ (n, map slToString pfilt) ]
+    | null  pfilt = []
+    | otherwise   = [ (n, map slToString pfilt) ]
         where pfilt = slSearch (word_match opt) patterns line
  
 
 basicRegex :: Options -> [C.ByteString] -> (Int, C.ByteString) -> [Match]
-basicRegex opt patterns (n, line) = let out = filter (not . C.null) pfilt 
-                                        in if null out then [] 
-                                                       else [(n, map slToString out)]
-    where pfilt = map (\p -> let  s = line =~ p :: C.ByteString in invertMatchString (invert_match opt) (p, s)) patterns 
-          
-
-invertMatchString :: Bool -> (C.ByteString, C.ByteString) -> C.ByteString
-invertMatchString False (_, xs) = xs 
-invertMatchString True  (p, C.uncons -> Nothing) =  p
-invertMatchString True  (_, _) = C.empty
+basicRegex _ patterns (n, line) = 
+    let out = filter (not . C.null) pfilt 
+        in if null out then [] 
+                       else [(n, map slToString out)]
+    where pfilt = map (\p -> let  s = line =~ p :: C.ByteString in s) patterns 
 
 
