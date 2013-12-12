@@ -21,7 +21,6 @@
 module CGrep.Output (Output(..), Match, mergeMatches, mkOutput, showOutput) where
  
 import System.Console.ANSI
-import Data.String.Utils
 import Data.List
 import Data.Function
 
@@ -40,7 +39,7 @@ mergeMatches xs = map mergeGroup $ groupBy ((==) `on` fst) xs
 
 
 invertMatches :: Int -> [Match] -> [Match]
-invertMatches n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n $ [ (i, []) | i <- [1..]] 
+invertMatches n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]] 
     where idx = map fst xs
 
 
@@ -80,13 +79,35 @@ showFile Options { color = c } f
 
 showLine :: (StringLike a) => Options -> [String] -> a -> String
 showLine Options { color = c } ts l
-    | c         = hilightLine ts (slToString l) 
+    | c         = hilightLine (sortBy (flip compare `on` length) ts) (slToString l) 
     | otherwise = slToString l 
 
 
+substrIndex :: String -> String -> (Int, [Int], Int, String)
+substrIndex reverseword = foldl step (0,[],1,"") 
+    where step (x,ys,i,matcher) c | c:matcher == reverseword = (x+1,i-length reverseword:ys,i+1,"")
+                                  | (c:matcher) `isSuffixOf` reverseword = (x,ys,i+1,c:matcher)
+                                  | otherwise = (x,ys,i+1,"")
+
+
+substrIndices :: String -> String -> [Int]
+substrIndices word content = (\(_,x,_,_)-> reverse x) $ substrIndex (reverse word) content
+
+
+substrAllIndices :: [String] -> String -> [Int]
+substrAllIndices ts xs = nub $ sort $ concatMap (`substrAllIndices'` xs) ts
+    where substrAllIndices' :: String -> String -> [Int]
+          substrAllIndices' t xs' = concatMap (\n -> take len [n..]) $ substrIndices t xs'
+            where len = length t
+        
+
 hilightLine :: [String] -> String -> String
-hilightLine []      l = l
-hilightLine (t:ts)  l = hilightLine ts $ replace t (hilight t) l 
-    where hilight token = bold ++ token ++ reset
+hilightLine ts line =  hilightLine' (idx, 0) line
+    where idx = substrAllIndices ts line
+          hilightLine' :: ([Int],Int) -> String -> String
+          hilightLine'  _ [] = []
+          hilightLine' (ns,n) (x:xs) = (if n `elem` ns then bold ++ [x] ++ reset 
+                                                       else [x]) ++ hilightLine' (ns, n+1) xs
+
 
 

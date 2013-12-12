@@ -29,19 +29,37 @@ import CGrep.Common
 
 import Data.List
 import Data.Function
-import qualified Data.Map.Strict as Map
+
+import qualified Data.Map.Strict as M
 
 import Options 
 import Debug
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
+-- preprocCode :: C.ByteString -> C.ByteString
+-- preprocCode xs = C.unwords $ map (\t -> M.findWithDefault t t ppTokens) $ C.words xs 
+    
+-- shortcuts for wildcard tokens...
+
+ppKeywords :: M.Map String String
+ppKeywords = M.fromList 
+           [ ("ANY", "TOKEN_ANY"),
+             ("KEY", "TOKEN_KEYWORD"),
+             ("STR", "TOKEN_STRING"),
+             ("CHR", "TOKEN_CHAR"),
+             ("NUM", "TOKEN_NUMBER") ]
+
+
+preprocToken :: Cpp.Token -> Cpp.Token
+preprocToken t@Cpp.TIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
+preprocToken t = t
+
 
 cgrepCppSemantic :: CgrepFunction
 cgrepCppSemantic opt ps f = do
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ f ++ "..."
-
 
     source <- if f == "" then slGetContents (ignore_case opt)  
                          else slReadFile (ignore_case opt) f
@@ -53,11 +71,18 @@ cgrepCppSemantic opt ps f = do
     
     let sourceTokens = Cpp.tokenizer filtered
 
-    let patTokens = extendPatterns $ map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps 
+    -- preprocess shortcuts
+    --
 
-    let matchingTokens =  filterMatchingTokens opt f patTokens sourceTokens 
+    let patTokens = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
 
-    putStrLevel2 (debug opt) $ "patterns: " ++ show patTokens
+    let patTokens' = map (map preprocToken) patTokens
+
+    let extendedTokens = extendPatterns patTokens'
+
+    let matchingTokens =  filterMatchingTokens opt f extendedTokens sourceTokens 
+
+    putStrLevel2 (debug opt) $ "patterns: " ++ show extendedTokens
     putStrLevel2 (debug opt) $ "matchingToken: " ++ show matchingTokens
 
     let tokenMatches = sortBy (compare `on` Cpp.offset) $ nub matchingTokens
@@ -125,10 +150,10 @@ groupCompareMatch = all fst
 
 groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
 -- groupCompareSemantic xs | trace ("semantic: " ++ show xs) False = undefined
-groupCompareSemantic ts =  Map.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  Map.mapWithKey (\k xs -> if k `elem` ["_","$","000"]
+groupCompareSemantic ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
+        where m =  M.mapWithKey (\k xs -> if k `elem` ["_","$","000"]
                                               then []
-                                              else xs ) $ Map.fromListWith (++) (map snd ts)
+                                              else xs ) $ M.fromListWith (++) (map snd ts)
         
 
 tokensGroupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
@@ -139,41 +164,29 @@ tokensGroupCompare wordmatch l r
 
 tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
 
-tokensCompare True (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isWildCard l =  (patternMatch True l r,  (l,[r]))
-        | otherwise    =  (l == r, ("", []))
+tokensCompare wm (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
+        | case l of 
+            ('_':_) -> True 
+            ('$':_) -> True
+            _       -> False = (True, (l,[r]))
+        | otherwise    =  if wm then (l == r, ("", []))
+                                else (l `isInfixOf` r, ("", [])) 
 
-tokensCompare False (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
-        | isWildCard l =  (patternMatch False l r, (l,[r]))
-        | otherwise    =  (l `isInfixOf` r, ("", []))
+tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
+        =  (l == "TOKEN_NUMBER", (l,[r]))
 
-tokensCompare True (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
-        | isWildCard l =  (patternMatch True l r,  (l,[r]))
-        | otherwise    =  (l == r, ("", []))
+tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TKeyword { Cpp.toString = r }) 
+        =  (l == "TOKEN_KEYWORD", (l,[r]))
 
-tokensCompare False (Cpp.TNumber { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
-        | isWildCard l =  (patternMatch False l r, (l,[r]))
-        | otherwise    =  (l `isInfixOf` r, ("", []))
+tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TString { Cpp.toString = r }) 
+        =  (l == "TOKEN_STRING", (l,[r]))
 
-tokensCompare wordmatch l r   
-        | wordmatch   =  (Cpp.tokenCompare l r, ("", [])) 
-        | otherwise   =  (Cpp.tokenCompare l r, ("",[]))
+tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TChar { Cpp.toString = r }) 
+        =  (l == "TOKEN_CHAR", (l,[r]))
+
+tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) rt
+        =  (l == "TOKEN_ANY", (l,[Cpp.toString rt]))
+
+tokensCompare _ l r  = (Cpp.tokenCompare l r, ("", [])) 
 
  
-{-# INLINE isWildCard #-}
-
-isWildCard :: String -> Bool
-isWildCard s | ('_':_) <- s  = True
-             | ('$':_) <- s  = True
-             | s == "000"    = True
-             | otherwise     = False
-
-{-# INLINE patternMatch #-}
-
-patternMatch :: WordMatch -> String -> String -> Bool
-patternMatch _ ('_':_) _ = True
-patternMatch _ ('$':_) _ = True
-patternMatch _ "000"   _ = True
-patternMatch _ _ _       = undefined 
-    
-
