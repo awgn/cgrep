@@ -37,9 +37,7 @@ import Debug
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
--- preprocCode :: C.ByteString -> C.ByteString
--- preprocCode xs = C.unwords $ map (\t -> M.findWithDefault t t ppTokens) $ C.words xs 
-    
+
 -- shortcuts for wildcard tokens...
 
 ppKeywords :: M.Map String String
@@ -151,7 +149,7 @@ groupCompareMatch = all fst
 groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
 -- groupCompareSemantic xs | trace ("semantic: " ++ show xs) False = undefined
 groupCompareSemantic ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  M.mapWithKey (\k xs -> if k `elem` ["_","$","000"]
+        where m =  M.mapWithKey (\k xs -> if k `elem` ["_","$", "TOKEN_ANY", "TOKEN_NUMBER", "TOKEN_KEYWORD", "TOKEN_STRING", "TOKEN_CHAR"]
                                               then []
                                               else xs ) $ M.fromListWith (++) (map snd ts)
         
@@ -166,6 +164,7 @@ tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
 
 tokensCompare wm (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
         | case l of 
+            "TOKEN_ANY" -> True
             ('_':_) -> True 
             ('$':_) -> True
             _       -> False = (True, (l,[r]))
@@ -173,16 +172,16 @@ tokensCompare wm (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.t
                                 else (l `isInfixOf` r, ("", [])) 
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
-        =  (l == "TOKEN_NUMBER", (l,[r]))
+        =  (l == "TOKEN_NUMBER"  || l == "TOKEN_ANY", (l,[r]))
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TKeyword { Cpp.toString = r }) 
-        =  (l == "TOKEN_KEYWORD", (l,[r]))
+        =  (l == "TOKEN_KEYWORD" || l == "TOKEN_ANY", (l,[r]))
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TString { Cpp.toString = r }) 
-        =  (l == "TOKEN_STRING", (l,[r]))
+        =  (l == "TOKEN_STRING"  || l == "TOKEN_ANY", (l,[r]))
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TChar { Cpp.toString = r }) 
-        =  (l == "TOKEN_CHAR", (l,[r]))
+        =  (l == "TOKEN_CHAR" || l == "TOKEN_ANY", (l,[r]))
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) rt
         =  (l == "TOKEN_ANY", (l,[Cpp.toString rt]))

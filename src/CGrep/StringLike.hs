@@ -77,7 +77,7 @@ instance StringLike [Char] where
     slWords  = words
     slLines  = lines
 
-    slTokens ys = tokens' (TokenSpace,"") ys
+    slTokens = tokens' (TokenSpace,"") 
         where tokens' :: (TokenState, String) -> String -> [String]
               tokens' (TokenSpace, acc) (x:xs) =  
                   case () of
@@ -138,7 +138,7 @@ instance StringLike C.ByteString where
     slWords  = C.words 
     slLines  = C.lines
 
-    slTokens ys = tokens' (TokenSpace, C.empty) ys
+    slTokens = tokens' (TokenSpace, C.empty) 
         where tokens' :: (TokenState, C.ByteString) -> C.ByteString -> [C.ByteString]
               tokens' (TokenSpace, acc) (C.uncons -> Just (x,xs)) =  
                   case () of
@@ -198,7 +198,7 @@ instance StringLike LC.ByteString where
     slWords  = LC.words
     slLines  = LC.lines
 
-    slTokens ys = tokens' (TokenSpace, LC.empty) ys
+    slTokens = tokens' (TokenSpace, LC.empty) 
         where tokens' :: (TokenState, LC.ByteString) -> LC.ByteString -> [LC.ByteString]
               tokens' (TokenSpace, acc) (LC.uncons -> Just (x,xs)) =  
                   case () of
