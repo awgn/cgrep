@@ -22,6 +22,7 @@ module CGrep.Common where
  
 import qualified Data.ByteString.Char8 as C
 
+import Data.List
 import CGrep.Output
 import CGrep.StringLike
 
@@ -38,6 +39,11 @@ spanGroup n xs = take n xs : spanGroup n (tail xs)
 spanMultiLine :: Int -> C.ByteString -> C.ByteString
 spanMultiLine 1 xs = xs
 spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
+ 
+ 
+offsetToLine :: C.ByteString -> Int -> Int
+offsetToLine text = (\off -> length . fst $ partition (\n -> n < off) crs) 
+    where crs = C.elemIndices '\n' text 
 
 
 basicGrep :: (StringLike a) => Options -> [a] -> (Int, a) -> [Match]
@@ -46,12 +52,4 @@ basicGrep opt patterns (n, line)
     | otherwise   = [ (n, map slToString pfilt) ]
         where pfilt = slSearch (word_match opt) patterns line
  
-
-basicRegex :: Options -> [C.ByteString] -> (Int, C.ByteString) -> [Match]
-basicRegex _ patterns (n, line) = 
-    let out = filter (not . C.null) pfilt 
-        in if null out then [] 
-                       else [(n, map slToString out)]
-    where pfilt = map (\p -> let  s = line =~ p :: C.ByteString in s) patterns 
-
 

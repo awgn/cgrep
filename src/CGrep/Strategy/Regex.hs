@@ -22,6 +22,9 @@ module CGrep.Strategy.Regex (cgrepRegex) where
 
 import qualified Data.ByteString.Char8 as C
 
+import Text.Regex.Posix
+import Data.Array
+
 import CGrep.Function
 import CGrep.StringLike
 import CGrep.Output
@@ -31,7 +34,8 @@ import CGrep.Common
 
 import Options 
 import Debug
-
+ 
+ 
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
     
@@ -46,11 +50,14 @@ cgrepRegex opt ps f = do
 
     let multi_filtered = spanMultiLine (multiline opt) filtered
 
-    let content  = zip [1..] $ C.lines multi_filtered 
-    
-    let matches = concatMap (basicRegex opt ps) content
+
+    let matchesOffsets = map (\(_, (str, (off,_) )) -> (off, [str] )) $ 
+                    concatMap assocs $ concat $ map (\pat -> multi_filtered =~ pat :: [MatchText C.ByteString]) ps 
+
+    let matches = mergeMatches $ map (\(off, xs) -> (1 + offsetToLine multi_filtered off, map C.unpack xs)) matchesOffsets
 
     putStrLevel2 (debug opt) $ "matches: " ++ show matches
+    
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
     return $ mkOutput opt f source matches
