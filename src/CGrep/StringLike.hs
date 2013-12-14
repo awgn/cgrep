@@ -106,7 +106,7 @@ instance StringLike [Char] where
                        | isDigit x                ->  if acc == "." then tokens' (TokenDigit, x : ".") xs
                                                                     else reverse acc : tokens' (TokenDigit, [x]) xs
                        | otherwise                ->  tokens' (TokenOther, x : acc) xs
-              tokens' (_, acc) _ =  [acc] 
+              tokens' (_, acc) _ =  [reverse acc] 
 
     slSearch wordmatch patterns s 
         | wordmatch  = let ws = slTokens s in filter (\p -> (p `isInfixOf` s) && (p `elem` ws)) patterns   
@@ -167,7 +167,7 @@ instance StringLike C.ByteString where
                        | isDigit x                ->  if acc == C.pack "." then tokens' (TokenDigit, x `C.cons` C.singleton '.') xs
                                                                            else C.reverse acc : tokens' (TokenDigit, C.singleton x) xs
                        | otherwise                ->  tokens' (TokenOther, x `C.cons` acc) xs
-              tokens' (_, acc) _ =  [acc] 
+              tokens' (_, acc) _ =  [C.reverse acc] 
 
     slSearch wordmatch patterns s 
         | wordmatch = let ws = slTokens s in filter (\p -> (p `C.isInfixOf` s) && (p `elem` ws)) patterns   
@@ -227,7 +227,7 @@ instance StringLike LC.ByteString where
                        | isDigit x                ->  if acc == LC.pack "." then tokens' (TokenDigit, x `LC.cons` LC.singleton '.') xs
                                                                            else LC.reverse acc : tokens' (TokenDigit, LC.singleton x) xs
                        | otherwise                ->  tokens' (TokenOther, x `LC.cons` acc) xs
-              tokens' (_, acc) _ =  [acc] 
+              tokens' (_, acc) _ =  [LC.reverse acc] 
 
 
     slSearch wordmatch patterns s 
