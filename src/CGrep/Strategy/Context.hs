@@ -20,13 +20,10 @@ module CGrep.Strategy.Context (cgrepContext) where
 
 import qualified Data.ByteString.Char8 as C
 
-
-import CGrep.Function
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
-import CGrep.Output
 
 import Options 
 import Debug

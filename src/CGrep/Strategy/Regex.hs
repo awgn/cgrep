@@ -25,9 +25,7 @@ import qualified Data.ByteString.Char8 as C
 import Text.Regex.Posix
 import Data.Array
 
-import CGrep.Function
 import CGrep.StringLike
-import CGrep.Output
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common

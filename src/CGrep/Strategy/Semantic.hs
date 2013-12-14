@@ -20,8 +20,6 @@ module CGrep.Strategy.Semantic (cgrepCppSemantic) where
 
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.Function
-import CGrep.Output
 import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang

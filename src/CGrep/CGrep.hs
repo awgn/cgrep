@@ -18,8 +18,6 @@
 
 module CGrep.CGrep where
 
-import CGrep.Function
-
 import CGrep.Strategy.Regex
 import CGrep.Strategy.Simple
 import CGrep.Strategy.Context
@@ -27,7 +25,8 @@ import CGrep.Strategy.Tokenizer
 import CGrep.Strategy.Semantic
 
 import CGrep.Lang
-              
+import CGrep.Common
+
 import Data.List
 import Options
 

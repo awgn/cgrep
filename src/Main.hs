@@ -39,9 +39,9 @@ import System.Environment
 import System.IO
 import System.Exit
 
-import CGrep.Output
 import CGrep.CGrep
 import CGrep.Lang
+import CGrep.Common
 
 import CmdOptions
 import Options

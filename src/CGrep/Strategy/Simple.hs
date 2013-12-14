@@ -20,10 +20,8 @@ module CGrep.Strategy.Simple (cgrepSimple) where
 
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.Function
 import CGrep.StringLike
 import CGrep.Common
-import CGrep.Output
 
 import Options 
 import Debug
