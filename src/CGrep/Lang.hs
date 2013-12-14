@@ -45,7 +45,7 @@ langMap :: LangMapType
 langMap = Map.fromList [
             (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"]),
             (C,         [Ext "c", Ext "C"]),
-            (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"]),
+            (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"]),
             (Csharp,    [Ext "cs", Ext "CS"]),
             (Css,       [Ext "css"]),
             (CMake,     [Name "CMakeLists.txt", Ext "cmake"]),
