@@ -20,6 +20,8 @@
 
 module CGrep.Filter (Context(..), ContextFilter(..), filterContext, mkContextFilter)  where
 
+import CGrep.Common (Text8)
+
 import CGrep.Template
 import CGrep.FilterData
 import CGrep.Lang
@@ -31,15 +33,13 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
 
 
-type Source = C.ByteString
-
 type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 
 -- filter Context:
 --
 
 
-filterContext :: Maybe Lang -> ContextFilter -> Source -> Source
+filterContext :: Maybe Lang -> ContextFilter -> Text8 -> Text8
 
 filterContext Nothing     _ src =  src 
 filterContext (Just language) filt src =  

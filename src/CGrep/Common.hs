@@ -19,7 +19,8 @@
 {-# LANGUAGE FlexibleContexts #-} 
 {-# LANGUAGE ExistentialQuantification #-} 
 
-module CGrep.Common (Output(..), CgrepFunction, Match, mergeMatches, mkOutput, showOutput, spanGroup, spanMultiLine, offsetToLine, basicGrep) where
+module CGrep.Common (Output(..), CgrepFunction, Match, Text8, mergeMatches, mkOutput, showOutput, 
+    spanGroup, spanMultiLine, offsetToLine, basicGrep) where
  
 import qualified Data.ByteString.Char8 as C
 
@@ -27,18 +28,16 @@ import System.Console.ANSI
 
 import Data.List
 import Data.Function
-
 import Text.Regex.Posix
-import Options
 
 import CGrep.StringLike
+import Options
 
+type CgrepFunction = Options -> [Text8] -> FilePath -> IO [Output] 
 
-type CgrepFunction = Options -> [C.ByteString] -> FilePath -> IO [Output] 
-
+type Text8  = C.ByteString
 type Match  = (Int, [String])
-
-data Output = forall a. (StringLike a) => Output FilePath Int a [String]
+data Output = Output FilePath Int Text8 [String]
 
 
 mergeMatches :: [Match] -> [Match] 
@@ -52,11 +51,11 @@ invertMatches n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | 
     where idx = map fst xs
 
 
-mkOutput :: (StringLike a) => Options -> FilePath -> a -> [Match] -> [Output]
+mkOutput :: Options -> FilePath -> Text8 -> [Match] -> [Output]
 mkOutput Options { invert_match = invert } f source 
     | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatches (length ls)
     | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) 
-        where ls = slLines source  
+        where ls = C.lines source  
 
 
 showOutput :: Options -> Output -> String
@@ -86,10 +85,10 @@ showFile Options { color = c } f
     | otherwise = f 
 
 
-showLine :: (StringLike a) => Options -> [String] -> a -> String
+showLine :: Options -> [String] -> Text8 -> String
 showLine Options { color = c } ts l
-    | c         = hilightLine (sortBy (flip compare `on` length) ts) (slToString l) 
-    | otherwise = slToString l 
+    | c         = hilightLine (sortBy (flip compare `on` length) ts) (C.unpack l) 
+    | otherwise = C.unpack l 
 
 
 substrIndex :: String -> String -> (Int, [Int], Int, String)
@@ -125,12 +124,12 @@ spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
 
 
-spanMultiLine :: Int -> C.ByteString -> C.ByteString
+spanMultiLine :: Int -> Text8 -> Text8
 spanMultiLine 1 xs = xs
 spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
  
  
-offsetToLine :: C.ByteString -> Int -> Int
+offsetToLine :: Text8 -> Int -> Int
 offsetToLine text = (\off -> length . fst $ partition (\n -> n < off) crs) 
     where crs = C.elemIndices '\n' text 
 
