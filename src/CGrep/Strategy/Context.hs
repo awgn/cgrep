@@ -20,23 +20,25 @@ module CGrep.Strategy.Context (cgrepContext) where
 
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
 
+import Data.Maybe
 import Options 
 import Debug
 
 cgrepContext :: CgrepFunction
 cgrepContext opt ps f = do
     
-    putStrLevel1 (debug opt) $ "strategy  : running context-aware parser on " ++ f ++ "..."
+    source <- getText (ignore_case opt) f 
     
-    source <- if f == "" then slGetContents (ignore_case opt)
-                         else slReadFile (ignore_case opt) f
-    
-    let filtered = filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
+    let filename = if f == Nothing then "<stdin>" 
+                                   else fromJust f
+
+    putStrLevel1 (debug opt) $ "strategy  : running context-aware parser on " ++ filename ++ "..."
+
+    let filtered = filterContext (lookupLang filename) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
     
     let multi_filtered = spanMultiLine (multiline opt) filtered
     
@@ -47,5 +49,5 @@ cgrepContext opt ps f = do
     putStrLevel2 (debug opt) $ "matches: " ++ show matches
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
-    return $ mkOutput opt f source matches 
+    return $ mkOutput opt filename source matches 
 

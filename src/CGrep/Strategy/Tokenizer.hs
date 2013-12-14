@@ -19,8 +19,10 @@
 module CGrep.Strategy.Tokenizer (cgrepCppTokenizer) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified CGrep.Strategy.Cpp.Token as Cpp
 
 import CGrep.StringLike
+
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
@@ -29,18 +31,20 @@ import Options
 import Util
 import Debug
 
-import qualified CGrep.Strategy.Cpp.Token  as Cpp
+import Data.Maybe
 
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
-    putStrLevel1 (debug opt) $ "strategy  : running C/C++ tokenizer on " ++ f ++ "..."
+    source <- getText (ignore_case opt) f 
+    
+    let filename = if f == Nothing then "<stdin>" 
+                                   else fromJust f
 
-    source <- if f == "" then slGetContents (ignore_case opt)  
-                         else slReadFile (ignore_case opt) f
+    putStrLevel1 (debug opt) $ "strategy  : running C/C++ tokenizer on " ++ filename ++ "..."
 
-    let filtered = filterContext (lookupLang f) (mkContextFilter opt) source
+    let filtered = filterContext (lookupLang filename) (mkContextFilter opt) source
     
     -- parse source code, get the Cpp.Token list...
     --
@@ -57,7 +61,7 @@ cgrepCppTokenizer opt ps f = do
                                                            Cpp.filtOper       = oper opt}) all_ts
 
 
-    let tmatches  = tokenGrep opt f lps tfilt
+    let tmatches  = tokenGrep opt filename lps tfilt
     
     let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [Cpp.toString t])) tmatches :: [(Int, [String])]
 
@@ -67,7 +71,7 @@ cgrepCppTokenizer opt ps f = do
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
-    return $ mkOutput opt f source (mergeMatches matches)
+    return $ mkOutput opt filename source (mergeMatches matches)
         
         where  lps = map C.unpack ps
                lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps

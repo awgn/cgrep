@@ -25,10 +25,11 @@ import qualified Data.ByteString.Char8 as C
 import Text.Regex.Posix
 import Data.Array
 
-import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
+
+import Data.Maybe
 
 import Options 
 import Debug
@@ -36,14 +37,16 @@ import Debug
  
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
-    
-    putStrLevel1 (debug opt) $ "strategy  : running regex on " ++ f ++ "..."
 
-    source <- if f == "" then slGetContents (ignore_case opt)
-                         else slReadFile (ignore_case opt) f
+    source <- getText (ignore_case opt) f 
     
+    let filename = if f == Nothing then "<stdin>" 
+                                   else fromJust f
+
+    putStrLevel1 (debug opt) $ "strategy  : running regex on " ++ filename ++ "..."
+
     let filtered = if code opt || comment opt || literal opt
-                     then filterContext (lookupLang f) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
+                     then filterContext (lookupLang filename) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
                      else source
 
     let multi_filtered = spanMultiLine (multiline opt) filtered
@@ -58,6 +61,6 @@ cgrepRegex opt ps f = do
     
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
 
-    return $ mkOutput opt f source matches
+    return $ mkOutput opt filename source matches
 
 

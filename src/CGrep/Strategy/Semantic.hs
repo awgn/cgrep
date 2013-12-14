@@ -19,16 +19,15 @@
 module CGrep.Strategy.Semantic (cgrepCppSemantic) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.Map.Strict as M
 
-import CGrep.StringLike
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
 
+import Data.Maybe
 import Data.List
 import Data.Function
-
-import qualified Data.Map.Strict as M
 
 import Options 
 import Debug
@@ -54,13 +53,17 @@ preprocToken t = t
 
 cgrepCppSemantic :: CgrepFunction
 cgrepCppSemantic opt ps f = do
+    
+    source <- getText (ignore_case opt) f 
+    
+    let filename = if f == Nothing then "<stdin>" 
+                                   else fromJust f
 
-    putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ f ++ "..."
 
-    source <- if f == "" then slGetContents (ignore_case opt)  
-                         else slReadFile (ignore_case opt) f
+    putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ filename ++ "..."
 
-    let filtered = filterContext (lookupLang f) (mkContextFilter opt) source
+
+    let filtered = filterContext (lookupLang filename) (mkContextFilter opt) source
     
     -- parse source code, get the Cpp.Token list...
     --
@@ -76,7 +79,7 @@ cgrepCppSemantic opt ps f = do
 
     let extendedTokens = extendPatterns patTokens'
 
-    let matchingTokens =  filterMatchingTokens opt f extendedTokens sourceTokens 
+    let matchingTokens =  filterMatchingTokens opt filename extendedTokens sourceTokens 
 
     putStrLevel2 (debug opt) $ "patterns: " ++ show extendedTokens
     putStrLevel2 (debug opt) $ "matchingToken: " ++ show matchingTokens
@@ -89,7 +92,7 @@ cgrepCppSemantic opt ps f = do
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
     
-    return $ mkOutput opt f source (mergeMatches matches)
+    return $ mkOutput opt filename source (mergeMatches matches)
         
 
 type WordMatch   = Bool

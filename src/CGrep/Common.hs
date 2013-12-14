@@ -20,25 +20,36 @@
 {-# LANGUAGE ExistentialQuantification #-} 
 
 module CGrep.Common (Output(..), CgrepFunction, Match, Text8, mergeMatches, mkOutput, showOutput, 
-    spanGroup, spanMultiLine, offsetToLine, basicGrep) where
+    getText, spanGroup, spanMultiLine, offsetToLine, basicGrep) where
  
 import qualified Data.ByteString.Char8 as C
 
 import System.Console.ANSI
 
+import Control.Monad (liftM)
+import Data.Maybe
 import Data.List
+import Data.Char
 import Data.Function
 import Text.Regex.Posix
 
 import CGrep.StringLike
 import Options
 
-type CgrepFunction = Options -> [Text8] -> FilePath -> IO [Output] 
+
+type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output] 
 
 type Text8  = C.ByteString
 type Match  = (Int, [String])
 data Output = Output FilePath Int Text8 [String]
 
+
+getText :: Bool -> Maybe FilePath -> IO Text8
+getText icase filename 
+    | icase = liftM (C.map toLower) content
+    | otherwise =  content
+        where content = if filename == Nothing then C.getContents                  
+                                                else C.readFile (fromJust filename) 
 
 mergeMatches :: [Match] -> [Match] 
 mergeMatches [] = []
