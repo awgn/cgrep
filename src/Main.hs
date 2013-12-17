@@ -170,6 +170,6 @@ main = do
                  out <- atomically $ readTChan out_chan
                  case out of
                       [] -> action $ n+1
-                      _  -> forM_ out (putStrLn . showOutput opts) >> action n
+                      _  -> forM_ out (putStrLn . prettyOutput opts) >> action n
         )  0
 
