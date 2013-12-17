@@ -19,54 +19,67 @@
 {-# LANGUAGE FlexibleContexts #-} 
 {-# LANGUAGE ExistentialQuantification #-} 
 
-module CGrep.Common (Output(..), CgrepFunction, Match, Text8, mergeMatches, mkOutput, showOutput, 
-    getText, spanGroup, spanMultiLine, offsetToLine, basicGrep) where
+module CGrep.Common (Output(..), CgrepFunction, MatchLine, Text8, 
+                     getFileName, getText, getMultiLine, mkOutput, prettyOutput, spanGroup) where
  
 import qualified Data.ByteString.Char8 as C
 
 import System.Console.ANSI
 
 import Control.Monad (liftM)
-import Data.Maybe
+-- import Data.Maybe
 import Data.List
 import Data.Char
 import Data.Function
-import Text.Regex.Posix
 
-import CGrep.StringLike
+import CGrep.Token
+
 import Options
 
 
 type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output] 
 
 type Text8  = C.ByteString
-type Match  = (Int, [String])
+
+type Token = (Offset, String)
+type MatchLine  = (Int, [String])
+
 data Output = Output FilePath Int Text8 [String]
+                                  
+
+getFileName :: Maybe FilePath -> String
+getFileName Nothing = "<STDIN>"
+getFileName (Just name) = name
 
 
 getText :: Bool -> Maybe FilePath -> IO Text8
 getText icase filename 
     | icase = liftM (C.map toLower) content
     | otherwise =  content
-        where content = if filename == Nothing then C.getContents                  
-                                                else C.readFile (fromJust filename) 
+        where content = maybe C.getContents C.readFile filename                  
+ 
 
-mergeMatches :: [Match] -> [Match] 
-mergeMatches [] = []
-mergeMatches xs = map mergeGroup $ groupBy ((==) `on` fst) xs
+mkOutput :: Options -> FilePath -> Text8 -> [Token] -> [Output]
+mkOutput Options { invert_match = invert } f source 
+    | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) . mkMatchLines source
+    | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . mkMatchLines source
+        where ls = C.lines source  
+
+
+mkMatchLines :: Text8 -> [Token] -> [MatchLine] 
+mkMatchLines _ [] = []
+mkMatchLines src ts = map mergeGroup $ groupBy ((==) `on` fst) $ sortBy (compare `on` fst) $ map (\(o, t) -> (1 + offsetToLineNo src o, [t])) ts 
     where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)  
 
 
-invertMatches :: Int -> [Match] -> [Match]
-invertMatches n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]] 
+offsetToLineNo :: Text8 -> Int -> Int
+offsetToLineNo text = \off -> length . fst $ partition (< off) crs 
+    where crs = C.elemIndices '\n' text 
+
+
+invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
+invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]] 
     where idx = map fst xs
-
-
-mkOutput :: Options -> FilePath -> Text8 -> [Match] -> [Output]
-mkOutput Options { invert_match = invert } f source 
-    | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatches (length ls)
-    | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) 
-        where ls = C.lines source  
 
 
 prettyOutput :: Options -> Output -> String
@@ -135,20 +148,8 @@ spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
 
 
-spanMultiLine :: Int -> Text8 -> Text8
-spanMultiLine 1 xs = xs
-spanMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
+getMultiLine :: Int -> Text8 -> Text8
+getMultiLine 1 xs = xs
+getMultiLine n xs = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
  
  
-offsetToLine :: Text8 -> Int -> Int
-offsetToLine text = (\off -> length . fst $ partition (\n -> n < off) crs) 
-    where crs = C.elemIndices '\n' text 
-
-
-basicGrep :: (StringLike a) => Options -> [a] -> (Int, a) -> [Match]
-basicGrep opt patterns (n, line) 
-    | null  pfilt = []
-    | otherwise   = [ (n, map slToString pfilt) ]
-        where pfilt = slSearch (word_match opt) patterns line
- 
-
