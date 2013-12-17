@@ -54,45 +54,48 @@ preprocToken t = t
 cgrepCppSemantic :: CgrepFunction
 cgrepCppSemantic opt ps f = do
     
-    source <- getText (ignore_case opt) f 
+    let filename = getFileName f 
     
-    let filename = if f == Nothing then "<stdin>" 
-                                   else fromJust f
+    text <- getText (ignore_case opt) f 
 
-
-    putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ filename ++ "..."
-
-
-    let filtered = filterContext (lookupLang filename) (mkContextFilter opt) source
+    -- transform text
     
+    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) (mkContextFilter opt) $ text
+
+
     -- parse source code, get the Cpp.Token list...
     --
     
-    let sourceTokens = Cpp.tokenizer filtered
+    let tokens = Cpp.tokenizer text'
+
 
     -- preprocess shortcuts
     --
 
-    let patTokens = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
+    let patterns = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
 
-    let patTokens' = map (map preprocToken) patTokens
+    let patterns' = map (map preprocToken) patterns
 
-    let extendedTokens = extendPatterns patTokens'
+    let patterns'' = extendPatterns patterns'
 
-    let matchingTokens =  filterMatchingTokens opt filename extendedTokens sourceTokens 
+    -- get matching tokens ...
+        
+    let matchingTokens =  filterMatchingTokens opt filename patterns'' tokens 
 
-    putStrLevel2 (debug opt) $ "patterns: " ++ show extendedTokens
-    putStrLevel2 (debug opt) $ "matchingToken: " ++ show matchingTokens
 
     let tokenMatches = sortBy (compare `on` Cpp.offset) $ nub matchingTokens
 
-    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [Cpp.toString t])) tokenMatches :: [(Int, [String])]
 
+    let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n+1, Cpp.toString t)) tokenMatches :: [(Int, String)]
+
+
+    putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ filename ++ "..."
+    putStrLevel2 (debug opt) $ "patterns  : " ++ show patterns''
+    putStrLevel2 (debug opt) $ "tokens    : " ++ show matchingTokens
     putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
-
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
     
-    return $ mkOutput opt filename source (mergeMatches matches)
+    return $ mkOutput opt filename text' matches
         
 
 type WordMatch   = Bool

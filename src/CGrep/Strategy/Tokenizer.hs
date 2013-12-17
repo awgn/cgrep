@@ -21,67 +21,63 @@ module CGrep.Strategy.Tokenizer (cgrepCppTokenizer) where
 import qualified Data.ByteString.Char8 as C
 import qualified CGrep.Strategy.Cpp.Token as Cpp
 
-import CGrep.StringLike
-
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
 
 import Options 
-import Util
 import Debug
 
-import Data.Maybe
-
+import Data.List
 
 cgrepCppTokenizer :: CgrepFunction
 cgrepCppTokenizer opt ps f = do
 
-    source <- getText (ignore_case opt) f 
+    let filename = getFileName f 
     
-    let filename = if f == Nothing then "<stdin>" 
-                                   else fromJust f
-
-    putStrLevel1 (debug opt) $ "strategy  : running C/C++ tokenizer on " ++ filename ++ "..."
-
-    let filtered = filterContext (lookupLang filename) (mkContextFilter opt) source
+    text <- getText (ignore_case opt) f 
+    
+    -- transform text
+    
+    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) ((mkContextFilter opt) {getComment = False}) $ text
     
     -- parse source code, get the Cpp.Token list...
-    --
     
-    let all_ts = Cpp.tokenizer filtered
+    let tokens = Cpp.tokenizer text'
 
-    let tfilt  = filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
+    -- context-filterting...
+       
+    let tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
                                                            Cpp.filtDirective  = directive opt,
                                                            Cpp.filtKeyword    = keyword opt,
                                                            Cpp.filtHeader     = header opt, 
                                                            Cpp.filtString     = string opt,
                                                            Cpp.filtNumber     = number opt,
                                                            Cpp.filtChar       = char opt,
-                                                           Cpp.filtOper       = oper opt}) all_ts
+                                                           Cpp.filtOper       = oper opt}) tokens
 
-
-    let tmatches  = tokenGrep opt filename lps tfilt
-    
-    let matches = map (\t -> let n = fromIntegral (Cpp.lineno t) in (n+1, [Cpp.toString t])) tmatches :: [(Int, [String])]
-
-    putStrLevel2 (debug opt) $ "tokens :  " ++ show all_ts
-    putStrLevel2 (debug opt) $ "patterns: " ++ show lpt
-    putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
-
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
-    
-    return $ mkOutput opt filename source (mergeMatches matches)
+    -- filter tokens...
         
-        where  lps = map C.unpack ps
-               lpt = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
+    let tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'  
+
+    -- convert Cpp.Tokens to CGrep.Tokens
     
+    let matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
-sourceCodeFilter :: ContextFilter 
-sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
+    putStrLevel1 (debug opt) $ "strategy  : running C/C++ tokenizer on " ++ filename ++ "..."
+    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+    putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+    putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
+    putStrLevel2 (debug opt) $ "matches   : " ++ show matches
 
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+    
+    return $ mkOutput opt filename text matches
+        
 
-tokenGrep :: Options -> FilePath -> [String] -> [Cpp.Token] -> [Cpp.Token]
-tokenGrep opt _ ps = filter (notNull . slSearch (word_match opt) ps . Cpp.toString) 
+cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]
+cppTokenFilter opt patterns tokens 
+    | word_match opt = filter ((`elem` patterns) . Cpp.toString) tokens
+    | otherwise      = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
 
 

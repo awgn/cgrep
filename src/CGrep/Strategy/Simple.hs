@@ -16,33 +16,47 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE TupleSections #-} 
+
 module CGrep.Strategy.Simple (cgrepSimple) where
 
 import qualified Data.ByteString.Char8  as C
 import qualified Data.ByteString.Search as SC
 
-import CGrep.StringLike
 import CGrep.Common
+import CGrep.Filter 
+import CGrep.Lang
+
+import qualified CGrep.Token as T
 
 import Options 
 import Debug
 
+import Control.Arrow as A
+
 cgrepSimple :: CgrepFunction
 cgrepSimple opt ps f = do
 
-    putStrLevel1 (debug opt) $ "strategy  : running simple parser on " ++ f ++ "..."
+    let filename = getFileName f 
+     
+    text <- getText (ignore_case opt) f
     
-    source <- if f == "" then slGetContents (ignore_case opt)  
-                         else slReadFile (ignore_case opt) f
+    -- transform text
     
-    let multi_source = spanMultiLine (multiline opt) source
+    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) (mkContextFilter opt) $ text
+
+    -- search for matching tokens
     
-    let content = (zip [1..] . C.lines) multi_source 
+    let tokens  = map (A.second C.unpack) $ concatMap (\pat -> map (\i -> (i, pat)) (SC.indices pat text')) ps 
 
-    let matches = concatMap (basicGrep opt ps) content
+    -- filter exact matching tokens
 
-    putStrLevel2 (debug opt) $ "matches: " ++ show matches
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack source ++ "\n---"
+    let tokens' = if word_match opt then filter (T.isCompleteToken text') tokens 
+                                    else tokens
 
-    return $ mkOutput opt f source matches 
+    putStrLevel1 (debug opt) $ "strategy  : running simple parser on " ++ filename ++ "..."
+    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+
+    return $ mkOutput opt filename text tokens'
 

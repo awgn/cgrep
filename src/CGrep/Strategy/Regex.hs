@@ -29,8 +29,6 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 
-import Data.Maybe
-
 import Options 
 import Debug
  
@@ -38,29 +36,25 @@ import Debug
 cgrepRegex :: CgrepFunction
 cgrepRegex opt ps f = do
 
-    source <- getText (ignore_case opt) f 
+    let filename = getFileName f 
     
-    let filename = if f == Nothing then "<stdin>" 
-                                   else fromJust f
+    text <- getText (ignore_case opt) f 
+    
+    -- transform text
+    
+    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) (mkContextFilter opt) $ text
+    
+    -- search for matching tokens
 
+    let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ 
+                    concatMap assocs $ concatMap (\pat -> text' =~ pat :: [MatchText C.ByteString]) ps 
+
+    -- TODO implement -w for Regex 
+    
     putStrLevel1 (debug opt) $ "strategy  : running regex on " ++ filename ++ "..."
+    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 
-    let filtered = if code opt || comment opt || literal opt
-                     then filterContext (lookupLang filename) ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt } source
-                     else source
-
-    let multi_filtered = spanMultiLine (multiline opt) filtered
-
-
-    let matchesOffsets = map (\(_, (str, (off,_) )) -> (off, [str] )) $ 
-                    concatMap assocs $ concat $ map (\pat -> multi_filtered =~ pat :: [MatchText C.ByteString]) ps 
-
-    let matches = mergeMatches $ map (\(off, xs) -> (1 + offsetToLine multi_filtered off, map C.unpack xs)) matchesOffsets
-
-    putStrLevel2 (debug opt) $ "matches: " ++ show matches
-    
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack filtered ++ "\n---"
-
-    return $ mkOutput opt filename source matches
+    return $ mkOutput opt filename text tokens
 
 
