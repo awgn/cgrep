@@ -18,9 +18,8 @@
 
 module CGrep.CGrep where
 
-import CGrep.Strategy.Regex
 import CGrep.Strategy.Simple
-import CGrep.Strategy.Context
+import CGrep.Strategy.Regex
 import CGrep.Strategy.Tokenizer
 import CGrep.Strategy.Semantic
 
@@ -44,9 +43,6 @@ sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
                                             }
                             _       -> opt
 
-hasContextOpt :: Options -> Bool
-hasContextOpt Options{ code = c, comment = m, literal = l } = c || m || l
-
 hasRegexOpt :: Options -> Bool
 hasRegexOpt Options{ regex = x } = x
 
@@ -67,8 +63,7 @@ hasSemanticOpt Options{ semantic = s } = s
 cgrepDispatch :: Options -> CgrepFunction
 
 cgrepDispatch opt 
-    | not (hasRegexOpt opt) && not (hasContextOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepSimple
-    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepContext
+    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = cgrepSimple
     | not (hasRegexOpt opt) && hasSemanticOpt opt = cgrepCppSemantic
     | not (hasRegexOpt opt) = cgrepCppTokenizer
     | hasRegexOpt opt       = cgrepRegex

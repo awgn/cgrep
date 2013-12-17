@@ -38,10 +38,10 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 -- filter Context:
 --
 
-
 filterContext :: Maybe Lang -> ContextFilter -> Text8 -> Text8
 
-filterContext Nothing     _ src =  src 
+filterContext _ (ContextFilter True True True) src = src
+filterContext Nothing _ src = src 
 filterContext (Just language) filt src =  
     snd $ C.mapAccumL (fromJust $ Map.lookup language filterMap) (FiltState StateCode filt []) src 
 
@@ -55,9 +55,9 @@ filterFunction funFilt filtstate c = (state', charFilter (cxtFilter cxt (cfilter
 
 
 mkContextFilter :: Options -> ContextFilter
-mkContextFilter opt = if not (code opt && comment opt && literal opt) 
-                       then ContextFilter { getCode = True,     getComment = False, getLiteral = True }
-                       else ContextFilter { getCode = code opt, getComment = False, getLiteral = literal opt }
+mkContextFilter opt = if not (code opt || comment opt || literal opt) 
+                       then ContextFilter { getCode = True, getComment = True,  getLiteral = True }
+                       else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
 
 
 -- parsers templates:
