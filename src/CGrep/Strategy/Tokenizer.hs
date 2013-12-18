@@ -64,7 +64,7 @@ searchTokenizer opt ps f = do
     
     let matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
-    putStrLevel1 (debug opt) $ "strategy  : running C/C++ tokenizer on " ++ filename ++ "..."
+    putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
     putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
     putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''

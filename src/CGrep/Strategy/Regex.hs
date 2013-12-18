@@ -51,7 +51,7 @@ searchRegex opt ps f = do
 
     -- TODO implement -w for Regex 
     
-    putStrLevel1 (debug opt) $ "strategy  : running regex on " ++ filename ++ "..."
+    putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 

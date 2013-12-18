@@ -18,11 +18,11 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), tokenizer, tokenFilter, 
-                            isIdentifier, isKeyword, isDirective, isLiteralNumber, 
-                            isHeaderName, isString, isChar, isOperOrPunct, tokenCompare
+module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), 
+                                Offset, Offset2D, OffsetLine, tokenizer, tokenFilter, tokenCompare,
+                                isIdentifier, isKeyword, isDirective, isLiteralNumber, 
+                                isHeaderName, isString, isChar, isOperOrPunct 
                             )  where
--- import Data.Int
 
 import Data.Char 
 import Data.Maybe
@@ -33,12 +33,14 @@ import Control.Monad
 
 import qualified Data.ByteString.Char8 as C
 
-type TokenizerState = (Source, Offset, Lineno, State)
+
+type TokenizerState = (Source, Offset, OffsetLine, State)
 
 type Source = C.ByteString
 
-type Offset = Int
-type Lineno = Int
+type Offset      = Int
+type Offset2D    = (Int, Int)
+type OffsetLine  = Int
 
 
 -- Tokenize the source code in a list of Token 
@@ -47,7 +49,7 @@ type Lineno = Int
 
 tokenizer :: Source -> [Token]
 tokenizer xs = runGetToken (ys, n, l, Null)  
-            where (ys,n, l) = dropWhite xs
+            where (ys, n, l) = dropWhite xs
 
 
 data TokenFilter = TokenFilter 
@@ -141,9 +143,9 @@ isOperOrPunct _ = False
 -- Drop leading whitespace and count them
 --
 
-dropWhite :: Source -> (Source, Offset, Lineno)
+dropWhite :: Source -> (Source, Offset, OffsetLine)
 dropWhite xs = (xs', doff, dnl)
-                where xs' = C.dropWhile (\c -> isSpace c || c == '\\') xs
+                where xs'  = C.dropWhile (\c -> isSpace c || c == '\\') xs
                       doff = fromIntegral $ C.length xs - C.length xs'
                       dnl  = C.length $ C.filter (=='\n') (C.take doff xs)
 

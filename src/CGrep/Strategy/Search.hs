@@ -54,7 +54,7 @@ searchBoyerMoore opt ps f = do
     let tokens' = if word_match opt then filter (T.isCompleteToken text') tokens 
                                     else tokens
 
-    putStrLevel1 (debug opt) $ "strategy  : running simple parser on " ++ filename ++ "..."
+    putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 

@@ -108,7 +108,7 @@ reset   = setSGRCode []
 
 showTokens :: Options -> [Token] -> String
 showTokens Options { show_match = st } xs
-    | st        = show xs 
+    | st        = show (map snd xs) 
     | otherwise = ""
 
 
