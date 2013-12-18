@@ -23,16 +23,13 @@ module CGrep.Token where
 import qualified Data.ByteString.Char8 as C
 
 import Data.Char
-
+import CGrep.Types
 
 data TokenState = TokenSpace |
                   TokenAlpha |
                   TokenDigit |
                   TokenOther 
                     deriving (Eq, Enum, Show)
-
-
-type Offset = Int
 
 
 isCharNumber :: Char -> Bool

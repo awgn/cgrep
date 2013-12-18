@@ -32,7 +32,7 @@ import Data.List
 import Data.Char
 import Data.Function
 
-import CGrep.Token
+import CGrep.Types
 
 import Options
 
