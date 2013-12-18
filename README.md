@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 3.11. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 4.0. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
