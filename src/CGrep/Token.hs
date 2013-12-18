@@ -44,40 +44,6 @@ isCompleteToken text (off, tok) = tok `elem` ts
     where ts = tokens $ C.take (2 + length tok) $ C.drop (off - 1) text       
                                  
 
--- tokens :: C.ByteString -> [(Offset, String)]
--- tokens = tokens' (TokenSpace, 0, "") 
---     where tokens' :: (TokenState, Offset, String) -> C.ByteString -> [(Offset, String)]
---           tokens' (TokenSpace, off, acc) (C.uncons -> Just (x,xs)) =  
---               case () of
---                 _  | isSpace x                ->  tokens' (TokenSpace, off + 1, acc) xs
---                    | isAlpha x || x == '_'    ->  tokens' (TokenAlpha, off + 1, x : acc) xs
---                    | isDigit x                ->  tokens' (TokenDigit, off + 1, x : acc) xs
---                    | otherwise                ->  tokens' (TokenOther, off + 1, x : acc) xs
-          
---           tokens' (TokenAlpha, off, acc) (C.uncons -> Just (x,xs)) = 
---               case () of
---                 _  | isSpace x                ->  emit off acc : tokens' (TokenSpace, off + 1, "") xs
---                    | isAlphaNum x || x == '_' ->  tokens' (TokenAlpha, off + 1, x : acc) xs
---                    | otherwise                ->  emit off acc : tokens' (TokenOther, off + 1, [x]) xs
-          
---           tokens' (TokenDigit, off, acc) (C.uncons -> Just (x,xs)) = 
---               case () of
---                 _  | isSpace x                ->  emit off acc : tokens' (TokenSpace, off + 1, "") xs
---                    | isCharNumber x           ->  tokens' (TokenDigit, off + 1, x : acc) xs
---                    | isAlpha x || x == '_'    ->  emit off acc : tokens' (TokenAlpha, off + 1, [x]) xs
---                    | otherwise                ->  emit off acc : tokens' (TokenOther, off + 1, [x]) xs
-          
---           tokens' (TokenOther, off, acc) (C.uncons -> Just (x,xs)) = 
---               case () of
---                 _  | isSpace x                ->  emit off acc : tokens' (TokenSpace, off + 1, "") xs
---                    | isAlpha x || x == '_'    ->  emit off acc : tokens' (TokenAlpha, off + 1, [x]) xs
---                    | isDigit x                ->  if acc == "." then tokens' (TokenDigit, off + 1, x : ".") xs
---                                                                 else emit off acc : tokens' (TokenDigit, off + 1, [x]) xs
---                    | otherwise                ->  tokens' (TokenOther, off + 1, x : acc) xs
---           tokens' (_, off, acc) _ =  [emit off acc] 
---           emit off acc =  (off - length acc, reverse acc) 
-
-
 data TokenAccum = TokenAccum TokenState String [String]
     deriving (Show,Eq)
 

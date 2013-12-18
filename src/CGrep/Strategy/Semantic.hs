@@ -25,7 +25,6 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 
-import Data.Maybe
 import Data.List
 import Data.Function
 
@@ -92,7 +91,7 @@ cgrepCppSemantic opt ps f = do
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "patterns  : " ++ show patterns''
     putStrLevel2 (debug opt) $ "tokens    : " ++ show matchingTokens
-    putStrLevel2 (debug opt) $ "matches: "  ++ show matches 
+    putStrLevel2 (debug opt) $ "matches   : " ++ show matches 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
     
     return $ mkOutput opt filename text' matches
