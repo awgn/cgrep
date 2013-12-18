@@ -69,7 +69,7 @@ searchSemantic opt ps f = do
     let tokenMatches = sortBy (compare `on` Cpp.offset) $ nub matchingTokens
 
 
-    let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n+1, Cpp.toString t)) tokenMatches :: [(Int, String)]
+    let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokenMatches :: [(Int, String)]
 
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic parser on " ++ filename ++ "..."
