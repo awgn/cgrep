@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Strategy.Semantic (cgrepCppSemantic) where
+module CGrep.Strategy.Semantic (searchSemantic) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
@@ -34,24 +34,8 @@ import Debug
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
 
--- shortcuts for wildcard tokens...
-
-ppKeywords :: M.Map String String
-ppKeywords = M.fromList 
-           [ ("ANY", "TOKEN_ANY"),
-             ("KEY", "TOKEN_KEYWORD"),
-             ("STR", "TOKEN_STRING"),
-             ("CHR", "TOKEN_CHAR"),
-             ("NUM", "TOKEN_NUMBER") ]
-
-
-preprocToken :: Cpp.Token -> Cpp.Token
-preprocToken t@Cpp.TIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
-preprocToken t = t
-
-
-cgrepCppSemantic :: CgrepFunction
-cgrepCppSemantic opt ps f = do
+searchSemantic :: CgrepFunction
+searchSemantic opt ps f = do
     
     let filename = getFileName f 
     
@@ -99,6 +83,22 @@ cgrepCppSemantic opt ps f = do
 
 type WordMatch   = Bool
 type Pattern     = Cpp.Token
+
+-- shortcuts for wildcard tokens...
+
+ppKeywords :: M.Map String String
+ppKeywords = M.fromList 
+           [ ("ANY", "TOKEN_ANY"),
+             ("KEY", "TOKEN_KEYWORD"),
+             ("STR", "TOKEN_STRING"),
+             ("CHR", "TOKEN_CHAR"),
+             ("NUM", "TOKEN_NUMBER") ]
+
+
+preprocToken :: Cpp.Token -> Cpp.Token
+preprocToken t@Cpp.TIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
+preprocToken t = t
+
 
 
 sourceCodeFilter :: ContextFilter 
