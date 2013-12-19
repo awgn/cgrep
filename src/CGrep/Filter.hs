@@ -18,7 +18,7 @@
 
 {-# LANGUAGE TemplateHaskell #-} 
 
-module CGrep.Filter (Context(..), ContextFilter(..), filterContext, mkContextFilter)  where
+module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
 
 import CGrep.Common (Text8)
 
@@ -38,11 +38,11 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 -- filter Context:
 --
 
-filterContext :: Maybe Lang -> ContextFilter -> Text8 -> Text8
+contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
 
-filterContext _ (ContextFilter True True True) src = src
-filterContext Nothing _ src = src 
-filterContext (Just language) filt src =  
+contextFilter _ (ContextFilter True True True) src = src
+contextFilter Nothing _ src = src 
+contextFilter (Just language) filt src =  
     snd $ C.mapAccumL (fromJust $ Map.lookup language filterMap) (FiltState StateCode filt []) src 
 
 

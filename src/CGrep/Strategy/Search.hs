@@ -45,7 +45,7 @@ searchBoyerMoore opt ps f = do
     
     -- transform text
     
-    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) (mkContextFilter opt) $ text
+    let text' = getMultiLine (multiline opt) . contextFilter (lookupLang filename) (mkContextFilter opt) $ text
 
     -- search for matching tokens
     
@@ -60,5 +60,5 @@ searchBoyerMoore opt ps f = do
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 
-    return $ mkOutput opt filename text tokens'
+    return $ mkOutput opt filename text tokens'  
 

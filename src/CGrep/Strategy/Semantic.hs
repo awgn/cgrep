@@ -44,7 +44,7 @@ searchSemantic opt ps f = do
 
     -- transform text
     
-    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) ((mkContextFilter opt) { getComment = False} ) $ text
+    let text' = getMultiLine (multiline opt) . contextFilter (lookupLang filename) ((mkContextFilter opt) { getComment = False} ) $ text
 
 
     -- parse source code, get the Cpp.Token list...
@@ -55,7 +55,7 @@ searchSemantic opt ps f = do
     -- pre-process patterns
     --
 
-    let patterns  = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
+    let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) sourceCodeFilter) ps
 
 
     let patterns' = map (map preprocToken) patterns >>= getPatternSubsequence

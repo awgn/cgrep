@@ -43,7 +43,7 @@ searchRegex opt ps f = do
     
     -- transform text
     
-    let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) (mkContextFilter opt) $ text
+    let text' = getMultiLine (multiline opt) . contextFilter (lookupLang filename) (mkContextFilter opt) $ text
     
     -- search for matching tokens
     
