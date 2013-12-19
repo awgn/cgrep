@@ -95,7 +95,7 @@ ppKeywords = M.fromList
 
 
 preprocToken :: Cpp.Token -> Cpp.Token
-preprocToken t@Cpp.TIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
+preprocToken t@Cpp.TokenIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
 preprocToken t = t
 
 
@@ -107,7 +107,7 @@ getPatternSubsequence :: [Pattern] -> [[Pattern]]
 getPatternSubsequence ps = map (`filterIndicies` ps') idx
     where ps' = zip [0..] ps
           idx = subsequences $ findIndices (\t -> case t of 
-                                                   Cpp.TIdentifier { Cpp.toString = ('$':_) } -> True  
+                                                   Cpp.TokenIdentifier { Cpp.toString = ('$':_) } -> True  
                                                    _ -> False) ps
 
 
@@ -159,7 +159,7 @@ tokensGroupCompare wordmatch l r
 
 tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool, (String, [String]))
 
-tokensCompare wm (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
+tokensCompare wm (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenIdentifier { Cpp.toString = r }) 
         | case l of 
             "TOKEN_ANY" -> True
             ('_':_)     -> True 
@@ -168,23 +168,23 @@ tokensCompare wm (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.t
         | otherwise    =  if wm then (l == r, ("", []))
                                 else (l `isInfixOf` r, ("", [])) 
 
-tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
+tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenNumber { Cpp.toString = r }) 
         | l == "TOKEN_NUMBER"  = (True, (l, [r]))
         | l == "TOKEN_ANY"     = (True, (l, [r])) 
         | l == "TOKEN_OCT"     = (length r > 1 && '0' == head r && (isDigit . head . tail)  r, (l, [r]))
         | l == "TOKEN_HEX"     = ("0x" `isPrefixOf` r, (l, [r]))
         | otherwise            = (False, ("", []))
 
-tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TKeyword { Cpp.toString = r }) 
+tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenKeyword { Cpp.toString = r }) 
         =  (l == "TOKEN_KEYWORD" || l == "TOKEN_ANY", (l,[r]))
 
-tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TString { Cpp.toString = r }) 
+tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenString { Cpp.toString = r }) 
         =  (l == "TOKEN_STRING"  || l == "TOKEN_ANY", (l,[r]))
 
-tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TChar { Cpp.toString = r }) 
+tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenChar { Cpp.toString = r }) 
         =  (l == "TOKEN_CHAR" || l == "TOKEN_ANY", (l,[r]))
 
-tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) rt
+tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) rt
         =  (l == "TOKEN_ANY", (l,[Cpp.toString rt]))
 
 tokensCompare _ l r  = (Cpp.tokenCompare l r, ("", [])) 

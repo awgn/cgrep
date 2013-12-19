@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), 
-                                Offset, Offset2D, OffsetLine, tokenizer, tokenFilter, tokenCompare,
+                                Offset, Offset2D, tokenizer, tokenFilter, tokenCompare,
                                 isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                                 isHeaderName, isString, isChar, isOperOrPunct 
                             )  where
@@ -34,13 +34,12 @@ import Control.Monad
 import qualified Data.ByteString.Char8 as C
 
 
-type TokenizerState = (Source, Offset, OffsetLine, State)
+type TokenizerState = (Source, Offset, State)
 
 type Source = C.ByteString
 
 type Offset      = Int
 type Offset2D    = (Int, Int)
-type OffsetLine  = Int
 
 
 -- Tokenize the source code in a list of Token 
@@ -48,8 +47,8 @@ type OffsetLine  = Int
 --
 
 tokenizer :: Source -> [Token]
-tokenizer xs = runGetToken (ys, n, l, Null)  
-            where (ys, n, l) = dropWhite xs
+tokenizer xs = runGetToken (ys, n, Null)  
+            where (ys, n) = dropWhite xs
 
 
 data TokenFilter = TokenFilter 
@@ -68,86 +67,85 @@ data TokenFilter = TokenFilter
 
 tokenFilter :: TokenFilter -> Token -> Bool
 
-tokenFilter filt (TIdentifier{})  = filtIdentifier filt
-tokenFilter filt (TDirective{})   = filtDirective  filt
-tokenFilter filt (TKeyword{})     = filtKeyword    filt
-tokenFilter filt (THeaderName{})  = filtHeader     filt
-tokenFilter filt (TNumber{})      = filtNumber     filt
-tokenFilter filt (TString{})      = filtString     filt
-tokenFilter filt (TChar{})        = filtChar       filt
-tokenFilter filt (TOperOrPunct{}) = filtOper       filt 
+tokenFilter filt (TokenIdentifier{})  = filtIdentifier filt
+tokenFilter filt (TokenDirective{})   = filtDirective  filt
+tokenFilter filt (TokenKeyword{})     = filtKeyword    filt
+tokenFilter filt (TokenHeaderName{})  = filtHeader     filt
+tokenFilter filt (TokenNumber{})      = filtNumber     filt
+tokenFilter filt (TokenString{})      = filtString     filt
+tokenFilter filt (TokenChar{})        = filtChar       filt
+tokenFilter filt (TokenOperOrPunct{}) = filtOper       filt 
 
 
-data Token = TIdentifier  { toString :: String, offset :: Int , lineno :: Int } |
-             TDirective   { toString :: String, offset :: Int , lineno :: Int } |
-             TKeyword     { toString :: String, offset :: Int , lineno :: Int } |
-             TNumber      { toString :: String, offset :: Int , lineno :: Int } |
-             THeaderName  { toString :: String, offset :: Int , lineno :: Int } |
-             TString      { toString :: String, offset :: Int , lineno :: Int } |
-             TChar        { toString :: String, offset :: Int , lineno :: Int } |
-             TOperOrPunct { toString :: String, offset :: Int , lineno :: Int }
+data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
+             TokenDirective   { toString :: String, offset :: Int  } |
+             TokenKeyword     { toString :: String, offset :: Int  } |
+             TokenNumber      { toString :: String, offset :: Int  } |
+             TokenHeaderName  { toString :: String, offset :: Int  } |
+             TokenString      { toString :: String, offset :: Int  } |
+             TokenChar        { toString :: String, offset :: Int  } |
+             TokenOperOrPunct { toString :: String, offset :: Int  }
                 deriving (Show, Eq)  
 
 tokenCompare :: Token -> Token -> Bool
-tokenCompare (TIdentifier { toString = l }) (TIdentifier { toString = r }) = l == r
-tokenCompare (TDirective  { toString = l }) (TDirective  { toString = r }) = l == r
-tokenCompare (TKeyword    { toString = l }) (TKeyword    { toString = r }) = l == r
-tokenCompare (TNumber     { toString = l }) (TNumber     { toString = r }) = l == r
-tokenCompare (THeaderName { toString = l }) (THeaderName { toString = r }) = l == r
-tokenCompare (TString     { toString = l }) (TString     { toString = r }) = l == r
-tokenCompare (TChar       { toString = l }) (TChar       { toString = r }) = l == r
-tokenCompare (TOperOrPunct{ toString = l }) (TOperOrPunct{ toString = r }) = l == r
+tokenCompare (TokenIdentifier { toString = l }) (TokenIdentifier { toString = r }) = l == r
+tokenCompare (TokenDirective  { toString = l }) (TokenDirective  { toString = r }) = l == r
+tokenCompare (TokenKeyword    { toString = l }) (TokenKeyword    { toString = r }) = l == r
+tokenCompare (TokenNumber     { toString = l }) (TokenNumber     { toString = r }) = l == r
+tokenCompare (TokenHeaderName { toString = l }) (TokenHeaderName { toString = r }) = l == r
+tokenCompare (TokenString     { toString = l }) (TokenString     { toString = r }) = l == r
+tokenCompare (TokenChar       { toString = l }) (TokenChar       { toString = r }) = l == r
+tokenCompare (TokenOperOrPunct{ toString = l }) (TokenOperOrPunct{ toString = r }) = l == r
 tokenCompare _ _ = False
 
 
 isIdentifier :: Token -> Bool
-isIdentifier (TIdentifier {})  = True
+isIdentifier (TokenIdentifier {})  = True
 isIdentifier _ = False
 
 
 isKeyword :: Token -> Bool
-isKeyword (TKeyword {})  = True
+isKeyword (TokenKeyword {})  = True
 isKeyword _ = False
 
 
 isDirective :: Token -> Bool
-isDirective (TDirective {})  = True
+isDirective (TokenDirective {})  = True
 isDirective _ = False
 
 
 isLiteralNumber :: Token -> Bool
-isLiteralNumber (TNumber {}) = True
+isLiteralNumber (TokenNumber {}) = True
 isLiteralNumber _ = False
 
 
 isHeaderName :: Token -> Bool
-isHeaderName (THeaderName {})  = True
+isHeaderName (TokenHeaderName {})  = True
 isHeaderName _ = False
 
 
 isString :: Token -> Bool
-isString (TString {}) = True
+isString (TokenString {}) = True
 isString _ = False
 
 
 isChar :: Token -> Bool
-isChar (TChar {}) = True
+isChar (TokenChar {}) = True
 isChar _ = False
 
 
 isOperOrPunct :: Token -> Bool
-isOperOrPunct (TOperOrPunct {})  = True
+isOperOrPunct (TokenOperOrPunct {})  = True
 isOperOrPunct _ = False
 
 
 -- Drop leading whitespace and count them
 --
 
-dropWhite :: Source -> (Source, Offset, OffsetLine)
-dropWhite xs = (xs', doff, dnl)
+dropWhite :: Source -> (Source, Offset)
+dropWhite xs = (xs', doff)
                 where xs'  = C.dropWhile (\c -> isSpace c || c == '\\') xs
                       doff = fromIntegral $ C.length xs - C.length xs'
-                      dnl  = C.length $ C.filter (=='\n') (C.take doff xs)
 
 
 data State = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif |
@@ -176,26 +174,26 @@ nextState _  _  = Null
 
 runGetToken :: TokenizerState -> [Token]
 
-runGetToken (C.uncons  -> Nothing, _, _, _) = []
+runGetToken (C.uncons  -> Nothing, _, _) = []
 runGetToken tstate = token : runGetToken ns
     where (token, ns) = getToken tstate
 
 
 getToken :: TokenizerState -> (Token, TokenizerState)
 
-getToken (C.uncons -> Nothing, _, _, _) = error "getToken: internal error"
-getToken (xs, off, ln, state) = let token = fromJust $ 
-                                        getTokenDirective xs state       `mplus`
-                                        getTokenHeaderName xs state      `mplus`
-                                        getTokenNumber xs state          `mplus`
-                                        getTokenIdOrKeyword xs state     `mplus`
-                                        getTokenString xs state          `mplus`
-                                        getTokenChar xs state            `mplus`
-                                        getTokenOpOrPunct xs state
-                                    len = fromIntegral $ length (toString token)
-                                    (xs', w, n) = dropWhite $ C.drop (fromIntegral len) xs
-                               in
-                                   (token { offset = off, lineno = ln }, (xs', off + len + w, ln + n, nextState(toString token) state))
+getToken (C.uncons -> Nothing, _, _) = error "getToken: internal error"
+getToken (xs, off, state) = let token = fromJust $ 
+                                            getTokenDirective xs state       `mplus`
+                                            getTokenHeaderName xs state      `mplus`
+                                            getTokenNumber xs state          `mplus`
+                                            getTokenIdOrKeyword xs state     `mplus`
+                                            getTokenString xs state          `mplus`
+                                            getTokenChar xs state            `mplus`
+                                            getTokenOpOrPunct xs state
+                                len = fromIntegral $ length (toString token)
+                                (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
+                             in
+                                (token { offset = off }, (xs', off + len + w, nextState(toString token) state))
 
 
 getTokenIdOrKeyword, getTokenNumber, getTokenHeaderName, 
@@ -203,15 +201,15 @@ getTokenIdOrKeyword, getTokenNumber, getTokenHeaderName,
 
 
 getTokenDirective xs  state 
-    | state == Hash = Just (TDirective name 0 0)
+    | state == Hash = Just (TokenDirective name 0)
     | otherwise = Nothing
                       where name = C.unpack $ C.takeWhile isIdentifierChar xs
 
 getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state 
     | state /= Include  = Nothing
-    | x == '<'          = Just $ THeaderName (getLiteral '<'  '>'  False xs)   0 0
-    | x == '"'          = Just $ THeaderName (getLiteral '"'  '"'  False xs)   0 0
-    | otherwise         = Just $ THeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0 0
+    | x == '<'          = Just $ TokenHeaderName (getLiteral '<'  '>'  False xs)   0 
+    | x == '"'          = Just $ TokenHeaderName (getLiteral '"'  '"'  False xs)   0
+    | otherwise         = Just $ TokenHeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0
 
 getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName: internal error"
 getTokenHeaderName _ _ = error "getTokenHeaderName: internal error"
@@ -222,7 +220,7 @@ getTokenNumber ys@(C.uncons -> Just (x,_)) _
                                 case ts of 
                                     ""     -> Nothing 
                                     "."    -> Nothing 
-                                    _      -> Just $ TNumber ts 0 0
+                                    _      -> Just $ TokenNumber ts 0
     | otherwise = Nothing
 
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
@@ -286,14 +284,14 @@ getNumber  _ _ = undefined
 
 
 getTokenString xs@(C.uncons -> Just (x,_)) _
-    | x == '"' = Just $ TString (getLiteral '"'  '"'  False xs) 0 0
+    | x == '"' = Just $ TokenString (getLiteral '"'  '"'  False xs) 0
     | otherwise = Nothing
 getTokenString (C.uncons -> Nothing) _ = Nothing
 getTokenString _ _ = Nothing
 
 
 getTokenChar xs@(C.uncons -> Just (x,_)) _
-    | x == '\'' = Just $ TChar  (getLiteral '\'' '\'' False xs) 0 0
+    | x == '\'' = Just $ TokenChar  (getLiteral '\'' '\'' False xs) 0
     | otherwise = Nothing
 getTokenChar (C.uncons -> Nothing) _ = Nothing
 getTokenChar _ _ = Nothing
@@ -301,8 +299,8 @@ getTokenChar _ _ = Nothing
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar x = Nothing 
-    | name `S.member` keywords = Just $ TKeyword name 0 0
-    | otherwise                = Just $ TIdentifier name 0 0
+    | name `S.member` keywords = Just $ TokenKeyword name 0
+    | otherwise                = Just $ TokenIdentifier name 0
                                     where name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing
@@ -313,7 +311,7 @@ getTokenOpOrPunct source _ = go source (min 4 (C.length source))
             | C.length source > 0 = error $ "getTokenOpOrPunct: error near " ++ show source
             | otherwise = Nothing
           go src len 
-            | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TOperOrPunct sub 0 0 
+            | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TokenOperOrPunct sub 0 
             | otherwise = go src (len-1)
                 where sub = C.unpack (C.take len src)
                                                                                                               
