@@ -32,6 +32,7 @@ import CGrep.Common
 import Options 
 import Debug
  
+
  
 searchRegex :: CgrepFunction
 searchRegex opt ps f = do
@@ -45,11 +46,8 @@ searchRegex opt ps f = do
     let text' = getMultiLine (multiline opt) . filterContext (lookupLang filename) (mkContextFilter opt) $ text
     
     -- search for matching tokens
-
-    let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ 
-                    concatMap assocs $ concatMap (\pat -> text' =~ pat :: [MatchText C.ByteString]) ps 
-
-    -- TODO implement -w for Regex 
+    
+    let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ ps >>= (\p -> text' =~ p :: [MatchText C.ByteString]) >>= assocs 
     
     putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens

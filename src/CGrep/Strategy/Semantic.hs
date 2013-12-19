@@ -51,30 +51,26 @@ searchSemantic opt ps f = do
     
     let tokens = Cpp.tokenizer text'
 
-
     -- preprocess shortcuts
     --
 
-    let patterns = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
+    let patterns  = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
 
-    let patterns' = map (map preprocToken) patterns
 
-    let patterns'' = extendPatterns patterns'
+    let patterns' = map (map preprocToken) patterns >>= getPatternSubsequence
+
 
     -- get matching tokens ...
         
-    let matchingTokens =  filterMatchingTokens opt filename patterns'' tokens 
+    let tokens' = sortBy (compare `on` Cpp.offset) $ nub (filterMatchingTokens opt filename patterns' tokens)   
 
 
-    let tokenMatches = sortBy (compare `on` Cpp.offset) $ nub matchingTokens
-
-
-    let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokenMatches :: [(Int, String)]
+    let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "patterns  : " ++ show patterns''
-    putStrLevel2 (debug opt) $ "tokens    : " ++ show matchingTokens
+    putStrLevel2 (debug opt) $ "patterns  : " ++ show patterns'
+    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
     
@@ -100,15 +96,8 @@ preprocToken t@Cpp.TIdentifier { Cpp.toString = str } = t { Cpp.toString = M.fin
 preprocToken t = t
 
 
-
 sourceCodeFilter :: ContextFilter 
 sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
-
-
--- extend patterns for optional tokens ($)...
-
-extendPatterns :: [[Pattern]] -> [[Pattern]]
-extendPatterns = concatMap getPatternSubsequence 
 
 
 getPatternSubsequence :: [Pattern] -> [[Pattern]]
@@ -118,6 +107,7 @@ getPatternSubsequence ps = map (`filterIndicies` ps') idx
                                                    Cpp.TIdentifier { Cpp.toString = ('$':_) } -> True  
                                                    _ -> False) ps
 
+
 filterIndicies :: [Int] -> [(Int,Pattern)] -> [Pattern]
 filterIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
@@ -125,11 +115,12 @@ filterIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 -- search for matching tokens...
 
 filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
--- filterMatchingTokens opt _ ps | trace ("ps = " ++ (show ps)) False = undefined 
 filterMatchingTokens _ _ [] _ = []
-filterMatchingTokens opt f (g:gs) ts = concatMap (take groupLen . (`drop` ts)) (findIndices (groupCompare (word_match opt) g) tokenGroups) ++ filterMatchingTokens opt f gs ts 
-    where tokenGroups = spanGroup groupLen ts
-          groupLen    = length g
+filterMatchingTokens opt f (g:gs) ts = 
+    concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare (word_match opt) g) grp) ++ 
+        filterMatchingTokens opt f gs ts 
+    where grp    = spanGroup grpLen ts
+          grpLen = length g
 
 
 groupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> Bool
@@ -150,9 +141,10 @@ groupCompareMatch = all fst
 --       
 
 groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
--- groupCompareSemantic xs | trace ("semantic: " ++ show xs) False = undefined
 groupCompareSemantic ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  M.mapWithKey (\k xs -> if k `elem` ["_","$", "TOKEN_ANY", "TOKEN_NUMBER", "TOKEN_KEYWORD", "TOKEN_STRING", "TOKEN_CHAR"]
+        where m =  M.mapWithKey (\k xs -> if k `elem` ["_", "$", "TOKEN_ANY", 
+                                                       "TOKEN_NUMBER", "TOKEN_KEYWORD", 
+                                                       "TOKEN_STRING", "TOKEN_CHAR"]
                                               then []
                                               else xs ) $ M.fromListWith (++) (map snd ts)
         

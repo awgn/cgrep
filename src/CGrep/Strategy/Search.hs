@@ -29,6 +29,8 @@ import CGrep.Lang
 
 import qualified CGrep.Token as T
 
+-- import Control.Monad
+
 import Options 
 import Debug
 
@@ -47,7 +49,7 @@ searchBoyerMoore opt ps f = do
 
     -- search for matching tokens
     
-    let tokens  = map (A.second C.unpack) $ concatMap (\pat -> map (\i -> (i, pat)) (SC.indices pat text')) ps 
+    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.indices` text')) 
 
     -- filter exact matching tokens
 
