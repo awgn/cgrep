@@ -25,6 +25,7 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 
+import Data.Char
 import Data.List
 import Data.Function
 
@@ -51,7 +52,7 @@ searchSemantic opt ps f = do
     
     let tokens = Cpp.tokenizer text'
 
-    -- preprocess shortcuts
+    -- pre-process patterns
     --
 
     let patterns  = map (Cpp.tokenizer . filterContext (Just Cpp) sourceCodeFilter) ps
@@ -80,7 +81,7 @@ searchSemantic opt ps f = do
 type WordMatch   = Bool
 type Pattern     = Cpp.Token
 
--- shortcuts for wildcard tokens...
+-- shortcuts for wildcard in patterns...
 
 ppKeywords :: M.Map String String
 ppKeywords = M.fromList 
@@ -88,7 +89,9 @@ ppKeywords = M.fromList
              ("KEY", "TOKEN_KEYWORD"),
              ("STR", "TOKEN_STRING"),
              ("CHR", "TOKEN_CHAR"),
-             ("NUM", "TOKEN_NUMBER") ]
+             ("NUM", "TOKEN_NUMBER"),
+             ("OCT", "TOKEN_OCT"),
+             ("HEX", "TOKEN_HEX")]
 
 
 preprocToken :: Cpp.Token -> Cpp.Token
@@ -111,8 +114,6 @@ getPatternSubsequence ps = map (`filterIndicies` ps') idx
 filterIndicies :: [Int] -> [(Int,Pattern)] -> [Pattern]
 filterIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
-
--- search for matching tokens...
 
 filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
 filterMatchingTokens _ _ [] _ = []
@@ -144,7 +145,8 @@ groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
 groupCompareSemantic ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
         where m =  M.mapWithKey (\k xs -> if k `elem` ["_", "$", "TOKEN_ANY", 
                                                        "TOKEN_NUMBER", "TOKEN_KEYWORD", 
-                                                       "TOKEN_STRING", "TOKEN_CHAR"]
+                                                       "TOKEN_STRING", "TOKEN_CHAR",
+                                                       "TOKEN_HEX", "TOKEN_OCT"]
                                               then []
                                               else xs ) $ M.fromListWith (++) (map snd ts)
         
@@ -155,19 +157,23 @@ tokensGroupCompare wordmatch l r
     | otherwise = [ (False, ("", [])) ]
 
 
-tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool,(String, [String]))
+tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool, (String, [String]))
 
 tokensCompare wm (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TIdentifier { Cpp.toString = r }) 
         | case l of 
             "TOKEN_ANY" -> True
-            ('_':_) -> True 
-            ('$':_) -> True
-            _       -> False = (True, (l,[r]))
+            ('_':_)     -> True 
+            ('$':_)     -> True
+            _           -> False = (True, (l,[r]))
         | otherwise    =  if wm then (l == r, ("", []))
                                 else (l `isInfixOf` r, ("", [])) 
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TNumber { Cpp.toString = r }) 
-        =  (l == "TOKEN_NUMBER"  || l == "TOKEN_ANY", (l,[r]))
+        | l == "TOKEN_NUMBER"  = (True, (l, [r]))
+        | l == "TOKEN_ANY"     = (True, (l, [r])) 
+        | l == "TOKEN_OCT"     = (length r > 1 && '0' == head r && (isDigit . head . tail)  r, (l, [r]))
+        | l == "TOKEN_HEX"     = ("0x" `isPrefixOf` r, (l, [r]))
+        | otherwise            = (False, ("", []))
 
 tokensCompare _ (Cpp.TIdentifier { Cpp.toString = l }) (Cpp.TKeyword { Cpp.toString = r }) 
         =  (l == "TOKEN_KEYWORD" || l == "TOKEN_ANY", (l,[r]))
