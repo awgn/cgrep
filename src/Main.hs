@@ -20,6 +20,7 @@ module Main where
 
 
 import Data.List
+import Data.Maybe
 import Data.Char
 import Data.Data()
 import Data.Function
@@ -137,13 +138,14 @@ main = do
     forM_ [1 .. jobs opts] $ \_ -> forkIO $ 
         fix (\action -> do 
                 f <- atomically $ readTChan in_chan
-                case f of 
-                     Nothing -> atomically $ writeTChan out_chan []
-                     Just f' -> do
-                        out <- let op = sanitizeOptions f' opts in liftM (take (max_count opts)) $ cgrepDispatch op op patterns (if f' == "" then Nothing else Just f')
-                        unless (null out) $ atomically $ writeTChan out_chan out 
-                        action
-                `E.catch` (\ex -> putStrLn ("parse error: " ++ show (ex :: SomeException)) >> action)
+                E.catch 
+                    (case f of 
+                        Nothing -> atomically $ writeTChan out_chan []
+                        Just f' -> do
+                            out <- let op = sanitizeOptions f' opts in liftM (take (max_count opts)) $ cgrepDispatch op op patterns (if f' == "" then Nothing else Just f')
+                            unless (null out) $ atomically $ writeTChan out_chan out
+                            action ) 
+                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ " -> " ++ if length msg > 80 then take 80 msg ++ "..." else msg) >> action )
             )   
 
 

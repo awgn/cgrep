@@ -19,7 +19,8 @@
 {-# LANGUAGE FlexibleContexts #-} 
 
 module CGrep.Common (Output(..), CgrepFunction, MatchLine, Text8, 
-                     getFileName, getText, getMultiLine, mkOutput, prettyOutput, spanGroup) where
+                     getFileName, getText, getMultiLine, mkOutput, prettyOutput, 
+                     showFile, spanGroup) where
  
 import qualified Data.ByteString.Char8 as C
 
