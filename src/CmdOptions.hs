@@ -66,7 +66,7 @@ options = cmdArgsMode $ Options
                 multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
-                show_match = False         &= help "show the matching tokens in lines" &= explicit &= name "show-match", 
+                show_match = False         &= help "show list of matching tokens" &= explicit &= name "show-match", 
                 color = False              &= help "use colors to highlight the matching strings",
 
                 debug = 0                  &= help "debug level: 1, 2 or 3" &= groupname "\nMiscellaneous",

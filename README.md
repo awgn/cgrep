@@ -48,7 +48,7 @@ Output control:
        --invert-match   select non-matching lines
        --max-count=INT  stop search in files after INT matches
        --count          print only a count of matching lines per file
-       --show-match     show matching tokens in lines
+       --show-match     show list of matching tokens
        --color          use colors to highlight the matching strings
 
 Miscellaneous:
