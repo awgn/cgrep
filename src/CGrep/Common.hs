@@ -19,8 +19,8 @@
 {-# LANGUAGE FlexibleContexts #-} 
 
 module CGrep.Common (Output(..), CgrepFunction, MatchLine, Text8, 
-                     getFileName, getText, getMultiLine, mkOutput, prettyOutput, 
-                     showFile, spanGroup) where
+                     getFileName, getText, getMultiLine, mkOutput, 
+                     prettyOutput, showFile, spanGroup) where
  
 import qualified Data.ByteString.Char8 as C
 
@@ -32,8 +32,8 @@ import Data.Char
 import Data.Function
 
 import CGrep.Types
-
 import Options
+
 
 type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output] 
 
@@ -70,7 +70,8 @@ mkOutput Options { invert_match = invert } f text ts
 
 mkMatchLines :: Text8 -> [Token] -> [MatchLine] 
 mkMatchLines _ [] = []
-mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $ sortBy (compare `on` fst) $ map (\t -> let (r,c) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts 
+mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $ 
+    sortBy (compare `on` fst) $ map (\t -> let (r,c) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts 
     where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)
           ols = getOffsetsLines text
           
@@ -131,7 +132,6 @@ hilightLine ts =  hilightLine' (hilightIndicies ts, 0)
           hilightLine'  _ [] = []
           hilightLine' (ns,n) (x:xs) = (if n `elem` ns then bold ++ [x] ++ reset 
                                                        else [x]) ++ hilightLine' (ns, n+1) xs
-
 
 
 hilightIndicies :: [Token] -> [Int]

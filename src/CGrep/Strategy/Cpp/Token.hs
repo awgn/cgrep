@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), 
-                                Offset, Offset2D, tokenizer, tokenFilter, tokenCompare,
+                                Offset, tokenizer, tokenFilter, tokenCompare,
                                 isIdentifier, isKeyword, isDirective, isLiteralNumber, 
                                 isHeaderName, isString, isChar, isOperOrPunct 
                             )  where
@@ -38,8 +38,7 @@ type TokenizerState = (Source, Offset, State)
 
 type Source = C.ByteString
 
-type Offset      = Int
-type Offset2D    = (Int, Int)
+type Offset = Int
 
 
 -- Tokenize the source code in a list of Token 
@@ -196,8 +195,10 @@ getToken (xs, off, state) = let token = fromJust $
                                 (token { offset = off }, (xs', off + len + w, nextState(toString token) state))
 
 
-getTokenIdOrKeyword, getTokenNumber, getTokenHeaderName, 
-     getTokenString, getTokenChar, getTokenOpOrPunct, getTokenDirective :: Source -> State -> Maybe Token
+getTokenIdOrKeyword, getTokenNumber, 
+    getTokenHeaderName, getTokenString, 
+    getTokenChar, getTokenOpOrPunct, 
+    getTokenDirective :: Source -> State -> Maybe Token
 
 
 getTokenDirective xs  state 
@@ -333,7 +334,6 @@ getLiteral _  _ _ _ = []
 
 isIdentifierChar :: Char -> Bool 
 isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers 
-
 
 
 operOrPunct :: Array Int (S.Set String) 
