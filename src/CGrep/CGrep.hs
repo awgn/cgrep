@@ -31,7 +31,7 @@ import Options
 
 
 sanitizeOptions  :: FilePath -> Options -> Options
-sanitizeOptions path opt = case lookupLang path >>= (`elemIndex` [C, Cpp]) of
+sanitizeOptions path opt = case getLang opt path >>= (`elemIndex` [C, Cpp]) of
                             Nothing -> opt {identifier = False, 
                                             keyword    = False, 
                                             directive  = False, 

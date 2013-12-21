@@ -47,11 +47,12 @@ data Options = Options
                 semantic    :: Bool,
 
                 -- Output:
-                no_filename   :: Bool,
-                no_linenumber :: Bool,
-                lang          :: [String],
-                lang_map      :: Bool,
-                
+                no_filename    :: Bool,
+                no_linenumber  :: Bool,
+                lang           :: [String],
+                lang_map       :: Bool,
+                force_language :: Maybe String,
+
                 -- General:
                 jobs         :: Int,
                 multiline    :: Int,

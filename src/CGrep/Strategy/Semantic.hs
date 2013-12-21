@@ -44,7 +44,7 @@ searchSemantic opt ps f = do
 
     -- transform text
     
-    let text' = getMultiLine (multiline opt) . contextFilter (lookupLang filename) ((mkContextFilter opt) { getComment = False} ) $ text
+    let text' = getMultiLine (multiline opt) . contextFilter (getLang opt filename) ((mkContextFilter opt) { getComment = False} ) $ text
 
 
     -- parse source code, get the Cpp.Token list...

@@ -54,8 +54,8 @@ import qualified Data.ByteString.Char8 as C
 
 -- push file names in TChan...
 
-putRecursiveContents :: TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> IO ()
-putRecursiveContents inchan topdir langs prunedir = do
+putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> IO ()
+putRecursiveContents opts inchan topdir langs prunedir = do
     dir <-  doesDirectoryExist topdir 
     if dir then do
             names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents topdir
@@ -65,8 +65,8 @@ putRecursiveContents inchan topdir langs prunedir = do
                 isDirectory <- doesDirectoryExist path
                 if isDirectory
                     then unless (filename `elem` prunedir) $ 
-                         putRecursiveContents inchan path langs prunedir
-                    else case lookupLang filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of 
+                         putRecursiveContents opts inchan path langs prunedir
+                    else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of 
                             Nothing -> return ()
                             _       -> atomically $ writeTChan inchan (Just path)
            else atomically $ writeTChan inchan (Just topdir)
@@ -88,6 +88,7 @@ main = do
     opts  <- cmdArgsRun options
     
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
+    putStrLevel1 (debug opts) $ "options   : " ++ show opts
     
     -- display lang-map...
     when (lang_map opts) $ dumpLangMap langMap >> exitSuccess 
@@ -154,7 +155,7 @@ main = do
     _ <- forkIO $ do
 
         if recursive opts
-            then forM_ paths $ \p -> putRecursiveContents in_chan p lang_enabled (pruneDirs conf)
+            then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (pruneDirs conf)
             else do
                 files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)

@@ -22,6 +22,9 @@ import qualified Data.Map as Map
 import System.FilePath(takeExtension, takeFileName)
 import Control.Monad 
 import Control.Applicative
+import Data.Maybe
+
+import Options
 
 data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Haskell | 
                 Html | Java | Javascript | Latex | Make | OCaml | ObjectiveC | 
@@ -74,7 +77,7 @@ langMap = Map.fromList [
 
 
 langRevMap :: LangRevMapType
-langRevMap = Map.fromList $ concatMap (\(lang, xs) -> map (\x -> (x,lang)) xs ) $ Map.toList langMap 
+langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (\x -> (x,l)) xs ) $ Map.toList langMap 
 
 -- utility functions 
 
@@ -82,12 +85,23 @@ lookupLang :: FilePath -> Maybe Lang
 lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap <|> Map.lookup (Name $ takeFileName f) langRevMap 
 
 
+forcedLang :: Options -> Maybe Lang
+forcedLang Options{ force_language = l }
+    | Nothing <- l = Nothing
+    | otherwise    = Map.lookup (Ext $ fromJust l) langRevMap <|> Map.lookup (Name $ fromJust l) langRevMap
+
+
+getLang :: Options -> FilePath -> Maybe Lang
+getLang opts f = forcedLang opts <|> lookupLang f 
+
+
+
 dumpLangMap :: LangMapType -> IO ()
-dumpLangMap m = forM_ (Map.toList m) $ \(lang, ex) ->
-                putStrLn $ show lang ++ [ ' ' | _ <- [length (show lang)..12]] ++ "-> " ++ show ex
+dumpLangMap m = forM_ (Map.toList m) $ \(l, ex) ->
+                putStrLn $ show l ++ [ ' ' | _ <- [length (show l)..12]] ++ "-> " ++ show ex
 
 
 dumpLangRevMap :: LangRevMapType -> IO ()
-dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, lang) -> 
-                    putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show lang
+dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, l) -> 
+                    putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show l
 
