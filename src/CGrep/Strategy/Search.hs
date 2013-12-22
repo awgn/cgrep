@@ -49,7 +49,7 @@ searchBoyerMoore opt ps f = do
 
     -- search for matching tokens
     
-    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.indices` text')) 
+    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text')) 
 
     -- filter exact matching tokens
 
