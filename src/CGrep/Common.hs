@@ -20,7 +20,7 @@
 
 module CGrep.Common (Output(..), CgrepFunction, MatchLine, Text8, 
                      getFileName, getText, expandMultiline, mkOutput, 
-                     prettyOutput, showFile, spanGroup) where
+                     ignoreCase, prettyOutput, showFile, spanGroup) where
  
 import qualified Data.ByteString.Char8 as C
 
@@ -54,11 +54,15 @@ getFileName Nothing = "<STDIN>"
 getFileName (Just name) = name
 
 
-getText :: Bool -> Maybe FilePath -> IO Text8
-getText icase filename 
-    | icase = liftM (C.map toLower) content
-    | otherwise =  content
-        where content = maybe C.getContents C.readFile filename                  
+getText :: Maybe FilePath -> IO Text8
+getText  = maybe C.getContents C.readFile
+
+
+ignoreCase :: Options -> Text8 -> Text8
+ignoreCase Options { ignore_case = icase } 
+    | icase  =  C.map toLower 
+    | otherwise = id
+
 
 expandMultiline :: Options -> Text8 -> Text8
 expandMultiline Options { multiline = n } xs 

@@ -39,11 +39,11 @@ searchRegex opt ps f = do
 
     let filename = getFileName f 
     
-    text <- getText (ignore_case opt) f 
+    text <- getText f 
     
     -- transform text
     
-    let text' = expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+    let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
     
     -- search for matching tokens
     
