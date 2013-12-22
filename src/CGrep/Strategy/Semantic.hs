@@ -55,7 +55,7 @@ searchSemantic opt ps f = do
     -- pre-process patterns
     --
 
-    let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) sourceCodeFilter) ps
+    let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps
 
 
     let patterns' = map (map preprocToken) patterns >>= getPatternSubsequence
@@ -78,10 +78,12 @@ searchSemantic opt ps f = do
     return $ mkOutput opt filename text' matches
         
 
+-- shortcuts for wildcard in patterns...
+
+
 type WordMatch   = Bool
 type Pattern     = Cpp.Token
 
--- shortcuts for wildcard in patterns...
 
 ppKeywords :: M.Map String String
 ppKeywords = M.fromList 
@@ -97,10 +99,6 @@ ppKeywords = M.fromList
 preprocToken :: Cpp.Token -> Cpp.Token
 preprocToken t@Cpp.TokenIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
 preprocToken t = t
-
-
-sourceCodeFilter :: ContextFilter 
-sourceCodeFilter = ContextFilter { getCode = True, getComment = False, getLiteral = True }   
 
 
 getPatternSubsequence :: [Pattern] -> [[Pattern]]
