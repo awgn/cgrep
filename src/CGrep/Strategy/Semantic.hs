@@ -169,8 +169,8 @@ tokensCompare wm (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenIdentifier
 tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenNumber { Cpp.toString = r }) 
         | l == "TOKEN_NUMBER"  = (True, (l, [r]))
         | l == "TOKEN_ANY"     = (True, (l, [r])) 
-        | l == "TOKEN_OCT"     = (length r > 1 && '0' == head r && (isDigit . head . tail)  r, (l, [r]))
-        | l == "TOKEN_HEX"     = ("0x" `isPrefixOf` r, (l, [r]))
+        | l == "TOKEN_OCT"     = (case r of ('0':d:_) -> isDigit d; _ -> False, (l, [r]))
+        | l == "TOKEN_HEX"     = (case r of ('0':'x':_) -> True; _ -> False, (l, [r]))
         | otherwise            = (False, ("", []))
 
 tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenKeyword { Cpp.toString = r }) 
