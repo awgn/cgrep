@@ -84,7 +84,7 @@ data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
              TokenString      { toString :: String, offset :: Int  } |
              TokenChar        { toString :: String, offset :: Int  } |
              TokenOperOrPunct { toString :: String, offset :: Int  }
-                deriving (Show, Eq)  
+                deriving (Show, Eq, Ord)  
 
 tokenCompare :: Token -> Token -> Bool
 tokenCompare (TokenIdentifier { toString = l }) (TokenIdentifier { toString = r }) = l == r
