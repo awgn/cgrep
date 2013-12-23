@@ -58,14 +58,13 @@ searchSemantic opt ps f = do
     let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps
 
 
-    let patterns' = map (map preprocToken) patterns >>= getPatternSubsequence
-
+    let patterns' = map (map mkWildCard) patterns >>= getWildCardSubsequence 
 
     -- get matching tokens ...
         
     let tokens' = sortBy (compare `on` Cpp.offset) $ nub (filterMatchingTokens opt filename patterns' tokens)   
 
-
+    
     let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
 
@@ -78,42 +77,56 @@ searchSemantic opt ps f = do
     return $ mkOutput opt filename text' matches
         
 
--- shortcuts for wildcard in patterns...
+type WordMatch = Bool
 
 
-type WordMatch   = Bool
-type Pattern     = Cpp.Token
+data WildCard = AnyCard               |
+                KeyCard               |
+                NumberCard            |
+                OctCard               |
+                HexCard               |
+                StringCard            |
+                CharCard              |
+                IdentifierCard String |
+                WildToken Cpp.Token         
+                    deriving (Eq, Show, Ord)
 
 
-ppKeywords :: M.Map String String
-ppKeywords = M.fromList 
-           [ ("ANY", "TOKEN_ANY"),
-             ("KEY", "TOKEN_KEYWORD"),
-             ("STR", "TOKEN_STRING"),
-             ("CHR", "TOKEN_CHAR"),
-             ("NUM", "TOKEN_NUMBER"),
-             ("OCT", "TOKEN_OCT"),
-             ("HEX", "TOKEN_HEX")]
+wildCardMap :: M.Map String WildCard
+wildCardMap = M.fromList 
+            [
+                ("ANY", AnyCard    ),
+                ("KEY", KeyCard    ),
+                ("OCT", OctCard    ),
+                ("HEX", HexCard    ),
+                ("NUM", NumberCard ),
+                ("CHR", CharCard   ),
+                ("STR", StringCard )
+            ]
 
 
-preprocToken :: Cpp.Token -> Cpp.Token
-preprocToken t@Cpp.TokenIdentifier { Cpp.toString = str } = t { Cpp.toString = M.findWithDefault str str ppKeywords } 
-preprocToken t = t
+mkWildCard :: Cpp.Token -> WildCard
+mkWildCard t@Cpp.TokenIdentifier { Cpp.toString = str } 
+    | Just wc <-  M.lookup str wildCardMap =  wc 
+    | ('$':_) <- str                       = IdentifierCard str
+    | ('_':_) <- str                       = IdentifierCard str
+    | otherwise                            = WildToken t
+mkWildCard t = WildToken t
 
 
-getPatternSubsequence :: [Pattern] -> [[Pattern]]
-getPatternSubsequence ps = map (`filterIndicies` ps') idx
-    where ps' = zip [0..] ps
-          idx = subsequences $ findIndices (\t -> case t of 
-                                                   Cpp.TokenIdentifier { Cpp.toString = ('$':_) } -> True  
-                                                   _ -> False) ps
+getWildCardSubsequence :: [WildCard] -> [[WildCard]]
+getWildCardSubsequence wc = map (`filterCardIndicies` wc') idx
+    where wc' = zip [0..] wc
+          idx = subsequences $ findIndices (\w -> case w of 
+                                                   IdentifierCard ('$':_) -> True  
+                                                   _ -> False) wc
 
 
-filterIndicies :: [Int] -> [(Int,Pattern)] -> [Pattern]
-filterIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
+filterCardIndicies :: [Int] -> [(Int,WildCard)] -> [WildCard]
+filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
-filterMatchingTokens :: Options -> FilePath -> [[Pattern]] -> [Cpp.Token] -> [Cpp.Token]
+filterMatchingTokens :: Options -> FilePath -> [[WildCard]] -> [Cpp.Token] -> [Cpp.Token]
 filterMatchingTokens _ _ [] _ = []
 filterMatchingTokens opt f (g:gs) ts = 
     concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare (word_match opt) g) grp) ++ 
@@ -122,69 +135,69 @@ filterMatchingTokens opt f (g:gs) ts =
           grpLen = length g
 
 
-groupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> Bool
-groupCompare wordmatch l r = groupCompareMatch ts &&
-                             groupCompareSemantic ts
+groupCompare :: WordMatch -> [WildCard] -> [Cpp.Token] -> Bool
+groupCompare wordmatch l r = 
+    groupCompareAll ts && groupCompareOptional ts
         where ts = tokensGroupCompare wordmatch l r               
 
 
-{-# INLINE groupCompareMatch #-}
+{-# INLINE groupCompareAll #-}
 
-groupCompareMatch :: [(Bool, (String, [String]))] -> Bool
-groupCompareMatch = all fst 
+groupCompareAll :: [(Bool, (WildCard, [String]))] -> Bool
+groupCompareAll = all fst 
 
-{-# INLINE groupCompareSemantic #-}
+
+{-# INLINE groupCompareOptional #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
---       that must compare equal in corresponding occurrences  
+--       that must compare equal in the relative occurrences  
 --       
 
-groupCompareSemantic :: [(Bool, (String, [String]))] -> Bool
-groupCompareSemantic ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  M.mapWithKey (\k xs -> if k `elem` ["_", "$", "TOKEN_ANY", 
-                                                       "TOKEN_NUMBER", "TOKEN_KEYWORD", 
-                                                       "TOKEN_STRING", "TOKEN_CHAR",
-                                                       "TOKEN_HEX", "TOKEN_OCT"]
-                                              then []
-                                              else xs ) $ M.fromListWith (++) (map snd ts)
+groupCompareOptional :: [(Bool, (WildCard, [String]))] -> Bool
+groupCompareOptional ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
+        where m =  M.mapWithKey (\k xs -> case k of 
+                                                AnyCard             -> [] 
+                                                NumberCard          -> [] 
+                                                KeyCard             -> []
+                                                StringCard          -> []
+                                                CharCard            -> []
+                                                HexCard             -> []
+                                                OctCard             -> []
+                                                IdentifierCard "_"  -> []
+                                                IdentifierCard "$"  -> []
+                                                _                   -> xs
+                                  ) $ M.fromListWith (++) (map snd ts)
         
 
-tokensGroupCompare :: WordMatch -> [Pattern] -> [Cpp.Token] -> [(Bool, (String, [String]))]
-tokensGroupCompare wordmatch l r 
-    | length r >= length l = zipWith (tokensCompare wordmatch) l r
-    | otherwise = [ (False, ("", [])) ]
+tokensGroupCompare :: WordMatch -> [WildCard] -> [Cpp.Token] -> [(Bool, (WildCard, [String]))]
+tokensGroupCompare wordmatch ls rs 
+    | length rs >= length ls = zipWith (tokensZip wordmatch) ls rs
+    | otherwise = [ (False, (AnyCard, [])) ]
 
 
-tokensCompare :: WordMatch -> Pattern -> Cpp.Token -> (Bool, (String, [String]))
+tokensZip :: WordMatch -> WildCard -> Cpp.Token -> (Bool, (WildCard, [String]))
+tokensZip wordmatch l r 
+    |  wiildCardCompare wordmatch l r = (True, (l, [Cpp.toString r]))
+    |  otherwise                   = (False,(AnyCard,[] ))
 
-tokensCompare wm (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenIdentifier { Cpp.toString = r }) 
-        | case l of 
-            "TOKEN_ANY" -> True
-            ('_':_)     -> True 
-            ('$':_)     -> True
-            _           -> False = (True, (l,[r]))
-        | otherwise    =  if wm then (l == r, ("", []))
-                                else (l `isInfixOf` r, ("", [])) 
 
-tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenNumber { Cpp.toString = r }) 
-        | l == "TOKEN_NUMBER"  = (True, (l, [r]))
-        | l == "TOKEN_ANY"     = (True, (l, [r])) 
-        | l == "TOKEN_OCT"     = (case r of ('0':d:_) -> isDigit d; _ -> False, (l, [r]))
-        | l == "TOKEN_HEX"     = (case r of ('0':'x':_) -> True; _ -> False, (l, [r]))
-        | otherwise            = (False, ("", []))
+wiildCardCompare :: WordMatch -> WildCard -> Cpp.Token -> Bool
 
-tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenKeyword { Cpp.toString = r }) 
-        =  (l == "TOKEN_KEYWORD" || l == "TOKEN_ANY", (l,[r]))
+wiildCardCompare _  (IdentifierCard _) (Cpp.TokenIdentifier {}) = True
+wiildCardCompare _  AnyCard _                                   = True
+wiildCardCompare _  KeyCard    (Cpp.TokenKeyword {}) = True
+wiildCardCompare _  StringCard (Cpp.TokenString  {}) = True
+wiildCardCompare _  CharCard   (Cpp.TokenChar    {}) = True
+wiildCardCompare _  NumberCard (Cpp.TokenNumber  {}) = True
+wiildCardCompare _  OctCard    (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':d: _) -> isDigit d; _ -> False
+wiildCardCompare _  HexCard    (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':'x':_) -> True; _ -> False
 
-tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenString { Cpp.toString = r }) 
-        =  (l == "TOKEN_STRING"  || l == "TOKEN_ANY", (l,[r]))
+wiildCardCompare wordmatch (WildToken Cpp.TokenIdentifier {Cpp.toString = l}) (Cpp.TokenIdentifier {Cpp.toString = r}) = 
+    if wordmatch then l == r else l `isInfixOf` r
+wiildCardCompare wordmatch (WildToken Cpp.TokenString     {Cpp.toString = l}) (Cpp.TokenString     {Cpp.toString = r}) = 
+    if wordmatch then l == r else trim l `isInfixOf` r 
+        where trim = init . tail
 
-tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) (Cpp.TokenChar { Cpp.toString = r }) 
-        =  (l == "TOKEN_CHAR" || l == "TOKEN_ANY", (l,[r]))
+wiildCardCompare _  (WildToken l) r = Cpp.tokenCompare l r 
+wiildCardCompare _ _ _ = False
 
-tokensCompare _ (Cpp.TokenIdentifier { Cpp.toString = l }) rt
-        =  (l == "TOKEN_ANY", (l,[Cpp.toString rt]))
-
-tokensCompare _ l r  = (Cpp.tokenCompare l r, ("", [])) 
-
- 
