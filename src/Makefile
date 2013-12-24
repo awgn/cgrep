@@ -3,7 +3,7 @@
 
 #GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -eventlog # -with-rtsopts="-N" 
 #GHCFLAGS= --make -ddump-splices -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -H16M -N" #  -prof -auto-all 
-GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -H16M -N" #  -prof -auto-all 
+GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" #  -prof -auto-all 
 
 
 INSTDIR=/usr/local
