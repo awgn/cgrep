@@ -46,7 +46,7 @@ data TokenAccum = TokenAccum TokenState String [String]
 
 
 tokens :: C.ByteString -> [String]
-tokens xs = (\(TokenAccum _ lacc out) -> if null lacc then out else reverse lacc : out ) $ C.foldl' tokens' (TokenAccum TokenSpace "" []) xs
+tokens xs = (\(TokenAccum _ acc out) -> if null acc then out else (reverse out) ++ [reverse acc]) $ C.foldl' tokens' (TokenAccum TokenSpace "" []) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum TokenSpace acc out) x =  
               case () of
