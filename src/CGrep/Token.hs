@@ -38,7 +38,7 @@ isCharNumber c = isHexDigit c || c == '.' || c == 'x' || c == 'X'
 
 isCompleteToken:: C.ByteString -> (Offset, String) -> Bool
 isCompleteToken text (off, tok) = tok `elem` ts
-    where ts = tokens $ C.take (2 + length tok) $ C.drop (off - 1) text       
+    where ts = tokens $ C.take (2 + length tok) $ C.drop (off - 10) text       
                                  
 
 data TokenAccum = TokenAccum TokenState String [String]
