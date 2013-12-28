@@ -21,6 +21,8 @@ module Util where
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
 
+import Data.Maybe
+
 
 toStrict :: LC.ByteString -> C.ByteString
 toStrict = C.concat . LC.toChunks
@@ -37,5 +39,18 @@ notNull = not . null
 
 xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
+
+ 
+prettyRead :: Read a => String -> String -> a
+prettyRead xs err = 
+    case value of
+        Just v -> v
+        _      -> error $ "cgrep: parse error near '" ++ xs ++ "': reason (" ++ err ++ ")"
+        where value = readMaybe xs
+              
+
+readMaybe :: Read a => String -> Maybe a
+readMaybe = fmap fst . listToMaybe . reads
+
 
 

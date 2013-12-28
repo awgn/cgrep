@@ -19,20 +19,11 @@
 module CmdOptions where
 
 import System.Console.CmdArgs
-import System.Directory
-import System.FilePath ((</>))
 
-import Control.Monad
-
-import Data.List (isPrefixOf)
-import Data.Char
-import Data.Maybe
-
-import CGrep.Lang
-
-import Config
 import Options
 
+version :: String
+version = "4.3.1"
 
 options = cmdArgsMode $ Options 
           {
@@ -75,51 +66,5 @@ options = cmdArgsMode $ Options
                 others = []                &= args
 
           } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
-
-
-data  CgrepOptions = CgrepOptions
-                    {
-                        languages :: [Lang],
-                        pruneDirs :: [String]
-                    } deriving (Show,Read)
-
-
--- parse cmdArg language list:
---
-
-parseLangList :: [String] -> ([Lang], [Lang], [Lang])
-parseLangList  = foldl run ([],[],[]) 
-                    where run :: ([Lang], [Lang], [Lang]) -> String -> ([Lang], [Lang], [Lang])
-                          run (l1, l2, l3) l
-                            | '+':xs <- l = (l1, prettyRead xs "Lang" : l2, l3)
-                            | '-':xs <- l = (l1, l2, prettyRead xs "Lang" : l3)
-                            | otherwise   = (prettyRead l  "Lang" : l1, l2, l3)  
-
-
--- parse CgrepOptions from ~/.cgreprc, or /etc/cgreprc 
---
-
-
-getCgrepOptions :: IO CgrepOptions
-getCgrepOptions = do
-    home <- getHomeDirectory
-    conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
-                doesFileExist f >>= \b -> 
-                    return $ if b then Just f else Nothing
-    if isJust conf then readFile (fromJust conf) >>= \xs -> return (prettyRead (dropComments xs) "CgrepOptions" :: CgrepOptions) 
-                   else return $ CgrepOptions [] []
-    where dropComments :: String -> String
-          dropComments = unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines
-
-
-prettyRead :: Read a => String -> String -> a
-prettyRead xs ys = case value of
-                        Just v -> v
-                        _      -> error $ "parse error: '" ++ xs ++ "' bad " ++ ys ++ "!"
-                   where value = readMaybe xs
-              
-
-readMaybe :: Read a => String -> Maybe a
-readMaybe = fmap fst . listToMaybe . reads
 
 

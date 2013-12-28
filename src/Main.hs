@@ -97,7 +97,7 @@ main = do
     when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)  
 
     -- read Cgrep config options
-    conf  <- getCgrepOptions 
+    conf  <- getConfigOptions 
 
     -- load patterns:
     patterns <- (if null $ file opts then return [C.pack $ head $ others opts]
@@ -118,7 +118,7 @@ main = do
 
     -- parse cmd line language list:
 
-    let (l0, l1, l2) = parseLangList (lang opts)
+    let (l0, l1, l2) = splitLangList (lang opts)
 
     -- language enabled:
 

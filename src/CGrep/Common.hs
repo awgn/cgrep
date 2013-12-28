@@ -26,7 +26,6 @@ import qualified Data.ByteString.Char8 as C
 
 import System.Console.ANSI
 
-import Control.Monad (liftM)
 import Data.List
 import Data.Char
 import Data.Function

@@ -25,6 +25,7 @@ import Control.Applicative
 import Data.Maybe
 
 import Options
+import Util
 
 data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Haskell | 
                 Html | Java | Javascript | Latex | Make | OCaml | ObjectiveC | 
@@ -104,4 +105,13 @@ dumpLangMap m = forM_ (Map.toList m) $ \(l, ex) ->
 dumpLangRevMap :: LangRevMapType -> IO ()
 dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, l) -> 
                     putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show l
+
+
+splitLangList :: [String] -> ([Lang], [Lang], [Lang])
+splitLangList  = foldl run ([],[],[]) 
+    where run :: ([Lang], [Lang], [Lang]) -> String -> ([Lang], [Lang], [Lang])
+          run (l1, l2, l3) l
+            | '+':xs <- l = (l1, prettyRead xs "Lang" : l2, l3)
+            | '-':xs <- l = (l1, l2, prettyRead xs "Lang" : l3)
+            | otherwise   = (prettyRead l  "Lang" : l1, l2, l3)  
 

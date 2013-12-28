@@ -18,10 +18,40 @@
 
 module Config where
 
-version :: String
-version = "4.3.1"
+import Control.Monad
+
+import System.Directory
+import System.FilePath ((</>))
+                                  
+import Data.List (isPrefixOf)
+import Data.Char
+import Data.Maybe
+
+import Util
+
+import CGrep.Lang
+
 
 cgreprc :: FilePath
 cgreprc = "cgreprc" 
+
+
+data  ConfigOptions = ConfigOptions
+                {
+                    languages :: [Lang],
+                    pruneDirs :: [String]
+                } deriving (Show,Read)
+
+
+getConfigOptions :: IO ConfigOptions
+getConfigOptions = do
+    home <- getHomeDirectory
+    conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
+                doesFileExist f >>= \b -> 
+                    return $ if b then Just f else Nothing
+    if isJust conf then readFile (fromJust conf) >>= \xs -> return (prettyRead (dropComments xs) "ConfigOptions" :: ConfigOptions) 
+                   else return $ ConfigOptions [] []
+    where dropComments :: String -> String
+          dropComments = unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines
 
 
