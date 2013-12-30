@@ -18,7 +18,7 @@
 
 {-# LANGUAGE FlexibleContexts #-} 
 
-module CGrep.Strategy.Regex (searchRegex) where
+module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
 
@@ -34,8 +34,8 @@ import Debug
  
 
  
-searchRegex :: CgrepFunction
-searchRegex opt ps f = do
+search :: CgrepFunction
+search opt ps f = do
 
     let filename = getFileName f 
     

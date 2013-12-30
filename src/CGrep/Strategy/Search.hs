@@ -18,7 +18,7 @@
 
 {-# LANGUAGE TupleSections #-} 
 
-module CGrep.Strategy.Search (searchBoyerMoore) where
+module CGrep.Strategy.Search (search) where
 
 import qualified Data.ByteString.Char8  as C
 import qualified Data.ByteString.Search as SC
@@ -36,8 +36,8 @@ import Debug
 
 import Control.Arrow as A
 
-searchBoyerMoore :: CgrepFunction
-searchBoyerMoore opt ps f = do
+search :: CgrepFunction
+search opt ps f = do
 
     let filename = getFileName f 
      

@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Strategy.Semantic (searchSemantic) where
+module CGrep.Strategy.Cpp.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
@@ -35,8 +35,8 @@ import Debug
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
 
-searchSemantic :: CgrepFunction
-searchSemantic opt ps f = do
+search :: CgrepFunction
+search opt ps f = do
     
     let filename = getFileName f 
     

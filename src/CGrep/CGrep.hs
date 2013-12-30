@@ -18,10 +18,10 @@
 
 module CGrep.CGrep where
 
-import qualified CGrep.Strategy.Search     as Strategy
-import qualified CGrep.Strategy.Regex      as Strategy
-import qualified CGrep.Strategy.Tokenizer  as Strategy 
-import qualified CGrep.Strategy.Semantic   as Strategy
+import qualified CGrep.Strategy.Search        as BoyerMoore
+import qualified CGrep.Strategy.Regex         as Regex
+import qualified CGrep.Strategy.Cpp.Tokenizer as CppTokenizer
+import qualified CGrep.Strategy.Cpp.Semantic  as CppSemantic
 
 import CGrep.Lang
 import CGrep.Common
@@ -63,10 +63,10 @@ hasSemanticOpt Options{ semantic = s } = s
 cgrepDispatch :: Options -> CgrepFunction
 
 cgrepDispatch opt 
-    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = Strategy.searchBoyerMoore 
-    | not (hasRegexOpt opt) && hasSemanticOpt opt = Strategy.searchSemantic
-    | not (hasRegexOpt opt) = Strategy.searchTokenizer
-    | hasRegexOpt opt       = Strategy.searchRegex
+    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = BoyerMoore.search
+    | not (hasRegexOpt opt) && hasSemanticOpt opt = CppSemantic.search
+    | not (hasRegexOpt opt) = CppTokenizer.search
+    | hasRegexOpt opt       = Regex.search
     | otherwise             = undefined
 
      

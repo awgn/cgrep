@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Strategy.Tokenizer (searchTokenizer) where
+module CGrep.Strategy.Cpp.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified CGrep.Strategy.Cpp.Token as Cpp
@@ -30,8 +30,8 @@ import Debug
 
 import Data.List
 
-searchTokenizer :: CgrepFunction
-searchTokenizer opt ps f = do
+search :: CgrepFunction
+search opt ps f = do
 
     let filename = getFileName f 
     
