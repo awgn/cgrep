@@ -41,7 +41,7 @@ distance a b
           oneDiag a b diagAbove diagBelow = thisdiag
               where doDiag [] _ _ _ _ = []
                     doDiag _ [] _ _ _ = []
-                    doDiag (ach:as) (bch:bs) nw n w = me : (doDiag as bs me (tail n) (tail w))
+                    doDiag (ach:as) (bch:bs) nw n w = me : doDiag as bs me (tail n) (tail w)
                         where me = if ach == bch then nw else 1 + min3 (head w) nw (head n)
                     firstelt = 1 + head diagBelow
                     thisdiag = firstelt : doDiag a b firstelt diagAbove (tail diagBelow)
