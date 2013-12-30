@@ -18,7 +18,7 @@
 
 {-# LANGUAGE TupleSections #-} 
 
-module CGrep.Strategy.Search (search) where
+module CGrep.Strategy.BoyerMoore (search) where
 
 import qualified Data.ByteString.Char8  as C
 import qualified Data.ByteString.Search as SC

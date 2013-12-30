@@ -18,7 +18,7 @@
 
 module CGrep.CGrep where
 
-import qualified CGrep.Strategy.Search        as BoyerMoore
+import qualified CGrep.Strategy.BoyerMoore    as BoyerMoore
 import qualified CGrep.Strategy.Regex         as Regex
 import qualified CGrep.Strategy.Cpp.Tokenizer as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic  as CppSemantic
