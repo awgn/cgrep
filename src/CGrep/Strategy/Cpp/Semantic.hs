@@ -76,7 +76,7 @@ search opt ps f = do
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
     
-    return $ mkOutput opt filename text' matches
+    return $ mkOutput opt filename text matches
         
 
 data WildCard = AnyCard               |
