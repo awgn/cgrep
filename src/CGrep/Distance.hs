@@ -50,5 +50,7 @@ distance a b
 
 
 (~==) :: String -> String -> Bool
-a ~== b = distance a b <= (fromIntegral (length a `min` length b) * 50 `div` 100)
-
+a ~== b |  len < 5  = dist < 3
+        | otherwise = dist < (len * 40 `div` 100)
+    where len  = fromIntegral (length a `min` length b)  
+          dist = distance a b 
