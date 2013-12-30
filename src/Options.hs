@@ -29,7 +29,8 @@ data Options = Options
                 word_match  :: Bool,
                 regex       :: Bool,
                 ignore_case :: Bool,
-                
+                edit_dist   :: Bool,                
+
                 -- Context:
                 code        :: Bool,
                 comment     :: Bool,

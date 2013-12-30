@@ -24,6 +24,7 @@ import qualified Data.Map.Strict as M
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Distance
 
 import Data.Char
 import Data.List
@@ -31,6 +32,7 @@ import Data.Function
 
 import Options 
 import Debug
+
 
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
 
@@ -46,7 +48,7 @@ search opt ps f = do
     
     let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) ((mkContextFilter opt) { getComment = False} ) $ text
 
-
+    
     -- parse source code, get the Cpp.Token list...
     --
     
@@ -76,9 +78,6 @@ search opt ps f = do
     
     return $ mkOutput opt filename text' matches
         
-
-type WordMatch = Bool
-
 
 data WildCard = AnyCard               |
                 KeyCard               |
@@ -129,16 +128,16 @@ filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 filterMatchingTokens :: Options -> FilePath -> [[WildCard]] -> [Cpp.Token] -> [Cpp.Token]
 filterMatchingTokens _ _ [] _ = []
 filterMatchingTokens opt f (g:gs) ts = 
-    concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare (word_match opt) g) grp) ++ 
+    concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare opt g) grp) ++ 
         filterMatchingTokens opt f gs ts 
     where grp    = spanGroup grpLen ts
           grpLen = length g
 
 
-groupCompare :: WordMatch -> [WildCard] -> [Cpp.Token] -> Bool
-groupCompare wordmatch l r = 
+groupCompare :: Options -> [WildCard] -> [Cpp.Token] -> Bool
+groupCompare opt l r = 
     groupCompareAll ts && groupCompareOptional ts
-        where ts = tokensGroupCompare wordmatch l r               
+        where ts = tokensGroupCompare opt l r               
 
 
 {-# INLINE groupCompareAll #-}
@@ -169,19 +168,19 @@ groupCompareOptional ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
                                   ) $ M.fromListWith (++) (map snd ts)
         
 
-tokensGroupCompare :: WordMatch -> [WildCard] -> [Cpp.Token] -> [(Bool, (WildCard, [String]))]
-tokensGroupCompare wordmatch ls rs 
-    | length rs >= length ls = zipWith (tokensZip wordmatch) ls rs
+tokensGroupCompare :: Options -> [WildCard] -> [Cpp.Token] -> [(Bool, (WildCard, [String]))]
+tokensGroupCompare opt ls rs 
+    | length rs >= length ls = zipWith (tokensZip opt) ls rs
     | otherwise = [ (False, (AnyCard, [])) ]
 
 
-tokensZip :: WordMatch -> WildCard -> Cpp.Token -> (Bool, (WildCard, [String]))
-tokensZip wordmatch l r 
-    |  wiildCardCompare wordmatch l r = (True, (l, [Cpp.toString r]))
-    |  otherwise                   = (False,(AnyCard,[] ))
+tokensZip :: Options -> WildCard -> Cpp.Token -> (Bool, (WildCard, [String]))
+tokensZip opt l r 
+    |  wiildCardCompare opt l r = (True, (l, [Cpp.toString r]))
+    |  otherwise                = (False,(AnyCard,[] ))
 
 
-wiildCardCompare :: WordMatch -> WildCard -> Cpp.Token -> Bool
+wiildCardCompare :: Options -> WildCard -> Cpp.Token -> Bool
 
 wiildCardCompare _  (IdentifierCard _) (Cpp.TokenIdentifier {}) = True
 wiildCardCompare _  AnyCard _                                   = True
@@ -192,10 +191,15 @@ wiildCardCompare _  NumberCard (Cpp.TokenNumber  {}) = True
 wiildCardCompare _  OctCard    (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':d: _) -> isDigit d; _ -> False
 wiildCardCompare _  HexCard    (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':'x':_) -> True; _ -> False
 
-wiildCardCompare wordmatch (WildToken Cpp.TokenIdentifier {Cpp.toString = l}) (Cpp.TokenIdentifier {Cpp.toString = r}) = 
-    if wordmatch then l == r else l `isInfixOf` r
-wiildCardCompare wordmatch (WildToken Cpp.TokenString     {Cpp.toString = l}) (Cpp.TokenString     {Cpp.toString = r}) = 
-    if wordmatch then l == r else trim l `isInfixOf` r 
+wiildCardCompare opt (WildToken Cpp.TokenIdentifier {Cpp.toString = l}) (Cpp.TokenIdentifier {Cpp.toString = r}) 
+    | word_match opt =  l == r
+    | edit_dist  opt =  l ~== r
+    | otherwise      =  l `isInfixOf` r
+
+wiildCardCompare opt (WildToken Cpp.TokenString     {Cpp.toString = l}) (Cpp.TokenString     {Cpp.toString = r}) 
+    | word_match opt =  l == r
+    | edit_dist  opt =  l ~== r
+    | otherwise      =  trim l `isInfixOf` r
         where trim = init . tail
 
 wiildCardCompare _  (WildToken l) r = Cpp.tokenCompare l r 

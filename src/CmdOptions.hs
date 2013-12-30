@@ -29,6 +29,7 @@ options = cmdArgsMode $ Options
           {
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
                 word_match  = False        &= help "force word matching" &=explicit &= name "word" &= name "w",
+                edit_dist   = False        &= help "use edit distance" &=explicit &= name "edit" &= name "e",
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
