@@ -18,18 +18,23 @@
 
 {-# LANGUAGE FlexibleInstances #-} 
 
-module CGrep.Token where
+module CGrep.Token (tokens, tokenizer, isCompleteToken) where
 
 import qualified Data.ByteString.Char8 as C
 
 import Data.Char
 import CGrep.Types
 
+
 data TokenState = TokenSpace |
                   TokenAlpha |
                   TokenDigit |
                   TokenOther 
                     deriving (Eq, Enum, Show)
+
+
+data TokenAccum = TokenAccum TokenState Offset String [Token]
+    deriving (Show,Eq)
 
 
 isCharNumber :: Char -> Bool
@@ -40,42 +45,48 @@ isCompleteToken:: C.ByteString -> (Offset, String) -> Bool
 isCompleteToken text (off, tok) = tok `elem` ts
     where ts = tokens $ C.take (length tok + extra + 2) $ C.drop (off - extra) text 
           extra = 10               
-                                 
-
-data TokenAccum = TokenAccum TokenState String [String]
-    deriving (Show,Eq)
 
 
 tokens :: C.ByteString -> [String]
-tokens xs = (\(TokenAccum _ acc out) -> if null acc then out else reverse out ++ [reverse acc]) $ C.foldl' tokens' (TokenAccum TokenSpace "" []) xs
+tokens = map snd . tokenizer
+
+
+{-# INLINE mkToken #-}
+
+mkToken :: Offset -> String -> Token
+mkToken off acc =  (off - length acc, reverse acc)
+
+
+tokenizer :: C.ByteString -> [Token]
+tokenizer xs = (\(TokenAccum _  off acc out) -> if null acc then out else reverse out ++ [mkToken off acc]) $ C.foldl' tokens' (TokenAccum TokenSpace 0 "" []) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
-          tokens' (TokenAccum TokenSpace acc out) x =  
+          tokens' (TokenAccum TokenSpace off acc out) x =  
               case () of
-                _  | isSpace x                ->  TokenAccum TokenSpace acc out
-                   | isAlpha x || x == '_'    ->  TokenAccum TokenAlpha (x : acc) out
-                   | isDigit x                ->  TokenAccum TokenDigit (x : acc) out
-                   | otherwise                ->  TokenAccum TokenOther (x : acc) out
+                _  | isSpace x                ->  TokenAccum TokenSpace (off+1) acc out
+                   | isAlpha x || x == '_'    ->  TokenAccum TokenAlpha (off+1) (x : acc) out
+                   | isDigit x                ->  TokenAccum TokenDigit (off+1) (x : acc) out
+                   | otherwise                ->  TokenAccum TokenOther (off+1) (x : acc) out
        
-          tokens' (TokenAccum TokenAlpha acc out) x = 
+          tokens' (TokenAccum TokenAlpha off acc out) x = 
               case () of
-                _  | isSpace x                ->  TokenAccum TokenSpace  "" (reverse acc : out)
-                   | isAlphaNum x || x == '_' ->  TokenAccum TokenAlpha  (x : acc) out
-                   | otherwise                ->  TokenAccum TokenOther  [x] (reverse acc : out) 
+                _  | isSpace x                ->  TokenAccum TokenSpace (off+1) ""  (mkToken off acc : out)
+                   | isAlphaNum x || x == '_' ->  TokenAccum TokenAlpha (off+1) (x : acc) out
+                   | otherwise                ->  TokenAccum TokenOther (off+1) [x] (mkToken off acc : out) 
        
-          tokens' (TokenAccum TokenDigit acc out) x = 
+          tokens' (TokenAccum TokenDigit off acc out) x = 
               case () of
-                _  | isSpace x                ->  TokenAccum TokenSpace "" (reverse acc : out)
-                   | isCharNumber x           ->  TokenAccum TokenDigit (x : acc) out
-                   | isAlpha x || x == '_'    ->  TokenAccum TokenAlpha [x] (reverse acc : out) 
-                   | otherwise                ->  TokenAccum TokenOther [x] (reverse acc : out) 
+                _  | isSpace x                ->  TokenAccum TokenSpace (off+1) ""  (mkToken off acc : out)
+                   | isCharNumber x           ->  TokenAccum TokenDigit (off+1) (x : acc) out
+                   | isAlpha x || x == '_'    ->  TokenAccum TokenAlpha (off+1) [x] (mkToken off acc : out) 
+                   | otherwise                ->  TokenAccum TokenOther (off+1) [x] (mkToken off acc : out) 
        
-          tokens' (TokenAccum TokenOther acc out) x = 
+          tokens' (TokenAccum TokenOther off acc out) x = 
               case () of
-                _  | isSpace x                ->  TokenAccum TokenSpace ""  (reverse acc : out)   
-                   | isAlpha x || x == '_'    ->  TokenAccum TokenAlpha [x] (reverse acc : out)
-                   | isDigit x                ->  if acc == "." then TokenAccum TokenDigit (x : ".") out 
-                                                                else TokenAccum TokenDigit [x] (reverse acc : out)
-                   | otherwise                ->  TokenAccum TokenOther (x : acc) out 
+                _  | isSpace x                ->  TokenAccum TokenSpace (off+1) ""  (mkToken off acc : out)   
+                   | isAlpha x || x == '_'    ->  TokenAccum TokenAlpha (off+1) [x] (mkToken off acc : out)
+                   | isDigit x                ->  if acc == "." then TokenAccum TokenDigit (off+1) (x : ".") out 
+                                                                else TokenAccum TokenDigit (off+1) [x] (mkToken off acc : out)
+                   | otherwise                ->  TokenAccum TokenOther (off+1) (x : acc) out 
 
 
 
