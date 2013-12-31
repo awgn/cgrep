@@ -16,7 +16,8 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Lang where
+module CGrep.Lang (Lang(..), langMap, getLang, splitLangList, 
+                   dumpLangMap, dumpLangRevMap) where
 
 import qualified Data.Map as Map
 import System.FilePath(takeExtension, takeFileName)

@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.CGrep where
+module CGrep.CGrep (sanitizeOptions, cgrepDispatch) where
 
 import qualified CGrep.Strategy.BoyerMoore    as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein   as Levenshtein

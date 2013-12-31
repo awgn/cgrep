@@ -17,9 +17,7 @@
 --
 
 
-module CGrep.Distance where
-
--- import qualified Data.ByteString.Char8 as C
+module CGrep.Distance (distance, (~==)) where
 
 -- from http://www.haskell.org/haskellwiki/Edit_distance
 --

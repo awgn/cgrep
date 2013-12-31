@@ -26,8 +26,6 @@ import CGrep.Common
 import CGrep.Distance
 import CGrep.Token
 
-import Data.List
-
 import Options 
 import Debug
 
