@@ -19,10 +19,7 @@
 
 module CGrep.Distance where
 
-import qualified Data.ByteString.Char8 as C
-
-import Data.Char
-import Debug.Trace
+-- import qualified Data.ByteString.Char8 as C
 
 -- from http://www.haskell.org/haskellwiki/Edit_distance
 --
@@ -36,15 +33,15 @@ distance a b
           uppers = eachDiag a b (mainDiag : uppers) -- upper diagonals
           lowers = eachDiag b a (mainDiag : lowers) -- lower diagonals
           eachDiag _ [] _ = []
-          eachDiag a (_:bs) (lastDiag:diags) = oneDiag a bs nextDiag lastDiag : eachDiag a bs diags
+          eachDiag a' (_:bs) (lastDiag:diags) = oneDiag a' bs nextDiag lastDiag : eachDiag a' bs diags
               where nextDiag = head (tail diags)
-          oneDiag a b diagAbove diagBelow = thisdiag
+          oneDiag a' b diagAbove diagBelow = thisdiag
               where doDiag [] _ _ _ _ = []
                     doDiag _ [] _ _ _ = []
                     doDiag (ach:as) (bch:bs) nw n w = me : doDiag as bs me (tail n) (tail w)
                         where me = if ach == bch then nw else 1 + min3 (head w) nw (head n)
                     firstelt = 1 + head diagBelow
-                    thisdiag = firstelt : doDiag a b firstelt diagAbove (tail diagBelow)
+                    thisdiag = firstelt : doDiag a' b firstelt diagAbove (tail diagBelow)
           lab = length a - length b
           min3 x y z = if x < y then x else min y z
 
