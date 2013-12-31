@@ -192,13 +192,13 @@ wiildCardCompare _  OctCard    (Cpp.TokenNumber  { Cpp.toString = r }) = case r 
 wiildCardCompare _  HexCard    (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':'x':_) -> True; _ -> False
 
 wiildCardCompare opt (WildToken Cpp.TokenIdentifier {Cpp.toString = l}) (Cpp.TokenIdentifier {Cpp.toString = r}) 
-    | word_match opt =  l == r
     | edit_dist  opt =  l ~== r
+    | word_match opt =  l == r
     | otherwise      =  l `isInfixOf` r
 
 wiildCardCompare opt (WildToken Cpp.TokenString     {Cpp.toString = l}) (Cpp.TokenString     {Cpp.toString = r}) 
-    | word_match opt =  l == r
     | edit_dist  opt =  l ~== r
+    | word_match opt =  l == r
     | otherwise      =  trim l `isInfixOf` r
         where trim = init . tail
 
