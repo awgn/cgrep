@@ -19,6 +19,7 @@
 module CGrep.CGrep where
 
 import qualified CGrep.Strategy.BoyerMoore    as BoyerMoore
+import qualified CGrep.Strategy.Levenshtein   as Levenshtein
 import qualified CGrep.Strategy.Regex         as Regex
 import qualified CGrep.Strategy.Cpp.Tokenizer as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic  as CppSemantic
@@ -43,6 +44,10 @@ sanitizeOptions path opt = case getLang opt path >>= (`elemIndex` [C, Cpp]) of
                                             }
                             _       -> opt
 
+
+hasEditDistOpt :: Options -> Bool
+hasEditDistOpt Options { edit_dist = x } = x
+
 hasRegexOpt :: Options -> Bool
 hasRegexOpt Options{ regex = x } = x
 
@@ -63,6 +68,7 @@ hasSemanticOpt Options{ semantic = s } = s
 cgrepDispatch :: Options -> CgrepFunction
 
 cgrepDispatch opt 
+    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) && hasEditDistOpt opt = Levenshtein.search
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = BoyerMoore.search
     | not (hasRegexOpt opt) && hasSemanticOpt opt = CppSemantic.search
     | not (hasRegexOpt opt) = CppTokenizer.search

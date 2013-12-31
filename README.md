@@ -14,6 +14,7 @@ Pattern:
     -w --word                  force word matching
     -G --regex                 regex matching
     -i --ignore-case           ignore case distinctions
+    -e --edit                  use edit distance
 
 Context:
 
