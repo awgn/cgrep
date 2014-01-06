@@ -47,9 +47,10 @@ getConfigOptions :: IO ConfigOptions
 getConfigOptions = do
     home <- getHomeDirectory
     conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
-                doesFileExist f >>= \b -> 
-                    return $ if b then Just f else Nothing
-    if isJust conf then readFile (fromJust conf) >>= \xs -> return (prettyRead (dropComments xs) "ConfigOptions" :: ConfigOptions) 
+                doesFileExist f >>= \b -> return $ guard b >> Just f 
+
+    if isJust conf then readFile (fromJust conf) >>= \xs -> 
+                        return (prettyRead (dropComments xs) "ConfigOptions" :: ConfigOptions) 
                    else return $ ConfigOptions [] []
     where dropComments :: String -> String
           dropComments = unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines
