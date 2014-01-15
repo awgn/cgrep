@@ -112,8 +112,10 @@ main = do
     isTerm <- hIsTerminalDevice stdin
 
     -- retrieve files to parse
+
+    let tailOpts = tail $ others opts
     
-    let paths = if null $ file opts then tail $ others opts
+    let paths = if null $ file opts then [ x | x <- if null tailOpts && isTerm then ["."] else tailOpts ]
                                     else others opts
 
     -- parse cmd line language list:
