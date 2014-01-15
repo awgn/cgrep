@@ -23,10 +23,12 @@ module CGrep.Output (Output(..),
 import qualified Data.ByteString.Char8 as C
 
 import System.Console.ANSI
+import Language.Haskell.Interpreter
 
 import Data.List
 import Data.Char
 import Data.Function
+import Data.Either
 
 import CGrep.Types
 import CGrep.Common
@@ -63,20 +65,32 @@ invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
 invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]] 
     where idx = map fst xs
 
+prettyOutput :: Options -> Output -> IO String
+prettyOutput opt out | null $ output opt = staticOutput  opt out
+                     | otherwise         = dynamicOutput opt out
 
-prettyOutput :: Options -> Output -> String
-prettyOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-prettyOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-prettyOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-prettyOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = showTokens opt ts ++ showLine opt ts l
-prettyOutput opt@ Options { count = True } (Output f n _ _) = showFile opt f ++ ":" ++ show n
+staticOutput :: Options -> Output -> IO String
+staticOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = return $ showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = return $ showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = return $ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = return $ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { count = True } (Output f n _ _) = return $ showFile opt f ++ ":" ++ show n
 
+dynamicOutput :: Options -> Output -> IO String
+dynamicOutput opt (Output f n l ts) = do
+    -- putStrLn $ "CMD " ++ show cmd
+    out <- runInterpreter $ setImports ["Prelude"] >> interpret cmd (as :: String)
+    return $ either show id out 
+        where cmd = "let file = \"" ++ f ++ "\"" ++ 
+                    "; row = " ++ show(n) ++ 
+                    "; line=\"" ++ C.unpack l ++ "\"" ++ 
+                    "; tokens=" ++ show (map snd ts) ++ " in " ++ output opt
 
-blue, bold, reset :: String
+blue, bold, resetTerm :: String
 
-blue    = setSGRCode [SetColor Foreground Vivid Blue]    
-bold    = setSGRCode [SetConsoleIntensity BoldIntensity] 
-reset   = setSGRCode []                                  
+blue      = setSGRCode [SetColor Foreground Vivid Blue]    
+bold      = setSGRCode [SetConsoleIntensity BoldIntensity] 
+resetTerm = setSGRCode []                                  
 
 
 showTokens :: Options -> [Token] -> String
@@ -87,7 +101,7 @@ showTokens Options { show_match = st } xs
 
 showFile :: Options -> String -> String
 showFile Options { color = c } f 
-    | c         = bold ++ blue ++ f ++ reset
+    | c         = bold ++ blue ++ f ++ resetTerm
     | otherwise = f 
 
 
@@ -101,7 +115,7 @@ hilightLine :: [Token] -> String -> String
 hilightLine ts =  hilightLine' (hilightIndicies ts, 0)
     where hilightLine' :: ([Int],Int) -> String -> String
           hilightLine'  _ [] = []
-          hilightLine' (ns,n) (x:xs) = (if n `elem` ns then bold ++ [x] ++ reset 
+          hilightLine' (ns,n) (x:xs) = (if n `elem` ns then bold ++ [x] ++ resetTerm 
                                                        else [x]) ++ hilightLine' (ns, n+1) xs
 
 
