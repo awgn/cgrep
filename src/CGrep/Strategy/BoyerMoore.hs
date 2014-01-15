@@ -23,6 +23,7 @@ import qualified Data.ByteString.Char8  as C
 import qualified Data.ByteString.Search as SC
 
 import CGrep.Common
+import CGrep.Output
 import CGrep.Filter 
 import CGrep.Lang
 

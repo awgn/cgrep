@@ -24,6 +24,7 @@ import qualified CGrep.Strategy.Cpp.Token as Cpp
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Output
 import CGrep.Distance
 
 import Options 

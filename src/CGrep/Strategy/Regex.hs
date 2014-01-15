@@ -28,6 +28,7 @@ import Data.Array
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Output
 
 import Options 
 import Debug

@@ -42,7 +42,7 @@ import System.Exit
 
 import CGrep.CGrep
 import CGrep.Lang
-import CGrep.Common
+import CGrep.Output
 
 import CmdOptions
 import Options

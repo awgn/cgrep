@@ -23,6 +23,7 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Output
 import CGrep.Distance
 import CGrep.Token
 

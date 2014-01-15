@@ -24,6 +24,7 @@ import qualified Data.Map.Strict as M
 import CGrep.Filter 
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Output
 import CGrep.Distance
 
 import Data.Char
