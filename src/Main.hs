@@ -115,7 +115,7 @@ main = do
 
     let tailOpts = tail $ others opts
     
-    let paths = if null $ file opts then [ x | x <- if null tailOpts && isTerm then ["."] else tailOpts ]
+    let paths = if null $ file opts then if null tailOpts && isTerm then ["."] else tailOpts
                                     else others opts
 
     -- parse cmd line language list:

@@ -30,7 +30,6 @@ import System.Console.ANSI
 import Language.Haskell.Interpreter
 #endif
 
-import Control.Monad
 import Data.List
 import Data.Function
 
