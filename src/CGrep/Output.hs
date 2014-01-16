@@ -31,11 +31,13 @@ import Language.Haskell.Interpreter
 #endif
 
 import Data.List
+import Data.String.Utils
 import Data.Function
 
 import CGrep.Types
+import Safe
 import Options
-
+import Util
 
 getOffsetsLines :: Text8 -> [Int]
 getOffsetsLines = C.elemIndices '\n' 
@@ -71,29 +73,51 @@ invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, [])
 prettyOutputList :: Options -> [Output] -> IO [String] 
 prettyOutputList opt out 
 #ifdef ENABLE_HINT
-    | null $ hint opt = forM out $ staticOutput opt
-    | otherwise       = dynamicOutputs opt out 
-#else
-    = forM out $ staticOutput opt
+    | notNull $ hint opt   = hintOputput opt out 
 #endif
+    | notNull $ format opt = return $ map (formatOutput opt) out 
+    | otherwise            = return $ map (simpleOutput opt) out
 
 
-staticOutput :: Options -> Output -> IO String
-staticOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
-    return $ showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = 
-    return $ showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = 
-    return $ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = 
-    return $ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { count = True } (Output f n _ _) = 
-    return $ showFile opt f ++ ":" ++ show n
+simpleOutput :: Options -> Output -> String
+simpleOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
+    showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+simpleOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = 
+    showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+simpleOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = 
+    show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+simpleOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = 
+    showTokens opt ts ++ showLine opt ts l
+simpleOutput opt@ Options { count = True } (Output f n _ _) = 
+    showFile opt f ++ ":" ++ show n
 
+
+formatOutput :: Options -> Output -> String
+formatOutput opt (Output f n l ts) =
+    foldl trans (format opt) [("#f", showFile opt f),
+                              ("#n", show n),
+                              ("#l", showLine opt ts l),
+                              ("#t", show tokens),
+                              ("##", unwords tokens),
+                              ("#,", intercalate "," tokens),
+                              ("#;", intercalate ";" tokens),
+                              ("#0", atDef "" tokens 0),  
+                              ("#1", atDef "" tokens 1),  
+                              ("#2", atDef "" tokens 2),  
+                              ("#3", atDef "" tokens 3),  
+                              ("#4", atDef "" tokens 4),  
+                              ("#5", atDef "" tokens 5),  
+                              ("#6", atDef "" tokens 6),  
+                              ("#7", atDef "" tokens 7),  
+                              ("#8", atDef "" tokens 8),  
+                              ("#9", atDef "" tokens 9)  
+                              ]  
+    where trans str (old, new) = replace old new str
+          tokens = map snd ts
 
 #ifdef ENABLE_HINT
-dynamicOutputs :: Options -> [Output] -> IO [String]
-dynamicOutputs opt outs = do
+hintOputput :: Options -> [Output] -> IO [String]
+hintOputput opt outs = do
     let cmds = map mkCmd outs 
     out <- runInterpreter $ setImports ["Prelude", "Data.List"] >> mapM (`interpret` (as :: String)) cmds
     return $ either ((:[]) . show) id out 

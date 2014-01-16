@@ -66,6 +66,7 @@ data Options = Options
 #ifdef ENABLE_HINT
                 hint         :: String,
 #endif
+                format       :: String,
 
                 debug        :: Int,
                 others       :: [String]

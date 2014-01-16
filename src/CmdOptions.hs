@@ -65,6 +65,7 @@ options = cmdArgsMode $ Options
 #ifdef ENABLE_HINT
                 hint = ""                  &= help "haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint",                 
 #endif
+                format = ""                &= help "format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format",                 
                 debug = 0                  &= help "debug level: 1, 2 or 3" &= groupname "\nMiscellaneous",
                 others = []                &= args
 
