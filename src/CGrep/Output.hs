@@ -30,6 +30,7 @@ import System.Console.ANSI
 import Language.Haskell.Interpreter
 #endif
 
+import Data.Maybe
 import Data.List
 import Data.String.Utils
 import Data.Function
@@ -37,7 +38,6 @@ import Data.Function
 import CGrep.Types
 import Safe
 import Options
-import Util
 
 getOffsetsLines :: Text8 -> [Int]
 getOffsetsLines = C.elemIndices '\n' 
@@ -73,12 +73,12 @@ invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, [])
 prettyOutputList :: Options -> [Output] -> IO [String] 
 prettyOutputList opt out 
 #ifdef ENABLE_HINT
-    | notNull $ hint opt   = hintOputput opt out 
+    | isJust $ hint opt   = hintOputput opt out 
 #endif
-    | json opt             = return $ jsonOutput opt out 
-    | xml opt              = return $ map (xmlOutput   opt) out 
-    | notNull $ format opt = return $ map (formatOutput opt) out 
-    | otherwise            = return $ map (defaultOutput opt) out
+    | isJust $ format opt = return $ map (formatOutput opt) out 
+    | json opt            = return $ jsonOutput opt out 
+    | xml opt             = return $ xmlOutput opt out 
+    | otherwise           = return $ map (defaultOutput opt) out
 
 defaultOutput :: Options -> Output -> String
 defaultOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
@@ -94,16 +94,30 @@ defaultOutput opt@ Options { count = True } (Output f n _ _) =
 
 
 jsonOutput :: Options -> [Output] -> [String]
-jsonOutput opt outs =
+jsonOutput _ outs =
     [" { \"file\": " ++ show fname ++ ", \"matches\": ["] ++ 
     [ intercalate "," (foldl mkMatch [] outs) ] ++ 
     ["] }"]
-        where fname | (Output f n l ts) <- head outs = f
-              mkMatch xs (Output f n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": " ++ show (map snd ts) ++ ", \"line\":" ++ show l ++ "}" ]
+        where fname | (Output f _ _ _) <- head outs = f
+              mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": " ++ show (map snd ts) ++ ", \"line\":" ++ show l ++ "}" ]
+
+xmlOutput :: Options -> [Output] -> [String]
+xmlOutput _ outs =
+    ["<file name=" ++ show fname ++ ">" ] ++
+    ["<matches>" ] ++
+    [foldl mkMatch "" outs] ++ 
+    ["</matches>"] ++
+    ["</file>"]
+        where fname | (Output f _ _ _) <- head outs = f
+              mkToken (n, xs) = "<token colum=\"" ++ show n ++ "\" >" ++ xs ++ "</token>"
+              mkMatch xs (Output _ n l ts) = xs ++  "<match line=" ++ show l ++ " row=\"" ++ show n ++ "\">" ++ 
+                                                    unwords (map mkToken ts) ++ 
+                                                    "</match>" 
+
 
 formatOutput :: Options -> Output -> String
 formatOutput opt (Output f n l ts) =
-    foldl trans (format opt) [("#f", showFile opt f),
+    foldl trans (fromJust $ format opt) [("#f", showFile opt f),
                               ("#n", show n),
                               ("#l", showLine opt ts l),
                               ("#t", show tokens),
@@ -135,7 +149,7 @@ hintOputput opt outs = do
                                           "; row    = " ++ show n ++ 
                                           "; line   = " ++ show (showLine opt ts l) ++  
                                           "; tokens = " ++ show (map snd ts) ++ " in " ++ 
-                                         hint opt
+                                         (fromJust $ hint opt)
 #endif
 
 blue, bold, resetTerm :: String

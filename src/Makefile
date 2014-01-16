@@ -1,11 +1,11 @@
 # (C) 2011-13 Nicola Bonelli <nicola.bonelli@cnit.it>
 #
 
-#GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -eventlog # -with-rtsopts="-N" 
-#GHCFLAGS= --make -ddump-splices -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -H16M -N" #  -prof -auto-all 
+# Using hint generates a large binary...
+GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp -DENABLE_HINT
 
-# GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp -DENABLE_HINT
-GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp # light version
+# Light version
+# GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp 
 
 
 INSTDIR=/usr/local

@@ -64,10 +64,11 @@ data Options = Options
                 show_match   :: Bool,
                 color        :: Bool,
 #ifdef ENABLE_HINT
-                hint         :: String,
+                hint         :: Maybe String,
 #endif
-                format       :: String,
+                format       :: Maybe String,
                 json         :: Bool,
+                xml          :: Bool,
 
                 debug        :: Int,
                 others       :: [String]

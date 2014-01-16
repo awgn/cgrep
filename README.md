@@ -35,7 +35,6 @@ C/C++ language:
        -S --semantic           "code" patterns: _, _1, _2..., $, $1, $2... (optional),
                                ANY, KEY, STR, CHR, NUM, HEX, OCT. -> e.g. "_1(_1 && \$)"
                                search for move constructors
-
 Output control:
 
     -h --no-filename           suppress the file name prefix on output
@@ -54,6 +53,11 @@ Output control:
        --color                 use colors to highlight the matching strings
        --hint=ITEM             haskell interpreter output. Var: file, row, line,
                                tokens. e.g. "file ++ show (tokens)"
+       --format=ITEM           format output. Var: #f #n #l #t ## #, #; #0 #1...
+                               e.g. "#f:#n #0 #1"
+       --json                  format output as json object
+       --xml                   format output as xml
+
 Miscellaneous:
 
     -d --debug=INT             debug level: 1, 2 or 3

@@ -18,7 +18,6 @@
 
 module Main where
 
-
 import Data.List
 import Data.Maybe
 import Data.Char
@@ -86,10 +85,21 @@ main = do
     
     -- read command-line options 
     opts  <- cmdArgsRun options
-    
+   
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
     putStrLevel1 (debug opts) $ "options   : " ++ show opts
     
+    -- check for multiple backends...
+    
+    when (length (catMaybes [ 
+#ifdef ENABLE_HINT
+                hint opts,
+#endif                
+                format opts, 
+                if xml opts  then Just "" else Nothing, 
+                if json opts then Just "" else Nothing
+               ]) > 1) $ error "you can use one back-end at time!"
+
     -- display lang-map...
     when (lang_map opts) $ dumpLangMap langMap >> exitSuccess 
 
@@ -174,6 +184,7 @@ main = do
 
     case () of 
       _  | json opts -> putStrLn "["
+         | xml  opts -> putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
          | otherwise -> return ()
 
     fix (\action n m -> 
@@ -183,7 +194,7 @@ main = do
                       [] -> action (n+1) m
                       _  -> do
                           case () of
-                            _ | json opts -> when (m) $ putStrLn ","
+                            _ | json opts -> when m $ putStrLn ","
                               | otherwise -> return ()
                           xs <- prettyOutputList opts out 
                           mapM_ putStrLn xs 
@@ -191,6 +202,7 @@ main = do
         )  0 False
 
     case () of 
-      _  | json opts ->  putStrLn "]"
-         | otherwise ->  return ()
+      _  | json opts -> putStrLn "]"
+         | xml  opts -> putStrLn "</cgrep>"
+         | otherwise -> return ()
     
