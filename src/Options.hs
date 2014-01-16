@@ -63,7 +63,7 @@ data Options = Options
                 count        :: Bool,
                 show_match   :: Bool,
                 color        :: Bool,
-                output       :: String,
+                hint         :: String,
 
                 debug        :: Int,
                 others       :: [String]
