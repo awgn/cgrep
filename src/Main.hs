@@ -172,11 +172,25 @@ main = do
 
     let stop = jobs opts
 
-    fix (\action n -> 
+    case () of 
+      _  | json opts -> putStrLn "["
+         | otherwise -> return ()
+
+    fix (\action n m -> 
          unless (n == stop) $ do
                  out <- atomically $ readTChan out_chan
                  case out of
-                      [] -> action $ n+1
-                      _  -> prettyOutputList opts out >>= mapM_ putStrLn >> action n
-        )  0
+                      [] -> action (n+1) m
+                      _  -> do
+                          case () of
+                            _ | json opts -> when (m) $ putStrLn ","
+                              | otherwise -> return ()
+                          xs <- prettyOutputList opts out 
+                          mapM_ putStrLn xs 
+                          action n True
+        )  0 False
 
+    case () of 
+      _  | json opts ->  putStrLn "]"
+         | otherwise ->  return ()
+    

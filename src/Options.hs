@@ -67,6 +67,7 @@ data Options = Options
                 hint         :: String,
 #endif
                 format       :: String,
+                json         :: Bool,
 
                 debug        :: Int,
                 others       :: [String]

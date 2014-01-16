@@ -75,6 +75,7 @@ prettyOutputList opt out
 #ifdef ENABLE_HINT
     | notNull $ hint opt   = hintOputput opt out 
 #endif
+    | json opt             = return $ jsonOutput opt out 
     | notNull $ format opt = return $ map (formatOutput opt) out 
     | otherwise            = return $ map (simpleOutput opt) out
 
@@ -91,6 +92,14 @@ simpleOutput opt@ Options { no_filename = True , no_linenumber = True  , count =
 simpleOutput opt@ Options { count = True } (Output f n _ _) = 
     showFile opt f ++ ":" ++ show n
 
+
+jsonOutput :: Options -> [Output] -> [String]
+jsonOutput opt outs =
+    [" { \"file\": " ++ show fname ++ ", \"matches\": ["] ++ 
+    [ intercalate "," (foldl mkMatch [] outs) ] ++ 
+    ["] }"]
+        where fname | (Output f n l ts) <- head outs = f
+              mkMatch xs (Output f n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": " ++ show (map snd ts) ++ ", \"line\":" ++ show l ++ "}" ]
 
 formatOutput :: Options -> Output -> String
 formatOutput opt (Output f n l ts) =
