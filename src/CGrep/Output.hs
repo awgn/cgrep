@@ -76,20 +76,20 @@ prettyOutputList opt out
     | notNull $ hint opt   = hintOputput opt out 
 #endif
     | json opt             = return $ jsonOutput opt out 
+    | xml opt              = return $ map (xmlOutput   opt) out 
     | notNull $ format opt = return $ map (formatOutput opt) out 
-    | otherwise            = return $ map (simpleOutput opt) out
+    | otherwise            = return $ map (defaultOutput opt) out
 
-
-simpleOutput :: Options -> Output -> String
-simpleOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
+defaultOutput :: Options -> Output -> String
+defaultOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
     showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-simpleOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = 
+defaultOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = 
     showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-simpleOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = 
+defaultOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = 
     show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-simpleOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = 
+defaultOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = 
     showTokens opt ts ++ showLine opt ts l
-simpleOutput opt@ Options { count = True } (Output f n _ _) = 
+defaultOutput opt@ Options { count = True } (Output f n _ _) = 
     showFile opt f ++ ":" ++ show n
 
 
