@@ -180,12 +180,9 @@ main = do
 
     -- dump output until workers are done
 
-    let stop = jobs opts
+    putPrettyHeader opts
 
-    case () of 
-      _  | json opts -> putStrLn "["
-         | xml  opts -> putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
-         | otherwise -> return ()
+    let stop = jobs opts
 
     fix (\action n m -> 
          unless (n == stop) $ do
@@ -201,8 +198,5 @@ main = do
                           action n True
         )  0 False
 
-    case () of 
-      _  | json opts -> putStrLn "]"
-         | xml  opts -> putStrLn "</cgrep>"
-         | otherwise -> return ()
+    putPrettyFooter opts
     

@@ -19,7 +19,9 @@
 
 module CGrep.Output (Output(..),  
                      mkOutput, 
-                     prettyOutput, 
+                     putPrettyHeader,
+                     putPrettyFooter,
+                     prettyOutput,
                      showFile) where
  
 import qualified Data.ByteString.Char8 as C
@@ -68,6 +70,22 @@ mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
 invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
 invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]] 
     where idx = map fst xs
+
+
+putPrettyHeader :: Options -> IO ()
+putPrettyHeader opt =
+    case () of 
+      _  | json opt  -> putStrLn "["
+         | xml  opt  -> putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
+         | otherwise -> return ()
+
+
+putPrettyFooter :: Options -> IO ()
+putPrettyFooter opt =
+    case () of 
+      _  | json opt  -> putStrLn "]"
+         | xml  opt  -> putStrLn "</cgrep>"
+         | otherwise -> return ()
 
 
 prettyOutput :: Options -> [Output] -> IO [String] 

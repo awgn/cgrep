@@ -56,7 +56,7 @@ Output control:
        --format=ITEM           format output. Var: #f #n #l #t ## #, #; #0 #1...
                                e.g. "#f:#n #0 #1"
        --json                  format output as json object
-       --xml                   format output as xml
+       --xml                   format output as xml document
 
 Miscellaneous:
 

@@ -223,8 +223,8 @@ getTokenNumber ys@(C.uncons -> Just (x,_)) _
                                     "."    -> Nothing 
                                     _      -> Just $ TokenNumber ts 0
     | otherwise = Nothing
-
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
+getTokenNumber _ _ = error "getTokenNumber: internal error"
 
 
 validHexSet, validOctSet, validDecSet, validFloatSet :: S.Set Char
