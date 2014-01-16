@@ -196,7 +196,7 @@ main = do
                           case () of
                             _ | json opts -> when m $ putStrLn ","
                               | otherwise -> return ()
-                          xs <- prettyOutputList opts out 
+                          xs <- prettyOutput opts out 
                           mapM_ putStrLn xs 
                           action n True
         )  0 False

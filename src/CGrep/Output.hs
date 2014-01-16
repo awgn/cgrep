@@ -19,7 +19,7 @@
 
 module CGrep.Output (Output(..),  
                      mkOutput, 
-                     prettyOutputList, 
+                     prettyOutput, 
                      showFile) where
  
 import qualified Data.ByteString.Char8 as C
@@ -70,8 +70,8 @@ invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, [])
     where idx = map fst xs
 
 
-prettyOutputList :: Options -> [Output] -> IO [String] 
-prettyOutputList opt out 
+prettyOutput :: Options -> [Output] -> IO [String] 
+prettyOutput opt out 
 #ifdef ENABLE_HINT
     | isJust $ hint opt   = hintOputput opt out 
 #endif
