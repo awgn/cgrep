@@ -63,7 +63,9 @@ data Options = Options
                 count        :: Bool,
                 show_match   :: Bool,
                 color        :: Bool,
+#ifdef ENABLE_HINT
                 hint         :: String,
+#endif
 
                 debug        :: Int,
                 others       :: [String]

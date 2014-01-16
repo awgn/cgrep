@@ -25,7 +25,10 @@ module CGrep.Output (Output(..),
 import qualified Data.ByteString.Char8 as C
 
 import System.Console.ANSI
+
+#ifdef ENABLE_HINT
 import Language.Haskell.Interpreter
+#endif
 
 import Control.Monad
 import Data.List
@@ -68,8 +71,12 @@ invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, [])
 
 prettyOutputList :: Options -> [Output] -> IO [String] 
 prettyOutputList opt out 
+#ifdef ENABLE_HINT
     | null $ hint opt = forM out $ staticOutput opt
     | otherwise       = dynamicOutputs opt out 
+#else
+    = forM out $ staticOutput opt
+#endif
 
 
 staticOutput :: Options -> Output -> IO String
@@ -85,6 +92,7 @@ staticOutput opt@ Options { count = True } (Output f n _ _) =
     return $ showFile opt f ++ ":" ++ show n
 
 
+#ifdef ENABLE_HINT
 dynamicOutputs :: Options -> [Output] -> IO [String]
 dynamicOutputs opt outs = do
     let cmds = map mkCmd outs 
@@ -96,6 +104,7 @@ dynamicOutputs opt outs = do
                                           "; line   = " ++ show (showLine opt ts l) ++  
                                           "; tokens = " ++ show (map snd ts) ++ " in " ++ 
                                          hint opt
+#endif
 
 blue, bold, resetTerm :: String
 

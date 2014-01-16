@@ -62,7 +62,9 @@ options = cmdArgsMode $ Options
                 invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
                 show_match = False         &= help "show list of matching tokens" &= explicit &= name "show-match", 
                 color = False              &= help "use colors to highlight the matching strings",
+#ifdef ENABLE_HINT
                 hint = ""                  &= help "haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint",                 
+#endif
                 debug = 0                  &= help "debug level: 1, 2 or 3" &= groupname "\nMiscellaneous",
                 others = []                &= args
 
