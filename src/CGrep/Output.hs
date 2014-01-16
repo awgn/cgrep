@@ -99,7 +99,9 @@ jsonOutput _ outs =
     [ intercalate "," (foldl mkMatch [] outs) ] ++ 
     ["] }"]
         where fname | (Output f _ _ _) <- head outs = f
-              mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": " ++ show (map snd ts) ++ ", \"line\":" ++ show l ++ "}" ]
+              mkToken (n, xs) = "{ \"col\": " ++ show n ++ ", \"token\": " ++ show xs ++ " }" 
+              mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
+
 
 xmlOutput :: Options -> [Output] -> [String]
 xmlOutput _ outs =
