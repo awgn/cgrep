@@ -18,20 +18,21 @@
        
 
 module CGrep.Output (Output(..),  
-                     mkOutput, prettyOutput, showFile) where
+                     mkOutput, 
+                     prettyOutputList, 
+                     showFile) where
  
 import qualified Data.ByteString.Char8 as C
 
 import System.Console.ANSI
 import Language.Haskell.Interpreter
 
+import Control.Monad
+import Debug.Trace
 import Data.List
-import Data.Char
 import Data.Function
-import Data.Either
 
 import CGrep.Types
-import CGrep.Common
 import Options
 
 
@@ -65,26 +66,37 @@ invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
 invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]] 
     where idx = map fst xs
 
-prettyOutput :: Options -> Output -> IO String
-prettyOutput opt out | null $ output opt = staticOutput  opt out
-                     | otherwise         = dynamicOutput opt out
+
+prettyOutputList :: Options -> [Output] -> IO [String] 
+prettyOutputList opt out 
+    | null $ hint opt = forM out $ staticOutput opt
+    | otherwise       = dynamicOutputs opt out 
+
 
 staticOutput :: Options -> Output -> IO String
-staticOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = return $ showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = return $ showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = return $ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = return $ showTokens opt ts ++ showLine opt ts l
-staticOutput opt@ Options { count = True } (Output f n _ _) = return $ showFile opt f ++ ":" ++ show n
+staticOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
+    return $ showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) = 
+    return $ showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) = 
+    return $ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) = 
+    return $ showTokens opt ts ++ showLine opt ts l
+staticOutput opt@ Options { count = True } (Output f n _ _) = 
+    return $ showFile opt f ++ ":" ++ show n
 
-dynamicOutput :: Options -> Output -> IO String
-dynamicOutput opt (Output f n l ts) = do
-    -- putStrLn $ "CMD " ++ show cmd
-    out <- runInterpreter $ setImports ["Prelude"] >> interpret cmd (as :: String)
-    return $ either show id out 
-        where cmd = "let file = \"" ++ f ++ "\"" ++ 
-                    "; row = " ++ show(n) ++ 
-                    "; line=\"" ++ C.unpack l ++ "\"" ++ 
-                    "; tokens=" ++ show (map snd ts) ++ " in " ++ output opt
+
+dynamicOutputs :: Options -> [Output] -> IO [String]
+dynamicOutputs opt outs = do
+    let cmds = map mkCmd outs 
+    out <- runInterpreter $ setImports ["Prelude", "Data.List"] >> mapM (`interpret` (as :: String)) cmds
+    return $ either ((:[]) . show) id out 
+        where mkCmd (Output f n l ts) = "let a # b = a !! b " ++
+                                          "; file   = " ++ show (showFile opt f) ++ 
+                                          "; row    = " ++ show n ++ 
+                                          "; line   = " ++ show (showLine opt ts l) ++  
+                                          "; tokens = " ++ show (map snd ts) ++ " in " ++ 
+                                         hint opt
 
 blue, bold, resetTerm :: String
 
