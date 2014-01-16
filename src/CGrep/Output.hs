@@ -80,6 +80,7 @@ prettyOutput opt out
     | xml opt             = return $ xmlOutput opt out 
     | otherwise           = return $ map (defaultOutput opt) out
 
+
 defaultOutput :: Options -> Output -> String
 defaultOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) = 
     showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
@@ -111,7 +112,7 @@ xmlOutput _ outs =
     ["</matches>"] ++
     ["</file>"]
         where fname | (Output f _ _ _) <- head outs = f
-              mkToken (n, xs) = "<token colum=\"" ++ show n ++ "\" >" ++ xs ++ "</token>"
+              mkToken (n, xs) = "<token col=\"" ++ show n ++ "\" >" ++ xs ++ "</token>"
               mkMatch xs (Output _ n l ts) = xs ++  "<match line=" ++ show l ++ " row=\"" ++ show n ++ "\">" ++ 
                                                     unwords (map mkToken ts) ++ 
                                                     "</match>" 
