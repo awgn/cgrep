@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 4.4 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 4.5 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -52,7 +52,8 @@ Output control:
        --count                 print only a count of matching lines per file
        --show-match            show list of matching tokens
        --color                 use colors to highlight the matching strings
-
+       --hint=ITEM             haskell interpreter output. Var: file, row, line,
+                               tokens. e.g. "file ++ show (tokens)"
 Miscellaneous:
 
     -d --debug=INT             debug level: 1, 2 or 3

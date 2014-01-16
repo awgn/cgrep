@@ -28,7 +28,6 @@ import System.Console.ANSI
 import Language.Haskell.Interpreter
 
 import Control.Monad
-import Debug.Trace
 import Data.List
 import Data.Function
 

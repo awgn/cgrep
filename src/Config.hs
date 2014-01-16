@@ -28,9 +28,7 @@ import Data.Char
 import Data.Maybe
 
 import Util
-
 import CGrep.Lang
-
 
 cgreprc :: FilePath
 cgreprc = "cgreprc" 
