@@ -19,7 +19,6 @@
 module CGrep.Strategy.Cpp.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.Map.Strict as M
 
 import CGrep.WildCard
 import CGrep.Filter 

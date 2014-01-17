@@ -22,18 +22,11 @@ module CGrep.WildCard (WildCard(..), GenericToken(..),
                        filterWildCardToken) where
 
 import qualified Data.Map as M
-import CGrep.Filter 
-import CGrep.Lang
+
 import CGrep.Common
-import CGrep.Output
-import CGrep.Distance
 
-import Data.Char
 import Data.List
-import Data.Function
-
 import Options 
-import Debug
 
 
 class (Show t, Ord t) => GenericToken t where
