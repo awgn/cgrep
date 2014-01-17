@@ -18,7 +18,7 @@
 
 module CGrep.WildCard (WildCard(..), GenericToken(..), 
                        mkWildCard, 
-                       getWildCardSubsequence,
+                       getOptionalSubsequence,
                        filterWildCardToken) where
 
 import qualified Data.Map as M
@@ -51,6 +51,7 @@ data WildCard a =  TokenCard a          |
                    IdentifCard String 
                        deriving (Show, Eq, Ord)      
 
+type WildCards a = [WildCard a]
 
 wildCardMap :: M.Map String (WildCard a) 
 wildCardMap = M.fromList 
@@ -76,8 +77,8 @@ mkWildCard  t
         where str = tkToString t
 
 
-getWildCardSubsequence :: [WildCard a] -> [[WildCard a]]
-getWildCardSubsequence wc = map (`filterCardIndicies` wc') idx
+getOptionalSubsequence :: [WildCard a] -> [[WildCard a]]
+getOptionalSubsequence wc = map (`filterCardIndicies` wc') idx
     where wc' = zip [0..] wc
           idx = subsequences $ 
                 findIndices (\w -> case w of 

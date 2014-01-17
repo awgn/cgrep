@@ -25,9 +25,7 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
-import CGrep.Distance
 
-import Data.Char
 import Data.List
 import Data.Function
 
@@ -61,7 +59,7 @@ search opt ps f = do
     let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps
 
 
-    let patterns' = map (map mkWildCard) patterns >>= getWildCardSubsequence 
+    let patterns' = map (map mkWildCard) patterns >>= getOptionalSubsequence 
 
     -- get matching tokens ...
         
