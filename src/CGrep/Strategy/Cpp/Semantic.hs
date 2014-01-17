@@ -33,9 +33,7 @@ import Data.Function
 import Options 
 import Debug
 
-
 import qualified CGrep.Strategy.Cpp.Token  as Cpp
-
 
 search :: CgrepFunction
 search opt ps f = do
@@ -48,7 +46,6 @@ search opt ps f = do
     
     let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) ((mkContextFilter opt) { getComment = False} ) $ text
 
-    
     -- parse source code, get the Cpp.Token list...
     --
     
@@ -59,16 +56,13 @@ search opt ps f = do
 
     let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps
 
-
-    let patterns' = map (map mkWildCard) patterns >>= getOptionalSubsequence 
+    let patterns' = concatMap (map mkWildCard) patterns  
 
     -- get matching tokens ...
         
     let tokens' = sortBy (compare `on` Cpp.offset) $ nub (filterTokensWithWildCards opt patterns' tokens)   
 
-    
     let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
-
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "patterns  : " ++ show patterns'

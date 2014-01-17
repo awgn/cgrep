@@ -17,7 +17,6 @@
 --
 
 module CGrep.WildCard (WildCard(..), GenericToken(..), 
-                       getOptionalSubsequence,
                        filterTokensWithWildCards) where
 
 import qualified Data.Map as M
@@ -50,6 +49,18 @@ data WildCard a =  TokenCard a          |
                    IdentifCard String 
                        deriving (Show, Eq, Ord)      
 
+filterTokensWithWildCards :: (GenericToken a) => Options -> [WildCard a] -> [a] -> [a]
+filterTokensWithWildCards opt ws ts = filterTokensWithWildCards' opt (getOptionalSubsequence ws) ts
+
+
+filterTokensWithWildCards' :: (GenericToken a) => Options -> [[WildCard a]] -> [a] -> [a]
+filterTokensWithWildCards' _ [] _ = []
+filterTokensWithWildCards' opt (g:gs) ts = 
+    concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare opt g) grp) ++ 
+        filterTokensWithWildCards' opt gs ts 
+    where grp    = spanGroup grpLen ts
+          grpLen = length g
+
 
 getOptionalSubsequence :: [WildCard a] -> [[WildCard a]]
 getOptionalSubsequence wc = map (`filterCardIndicies` wc') idx
@@ -62,15 +73,6 @@ getOptionalSubsequence wc = map (`filterCardIndicies` wc') idx
 
 filterCardIndicies :: [Int] -> [(Int,WildCard a)] -> [WildCard a]
 filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
-
-
-filterTokensWithWildCards :: (GenericToken a) => Options -> [[WildCard a]] -> [a] -> [a]
-filterTokensWithWildCards _ [] _ = []
-filterTokensWithWildCards opt (g:gs) ts = 
-    concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare opt g) grp) ++ 
-        filterTokensWithWildCards opt gs ts 
-    where grp    = spanGroup grpLen ts
-          grpLen = length g
 
 
 groupCompare :: (GenericToken a) => Options -> [WildCard a] -> [a] -> Bool
