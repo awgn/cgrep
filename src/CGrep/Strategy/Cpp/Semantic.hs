@@ -54,16 +54,19 @@ search opt ps f = do
 
     let patterns   = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps  -- [ [t1,t2,..], [t1,t2...] ]
 
-    let patterns' = concatMap (map mkWildCard) patterns  
+    let patterns'  = map (map mkWildCard) patterns               -- [ [w1,w2,..], [w1,w2,..] ]
+
+    let patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
     -- get matching tokens ...
         
-    let tokens' = sortBy (compare `on` Cpp.offset) $ nub (filterTokensWithWildCards opt patterns' tokens)   
-
+    let tokens' = sortBy (compare `on` Cpp.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns'' 
+        
     let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
+    putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
@@ -103,7 +106,15 @@ mkWildCard t@(Cpp.TokenIdentifier s _) =
            | ('_':_)  <- s             -> IdentifCard str
            | otherwise                 -> TokenCard t
     where str = tkToString t
-
 mkWildCard t = TokenCard t
+
+
+combineMultiCard :: [MultiCard Cpp.Token] -> [MultiCard Cpp.Token]
+combineMultiCard (m1:m2:m3:ms) 
+    | [TokenCard (Cpp.TokenIdentifier {Cpp.toString = "OR"})] <- m2 =  combineMultiCard $ (m1++m3):ms   
+    | otherwise             =  m1 : combineMultiCard (m2:m3:ms)    
+combineMultiCard [m1,m2]      =  [m1,m2]
+combineMultiCard [m1]         =  [m1]
+combineMultiCard []           =  []
 
 
