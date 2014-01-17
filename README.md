@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 4.5 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 4.6 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -33,8 +33,8 @@ C/C++ language:
        --char                  literal chars
        --oper                  operators
        -S --semantic           "code" patterns: _, _1, _2..., $, $1, $2... (optional),
-                               ANY, KEY, STR, CHR, NUM, HEX, OCT. -> e.g. "_1(_1 && \$)"
-                               search for move constructors
+                               ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. 
+                               -> e.g. "_1(_1 && \$)" search for move constructors
 Output control:
 
     -h --no-filename           suppress the file name prefix on output
