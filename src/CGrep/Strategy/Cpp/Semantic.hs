@@ -47,14 +47,12 @@ search opt ps f = do
     let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) ((mkContextFilter opt) { getComment = False} ) $ text
 
     -- parse source code, get the Cpp.Token list...
-    --
     
     let tokens = Cpp.tokenizer text'
 
     -- pre-process patterns
-    --
 
-    let patterns  = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps
+    let patterns   = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps  -- [ [t1,t2,..], [t1,t2...] ]
 
     let patterns' = concatMap (map mkWildCard) patterns  
 
@@ -65,7 +63,7 @@ search opt ps f = do
     let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "patterns  : " ++ show patterns'
+    putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
@@ -87,13 +85,13 @@ instance GenericToken Cpp.Token where
 wildCardMap :: M.Map String (WildCard a) 
 wildCardMap = M.fromList 
             [
-                ("ANY", AnyCard    ),
-                ("KEY", KeyWordCard),
-                ("OCT", OctCard    ),
-                ("HEX", HexCard    ),
-                ("NUM", NumberCard ),
-                ("CHR", CharCard   ),
-                ("STR", StringCard )
+                ("ANY", AnyCard     ),
+                ("KEY", KeyWordCard ),
+                ("OCT", OctCard     ),
+                ("HEX", HexCard     ),
+                ("NUM", NumberCard  ),
+                ("CHR", CharCard    ),
+                ("STR", StringCard  )
             ]
 
 
