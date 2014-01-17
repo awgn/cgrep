@@ -18,7 +18,7 @@
 
 module CGrep.WildCard (WildCard(..), GenericToken(..), 
                        getOptionalSubsequence,
-                       filterWildCardToken) where
+                       filterTokensWithWildCards) where
 
 import qualified Data.Map as M
 
@@ -64,11 +64,11 @@ filterCardIndicies :: [Int] -> [(Int,WildCard a)] -> [WildCard a]
 filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
-filterWildCardToken :: (GenericToken a) => Options -> FilePath -> [[WildCard a]] -> [a] -> [a]
-filterWildCardToken _ _ [] _ = []
-filterWildCardToken opt f (g:gs) ts = 
+filterTokensWithWildCards :: (GenericToken a) => Options -> [[WildCard a]] -> [a] -> [a]
+filterTokensWithWildCards _ [] _ = []
+filterTokensWithWildCards opt (g:gs) ts = 
     concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare opt g) grp) ++ 
-        filterWildCardToken opt f gs ts 
+        filterTokensWithWildCards opt gs ts 
     where grp    = spanGroup grpLen ts
           grpLen = length g
 

@@ -64,7 +64,7 @@ search opt ps f = do
 
     -- get matching tokens ...
         
-    let tokens' = sortBy (compare `on` Cpp.offset) $ nub (filterWildCardToken opt filename patterns' tokens)   
+    let tokens' = sortBy (compare `on` Cpp.offset) $ nub (filterTokensWithWildCards opt patterns' tokens)   
 
     
     let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
