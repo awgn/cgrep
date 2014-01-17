@@ -16,8 +16,10 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.WildCard (WildCard(..), GenericToken(..), 
-                       filterTokensWithWildCards) where
+module CGrep.WildCard (WildCard(..), MultiCard, GenericToken(..), 
+                       filterTokensWithMultiCards,
+                       wildCardMatch,
+                       multiCardMatch) where
 
 import qualified Data.Map as M
 
@@ -49,88 +51,105 @@ data WildCard a =  TokenCard a          |
                    IdentifCard String 
                        deriving (Show, Eq, Ord)      
 
-filterTokensWithWildCards :: (GenericToken a) => Options -> [WildCard a] -> [a] -> [a]
-filterTokensWithWildCards opt ws ts = filterTokensWithWildCards' opt (getOptionalSubsequence ws) ts
+type MultiCard a = [WildCard a]
 
 
-filterTokensWithWildCards' :: (GenericToken a) => Options -> [[WildCard a]] -> [a] -> [a]
-filterTokensWithWildCards' _ [] _ = []
-filterTokensWithWildCards' opt (g:gs) ts = 
-    concatMap (take grpLen . (`drop` ts)) (findIndices (groupCompare opt g) grp) ++ 
-        filterTokensWithWildCards' opt gs ts 
+filterTokensWithMultiCards :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> [a]
+filterTokensWithMultiCards opt ws ts = filterTokensWithMultiCards' opt (spanOptionalCards ws) ts
+
+
+filterTokensWithMultiCards' :: (GenericToken a) => Options -> [[MultiCard a]] -> [a] -> [a]
+filterTokensWithMultiCards' _ [] _ = []
+filterTokensWithMultiCards' opt (g:gs) ts = 
+    concatMap (take grpLen . (`drop` ts)) (findIndices (multiCardCompare opt g) grp) ++ 
+        filterTokensWithMultiCards' opt gs ts 
     where grp    = spanGroup grpLen ts
           grpLen = length g
 
 
-getOptionalSubsequence :: [WildCard a] -> [[WildCard a]]
-getOptionalSubsequence wc = map (`filterCardIndicies` wc') idx
+spanOptionalCards :: [MultiCard a] -> [[MultiCard a]]
+spanOptionalCards wc = map (`filterCardIndicies` wc') idx
     where wc' = zip [0..] wc
           idx = subsequences $ 
                 findIndices (\w -> case w of 
-                                    IdentifCard ('$':_) -> True  
+                                    [IdentifCard ('$':_)] -> True  
                                     _ -> False) wc
 
 
-filterCardIndicies :: [Int] -> [(Int,WildCard a)] -> [WildCard a]
+filterCardIndicies :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]
 filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
-groupCompare :: (GenericToken a) => Options -> [WildCard a] -> [a] -> Bool
-groupCompare opt l r = 
-    groupCompareAll ts && groupCompareOptional ts
-        where ts = tokensGroupCompare opt l r               
+multiCardCompare :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> Bool
+multiCardCompare opt l r = 
+    multiCardCompareAll ts && multiCardCheckOccurences ts
+        where ts = multiCardGroupCompare opt l r               
 
 
-{-# INLINE groupCompareAll #-}
+{-# INLINE multiCardCompareAll #-}
 
-groupCompareAll :: [(Bool, (WildCard a, [String]))] -> Bool
-groupCompareAll = all fst 
+multiCardCompareAll :: [(Bool, (MultiCard a, [String]))] -> Bool
+multiCardCompareAll = all fst 
 
 
-{-# INLINE groupCompareOptional #-}
+{-# INLINE multiCardCheckOccurences #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
 --       that must compare equal in the relative occurrences  
 --       
 
-groupCompareOptional :: (GenericToken a) => [(Bool, (WildCard a, [String]))] -> Bool
-groupCompareOptional ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
+multiCardCheckOccurences :: (GenericToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
+multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
         where m =  M.mapWithKey (\k xs -> case k of 
-                                                AnyCard          -> [] 
-                                                NumberCard       -> [] 
-                                                KeyWordCard      -> []
-                                                StringCard       -> []
-                                                CharCard         -> []
-                                                HexCard          -> []
-                                                OctCard          -> []
-                                                IdentifCard "_"  -> []
-                                                IdentifCard "$"  -> []
-                                                _                -> xs
+                                                [IdentifCard "_0"]  -> xs
+                                                [IdentifCard "_1"]  -> xs
+                                                [IdentifCard "_2"]  -> xs
+                                                [IdentifCard "_3"]  -> xs
+                                                [IdentifCard "_4"]  -> xs
+                                                [IdentifCard "_5"]  -> xs
+                                                [IdentifCard "_6"]  -> xs
+                                                [IdentifCard "_7"]  -> xs
+                                                [IdentifCard "_8"]  -> xs
+                                                [IdentifCard "_9"]  -> xs
+                                                [IdentifCard "$0"]  -> xs
+                                                [IdentifCard "$1"]  -> xs
+                                                [IdentifCard "$2"]  -> xs
+                                                [IdentifCard "$3"]  -> xs
+                                                [IdentifCard "$4"]  -> xs
+                                                [IdentifCard "$5"]  -> xs
+                                                [IdentifCard "$6"]  -> xs
+                                                [IdentifCard "$7"]  -> xs
+                                                [IdentifCard "$8"]  -> xs
+                                                [IdentifCard "$9"]  -> xs
+                                                _                   -> []
                                   ) $ M.fromListWith (++) (map snd ts)
         
 
-tokensGroupCompare :: (GenericToken a) => Options -> [WildCard a] -> [a] -> [(Bool, (WildCard a, [String]))]
-tokensGroupCompare opt ls rs 
+multiCardGroupCompare :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> [(Bool, (MultiCard a, [String]))]
+multiCardGroupCompare opt ls rs 
     | length rs >= length ls = zipWith (tokensZip opt) ls rs
-    | otherwise = [ (False, (AnyCard, [])) ]
+    | otherwise              = [ (False, ([AnyCard], [])) ]
 
 
-tokensZip :: (GenericToken a) => Options -> WildCard a -> a -> (Bool, (WildCard a, [String]))
+tokensZip :: (GenericToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
 tokensZip opt l r 
-    |  wildCardMatch opt l r = (True, (l, [tkToString r]))
-    |  otherwise             = (False,(AnyCard,[] ))
+    |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
+    |  otherwise             =  (False, ([AnyCard],[] ))
+
+
+multiCardMatch :: (GenericToken t) => Options ->  MultiCard t -> t -> Bool
+multiCardMatch opt m t = any (\w -> wildCardMatch opt w t) m 
 
 
 wildCardMatch :: (GenericToken t) => Options ->  WildCard t -> t -> Bool
-
-wildCardMatch _  AnyCard _         = True
-wildCardMatch _  (IdentifCard _) t = tkIsIdentifier t
-wildCardMatch _  KeyWordCard t     = tkIsKeyword t
-wildCardMatch _  StringCard  t     = tkIsString t
-wildCardMatch _  CharCard    t     = tkIsChar t 
-wildCardMatch _  NumberCard  t     = tkIsNumber t
-wildCardMatch _  OctCard     t     = tkIsNumber t && case (tkToString t) of ('0':d: _)  -> isDigit d; _ -> False
-wildCardMatch _  HexCard     t     = tkIsNumber t && case (tkToString t) of ('0':'x':_) -> True; _     -> False
+wildCardMatch _  AnyCard _          = True
+wildCardMatch _  (IdentifCard _) t  = tkIsIdentifier t
+wildCardMatch _  KeyWordCard     t  = tkIsKeyword t
+wildCardMatch _  StringCard      t  = tkIsString t
+wildCardMatch _  CharCard        t  = tkIsChar t 
+wildCardMatch _  NumberCard      t  = tkIsNumber t
+wildCardMatch _  OctCard         t  = tkIsNumber t && case (tkToString t) of ('0':d: _)  -> isDigit d; _ -> False
+wildCardMatch _  HexCard         t  = tkIsNumber t && case (tkToString t) of ('0':'x':_) -> True; _     -> False
 
 wildCardMatch opt (TokenCard l) r
     | tkIsIdentifier l && tkIsIdentifier r = case () of
