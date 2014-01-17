@@ -26,6 +26,7 @@ import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
 
+import qualified Data.Map as M
 import Data.List
 import Data.Function
 
@@ -87,3 +88,30 @@ instance GenericToken Cpp.Token where
     
     tkToString       = Cpp.toString
     tkEquivalent     = Cpp.tokenCompare
+
+
+wildCardMap :: M.Map String (WildCard a) 
+wildCardMap = M.fromList 
+            [
+                ("ANY", AnyCard    ),
+                ("KEY", KeyWordCard),
+                ("OCT", OctCard    ),
+                ("HEX", HexCard    ),
+                ("NUM", NumberCard ),
+                ("CHR", CharCard   ),
+                ("STR", StringCard )
+            ]
+
+
+mkWildCard :: Cpp.Token -> WildCard Cpp.Token
+mkWildCard t@(Cpp.TokenIdentifier s _) = 
+    case () of 
+        _  |  Just wc <-  M.lookup str wildCardMap -> wc
+           | ('$':_)  <- s             -> IdentifCard str
+           | ('_':_)  <- s             -> IdentifCard str
+           | otherwise                 -> TokenCard t
+    where str = tkToString t
+
+mkWildCard t = TokenCard t
+
+

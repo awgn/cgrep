@@ -17,7 +17,6 @@
 --
 
 module CGrep.WildCard (WildCard(..), GenericToken(..), 
-                       mkWildCard, 
                        getOptionalSubsequence,
                        filterWildCardToken) where
 
@@ -50,31 +49,6 @@ data WildCard a =  TokenCard a          |
                    CharCard             |
                    IdentifCard String 
                        deriving (Show, Eq, Ord)      
-
-type WildCards a = [WildCard a]
-
-wildCardMap :: M.Map String (WildCard a) 
-wildCardMap = M.fromList 
-            [
-                ("ANY", AnyCard    ),
-                ("KEY", KeyWordCard),
-                ("OCT", OctCard    ),
-                ("HEX", HexCard    ),
-                ("NUM", NumberCard ),
-                ("CHR", CharCard   ),
-                ("STR", StringCard )
-            ]
-
-
-mkWildCard :: (GenericToken a) => a -> WildCard a
-mkWildCard  t
-    | tkIsIdentifier t = case () of 
-                        _  |  Just wc <-  M.lookup str wildCardMap -> wc
-                           | ('$':_)  <- tkToString t               -> IdentifCard str
-                           | ('_':_)  <- tkToString t               -> IdentifCard str
-                           | otherwise                             -> TokenCard t
-    | otherwise      = TokenCard t
-        where str = tkToString t
 
 
 getOptionalSubsequence :: [WildCard a] -> [[WildCard a]]
