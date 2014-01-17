@@ -24,15 +24,20 @@ module CGrep.WildCard (WildCard(..), GenericToken(..),
 import qualified Data.Map as M
 
 import CGrep.Common
+import CGrep.Distance
 
+import Data.Char
 import Data.List
 import Options 
 
-
 class (Show t, Ord t) => GenericToken t where
-    isIdentifier    :: t -> Bool
-    getString       :: t -> String
-    wildCardMatch :: Options ->  WildCard t -> t -> Bool
+    tkIsIdentifier :: t -> Bool
+    tkIsString     :: t -> Bool
+    tkIsChar       :: t -> Bool
+    tkIsNumber     :: t -> Bool
+    tkIsKeyword    :: t -> Bool
+    tkToString     :: t -> String
+    tkEquivalent   :: t -> t -> Bool
 
 
 data WildCard a =  TokenCard a          |
@@ -62,13 +67,13 @@ wildCardMap = M.fromList
 
 mkWildCard :: (GenericToken a) => a -> WildCard a
 mkWildCard  t
-    | isIdentifier t = case () of 
+    | tkIsIdentifier t = case () of 
                         _  |  Just wc <-  M.lookup str wildCardMap -> wc
-                           | ('$':_)  <- getString t               -> IdentifCard str
-                           | ('_':_)  <- getString t               -> IdentifCard str
+                           | ('$':_)  <- tkToString t               -> IdentifCard str
+                           | ('_':_)  <- tkToString t               -> IdentifCard str
                            | otherwise                             -> TokenCard t
     | otherwise      = TokenCard t
-        where str = getString t
+        where str = tkToString t
 
 
 getWildCardSubsequence :: [WildCard a] -> [[WildCard a]]
@@ -135,6 +140,30 @@ tokensGroupCompare opt ls rs
 
 tokensZip :: (GenericToken a) => Options -> WildCard a -> a -> (Bool, (WildCard a, [String]))
 tokensZip opt l r 
-    |  wildCardMatch opt l r = (True, (l, [getString r]))
+    |  wildCardMatch opt l r = (True, (l, [tkToString r]))
     |  otherwise             = (False,(AnyCard,[] ))
+
+
+wildCardMatch :: (GenericToken t) => Options ->  WildCard t -> t -> Bool
+
+wildCardMatch _  AnyCard _         = True
+wildCardMatch _  (IdentifCard _) t = tkIsIdentifier t
+wildCardMatch _  KeyWordCard t     = tkIsKeyword t
+wildCardMatch _  StringCard  t     = tkIsString t
+wildCardMatch _  CharCard    t     = tkIsChar t 
+wildCardMatch _  NumberCard  t     = tkIsNumber t
+wildCardMatch _  OctCard     t     = tkIsNumber t && case (tkToString t) of ('0':d: _)  -> isDigit d; _ -> False
+wildCardMatch _  HexCard     t     = tkIsNumber t && case (tkToString t) of ('0':'x':_) -> True; _     -> False
+
+wildCardMatch opt (TokenCard l) r
+    | tkIsIdentifier l && tkIsIdentifier r = case () of
+                                                _ | edit_dist  opt -> tkToString l ~== tkToString r
+                                                  | word_match opt -> tkToString l ==  tkToString r
+                                                  | otherwise      -> tkToString l `isInfixOf` tkToString r
+    | tkIsString l && tkIsString r = case () of 
+                                        _ | edit_dist  opt -> tkToString l ~== tkToString r
+                                          | word_match opt -> tkToString l ==  tkToString r
+                                          | otherwise      -> trim (tkToString l) `isInfixOf` tkToString r
+    | otherwise  = l `tkEquivalent` r 
+        where trim = init . tail
 

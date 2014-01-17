@@ -81,29 +81,11 @@ search opt ps f = do
         
 
 instance GenericToken Cpp.Token where
-    isIdentifier    = Cpp.isIdentifier
-    getString       = Cpp.toString
+    tkIsIdentifier    = Cpp.isIdentifier
+    tkIsString        = Cpp.isString
+    tkIsChar          = Cpp.isChar
+    tkIsNumber        = Cpp.isLiteralNumber
+    tkIsKeyword       = Cpp.isKeyword
     
-    wildCardMatch _  (IdentifCard _) (Cpp.TokenIdentifier {}) = True
-    wildCardMatch _  AnyCard _                                   = True
-    wildCardMatch _  KeyWordCard (Cpp.TokenKeyword {}) = True
-    wildCardMatch _  StringCard  (Cpp.TokenString  {}) = True
-    wildCardMatch _  CharCard    (Cpp.TokenChar    {}) = True
-    wildCardMatch _  NumberCard  (Cpp.TokenNumber  {}) = True
-    wildCardMatch _  OctCard     (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':d: _) -> isDigit d; _ -> False
-    wildCardMatch _  HexCard     (Cpp.TokenNumber  { Cpp.toString = r }) = case r of ('0':'x':_) -> True; _     -> False
-    
-    wildCardMatch opt (TokenCard Cpp.TokenIdentifier {Cpp.toString = l}) (Cpp.TokenIdentifier {Cpp.toString = r}) 
-        | edit_dist  opt =  l ~== r
-        | word_match opt =  l == r
-        | otherwise      =  l `isInfixOf` r
-    
-    wildCardMatch opt (TokenCard Cpp.TokenString     {Cpp.toString = l}) (Cpp.TokenString     {Cpp.toString = r}) 
-        | edit_dist  opt =  l ~== r
-        | word_match opt =  l == r
-        | otherwise      =  trim l `isInfixOf` r
-            where trim = init . tail
-    
-    wildCardMatch _  (TokenCard l) r = Cpp.tokenCompare l r 
-    wildCardMatch _ _ _ = False
-
+    tkToString       = Cpp.toString
+    tkEquivalent     = Cpp.tokenCompare
