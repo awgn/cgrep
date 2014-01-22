@@ -17,125 +17,147 @@
 --
 
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
 
+import Control.Applicative
+
 import CGrep.Common (Text8)
 
-import CGrep.Template
 import CGrep.Context
 import CGrep.Lang
 import Options
 
 import Data.Maybe
+import Data.Char
+import Data.List
+import Data.Monoid
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Lazy.Char8   as LC
+import qualified Data.ByteString.Lazy.Builder as LB
+
 import qualified Data.Map as Map
 
 
-type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
-
 -- filter Context:
 --
-
-contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
-
-contextFilter _ (ContextFilter True True True) src = src
-contextFilter Nothing _ src = src
-contextFilter (Just language) filt src =
-    snd $ C.mapAccumL (fromJust $ Map.lookup language filterMap) (FiltState StateCode filt []) src
-
 
 mkContextFilter :: Options -> ContextFilter
 mkContextFilter opt = if not (code opt || comment opt || literal opt)
                        then ContextFilter { getCode = True, getComment = True,  getLiteral = True }
                        else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
 
--- filter function:
+
+contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
+contextFilter _ (ContextFilter True True True) src = src
+contextFilter Nothing _ src = src
+contextFilter (Just language) filt src = LC.toStrict . LB.toLazyByteString $ contextParser parState filt src
+    where parState = fromJust $ Map.lookup language parserStateMap
+
+
+-- contextParser:
 --
 
-filterFunction :: FilterFunction -> FiltState -> Char -> (FiltState, Char)
-filterFunction funFilt state c = (state', charFilter (cxtFilter cxt (cfilter state)) c)
-    where (cxt, state') = funFilt (pchars state, c) state
+contextParser :: ParState -> ContextFilter -> C.ByteString -> LB.Builder
+contextParser s  filt (C.uncons -> Just (x,xs))
+    | skip s > 0 = LB.char8 (if isSpace x || display s then x else ' ') <> contextParser s { skip = skip s -1 } filt xs
+    | otherwise  = let (nstate, d, n) = nextParserState s (x,xs) filt
+                   in LB.char8 (if isSpace x || d then x else ' ') <> contextParser s { cxtState = nstate, display = d, skip = n } filt xs
+contextParser _ _ _ = mempty
 
 
-{-# INLINE charFilter #-}
+nextParserState :: ParState -> (Char,C.ByteString) -> ContextFilter -> (ContextState, Bool, Int)
+nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
+    | x == '\\'                  = (cxtState s, False, 1)
+    | CodeState    <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
+                                       lindex = findBoundary (x,xs) (litrBound s)
+                                   in
+                                   fromJust (
+                                        (cindex >>= \n -> Just (CommState n, codefilt, C.length ( fst (commBound s !! n) ) - 1 )) <|>
+                                        (lindex >>= \n -> Just (LitrState n, codefilt, C.length ( fst (litrBound s !! n) ) - 1 )) <|>
+                                                          Just (CodeState  , codefilt, 0))
+    | CommState n <- cxtState s = let (_,end) = commBound s !! n
+                                    in if C.head end == x && C.tail end `C.isPrefixOf` xs
+                                            then (CodeState,   codefilt, C.length end - 1)
+                                            else (CommState n, commfilt, 0)
+    | LitrState n <- cxtState s = let (_,end) = litrBound s !! n
+                                    in if C.head end == x && C.tail end `C.isPrefixOf` xs
+                                            then (CodeState,   codefilt, C.length end - 1)
+                                            else (LitrState n, litrfilt, 0)
+nextParserState _ (_,_) (ContextFilter _ _ _) = undefined
 
-charFilter :: Bool -> Char -> Char
-charFilter  _  '\n' = '\n'
-charFilter  True  c =  c
-charFilter  _ _     = ' '
 
+{-# INLINE findBoundary #-}
 
-{-# INLINE cxtFilter #-}
-
-cxtFilter :: Context -> ContextFilter -> Bool
-cxtFilter Code    = getCode
-cxtFilter Comment = getComment
-cxtFilter Literal = getLiteral
-
-
--- parsers templates:
---
-
-
-likeShell, likeErlang, likeLatex, likeVim, likePython, likeCSS, likeOCaml,
-    likeHtml, likeCpp, likeHaskell, likePerl, likeRuby, likeFsharp, likePHP :: FilterFunction
-
-likeShell   =  $(parser1 ("#",  "\n"))
-likeErlang  =  $(parser1 ("%",  "\n"))
-likeLatex   =  $(parser1 ("%",  "\n"))
-likeVim     =  $(parser1 ("\"", "\n"))
-likePython  =  $(parser1 ("#",  "\n"))
-likeCSS     =  $(parser1 ("/*",  "*/"))
-likeOCaml   =  $(parser1 ("(*",  "*)"))
-likeHtml    =  $(parser1 ("<!--","-->"))
-
-likeCpp     =  $(parser2 ("/*", "*/") ("//", "\n"))
-likeHaskell =  $(parser2 ("{-", "-}") ("--", "\n"))
-likePerl    =  $(parser2 ("=pod", "=cut") ("#", "\n"))
-likeRuby    =  $(parser2 ("=begin", "=end") ("#", "\n"))
-likeFsharp  =  $(parser2 ("(*", "*)") ("//", "\n"))
-
-likePHP     =  $(parser3 ("#", "\n") ("/*", "*/") ("//", "\n"))
-
+findBoundary :: (Char, C.ByteString) -> [Boundary] -> Maybe Int
+findBoundary (x,xs) bounds =  findIndex (\(b,_) -> (C.head b) == x && (C.tail b) `C.isPrefixOf` xs) bounds
 
 
 -- filter language map:
 --
 
-type FilterType =  FiltState -> Char -> (FiltState, Char)
+parserStateMap :: Map.Map Lang ParState
 
-filterMap :: Map.Map Lang FilterType
+type StringBoundary = (String, String)
 
-filterMap = Map.fromList [
-            (Awk,        filterFunction likeShell),
-            (C,          filterFunction likeCpp),
-            (Cpp,        filterFunction likeCpp),
-            (Csharp,     filterFunction likeCpp),
-            (Css,        filterFunction likeCSS),
-            (CMake,      filterFunction likeShell),
-            (D,          filterFunction likeCpp),
-            (Erlang,     filterFunction likeErlang),
-            (Fsharp,     filterFunction likeFsharp),
-            (Go,         filterFunction likeCpp),
-            (Haskell,    filterFunction likeHaskell),
-            (Html,       filterFunction likeHtml),
-            (Java,       filterFunction likeCpp),
-            (Javascript, filterFunction likeCpp),
-            (Latex ,     filterFunction likeErlang),
-            (Make,       filterFunction likeShell),
-            (OCaml ,     filterFunction likeOCaml),
-            (ObjectiveC, filterFunction likeCpp),
-            (Perl,       filterFunction likePerl),
-            (PHP,        filterFunction likePHP),
-            (Python,     filterFunction likePython),
-            (Ruby,       filterFunction likeRuby),
-            (Scala,      filterFunction likeCpp),
-            (Tcl,        filterFunction likeShell),
-            (Shell,      filterFunction likeShell),
-            (Verilog,    filterFunction likeCpp),
-            (Vim,        filterFunction likeVim)
-           ]
+type Boundary = (C.ByteString, C.ByteString)
 
+data ParState =  ParState
+                 {
+                    commBound :: [Boundary],
+                    litrBound :: [Boundary],
+                    cxtState  :: !ContextState,
+                    display   :: !Bool,
+                    skip      :: !Int
+                 }
+                 deriving (Show)
+
+
+mkParserState :: [StringBoundary] -> [StringBoundary] -> ParState
+mkParserState cs ls = ParState (map (\(a,b) -> (C.pack a, C.pack b)) cs)
+                          (map (\(a,b) -> (C.pack a, C.pack b)) ls) CodeState False 0
+
+
+data ContextState = CodeState | CommState Int | LitrState Int
+                        deriving (Show, Eq, Ord)
+
+
+parserStateMap = Map.fromList [
+    (C,          mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Cpp,        mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Csharp,     mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (D,          mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Go,         mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Java,       mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Javascript, mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (ObjectiveC, mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Scala,      mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Verilog,    mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+
+    (Haskell,    mkParserState [("{-", "-}"), ("--", "\n")]         [("\"", "\""), ("[r|", "|]")] ),
+    (Fsharp,     mkParserState [("(*", "*)"), ("//", "\n")]         [("\"", "\"")] ),
+    (Perl,       mkParserState [("=pod", "=cut"), ("#", "\n")]      [("'", "'"), ("\"", "\"")] ),
+    (Ruby,       mkParserState [("=begin", "=end"), ("#", "\n")]    [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ]),
+
+    (CMake,      mkParserState [("#", "\n")]    [("\"", "\"")] ),
+    (Awk,        mkParserState [("#", "\n")]    [("\"", "\"")] ),
+    (Tcl,        mkParserState [("#", "\n")]    [("\"", "\"")] ),
+    (Shell,      mkParserState [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
+    (Make,       mkParserState [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
+
+    (Css,        mkParserState [("/*", "*/")]   [("\"", "\"")] ),
+    (OCaml,      mkParserState [("(*", "*)")]   [("\"", "\"")] ),
+    (Python,     mkParserState [("#", "\n")]    [("\"\"\"", "\"\"\""), ("'''", "'''"), ("'", "'"), ("\"", "\"")] ),
+
+    (Erlang,     mkParserState [("%", "\n")]    [("\"", "\"")] ),
+    (Latex,      mkParserState [("%", "\n")]    [("\"", "\"")] ),
+
+    (Html,       mkParserState [("<!--", "-->")]  [("\"", "\"")] ),
+    (Vim,        mkParserState [("\"", "\n")]     [("'", "'")] ),
+
+    (PHP,        mkParserState [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
+    ]
 
