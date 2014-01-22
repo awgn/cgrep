@@ -16,20 +16,20 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Lang (Lang(..), langMap, getLang, splitLangList, 
+module CGrep.Lang (Lang(..), langMap, getLang, splitLangList,
                    dumpLangMap, dumpLangRevMap) where
 
 import qualified Data.Map as Map
 import System.FilePath(takeExtension, takeFileName)
-import Control.Monad 
+import Control.Monad
 import Control.Applicative
 import Data.Maybe
 
 import Options
 import Util
 
-data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Haskell | 
-                Html | Java | Javascript | Latex | Make | OCaml | ObjectiveC | 
+data Lang = Awk | C | Cpp | Csharp | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
+                Html | Java | Javascript | Latex | Make | OCaml | ObjectiveC |
                 Perl | PHP | Python | Ruby | Scala | Tcl | Shell | Verilog | Vim
                     deriving (Read, Show, Eq, Ord, Bounded)
 
@@ -79,12 +79,12 @@ langMap = Map.fromList [
 
 
 langRevMap :: LangRevMapType
-langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (\x -> (x,l)) xs ) $ Map.toList langMap 
+langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (\x -> (x,l)) xs ) $ Map.toList langMap
 
--- utility functions 
+-- utility functions
 
 lookupLang :: FilePath -> Maybe Lang
-lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap <|> Map.lookup (Name $ takeFileName f) langRevMap 
+lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap <|> Map.lookup (Name $ takeFileName f) langRevMap
 
 
 forcedLang :: Options -> Maybe Lang
@@ -94,7 +94,7 @@ forcedLang Options{ force_language = l }
 
 
 getLang :: Options -> FilePath -> Maybe Lang
-getLang opts f = forcedLang opts <|> lookupLang f 
+getLang opts f = forcedLang opts <|> lookupLang f
 
 
 
@@ -104,15 +104,15 @@ dumpLangMap m = forM_ (Map.toList m) $ \(l, ex) ->
 
 
 dumpLangRevMap :: LangRevMapType -> IO ()
-dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, l) -> 
+dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, l) ->
                     putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show l
 
 
 splitLangList :: [String] -> ([Lang], [Lang], [Lang])
-splitLangList  = foldl run ([],[],[]) 
+splitLangList  = foldl run ([],[],[])
     where run :: ([Lang], [Lang], [Lang]) -> String -> ([Lang], [Lang], [Lang])
           run (l1, l2, l3) l
             | '+':xs <- l = (l1, prettyRead xs "Lang" : l2, l3)
             | '-':xs <- l = (l1, l2, prettyRead xs "Lang" : l3)
-            | otherwise   = (prettyRead l  "Lang" : l1, l2, l3)  
+            | otherwise   = (prettyRead l  "Lang" : l1, l2, l3)
 

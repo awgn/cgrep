@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE TemplateHaskell #-} 
+{-# LANGUAGE TemplateHaskell #-}
 
 module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
 
@@ -41,20 +41,20 @@ type FilterFunction = (String,Char) -> FiltState -> (Context, FiltState)
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
 
 contextFilter _ (ContextFilter True True True) src = src
-contextFilter Nothing _ src = src 
-contextFilter (Just language) filt src =  
-    snd $ C.mapAccumL (fromJust $ Map.lookup language filterMap) (FiltState StateCode filt []) src 
+contextFilter Nothing _ src = src
+contextFilter (Just language) filt src =
+    snd $ C.mapAccumL (fromJust $ Map.lookup language filterMap) (FiltState StateCode filt []) src
 
 
 mkContextFilter :: Options -> ContextFilter
-mkContextFilter opt = if not (code opt || comment opt || literal opt) 
+mkContextFilter opt = if not (code opt || comment opt || literal opt)
                        then ContextFilter { getCode = True, getComment = True,  getLiteral = True }
                        else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
 
 -- filter function:
 --
 
-filterFunction :: FilterFunction -> FiltState -> Char -> (FiltState, Char) 
+filterFunction :: FilterFunction -> FiltState -> Char -> (FiltState, Char)
 filterFunction funFilt state c = (state', charFilter (cxtFilter cxt (cfilter state)) c)
     where (cxt, state') = funFilt (pchars state, c) state
 
@@ -70,16 +70,16 @@ charFilter  _ _     = ' '
 {-# INLINE cxtFilter #-}
 
 cxtFilter :: Context -> ContextFilter -> Bool
-cxtFilter Code    = getCode 
-cxtFilter Comment = getComment 
-cxtFilter Literal = getLiteral 
+cxtFilter Code    = getCode
+cxtFilter Comment = getComment
+cxtFilter Literal = getLiteral
 
 
 -- parsers templates:
 --
 
 
-likeShell, likeErlang, likeLatex, likeVim, likePython, likeCSS, likeOCaml, 
+likeShell, likeErlang, likeLatex, likeVim, likePython, likeCSS, likeOCaml,
     likeHtml, likeCpp, likeHaskell, likePerl, likeRuby, likeFsharp, likePHP :: FilterFunction
 
 likeShell   =  $(parser1 ("#",  "\n"))
@@ -103,8 +103,8 @@ likePHP     =  $(parser3 ("#", "\n") ("/*", "*/") ("//", "\n"))
 
 -- filter language map:
 --
-    
-type FilterType =  FiltState -> Char -> (FiltState, Char) 
+
+type FilterType =  FiltState -> Char -> (FiltState, Char)
 
 filterMap :: Map.Map Lang FilterType
 

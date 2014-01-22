@@ -22,7 +22,7 @@ import Control.Monad
 
 import System.Directory
 import System.FilePath ((</>))
-                                  
+
 import Data.List (isPrefixOf)
 import Data.Char
 import Data.Maybe
@@ -31,7 +31,7 @@ import Util
 import CGrep.Lang
 
 cgreprc :: FilePath
-cgreprc = "cgreprc" 
+cgreprc = "cgreprc"
 
 
 data  ConfigOptions = ConfigOptions
@@ -45,10 +45,10 @@ getConfigOptions :: IO ConfigOptions
 getConfigOptions = do
     home <- getHomeDirectory
     conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
-                doesFileExist f >>= \b -> return $ guard b >> Just f 
+                doesFileExist f >>= \b -> return $ guard b >> Just f
 
-    if isJust conf then readFile (fromJust conf) >>= \xs -> 
-                        return (prettyRead (dropComments xs) "ConfigOptions" :: ConfigOptions) 
+    if isJust conf then readFile (fromJust conf) >>= \xs ->
+                        return (prettyRead (dropComments xs) "ConfigOptions" :: ConfigOptions)
                    else return $ ConfigOptions [] []
     where dropComments :: String -> String
           dropComments = unlines . filter (not . isPrefixOf "#" . dropWhile isSpace) . lines

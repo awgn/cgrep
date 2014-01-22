@@ -25,7 +25,7 @@ import Options
 version :: String
 version = "4.6"
 
-options = cmdArgsMode $ Options 
+options = cmdArgsMode $ Options
           {
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
                 word_match  = False        &= help "force word matching" &=explicit &= name "word" &= name "w",
@@ -46,29 +46,29 @@ options = cmdArgsMode $ Options
                 char = False               &= help "literal chars" &= explicit &= name "char",
                 oper = False               &= help "operators" &= explicit &= name "oper",
                 semantic = False           &= help "\"code\" patterns: _, _1, _2..., $, $1, $2... (optional), ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors" &= explicit &= name "S" &= name "semantic",
-                
+
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
                 lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
                 lang_map = False           &= help "print the list of language mapping",
                 force_language = Nothing   &= help "force the language" &= explicit &= name "force-language",
 
-                max_count = maxBound       &= help "stop search in files after INT matches" &= explicit &= name "max-count", 
-                count = False              &= help "print only a count of matching lines per file" &= explicit &= name "count", 
+                max_count = maxBound       &= help "stop search in files after INT matches" &= explicit &= name "max-count",
+                count = False              &= help "print only a count of matching lines per file" &= explicit &= name "count",
 
                 jobs   = 1                 &= help "number of jobs",
                 multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
-                invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match", 
-                show_match = False         &= help "show list of matching tokens" &= explicit &= name "show-match", 
+                invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match",
+                show_match = False         &= help "show list of matching tokens" &= explicit &= name "show-match",
                 color = False              &= help "use colors to highlight the matching strings" &= explicit &= name "color",
 
 #ifdef ENABLE_HINT
-                hint = Nothing  &= typ "STRING" &= help "haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint",  
+                hint = Nothing  &= typ "STRING" &= help "haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint",
 #endif
-                format = Nothing &= typ "STRING" &= help "format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format",                 
-                json = False               &= help "format output as json object" &= explicit &= name "json",                 
-                xml = False                &= help "format output as xml document" &= explicit &= name "xml",                 
+                format = Nothing &= typ "STRING" &= help "format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format",
+                json = False               &= help "format output as json object" &= explicit &= name "json",
+                xml = False                &= help "format output as xml document" &= explicit &= name "xml",
 
                 debug = 0                  &= help "debug level: 1, 2 or 3" &= groupname "\nMiscellaneous",
                 others = []                &= args

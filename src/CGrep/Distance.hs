@@ -23,7 +23,7 @@ module CGrep.Distance (distance, (~==)) where
 --
 
 distance :: Eq a => [a] -> [a] -> Int
-distance a b 
+distance a b
     = last (if lab == 0 then mainDiag
                         else if lab > 0 then lowers !! (lab - 1)
                                         else{- < 0 -}   uppers !! (-1 - lab))
@@ -47,5 +47,5 @@ distance a b
 (~==) :: String -> String -> Bool
 a ~== b |  len < 5  = dist < 3
         | otherwise = dist < (len * 40 `div` 100)
-    where len  = fromIntegral (length a `min` length b)  
-          dist = distance a b 
+    where len  = fromIntegral (length a `min` length b)
+          dist = distance a b

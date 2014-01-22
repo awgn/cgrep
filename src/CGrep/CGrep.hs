@@ -33,14 +33,14 @@ import Options
 
 sanitizeOptions  :: FilePath -> Options -> Options
 sanitizeOptions path opt = case getLang opt path >>= (`elemIndex` [C, Cpp]) of
-                            Nothing -> opt {identifier = False, 
-                                            keyword    = False, 
-                                            directive  = False, 
-                                            header     = False, 
-                                            string     = False, 
-                                            char       = False, 
-                                            oper       = False, 
-                                            semantic   = False 
+                            Nothing -> opt {identifier = False,
+                                            keyword    = False,
+                                            directive  = False,
+                                            header     = False,
+                                            string     = False,
+                                            char       = False,
+                                            oper       = False,
+                                            semantic   = False
                                             }
                             _       -> opt
 
@@ -52,13 +52,13 @@ hasRegexOpt :: Options -> Bool
 hasRegexOpt Options{ regex = x } = x
 
 hasTokenizerOpt :: Options -> Bool
-hasTokenizerOpt Options{ identifier = i, 
-                         keyword    = k, 
-                         directive  = d, 
-                         header     = h, 
-                         number     = n, 
-                         string     = s, 
-                         char       = c, 
+hasTokenizerOpt Options{ identifier = i,
+                         keyword    = k,
+                         directive  = d,
+                         header     = h,
+                         number     = n,
+                         string     = s,
+                         char       = c,
                          oper       = o} = i || k || d || h || n || s || c || o
 
 hasSemanticOpt :: Options -> Bool
@@ -67,7 +67,7 @@ hasSemanticOpt Options{ semantic = s } = s
 
 cgrepDispatch :: Options -> CgrepFunction
 
-cgrepDispatch opt 
+cgrepDispatch opt
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) && hasEditDistOpt opt = Levenshtein.search
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = BoyerMoore.search
     | not (hasRegexOpt opt) && hasSemanticOpt opt = CppSemantic.search
@@ -75,4 +75,4 @@ cgrepDispatch opt
     | hasRegexOpt opt       = Regex.search
     | otherwise             = undefined
 
-     
+

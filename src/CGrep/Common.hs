@@ -15,16 +15,16 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-       
-{-# LANGUAGE FlexibleContexts #-} 
 
-module CGrep.Common (CgrepFunction, Text8, 
-                     getFileName, 
-                     getText, 
-                     expandMultiline, 
-                     ignoreCase, 
+{-# LANGUAGE FlexibleContexts #-}
+
+module CGrep.Common (CgrepFunction, Text8,
+                     getFileName,
+                     getText,
+                     expandMultiline,
+                     ignoreCase,
                      spanGroup) where
- 
+
 import qualified Data.ByteString.Char8 as C
 
 import Data.Char
@@ -33,7 +33,7 @@ import CGrep.Types
 import Options
 
 
-type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output] 
+type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output]
 
 
 getFileName :: Maybe FilePath -> String
@@ -46,16 +46,16 @@ getText  = maybe C.getContents C.readFile
 
 
 ignoreCase :: Options -> Text8 -> Text8
-ignoreCase Options { ignore_case = icase } 
-    | icase  =  C.map toLower 
+ignoreCase Options { ignore_case = icase }
+    | icase  =  C.map toLower
     | otherwise = id
 
 
 expandMultiline :: Options -> Text8 -> Text8
-expandMultiline Options { multiline = n } xs 
+expandMultiline Options { multiline = n } xs
     | n == 1 = xs
-    | otherwise = C.unlines $ map C.unwords $ spanGroup n (C.lines xs) 
- 
+    | otherwise = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
+
 
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []

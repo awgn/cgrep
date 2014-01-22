@@ -19,13 +19,13 @@
 
 module Debug where
 
-import Control.Monad 
+import Control.Monad
 
-putStrLevel1 :: Int -> String -> IO ()  
+putStrLevel1 :: Int -> String -> IO ()
 putStrLevel1 n xs = when (n > 0) $ putStrLn xs
 
-putStrLevel2 :: Int -> String -> IO ()  
+putStrLevel2 :: Int -> String -> IO ()
 putStrLevel2 n xs = when (n > 1) $ putStrLn xs
 
-putStrLevel3 :: Int -> String -> IO ()  
+putStrLevel3 :: Int -> String -> IO ()
 putStrLevel3 n xs = when (n > 2) $ putStrLn xs

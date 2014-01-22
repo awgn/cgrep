@@ -18,16 +18,16 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..), 
+module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..),
                                 Offset, tokenizer, tokenFilter, tokenCompare,
-                                isIdentifier, isKeyword, isDirective, isLiteralNumber, 
-                                isHeaderName, isString, isChar, isOperOrPunct 
+                                isIdentifier, isKeyword, isDirective, isLiteralNumber,
+                                isHeaderName, isString, isChar, isOperOrPunct
                             )  where
 
-import Data.Char 
+import Data.Char
 import Data.Maybe
 import Data.Set as S
-import Data.Array 
+import Data.Array
 import Control.Monad
 -- import Debug.Trace
 
@@ -41,18 +41,18 @@ type Source = C.ByteString
 type Offset = Int
 
 
--- Tokenize the source code in a list of Token 
+-- Tokenize the source code in a list of Token
 -- Precondition: the c++ source code must be well-formed
 --
 
 tokenizer :: Source -> [Token]
-tokenizer xs = runGetToken (ys, n, Null)  
+tokenizer xs = runGetToken (ys, n, Null)
             where (ys, n) = dropWhite xs
 
 
-data TokenFilter = TokenFilter 
+data TokenFilter = TokenFilter
                    {
-                        filtIdentifier :: Bool,     
+                        filtIdentifier :: Bool,
                         filtDirective  :: Bool,
                         filtKeyword    :: Bool,
                         filtHeader     :: Bool,
@@ -73,7 +73,7 @@ tokenFilter filt (TokenHeaderName{})  = filtHeader     filt
 tokenFilter filt (TokenNumber{})      = filtNumber     filt
 tokenFilter filt (TokenString{})      = filtString     filt
 tokenFilter filt (TokenChar{})        = filtChar       filt
-tokenFilter filt (TokenOperOrPunct{}) = filtOper       filt 
+tokenFilter filt (TokenOperOrPunct{}) = filtOper       filt
 
 
 data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
@@ -84,7 +84,7 @@ data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
              TokenString      { toString :: String, offset :: Int  } |
              TokenChar        { toString :: String, offset :: Int  } |
              TokenOperOrPunct { toString :: String, offset :: Int  }
-                deriving (Show, Eq, Ord)  
+                deriving (Show, Eq, Ord)
 
 tokenCompare :: Token -> Token -> Bool
 tokenCompare (TokenIdentifier { toString = l }) (TokenIdentifier { toString = r }) = l == r
@@ -158,14 +158,14 @@ nextState "include"         Hash = Include
 nextState "include_next"    Hash = Include
 nextState "define"          Hash = Define
 nextState "undef"           Hash = Undef
-nextState "if"              Hash = If 
-nextState "ifdef"           Hash = Ifdef 
-nextState "ifndef"          Hash = Ifndef 
-nextState "elif"            Hash = Elif 
-nextState "else"            Hash = Null 
-nextState "endif"           Hash = Null 
-nextState "line"            Hash = Line  
-nextState "error"           Hash = Error  
+nextState "if"              Hash = If
+nextState "ifdef"           Hash = Ifdef
+nextState "ifndef"          Hash = Ifndef
+nextState "elif"            Hash = Elif
+nextState "else"            Hash = Null
+nextState "endif"           Hash = Null
+nextState "line"            Hash = Line
+nextState "error"           Hash = Error
 nextState "pragma"          Hash = Pragma
 nextState _  _  = Null
 
@@ -181,7 +181,7 @@ runGetToken tstate = token : runGetToken ns
 getToken :: TokenizerState -> (Token, TokenizerState)
 
 getToken (C.uncons -> Nothing, _, _) = error "getToken: internal error"
-getToken (xs, off, state) = let token = fromJust $ 
+getToken (xs, off, state) = let token = fromJust $
                                             getTokenDirective xs state       `mplus`
                                             getTokenHeaderName xs state      `mplus`
                                             getTokenNumber xs state          `mplus`
@@ -195,20 +195,20 @@ getToken (xs, off, state) = let token = fromJust $
                                 (token { offset = off }, (xs', off + len + w, nextState(toString token) state))
 
 
-getTokenIdOrKeyword, getTokenNumber, 
-    getTokenHeaderName, getTokenString, 
-    getTokenChar, getTokenOpOrPunct, 
+getTokenIdOrKeyword, getTokenNumber,
+    getTokenHeaderName, getTokenString,
+    getTokenChar, getTokenOpOrPunct,
     getTokenDirective :: Source -> State -> Maybe Token
 
 
-getTokenDirective xs  state 
+getTokenDirective xs  state
     | state == Hash = Just (TokenDirective name 0)
     | otherwise = Nothing
                       where name = C.unpack $ C.takeWhile isIdentifierChar xs
 
-getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state 
+getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
     | state /= Include  = Nothing
-    | x == '<'          = Just $ TokenHeaderName (getLiteral '<'  '>'  False xs)   0 
+    | x == '<'          = Just $ TokenHeaderName (getLiteral '<'  '>'  False xs)   0
     | x == '"'          = Just $ TokenHeaderName (getLiteral '"'  '"'  False xs)   0
     | otherwise         = Just $ TokenHeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0
 
@@ -216,11 +216,11 @@ getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName: internal
 getTokenHeaderName _ _ = error "getTokenHeaderName: internal error"
 
 
-getTokenNumber ys@(C.uncons -> Just (x,_)) _   
-    | x == '.' || isDigit x  = let ts = getNumber ys NumberNothing in 
-                                case ts of 
-                                    ""     -> Nothing 
-                                    "."    -> Nothing 
+getTokenNumber ys@(C.uncons -> Just (x,_)) _
+    | x == '.' || isDigit x  = let ts = getNumber ys NumberNothing in
+                                case ts of
+                                    ""     -> Nothing
+                                    "."    -> Nothing
                                     _      -> Just $ TokenNumber ts 0
     | otherwise = Nothing
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
@@ -234,15 +234,15 @@ validOctSet   = S.fromList "01234567uUlL"
 validDecSet   = S.fromList "0123456789uUlL"
 validFloatSet = S.fromList "0123456789"
 
-data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberMayBeFloat | NumberFloat | NumberExp 
+data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberMayBeFloat | NumberFloat | NumberExp
                     deriving (Show,Eq,Enum)
 
 getNumber :: C.ByteString -> NumberState -> String
 -- getNumber xs s | trace ("state = " ++ show s) False = undefined
 
 getNumber (C.uncons -> Nothing) _ = ""
-getNumber (C.uncons -> Just (x,xs)) state 
-    |  state == NumberNothing = case () of _ 
+getNumber (C.uncons -> Just (x,xs)) state
+    |  state == NumberNothing = case () of _
                                                 | x == '0'  -> x : getNumber xs NumberOHF
                                                 | x == '.'  -> x : getNumber xs NumberMayBeFloat
                                                 | isDigit x -> x : getNumber xs NumberDec
@@ -270,12 +270,12 @@ getNumber (C.uncons -> Just (x,xs)) state
     |  state == NumberMayBeFloat = case () of _
                                                 | x `S.member` validDecSet   -> x : getNumber xs NumberFloat
                                                 | otherwise                  -> ""
-    
+
     |  state == NumberFloat = case () of _
                                                 | x `S.member` validFloatSet -> x : getNumber xs NumberFloat
                                                 | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
                                                 | otherwise                  -> ""
-    
+
     |  state == NumberExp = case () of _
                                                 | x `S.member` validDecSet   -> x : getNumber xs NumberExp
                                                 | x == '+' || x == '-'       -> x : getNumber xs NumberExp
@@ -299,7 +299,7 @@ getTokenChar _ _ = Nothing
 
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
-    | not $ isIdentifierChar x = Nothing 
+    | not $ isIdentifierChar x = Nothing
     | name `S.member` keywords = Just $ TokenKeyword name 0
     | otherwise                = Just $ TokenIdentifier name 0
                                     where name = C.unpack $ C.takeWhile isIdentifierChar xs
@@ -307,24 +307,24 @@ getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing
 
 
-getTokenOpOrPunct source _ = go source (min 4 (C.length source)) 
-    where go _ 0   
+getTokenOpOrPunct source _ = go source (min 4 (C.length source))
+    where go _ 0
             | C.length source > 0 = error $ "getTokenOpOrPunct: error near " ++ show source
             | otherwise = Nothing
-          go src len 
-            | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TokenOperOrPunct sub 0 
+          go src len
+            | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TokenOperOrPunct sub 0
             | otherwise = go src (len-1)
                 where sub = C.unpack (C.take len src)
-                                                                                                              
+
 
 getLiteral :: Char -> Char -> Bool -> C.ByteString -> String
 getLiteral _  _  _ (C.uncons -> Nothing)  = []
 getLiteral b e False ys@(C.uncons -> Just (x,xs))
     | x == b     =  b : getLiteral b e True xs
-    | otherwise  = error $ "getLiteral: error near " ++ C.unpack ys 
-getLiteral b e True (C.uncons -> Just (x,xs)) 
+    | otherwise  = error $ "getLiteral: error near " ++ C.unpack ys
+getLiteral b e True (C.uncons -> Just (x,xs))
     | x == e     = [e]
-    | x == '\\'  = '\\' : x' : getLiteral b e True xs' 
+    | x == '\\'  = '\\' : x' : getLiteral b e True xs'
     | otherwise  = x : getLiteral b e True xs
                     where
                         (C.uncons -> Just(x',xs')) = xs
@@ -332,30 +332,30 @@ getLiteral _  _ _ _ = []
 
 
 
-isIdentifierChar :: Char -> Bool 
-isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers 
+isIdentifierChar :: Char -> Bool
+isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers
 
 
-operOrPunct :: Array Int (S.Set String) 
+operOrPunct :: Array Int (S.Set String)
 operOrPunct =  listArray (1, 4) [ S.fromList [ "{","}","[","]","#","(",")",";",":","?",".","+","-","*",
                                                "/","%","^","&","|","~","!","=","<",">","," ],
-                                  S.fromList [ "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "+=", "-=", 
-                                               "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", ">=", "<=", 
-                                               "&&", "||", "==", "!=", "++", "--", "->", "//", "/*", "*/"],      
-                                  S.fromList [ "...", "<<=", ">>=", "->*"],   
+                                  S.fromList [ "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "+=", "-=",
+                                               "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", ">=", "<=",
+                                               "&&", "||", "==", "!=", "++", "--", "->", "//", "/*", "*/"],
+                                  S.fromList [ "...", "<<=", ">>=", "->*"],
                                   S.fromList [ "%:%:" ]]
 
 keywords :: S.Set String
-keywords = S.fromList ["alignas", "continue", "friend", "alignof", "decltype", "goto", "asm", 
-                       "default", "if", "auto", "delete", "inline", "bool", "do", "int", "break", 
-                       "double", "long", "case", "dynamic_cast", "mutable", "catch", "else", 
-                       "namespace", "char", "enum", "new", "char16_t", "explicit", "noexcept", 
-                       "char32_t", "export", "nullptr", "class", "extern", "operator", "const", 
-                       "false", "private", "constexpr", "float", "protected", "const_cast", "for", 
-                       "public", "register", "true", "reinterpret_cast", "try", "return", "typedef", 
-                       "short", "typeid", "signed", "typename", "sizeof", "union", "static", "unsigned", 
-                       "static_assert", "using", "static_cast", "virtual", "struct", "void", "switch", 
-                       "volatile", "template", "wchar_t", "this", "while", "thread_local", "throw", 
-                       "and", "and_eq", "bitand", "bitor", "compl", "not", "not_eq", "or", "or_eq", 
+keywords = S.fromList ["alignas", "continue", "friend", "alignof", "decltype", "goto", "asm",
+                       "default", "if", "auto", "delete", "inline", "bool", "do", "int", "break",
+                       "double", "long", "case", "dynamic_cast", "mutable", "catch", "else",
+                       "namespace", "char", "enum", "new", "char16_t", "explicit", "noexcept",
+                       "char32_t", "export", "nullptr", "class", "extern", "operator", "const",
+                       "false", "private", "constexpr", "float", "protected", "const_cast", "for",
+                       "public", "register", "true", "reinterpret_cast", "try", "return", "typedef",
+                       "short", "typeid", "signed", "typename", "sizeof", "union", "static", "unsigned",
+                       "static_assert", "using", "static_cast", "virtual", "struct", "void", "switch",
+                       "volatile", "template", "wchar_t", "this", "while", "thread_local", "throw",
+                       "and", "and_eq", "bitand", "bitor", "compl", "not", "not_eq", "or", "or_eq",
                        "xor", "xor_eq"]
-                        
+

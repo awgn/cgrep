@@ -21,13 +21,13 @@ module CGrep.Strategy.Cpp.Tokenizer (search) where
 import qualified Data.ByteString.Char8 as C
 import qualified CGrep.Strategy.Cpp.Token as Cpp
 
-import CGrep.Filter 
+import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
 import CGrep.Distance
 
-import Options 
+import Options
 import Debug
 
 import Data.List
@@ -35,35 +35,35 @@ import Data.List
 search :: CgrepFunction
 search opt ps f = do
 
-    let filename = getFileName f 
-    
-    text <- getText f 
-    
+    let filename = getFileName f
+
+    text <- getText f
+
     -- transform text
-    
+
     let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False}) $ text
-    
+
     -- parse source code, get the Cpp.Token list...
-    
+
     let tokens = Cpp.tokenizer text'
 
     -- context-filterting...
-       
-    let tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt, 
+
+    let tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
                                                            Cpp.filtDirective  = directive opt,
                                                            Cpp.filtKeyword    = keyword opt,
-                                                           Cpp.filtHeader     = header opt, 
+                                                           Cpp.filtHeader     = header opt,
                                                            Cpp.filtString     = string opt,
                                                            Cpp.filtNumber     = number opt,
                                                            Cpp.filtChar       = char opt,
                                                            Cpp.filtOper       = oper opt}) tokens
 
     -- filter tokens...
-        
-    let tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'  
+
+    let tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
 
     -- convert Cpp.Tokens to CGrep.Tokens
-    
+
     let matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
@@ -73,12 +73,12 @@ search opt ps f = do
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches
 
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
-    
+
     return $ mkOutput opt filename text matches
-        
+
 
 cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]
-cppTokenFilter opt patterns tokens 
+cppTokenFilter opt patterns tokens
     | edit_dist  opt = filter (\t -> any (\p -> p ~== Cpp.toString t) patterns) tokens
     | word_match opt = filter ((`elem` patterns) . Cpp.toString) tokens
     | otherwise      = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens

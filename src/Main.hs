@@ -29,7 +29,7 @@ import Control.Concurrent
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 
-import Control.Monad 
+import Control.Monad
 import Control.Applicative
 
 import System.Console.CmdArgs
@@ -55,7 +55,7 @@ import qualified Data.ByteString.Char8 as C
 
 putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> IO ()
 putRecursiveContents opts inchan topdir langs prunedir = do
-    dir <-  doesDirectoryExist topdir 
+    dir <-  doesDirectoryExist topdir
     if dir then do
             names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents topdir
             forM_ names $ \n -> do
@@ -63,9 +63,9 @@ putRecursiveContents opts inchan topdir langs prunedir = do
                 let filename = takeFileName path
                 isDirectory <- doesDirectoryExist path
                 if isDirectory
-                    then unless (filename `elem` prunedir) $ 
+                    then unless (filename `elem` prunedir) $
                          putRecursiveContents opts inchan path langs prunedir
-                    else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of 
+                    else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
                             Nothing -> return ()
                             _       -> atomically $ writeTChan inchan (Just path)
            else atomically $ writeTChan inchan (Just topdir)
@@ -74,57 +74,57 @@ putRecursiveContents opts inchan topdir langs prunedir = do
 -- read patterns from file
 
 readPatternsFromFile :: FilePath -> IO [C.ByteString]
-readPatternsFromFile f = 
+readPatternsFromFile f =
     if null f then return []
-              else liftM C.words $ C.readFile f 
+              else liftM C.words $ C.readFile f
 
 
 
 main :: IO ()
 main = do
-    
-    -- read command-line options 
+
+    -- read command-line options
     opts  <- cmdArgsRun options
-   
+
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
     putStrLevel1 (debug opts) $ "options   : " ++ show opts
-    
+
     -- check for multiple backends...
-    
-    when (length (catMaybes [ 
+
+    when (length (catMaybes [
 #ifdef ENABLE_HINT
                 hint opts,
-#endif                
-                format opts, 
-                if xml opts  then Just "" else Nothing, 
+#endif
+                format opts,
+                if xml opts  then Just "" else Nothing,
                 if json opts then Just "" else Nothing
                ]) > 1) $ error "you can use one back-end at time!"
 
     -- display lang-map...
-    when (lang_map opts) $ dumpLangMap langMap >> exitSuccess 
+    when (lang_map opts) $ dumpLangMap langMap >> exitSuccess
 
     -- check whether patterns list is empty, display help message if it's the case
-    when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)  
+    when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)
 
     -- read Cgrep config options
-    conf  <- getConfigOptions 
+    conf  <- getConfigOptions
 
     -- load patterns:
     patterns <- (if null $ file opts then return [C.pack $ head $ others opts]
                                      else readPatternsFromFile $ file opts ) >>= \ps ->
-                    return $ if ignore_case opts 
-                                then map (C.map toLower) ps 
+                    return $ if ignore_case opts
+                                then map (C.map toLower) ps
                                 else ps
 
 
-    -- check whether is a terminal device 
-    
+    -- check whether is a terminal device
+
     isTerm <- hIsTerminalDevice stdin
 
     -- retrieve files to parse
 
     let tailOpts = tail $ others opts
-    
+
     let paths = if null $ file opts then if null tailOpts && isTerm then ["."] else tailOpts
                                     else others opts
 
@@ -136,36 +136,36 @@ main = do
 
     let lang_enabled = (if null l0 then languages conf else l0 `union` l1) \\ l2
 
-    putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled 
+    putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
     putStrLevel1 (debug opts) $ "files     : " ++ show paths
-    putStrLevel1 (debug opts) $ "isTerm    : " ++ show isTerm 
+    putStrLevel1 (debug opts) $ "isTerm    : " ++ show isTerm
 
     -- create Transactional Chan and Vars...
-   
-    in_chan  <- newTChanIO 
+
+    in_chan  <- newTChanIO
     out_chan <- newTChanIO
-    
+
     -- launch worker threads...
 
-    forM_ [1 .. jobs opts] $ \_ -> forkIO $ 
-        fix (\action -> do 
+    forM_ [1 .. jobs opts] $ \_ -> forkIO $
+        fix (\action -> do
                 f <- atomically $ readTChan in_chan
-                E.catch 
-                    (case f of 
+                E.catch
+                    (case f of
                         Nothing -> atomically $ writeTChan out_chan []
                         Just f' -> do
-                            out <- let op = sanitizeOptions f' opts in 
-                                       liftM (take (max_count opts)) $ 
-                                        cgrepDispatch op op patterns $ guard (f' /= "") >> Just f' 
+                            out <- let op = sanitizeOptions f' opts in
+                                       liftM (take (max_count opts)) $
+                                        cgrepDispatch op op patterns $ guard (f' /= "") >> Just f'
                             unless (null out) $ atomically $ writeTChan out_chan out
-                            action ) 
+                            action )
                     (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ " -> " ++ if length msg > 80 then take 80 msg ++ "..." else msg) >> action )
-            )   
+            )
 
 
     -- push the files to grep for...
-    
+
     _ <- forkIO $ do
 
         if recursive opts
@@ -173,7 +173,7 @@ main = do
             else do
                 files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)
-    
+
         -- enqueue EOF messages:
 
         replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
@@ -184,7 +184,7 @@ main = do
 
     let stop = jobs opts
 
-    fix (\action n m -> 
+    fix (\action n m ->
          unless (n == stop) $ do
                  out <- atomically $ readTChan out_chan
                  case out of
@@ -193,10 +193,10 @@ main = do
                           case () of
                             _ | json opts -> when m $ putStrLn ","
                               | otherwise -> return ()
-                          xs <- prettyOutput opts out 
-                          mapM_ putStrLn xs 
+                          xs <- prettyOutput opts out
+                          mapM_ putStrLn xs
                           action n True
         )  0 False
 
     putPrettyFooter opts
-    
+

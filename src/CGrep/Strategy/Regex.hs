@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE FlexibleContexts #-} 
+{-# LANGUAGE FlexibleContexts #-}
 
 module CGrep.Strategy.Regex (search) where
 
@@ -25,31 +25,31 @@ import qualified Data.ByteString.Char8 as C
 import Text.Regex.Posix
 import Data.Array
 
-import CGrep.Filter 
+import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
 
-import Options 
+import Options
 import Debug
- 
 
- 
+
+
 search :: CgrepFunction
 search opt ps f = do
 
-    let filename = getFileName f 
-    
-    text <- getText f 
-    
+    let filename = getFileName f
+
+    text <- getText f
+
     -- transform text
-    
+
     let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
-    
+
     -- search for matching tokens
-    
-    let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ ps >>= (\p -> text' =~ p :: [MatchText C.ByteString]) >>= assocs 
-    
+
+    let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ ps >>= (\p -> text' =~ p :: [MatchText C.ByteString]) >>= assocs
+
     putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"

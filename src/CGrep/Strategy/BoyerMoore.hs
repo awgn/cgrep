@@ -24,14 +24,14 @@ import qualified Data.ByteString.Search as SC
 
 import CGrep.Common
 import CGrep.Output
-import CGrep.Filter 
+import CGrep.Filter
 import CGrep.Lang
 
 import qualified CGrep.Token as T
 
 -- import Control.Monad
 
-import Options 
+import Options
 import Debug
 
 import Control.Arrow as A
@@ -39,26 +39,26 @@ import Control.Arrow as A
 search :: CgrepFunction
 search opt ps f = do
 
-    let filename = getFileName f 
-     
+    let filename = getFileName f
+
     text <- getText f
-    
+
     -- transform text
-    
+
     let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
 
     -- search for matching tokens
-    
-    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text')) 
+
+    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'))
 
     -- filter exact matching tokens
 
-    let tokens' = if word_match opt then filter (T.isCompleteToken text') tokens 
+    let tokens' = if word_match opt then filter (T.isCompleteToken text') tokens
                                     else tokens
 
     putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 
-    return $ mkOutput opt filename text tokens'  
+    return $ mkOutput opt filename text tokens'
 

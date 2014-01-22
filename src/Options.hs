@@ -22,20 +22,20 @@ module Options where
 
 import Data.Data
 
-data Options = Options 
+data Options = Options
                {
                 -- Pattern:
                 file        :: String,
                 word_match  :: Bool,
                 regex       :: Bool,
                 ignore_case :: Bool,
-                edit_dist   :: Bool,                
+                edit_dist   :: Bool,
 
                 -- Context:
                 code        :: Bool,
                 comment     :: Bool,
                 literal     :: Bool,
-                
+
                 -- C/C++ Token:
                 identifier  :: Bool,
                 keyword     :: Bool,
