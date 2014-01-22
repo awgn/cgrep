@@ -20,7 +20,7 @@
 
 module CGrep.Template where
 
-import CGrep.FilterData
+import CGrep.Context
 
 import Data.List
 import Language.Haskell.TH

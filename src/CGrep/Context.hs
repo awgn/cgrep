@@ -15,15 +15,15 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
- 
-module CGrep.FilterData where
+
+module CGrep.Context where
 
 
 data Context = Code | Comment | Literal
                 deriving (Eq, Show)
 
 
-data FiltState = FiltState 
+data FiltState = FiltState
                  {
                     cstate  :: ContextState,
                     cfilter :: ContextFilter,
@@ -33,14 +33,14 @@ data FiltState = FiltState
 
 data ContextFilter = ContextFilter { getCode    :: Bool,
                                      getComment :: Bool,
-                                     getLiteral :: Bool 
+                                     getLiteral :: Bool
                      } deriving (Eq, Show)
 
 
-data ContextState = StateCode       | 
-                    StateComment    | 
-                    StateComment2   | 
-                    StateComment3   | 
+data ContextState = StateCode       |
+                    StateComment    |
+                    StateComment2   |
+                    StateComment3   |
                     StateLiteral    |
                     StateLiteral2
                         deriving (Eq, Show)

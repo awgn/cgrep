@@ -23,7 +23,7 @@ module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFil
 import CGrep.Common (Text8)
 
 import CGrep.Template
-import CGrep.FilterData
+import CGrep.Context
 import CGrep.Lang
 import Options
 
