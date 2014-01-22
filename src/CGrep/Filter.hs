@@ -129,6 +129,7 @@ parserStateMap = Map.fromList [
     (C,          mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Cpp,        mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Csharp,     mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Chapel,     mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (D,          mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Go,         mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Java,       mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
