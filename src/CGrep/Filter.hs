@@ -155,6 +155,7 @@ parserStateMap = Map.fromList [
 
     (Erlang,     mkParserState [("%", "\n")]    [("\"", "\"")] ),
     (Latex,      mkParserState [("%", "\n")]    [("\"", "\"")] ),
+    (Lua,        mkParserState [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] ),
 
     (Html,       mkParserState [("<!--", "-->")]  [("\"", "\"")] ),
     (Vim,        mkParserState [("\"", "\n")]     [("'", "'")] ),
