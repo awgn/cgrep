@@ -2,10 +2,10 @@
 #
 
 # Using hint generates a large binary...
-GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp -DENABLE_HINT
+# GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp -DENABLE_HINT
 
 # Light version
-# GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp 
+GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp
 
 
 INSTDIR=/usr/local
@@ -14,12 +14,12 @@ HC=ghc
 
 .PHONY: all clean install cgrep
 
-all: cgrep 
+all: cgrep
 
 SRC = Main.hs
 
 
-cgrep: $(SRC) 
+cgrep: $(SRC)
 		@mkdir -p ../bin/
 		$(HC) $(GHCFLAGS) $< -o ../bin/$@
 

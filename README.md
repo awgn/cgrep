@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 4.6 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 5.0 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -41,7 +41,7 @@ Output control:
     -N --no-line-umber         suppress the line number on output lines
        --lang=ITEM             specify languages to grep for. ie: Cpp, +Haskell,
                                -Makefile
-       --lang-map              print the list of language mapping
+       --lang-maps             lists the language mapping
        --force-language=ITEM   force the language
     -j --jobs=INT              number of jobs
        --multiline=INT         enable multi-line matching
