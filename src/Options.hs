@@ -51,7 +51,7 @@ data Options = Options
                 no_filename    :: Bool,
                 no_linenumber  :: Bool,
                 lang           :: [String],
-                lang_map       :: Bool,
+                lang_maps      :: Bool,
                 force_language :: Maybe String,
 
                 -- General:

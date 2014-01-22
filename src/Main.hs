@@ -101,7 +101,7 @@ main = do
                ]) > 1) $ error "you can use one back-end at time!"
 
     -- display lang-map...
-    when (lang_map opts) $ dumpLangMap langMap >> exitSuccess
+    when (lang_maps opts) $ dumpLangMap langMap >> exitSuccess
 
     -- check whether patterns list is empty, display help message if it's the case
     when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)
