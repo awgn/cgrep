@@ -12,4 +12,6 @@
 
     puts "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
     puts 'Sed etiam a suspendisse. \'Aliquam nulla erat risus.\'';
-
+    puts %q(Sed etiam a suspendisse. 'Aliquam nulla erat risus.')
+    puts %Q(Sed etiam a suspendisse. 'Aliquam nulla erat risus.')
+    puts  %|Sed etiam a suspendisse. 'Aliquam nulla erat risus.'|

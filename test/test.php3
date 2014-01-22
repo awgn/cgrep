@@ -17,6 +17,7 @@
 
 <?php
 echo "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\""; 
+echo 'Sed etiam a suspendisse. "Aliquam nulla erat risus."'; 
 ?>
 
 

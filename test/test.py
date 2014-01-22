@@ -4,8 +4,10 @@
 # 
 
 print """Sed etiam a suspendisse. \"Aliquam nulla erat risus. """
+print '''Sed etiam a suspendisse. "Aliquam nulla erat risus. '''
 
 print "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
+print 'Sed etiam a suspendisse. "Aliquam nulla erat risus."';
 
 
 

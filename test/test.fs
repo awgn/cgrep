@@ -12,4 +12,5 @@
 
  
  printfn "%s" "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
+ printfn "%s" @"Sed etiam a suspendisse. ""Aliquam nulla erat risus.""";
 
