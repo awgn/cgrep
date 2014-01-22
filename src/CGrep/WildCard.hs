@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.WildCard (WildCard(..), MultiCard, GenericToken(..), 
+module CGrep.WildCard (WildCard(..), MultiCard, GenericToken(..),
                        filterTokensWithMultiCards,
                        wildCardMatch,
                        multiCardMatch) where
@@ -28,7 +28,7 @@ import CGrep.Distance
 
 import Data.Char
 import Data.List
-import Options 
+import Options
 
 class (Show t, Ord t) => GenericToken t where
     tkIsIdentifier :: t -> Bool
@@ -48,21 +48,21 @@ data WildCard a =  TokenCard a          |
                    HexCard              |
                    StringCard           |
                    CharCard             |
-                   IdentifCard String 
-                       deriving (Show, Eq, Ord)      
+                   IdentifCard String
+                       deriving (Show, Eq, Ord)
 
 type MultiCard a = [WildCard a]
 
 
 filterTokensWithMultiCards :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> [a]
-filterTokensWithMultiCards opt ws ts = filterTokensWithMultiCards' opt (spanOptionalCards ws) ts
+filterTokensWithMultiCards opt ws = filterTokensWithMultiCards' opt (spanOptionalCards ws)
 
 
 filterTokensWithMultiCards' :: (GenericToken a) => Options -> [[MultiCard a]] -> [a] -> [a]
 filterTokensWithMultiCards' _ [] _ = []
-filterTokensWithMultiCards' opt (g:gs) ts = 
-    concatMap (take grpLen . (`drop` ts)) (findIndices (multiCardCompare opt g) grp) ++ 
-        filterTokensWithMultiCards' opt gs ts 
+filterTokensWithMultiCards' opt (g:gs) ts =
+    concatMap (take grpLen . (`drop` ts)) (findIndices (multiCardCompare opt g) grp) ++
+        filterTokensWithMultiCards' opt gs ts
     where grp    = spanGroup grpLen ts
           grpLen = length g
 
@@ -70,9 +70,9 @@ filterTokensWithMultiCards' opt (g:gs) ts =
 spanOptionalCards :: [MultiCard a] -> [[MultiCard a]]
 spanOptionalCards wc = map (`filterCardIndicies` wc') idx
     where wc' = zip [0..] wc
-          idx = subsequences $ 
-                findIndices (\w -> case w of 
-                                    [IdentifCard ('$':_)] -> True  
+          idx = subsequences $
+                findIndices (\w -> case w of
+                                    [IdentifCard ('$':_)] -> True
                                     _ -> False) wc
 
 
@@ -81,26 +81,26 @@ filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
 multiCardCompare :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> Bool
-multiCardCompare opt l r = 
+multiCardCompare opt l r =
     multiCardCompareAll ts && multiCardCheckOccurences ts
-        where ts = multiCardGroupCompare opt l r               
+        where ts = multiCardGroupCompare opt l r
 
 
 {-# INLINE multiCardCompareAll #-}
 
 multiCardCompareAll :: [(Bool, (MultiCard a, [String]))] -> Bool
-multiCardCompareAll = all fst 
+multiCardCompareAll = all fst
 
 
 {-# INLINE multiCardCheckOccurences #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
---       that must compare equal in the relative occurrences  
---       
+--       that must compare equal in the relative occurrences
+--
 
 multiCardCheckOccurences :: (GenericToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
-multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m  
-        where m =  M.mapWithKey (\k xs -> case k of 
+multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
+        where m =  M.mapWithKey (\k xs -> case k of
                                                 [IdentifCard "_0"]  -> xs
                                                 [IdentifCard "_1"]  -> xs
                                                 [IdentifCard "_2"]  -> xs
@@ -123,22 +123,22 @@ multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True 
                                                 [IdentifCard "$9"]  -> xs
                                                 _                   -> []
                                   ) $ M.fromListWith (++) (map snd ts)
-        
+
 
 multiCardGroupCompare :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> [(Bool, (MultiCard a, [String]))]
-multiCardGroupCompare opt ls rs 
+multiCardGroupCompare opt ls rs
     | length rs >= length ls = zipWith (tokensZip opt) ls rs
     | otherwise              = [ (False, ([AnyCard], [])) ]
 
 
 tokensZip :: (GenericToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
-tokensZip opt l r 
+tokensZip opt l r
     |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
     |  otherwise             =  (False, ([AnyCard],[] ))
 
 
 multiCardMatch :: (GenericToken t) => Options ->  MultiCard t -> t -> Bool
-multiCardMatch opt m t = any (\w -> wildCardMatch opt w t) m 
+multiCardMatch opt m t = any (\w -> wildCardMatch opt w t) m
 
 
 wildCardMatch :: (GenericToken t) => Options ->  WildCard t -> t -> Bool
@@ -146,20 +146,20 @@ wildCardMatch _  AnyCard _          = True
 wildCardMatch _  (IdentifCard _) t  = tkIsIdentifier t
 wildCardMatch _  KeyWordCard     t  = tkIsKeyword t
 wildCardMatch _  StringCard      t  = tkIsString t
-wildCardMatch _  CharCard        t  = tkIsChar t 
+wildCardMatch _  CharCard        t  = tkIsChar t
 wildCardMatch _  NumberCard      t  = tkIsNumber t
-wildCardMatch _  OctCard         t  = tkIsNumber t && case (tkToString t) of ('0':d: _)  -> isDigit d; _ -> False
-wildCardMatch _  HexCard         t  = tkIsNumber t && case (tkToString t) of ('0':'x':_) -> True; _     -> False
+wildCardMatch _  OctCard         t  = tkIsNumber t && case tkToString t of ('0':d: _)  -> isDigit d; _ -> False
+wildCardMatch _  HexCard         t  = tkIsNumber t && case tkToString t of ('0':'x':_) -> True; _     -> False
 
 wildCardMatch opt (TokenCard l) r
     | tkIsIdentifier l && tkIsIdentifier r = case () of
                                                 _ | edit_dist  opt -> tkToString l ~== tkToString r
                                                   | word_match opt -> tkToString l ==  tkToString r
                                                   | otherwise      -> tkToString l `isInfixOf` tkToString r
-    | tkIsString l && tkIsString r = case () of 
+    | tkIsString l && tkIsString r = case () of
                                         _ | edit_dist  opt -> tkToString l ~== tkToString r
                                           | word_match opt -> tkToString l ==  tkToString r
                                           | otherwise      -> trim (tkToString l) `isInfixOf` tkToString r
-    | otherwise  = l `tkEquivalent` r 
+    | otherwise  = l `tkEquivalent` r
         where trim = init . tail
 

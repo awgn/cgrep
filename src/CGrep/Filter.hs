@@ -16,9 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE BangPatterns #-}
 
 module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
 
@@ -93,13 +91,13 @@ nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
                                     in if C.head end == x && C.tail end `C.isPrefixOf` xs
                                             then (CodeState,   codefilt, C.length end - 1)
                                             else (LitrState n, litrfilt, 0)
-nextParserState _ (_,_) (ContextFilter _ _ _) = undefined
+nextParserState _ (_,_) ContextFilter {} = undefined
 
 
 {-# INLINE findBoundary #-}
 
 findBoundary :: (Char, C.ByteString) -> [Boundary] -> Maybe Int
-findBoundary (x,xs) bounds =  findIndex (\(b,_) -> (C.head b) == x && (C.tail b) `C.isPrefixOf` xs) bounds
+findBoundary (x,xs) =  findIndex (\(b,_) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
 
 
 -- filter language map:
