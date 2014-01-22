@@ -7,7 +7,7 @@ ConfigOptions
     languages = [Awk, C, Cpp, Csharp, Chapel, Css, CMake, D, Erlang, Fsharp, Go, 
                  Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, 
                  ObjectiveC , Perl, PHP , Python, Ruby, Scala, Tcl, Shell, 
-                 Verilog, Vim ],
+                 Verilog, VHDL, Vim ],
     
     pruneDirs = [".svn", ".git", "CMakeFiles" ] 
 } 

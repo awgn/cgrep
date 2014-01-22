@@ -30,7 +30,7 @@ import Util
 
 data Lang = Awk | C | Cpp | Csharp | Chapel | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
                 Html | Java | Javascript | Latex | Lua | Make | OCaml | ObjectiveC |
-                Perl | PHP | Python | Ruby | Scala | Tcl | Shell | Verilog | Vim
+                Perl | PHP | Python | Ruby | Scala | Tcl | Shell | Verilog | VHDL | Vim
                     deriving (Read, Show, Eq, Ord, Bounded)
 
 
@@ -76,6 +76,7 @@ langMap = Map.fromList [
             (Tcl,       [Ext "tcl", Ext "tk"]),
             (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]),
             (Verilog,   [Ext "v", Ext "vh", Ext "sv"]),
+            (VHDL,      [Ext "vhd", Ext "vhdl"]),
             (Vim,       [Ext "vim"])
           ]
 

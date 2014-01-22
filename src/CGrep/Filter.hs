@@ -137,6 +137,7 @@ parserStateMap = Map.fromList [
     (ObjectiveC, mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Scala,      mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Verilog,    mkParserState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (VHDL,       mkParserState [("--", "\n")] [("\"", "\"")] ),
 
     (Haskell,    mkParserState [("{-", "-}"), ("--", "\n")]         [("\"", "\""), ("[r|", "|]")] ),
     (Fsharp,     mkParserState [("(*", "*)"), ("//", "\n")]         [("\"", "\"")] ),
