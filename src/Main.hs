@@ -84,6 +84,7 @@ main :: IO ()
 main = do
 
     -- read command-line options
+
     opts  <- cmdArgsRun options
 
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
@@ -101,15 +102,19 @@ main = do
                ]) > 1) $ error "you can use one back-end at time!"
 
     -- display lang-map...
+
     when (lang_maps opts) $ dumpLangMap langMap >> exitSuccess
 
     -- check whether patterns list is empty, display help message if it's the case
+
     when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)
 
     -- read Cgrep config options
-    conf  <- getConfigOptions
+
+    conf  <- getConfig
 
     -- load patterns:
+
     patterns <- (if null $ file opts then return [C.pack $ head $ others opts]
                                      else readPatternsFromFile $ file opts ) >>= \ps ->
                     return $ if ignore_case opts

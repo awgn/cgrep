@@ -2,7 +2,7 @@
 # config file...
 # 
 
-ConfigOptions 
+Config 
 {
     languages = [Awk, C, Cpp, Csharp, Chapel, Css, CMake, D, Erlang, Fsharp, Go, 
                  Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, 

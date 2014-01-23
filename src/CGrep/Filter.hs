@@ -79,10 +79,10 @@ nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | CodeState    <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                        lindex = findBoundary (x,xs) (litrBound s)
                                    in
-                                   fromJust (
+                                   fromJust $
                                         (cindex >>= \n -> Just (CommState n, codefilt, C.length ( fst (commBound s !! n) ) - 1 )) <|>
                                         (lindex >>= \n -> Just (LitrState n, codefilt, C.length ( fst (litrBound s !! n) ) - 1 )) <|>
-                                                          Just (CodeState  , codefilt, 0))
+                                                          Just (CodeState  , codefilt, 0)
     | CommState n <- cxtState s = let (_,end) = commBound s !! n
                                     in if C.head end == x && C.tail end `C.isPrefixOf` xs
                                             then (CodeState,   codefilt, C.length end - 1)

@@ -45,7 +45,7 @@ prettyRead :: Read a => String -> String -> a
 prettyRead xs err =
     case value of
         Just v -> v
-        _      -> error $ "cgrep: parse error near '" ++ xs ++ "': reason (" ++ err ++ ")"
+        _      -> error $ err ++ ": parse error near " ++ show(take 40 xs)
         where value = readMaybe xs
 
 
