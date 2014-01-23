@@ -113,8 +113,8 @@ combineMultiCard :: [MultiCard Cpp.Token] -> [MultiCard Cpp.Token]
 combineMultiCard (m1:m2:m3:ms)
     | [TokenCard (Cpp.TokenIdentifier {Cpp.toString = "OR"})] <- m2 =  combineMultiCard $ (m1++m3):ms
     | otherwise             =  m1 : combineMultiCard (m2:m3:ms)
-combineMultiCard [m1,m2]      =  [m1,m2]
-combineMultiCard [m1]         =  [m1]
-combineMultiCard []           =  []
+combineMultiCard [m1,m2]    =  [m1,m2]
+combineMultiCard [m1]       =  [m1]
+combineMultiCard []         =  []
 
 

@@ -153,13 +153,17 @@ wildCardMatch _  HexCard         t  = tkIsNumber t && case tkToString t of ('0':
 
 wildCardMatch opt (TokenCard l) r
     | tkIsIdentifier l && tkIsIdentifier r = case () of
-                                                _ | edit_dist  opt -> tkToString l ~== tkToString r
-                                                  | word_match opt -> tkToString l ==  tkToString r
-                                                  | otherwise      -> tkToString l `isInfixOf` tkToString r
+                                                _ | edit_dist  opt   -> tkToString l ~== tkToString r
+                                                  | word_match opt   -> tkToString l ==  tkToString r
+                                                  | prefix_match opt -> tkToString l `isPrefixOf`  tkToString r
+                                                  | suffix_match opt -> tkToString l `isSuffixOf`  tkToString r
+                                                  | otherwise        -> tkToString l `isInfixOf` tkToString r
     | tkIsString l && tkIsString r = case () of
-                                        _ | edit_dist  opt -> tkToString l ~== tkToString r
-                                          | word_match opt -> tkToString l ==  tkToString r
-                                          | otherwise      -> trim (tkToString l) `isInfixOf` tkToString r
+                                        _ | edit_dist  opt   -> tkToString l ~== tkToString r
+                                          | word_match opt   -> tkToString l ==  tkToString r
+                                          | prefix_match opt -> tkToString l `isPrefixOf` tkToString r
+                                          | suffix_match opt -> tkToString l `isSuffixOf` tkToString r
+                                          | otherwise        -> trim (tkToString l) `isInfixOf` tkToString r
     | otherwise  = l `tkEquivalent` r
         where trim = init . tail
 

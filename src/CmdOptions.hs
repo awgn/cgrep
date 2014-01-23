@@ -23,19 +23,21 @@ import System.Console.CmdArgs
 import Options
 
 version :: String
-version = "5.1"
+version = "5.2"
 
 options = cmdArgsMode $ Options
           {
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
                 word_match  = False        &= help "force word matching" &=explicit &= name "word" &= name "w",
+                prefix_match  = False      &= help "force prefix matching" &=explicit &= name "prefix" &= name "p",
+                suffix_match  = False      &= help "force suffix matching" &=explicit &= name "suffix" &= name "s",
                 edit_dist   = False        &= help "use edit distance" &=explicit &= name "edit" &= name "e",
                 regex = False              &= help "regex matching" &= explicit &= name "G" &=name "regex",
                 ignore_case = False        &= help "ignore case distinctions",
 
-                code = False               &= help "search in source code"     &= explicit &= name "c" &= name "code" &= groupname "\nContext filters (generic)",
-                comment = False            &= help "search in comments"        &= explicit &= name "m" &= name "comment",
-                literal = False            &= help "search in string literals" &= explicit &= name "l" &= name "literal",
+                code = False               &= help "enable search in source code"     &= explicit &= name "c" &= name "code" &= groupname "\nContext filters (generic)",
+                comment = False            &= help "enable search in comments"        &= explicit &= name "m" &= name "comment",
+                literal = False            &= help "enable search in string literals" &= explicit &= name "l" &= name "literal",
 
                 identifier = False         &= help "identifiers" &= explicit &= name "identifier" &= groupname "\nC/C++ language",
                 keyword = False            &= help "keywords" &= explicit &= name "keyword",
@@ -49,7 +51,7 @@ options = cmdArgsMode $ Options
 
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",
-                lang = []                  &= help "specify languages to grep for. ie: Cpp, +Haskell, -Makefile",
+                lang = []                  &= help "specify languages. ie: Cpp, +Haskell, -Makefile",
                 lang_maps = False          &= help "lists the language mappings",
                 force_language = Nothing   &= help "force the language" &= explicit &= name "force-language",
 
@@ -59,14 +61,14 @@ options = cmdArgsMode $ Options
                 jobs   = 1                 &= help "number of jobs",
                 multiline = 1              &= help "enable multi-line matching",
                 recursive = False          &= help "enable recursive search",
-                invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match",
+                invert_match = False       &= help "select non-matching lines" &= explicit &= name "invert-match" &= name "v",
                 show_match = False         &= help "show list of matching tokens" &= explicit &= name "show-match",
                 color = False              &= help "use colors to highlight the matching strings" &= explicit &= name "color",
 
+                format = Nothing &= typ "STRING" &= help "format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format",
 #ifdef ENABLE_HINT
                 hint = Nothing  &= typ "STRING" &= help "haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint",
 #endif
-                format = Nothing &= typ "STRING" &= help "format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format",
                 json = False               &= help "format output as json object" &= explicit &= name "json",
                 xml = False                &= help "format output as xml document" &= explicit &= name "xml",
 

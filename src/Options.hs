@@ -27,9 +27,11 @@ data Options = Options
                 -- Pattern:
                 file        :: String,
                 word_match  :: Bool,
-                regex       :: Bool,
-                ignore_case :: Bool,
+                prefix_match:: Bool,
+                suffix_match:: Bool,
                 edit_dist   :: Bool,
+                ignore_case :: Bool,
+                regex       :: Bool,
 
                 -- Context:
                 code        :: Bool,

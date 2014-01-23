@@ -79,8 +79,10 @@ search opt ps f = do
 
 cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]
 cppTokenFilter opt patterns tokens
-    | edit_dist  opt = filter (\t -> any (\p -> p ~== Cpp.toString t) patterns) tokens
-    | word_match opt = filter ((`elem` patterns) . Cpp.toString) tokens
-    | otherwise      = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
+    | edit_dist    opt = filter (\t -> any (\p -> p ~== Cpp.toString t) patterns) tokens
+    | word_match   opt = filter ((`elem` patterns) . Cpp.toString) tokens
+    | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . Cpp.toString) tokens
+    | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Cpp.toString) tokens
+    | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
 
 

@@ -22,10 +22,13 @@ module CGrep.Strategy.BoyerMoore (search) where
 import qualified Data.ByteString.Char8  as C
 import qualified Data.ByteString.Search as SC
 
+import Data.List
+
 import CGrep.Common
 import CGrep.Output
 import CGrep.Filter
 import CGrep.Lang
+import CGrep.Types
 
 import qualified CGrep.Token as T
 
@@ -53,12 +56,23 @@ search opt ps f = do
 
     -- filter exact matching tokens
 
-    let tokens' = if word_match opt then filter (T.isCompleteToken text') tokens
-                                    else tokens
+    let tokens' = if word_match opt || prefix_match opt || suffix_match opt
+                    then filter (checkToken opt text') tokens
+                    else tokens
 
     putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 
     return $ mkOutput opt filename text tokens'
+
+
+checkToken :: Options -> Text8 -> (Offset, String) -> Bool
+checkToken opt text (off, tok)
+     | word_match    opt = tok `elem` ts
+     | prefix_match  opt = any (tok `isPrefixOf`) ts
+     | suffix_match  opt = any (tok `isSuffixOf`) ts
+     where ts = T.tokens $ C.take (length tok + delta + 2) $ C.drop (off - delta) text
+           delta = 10
+
 

@@ -19,11 +19,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 
-module CGrep.Token (tokens, tokenizer, isCompleteToken) where
+module CGrep.Token (tokens, tokenizer) where
 
 import qualified Data.ByteString.Char8 as C
 
 import Data.Char
+
 import CGrep.Types
 
 
@@ -40,12 +41,6 @@ data TokenAccum = TokenAccum !TokenState !Offset String [Token]
 
 isCharNumber :: Char -> Bool
 isCharNumber c = isHexDigit c || c == '.' || c == 'x' || c == 'X'
-
-
-isCompleteToken:: Text8 -> (Offset, String) -> Bool
-isCompleteToken text (off, tok) = tok `elem` ts
-    where ts = tokens $ C.take (length tok + extra + 2) $ C.drop (off - extra) text
-          extra = 10
 
 
 tokens :: Text8 -> [String]
@@ -88,6 +83,5 @@ tokenizer xs = (\(TokenAccum _  off acc out) -> if null acc then out else revers
                    | isDigit x                ->  if acc == "." then TokenAccum TokenDigit (off+1) (x : ".") out
                                                                 else TokenAccum TokenDigit (off+1) [x] (mkToken off acc : out)
                    | otherwise                ->  TokenAccum TokenOther (off+1) (x : acc) out
-
 
 
