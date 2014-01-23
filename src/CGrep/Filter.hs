@@ -50,7 +50,7 @@ mkContextFilter opt = if not (code opt || comment opt || literal opt)
                        else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
 
 
-type FilterFunction = ContextFilter -> C.ByteString -> B.Builder
+type FilterFunction = ContextFilter -> Text8 -> B.Builder
 
 
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
@@ -65,7 +65,7 @@ contextFilter (Just language) filt src
 -- genericParser:
 --
 
-genericParser :: ParState -> ContextFilter -> C.ByteString -> B.Builder
+genericParser :: ParState -> ContextFilter -> Text8 -> B.Builder
 genericParser s  filt (C.uncons -> Just (x,xs))
     | skip s > 0 = B.char8 (if isSpace x || display s then x else ' ') <> genericParser s { skip = skip s -1 } filt xs
     | otherwise  = let (nstate, d, n) = nextParserState s (x,xs) filt
@@ -73,7 +73,7 @@ genericParser s  filt (C.uncons -> Just (x,xs))
 genericParser _ _ _ = mempty
 
 
-nextParserState :: ParState -> (Char,C.ByteString) -> ContextFilter -> (ContextState, Bool, Int)
+nextParserState :: ParState -> (Char,Text8) -> ContextFilter -> (ContextState, Bool, Int)
 nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | x == '\\'                  = (cxtState s, False, 1)
     | CodeState    <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
@@ -96,7 +96,7 @@ nextParserState _ (_,_) ContextFilter {} = undefined
 
 {-# INLINE findBoundary #-}
 
-findBoundary :: (Char, C.ByteString) -> [Boundary] -> Maybe Int
+findBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
 findBoundary (x,xs) =  findIndex (\(b,_) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
 
 
@@ -107,7 +107,7 @@ filterFunctionMap :: Map.Map Lang FilterFunction
 
 type StringBoundary = (String, String)
 
-type Boundary = (C.ByteString, C.ByteString)
+type Boundary = (Text8, Text8)
 
 data ParState =  ParState
                  {

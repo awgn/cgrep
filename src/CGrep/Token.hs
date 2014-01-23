@@ -42,13 +42,13 @@ isCharNumber :: Char -> Bool
 isCharNumber c = isHexDigit c || c == '.' || c == 'x' || c == 'X'
 
 
-isCompleteToken:: C.ByteString -> (Offset, String) -> Bool
+isCompleteToken:: Text8 -> (Offset, String) -> Bool
 isCompleteToken text (off, tok) = tok `elem` ts
     where ts = tokens $ C.take (length tok + extra + 2) $ C.drop (off - extra) text
           extra = 10
 
 
-tokens :: C.ByteString -> [String]
+tokens :: Text8 -> [String]
 tokens = map snd . tokenizer
 
 
@@ -58,7 +58,7 @@ mkToken :: Offset -> String -> Token
 mkToken off acc =  (off - length acc, reverse acc)
 
 
-tokenizer :: C.ByteString -> [Token]
+tokenizer :: Text8 -> [Token]
 tokenizer xs = (\(TokenAccum _  off acc out) -> if null acc then out else reverse out ++ [mkToken off acc]) $ C.foldl' tokens' (TokenAccum TokenSpace 0 "" []) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum TokenSpace off acc out) x =
