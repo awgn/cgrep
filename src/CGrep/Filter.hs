@@ -57,7 +57,7 @@ contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
 contextFilter _ (ContextFilter True True True) src = src
 contextFilter Nothing _ src = src
 contextFilter (Just language) filt src
-    |  Just fun <- parFunc = LC.toStrict . B.toLazyByteString $ fun filt src
+    | Just fun <- parFunc = LC.toStrict . B.toLazyByteString $ fun filt src
     | otherwise = src
         where parFunc = Map.lookup language filterFunctionMap
 
@@ -66,20 +66,20 @@ contextFilter (Just language) filt src
 --
 
 genericParser :: ParState -> ContextFilter -> Text8 -> B.Builder
-genericParser s  filt (C.uncons -> Just y@(x,xs))
-    | skip s > 0 = B.char8 (if isSpace x || display s then x else ' ') <> genericParser s { skip = skip s -1 } filt xs
-    | otherwise  = let s' = nextParserState s y filt
-                   in B.char8 (if isSpace x || display s' then x else ' ') <> genericParser s' filt xs
-genericParser _ _ _ = mempty
+genericParser _ _     (C.uncons -> Nothing) = mempty
+genericParser s  filt (C.uncons -> Just (x,xs))
+    | skip s > 0 = go s { skip = skip s - 1}
+    | otherwise  = go $ nextParserState s (x,xs) filt
+        where go t = let q = if isSpace x || display t then x else ' ' in
+                        seq q $ B.char8 q <> genericParser t filt xs
 
 
 nextParserState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
-nextParserState s y@(x,xs) (ContextFilter codefilt commfilt litrfilt)
-    | x == '\\'                  = s { display = False, skip = 1 }
-    | CodeState    <- cxtState s = let cindex = findBoundary y (commBound s)
-                                       lindex = findBoundary y (litrBound s)
-                                   in
-                                   fromJust $
+nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
+    | x == '\\'                 = s { display = False, skip = 1 }
+    | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
+                                      lindex = findBoundary (x,xs) (litrBound s)
+                                    in fromJust $
                                         (cindex >>= \n -> Just s{ cxtState = CommState n, display = codefilt, skip = C.length ( fst (commBound s !! n) ) - 1 }) <|>
                                         (lindex >>= \n -> Just s{ cxtState = LitrState n, display = codefilt, skip = C.length ( fst (litrBound s !! n) ) - 1 }) <|>
                                                           Just s{ display  = codefilt, skip = 0 }
