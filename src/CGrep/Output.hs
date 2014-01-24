@@ -138,24 +138,26 @@ xmlOutput _ outs =
 
 formatOutput :: Options -> Output -> String
 formatOutput opt (Output f n l ts) =
-    foldl trans (fromJust $ format opt) [("#f", showFile opt f),
-                              ("#n", show n),
-                              ("#l", showLine opt ts l),
-                              ("#t", show tokens),
-                              ("##", unwords tokens),
-                              ("#,", intercalate "," tokens),
-                              ("#;", intercalate ";" tokens),
-                              ("#0", atDef "" tokens 0),
-                              ("#1", atDef "" tokens 1),
-                              ("#2", atDef "" tokens 2),
-                              ("#3", atDef "" tokens 3),
-                              ("#4", atDef "" tokens 4),
-                              ("#5", atDef "" tokens 5),
-                              ("#6", atDef "" tokens 6),
-                              ("#7", atDef "" tokens 7),
-                              ("#8", atDef "" tokens 8),
-                              ("#9", atDef "" tokens 9)
-                              ]
+    foldl trans (fromJust $ format opt)
+        [
+            ("#f", showFile opt f),
+            ("#n", show n),
+            ("#l", showLine opt ts l),
+            ("#t", show tokens),
+            ("##", unwords tokens),
+            ("#,", intercalate "," tokens),
+            ("#;", intercalate ";" tokens),
+            ("#0", atDef "" tokens 0),
+            ("#1", atDef "" tokens 1),
+            ("#2", atDef "" tokens 2),
+            ("#3", atDef "" tokens 3),
+            ("#4", atDef "" tokens 4),
+            ("#5", atDef "" tokens 5),
+            ("#6", atDef "" tokens 6),
+            ("#7", atDef "" tokens 7),
+            ("#8", atDef "" tokens 8),
+            ("#9", atDef "" tokens 9)
+        ]
     where trans str (old, new) = replace old new str
           tokens = map snd ts
 
