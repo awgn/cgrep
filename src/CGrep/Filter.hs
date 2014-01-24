@@ -66,31 +66,31 @@ contextFilter (Just language) filt src
 --
 
 genericParser :: ParState -> ContextFilter -> Text8 -> B.Builder
-genericParser s  filt (C.uncons -> Just (x,xs))
+genericParser s  filt (C.uncons -> Just y@(x,xs))
     | skip s > 0 = B.char8 (if isSpace x || display s then x else ' ') <> genericParser s { skip = skip s -1 } filt xs
-    | otherwise  = let (nstate, d, n) = nextParserState s (x,xs) filt
-                   in B.char8 (if isSpace x || d then x else ' ') <> genericParser s { cxtState = nstate, display = d, skip = n } filt xs
+    | otherwise  = let s' = nextParserState s y filt
+                   in B.char8 (if isSpace x || display s' then x else ' ') <> genericParser s' filt xs
 genericParser _ _ _ = mempty
 
 
-nextParserState :: ParState -> (Char,Text8) -> ContextFilter -> (ContextState, Bool, Int)
-nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
-    | x == '\\'                  = (cxtState s, False, 1)
-    | CodeState    <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
-                                       lindex = findBoundary (x,xs) (litrBound s)
+nextParserState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
+nextParserState s y@(x,xs) (ContextFilter codefilt commfilt litrfilt)
+    | x == '\\'                  = s { display = False, skip = 1 }
+    | CodeState    <- cxtState s = let cindex = findBoundary y (commBound s)
+                                       lindex = findBoundary y (litrBound s)
                                    in
                                    fromJust $
-                                        (cindex >>= \n -> Just (CommState n, codefilt, C.length ( fst (commBound s !! n) ) - 1 )) <|>
-                                        (lindex >>= \n -> Just (LitrState n, codefilt, C.length ( fst (litrBound s !! n) ) - 1 )) <|>
-                                                          Just (CodeState  , codefilt, 0)
+                                        (cindex >>= \n -> Just s{ cxtState = CommState n, display = codefilt, skip = C.length ( fst (commBound s !! n) ) - 1 }) <|>
+                                        (lindex >>= \n -> Just s{ cxtState = LitrState n, display = codefilt, skip = C.length ( fst (litrBound s !! n) ) - 1 }) <|>
+                                                          Just s{ display  = codefilt, skip = 0 }
     | CommState n <- cxtState s = let (_,end) = commBound s !! n
                                     in if C.head end == x && C.tail end `C.isPrefixOf` xs
-                                            then (CodeState,   codefilt, C.length end - 1)
-                                            else (CommState n, commfilt, 0)
+                                            then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
+                                            else s{ display  = commfilt, skip = 0 }
     | LitrState n <- cxtState s = let (_,end) = litrBound s !! n
                                     in if C.head end == x && C.tail end `C.isPrefixOf` xs
-                                            then (CodeState,   codefilt, C.length end - 1)
-                                            else (LitrState n, litrfilt, 0)
+                                            then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
+                                            else s{ display = litrfilt, skip = 0 }
 nextParserState _ (_,_) ContextFilter {} = undefined
 
 
