@@ -143,10 +143,10 @@ filterFunctionMap = Map.fromList [
     (Verilog,    genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (VHDL,       genericParser $ mkParState [("--", "\n")] [("\"", "\"")] ),
 
-    (Haskell,    genericParser $ mkParState [("{-", "-}"), ("--", "\n")]         [("\"", "\""), ("[r|", "|]")] ),
-    (Fsharp,     genericParser $ mkParState [("(*", "*)"), ("//", "\n")]         [("\"", "\"")] ),
-    (Perl,       genericParser $ mkParState [("=pod", "=cut"), ("#", "\n")]      [("'", "'"), ("\"", "\"")] ),
-    (Ruby,       genericParser $ mkParState [("=begin", "=end"), ("#", "\n")]    [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ]),
+    (Haskell,    genericParser $ mkParState [("{-", "-}"), ("--", "\n")]      [("\"", "\""), ("[r|", "|]"), ("[q|", "|]"), ("[s|", "|]"), ("[here|","|]"), ("[i|", "|]")] ),
+    (Fsharp,     genericParser $ mkParState [("(*", "*)"), ("//", "\n")]      [("\"", "\"")] ),
+    (Perl,       genericParser $ mkParState [("=pod", "=cut"), ("#", "\n")]   [("'", "'"), ("\"", "\"")] ),
+    (Ruby,       genericParser $ mkParState [("=begin", "=end"), ("#", "\n")] [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ]),
 
     (CMake,      genericParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
     (Awk,        genericParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
