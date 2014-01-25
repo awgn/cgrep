@@ -16,11 +16,9 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, MagicHash #-}
 
 module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
-
-import Control.Applicative
 
 import CGrep.Common (Text8)
 
@@ -28,9 +26,7 @@ import CGrep.Context
 import CGrep.Lang
 import Options
 
-import Data.Maybe
 import Data.Char
-import Data.List
 import Data.Monoid
 
 import qualified Data.ByteString.Char8 as C
@@ -38,8 +34,6 @@ import qualified Data.ByteString.Lazy.Char8   as LC
 import qualified Data.ByteString.Lazy.Builder as B
 
 import qualified Data.Map as Map
-
-
 
 -- filter Context:
 --
@@ -79,10 +73,12 @@ nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | x == '\\'                 = s { display = False, skip = 1 }
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                       lindex = findBoundary (x,xs) (litrBound s)
-                                    in fromJust $
-                                        (cindex >>= \n -> Just s{ cxtState = CommState n, display = codefilt, skip = C.length ( fst (commBound s !! n) ) - 1 }) <|>
-                                        (lindex >>= \n -> Just s{ cxtState = LitrState n, display = codefilt, skip = C.length ( fst (litrBound s !! n) ) - 1 }) <|>
-                                                          Just s{ display  = codefilt, skip = 0 }
+                                    in if cindex > 0
+                                       then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( fst (commBound s !! cindex) ) - 1 }
+                                       else if lindex > 0
+                                       then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( fst (litrBound s !! lindex) ) - 1 }
+                                       else s{ display  = codefilt, skip = 0 }
+
     | CommState n <- cxtState s = let (_,end) = commBound s !! n
                                     in if C.head end == x && C.tail end `C.isPrefixOf` xs
                                             then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
@@ -96,9 +92,28 @@ nextParserState _ (_,_) ContextFilter {} = undefined
 
 {-# INLINE findBoundary #-}
 
-findBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
-findBoundary (x,xs) =  findIndex (\(b,_) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
+findBoundary :: (Char, Text8) -> [Boundary] -> Int
+findBoundary (x,xs) =  findIndex' (\(b,_) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
 
+
+{-# INLINE findIndex' #-}
+
+findIndex' :: (a -> Bool) -> [a] -> Int
+findIndex' p ls = loop (-1) ls
+                 where
+                   loop n [] = n
+                   loop n (x:xs) | p x       = n
+                                 | otherwise = loop (n + 1) xs
+
+-- import GHC.Prim
+-- import GHC.Exts
+
+-- findIndex' :: (a -> Bool) -> [a] -> Int
+-- findIndex' p ls = loop (-1#) ls
+--                  where
+--                    loop n [] = I# n
+--                    loop n (x:xs) | p x       = I# n
+--                                  | otherwise = loop (n +# 1#) xs
 
 -- filter language map:
 --
