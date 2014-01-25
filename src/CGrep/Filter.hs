@@ -147,8 +147,9 @@ data ParState =  ParState
 
 
 mkParState :: [StringBoundary] -> [StringBoundary] -> ParState
-mkParState cs ls = ParState (map (\(a,b) -> (C.pack a, C.pack b)) cs)
-                          (map (\(a,b) -> (C.pack a, C.pack b)) ls) CodeState False 0
+mkParState cs ls =
+    ParState (map (\(a,b) -> (C.pack a, C.pack b)) cs)
+             (map (\(a,b) -> (C.pack a, C.pack b)) ls) CodeState False 0
 
 
 data ContextState = CodeState | CommState Int | LitrState Int
