@@ -26,7 +26,6 @@ module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..),
 
 import Data.Char
 import Data.Maybe
-import Data.Set as S
 import Data.HashSet as HS
 
 import Data.Array
@@ -183,18 +182,20 @@ runGetToken tstate = token : runGetToken ns
 getToken :: TokenizerState -> (Token, TokenizerState)
 
 getToken (C.uncons -> Nothing, _, _) = error "getToken: internal error"
-getToken (xs, off, state) = let token = fromJust $
-                                            getTokenDirective xs state       `mplus`
-                                            getTokenHeaderName xs state      `mplus`
-                                            getTokenNumber xs state          `mplus`
-                                            getTokenIdOrKeyword xs state     `mplus`
-                                            getTokenString xs state          `mplus`
-                                            getTokenChar xs state            `mplus`
-                                            getTokenOpOrPunct xs state
-                                len = fromIntegral $ length (toString token)
-                                (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
-                             in
-                                (token { offset = off }, (xs', off + len + w, nextState(toString token) state))
+getToken (xs, off, state) =
+    let token = fromJust $
+                    getTokenDirective xs state       `mplus`
+                    getTokenHeaderName xs state      `mplus`
+                    getTokenIdOrKeyword xs state     `mplus`
+                    getTokenNumber xs state          `mplus`
+                    getTokenString xs state          `mplus`
+                    getTokenChar xs state            `mplus`
+                    getTokenOpOrPunct xs state
+        tstring = toString token
+        len = fromIntegral $ length tstring
+        (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
+    in
+        (token { offset = off }, (xs', off + len + w, nextState tstring state))
 
 
 getTokenIdOrKeyword, getTokenNumber,

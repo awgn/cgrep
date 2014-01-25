@@ -74,6 +74,7 @@ genericParser s  filt (C.uncons -> Just (x,xs))
     | otherwise  = go $ nextParserState s (x,xs) filt
         where go t = let q = if isSpace x || display t then x else ' ' in
                         seq q $ B.char8 q <> genericParser t filt xs
+genericParser _ _ _ = undefined
 
 
 nextParserState :: ParState -> (Char,Text8) -> ContextFilter -> ParState

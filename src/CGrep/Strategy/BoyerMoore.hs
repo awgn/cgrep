@@ -74,5 +74,5 @@ checkToken opt text (off, tok)
      | suffix_match  opt = any (tok `isSuffixOf`) ts
      where ts = T.tokens $ C.take (length tok + delta + 2) $ C.drop (off - delta) text
            delta = 10
-
+checkToken _ _ (_,_)     = undefined
 
