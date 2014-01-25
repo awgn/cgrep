@@ -27,6 +27,8 @@ module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..),
 import Data.Char
 import Data.Maybe
 import Data.Set as S
+import Data.HashSet as HS
+
 import Data.Array
 import Control.Monad
 -- import Debug.Trace
@@ -227,12 +229,12 @@ getTokenNumber (C.uncons -> Nothing) _ = Nothing
 getTokenNumber _ _ = error "getTokenNumber: internal error"
 
 
-validHexSet, validOctSet, validDecSet, validFloatSet :: S.Set Char
+validHexSet, validOctSet, validDecSet, validFloatSet :: HS.HashSet Char
 
-validHexSet   = S.fromList "0123456789abcdefABCDEFxXuUlL"
-validOctSet   = S.fromList "01234567uUlL"
-validDecSet   = S.fromList "0123456789uUlL"
-validFloatSet = S.fromList "0123456789"
+validHexSet   = HS.fromList "0123456789abcdefABCDEFxXuUlL"
+validOctSet   = HS.fromList "01234567uUlL"
+validDecSet   = HS.fromList "0123456789uUlL"
+validFloatSet = HS.fromList "0123456789"
 
 data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberMayBeFloat | NumberFloat | NumberExp
                     deriving (Show,Eq,Enum)
@@ -248,36 +250,36 @@ getNumber (C.uncons -> Just (x,xs)) state
                                                 | isDigit x -> x : getNumber xs NumberDec
                                                 | otherwise -> ""
     |  state == NumberOHF = case () of _
-                                                | x `S.member` validHexSet -> x : getNumber xs NumberHex
+                                                | x `HS.member` validHexSet -> x : getNumber xs NumberHex
                                                 | x == '.'  -> x : getNumber xs NumberMayBeFloat
                                                 | isDigit x -> x : getNumber xs NumberOct
                                                 | otherwise -> ""
 
     |  state == NumberDec = case () of _
-                                                | x `S.member` validDecSet -> x : getNumber xs NumberDec
+                                                | x `HS.member` validDecSet -> x : getNumber xs NumberDec
                                                 | x == '.'  -> x : getNumber xs NumberMayBeFloat
                                                 | x == 'e' || x == 'E'  -> x : getNumber xs NumberExp
                                                 | otherwise -> ""
 
     |  state == NumberOct = case () of _
-                                                | x `S.member` validOctSet -> x : getNumber xs NumberOct
+                                                | x `HS.member` validOctSet -> x : getNumber xs NumberOct
                                                 | otherwise -> ""
 
     |  state == NumberHex = case () of _
-                                                | x `S.member` validHexSet -> x : getNumber xs NumberHex
+                                                | x `HS.member` validHexSet -> x : getNumber xs NumberHex
                                                 | otherwise -> ""
 
     |  state == NumberMayBeFloat = case () of _
-                                                | x `S.member` validDecSet   -> x : getNumber xs NumberFloat
+                                                | x `HS.member` validDecSet   -> x : getNumber xs NumberFloat
                                                 | otherwise                  -> ""
 
     |  state == NumberFloat = case () of _
-                                                | x `S.member` validFloatSet -> x : getNumber xs NumberFloat
+                                                | x `HS.member` validFloatSet -> x : getNumber xs NumberFloat
                                                 | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
                                                 | otherwise                  -> ""
 
     |  state == NumberExp = case () of _
-                                                | x `S.member` validDecSet   -> x : getNumber xs NumberExp
+                                                | x `HS.member` validDecSet   -> x : getNumber xs NumberExp
                                                 | x == '+' || x == '-'       -> x : getNumber xs NumberExp
                                                 | otherwise                  -> ""
 
@@ -300,7 +302,7 @@ getTokenChar _ _ = Nothing
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar x = Nothing
-    | name `S.member` keywords = Just $ TokenKeyword name 0
+    | name `HS.member` keywords = Just $ TokenKeyword name 0
     | otherwise                = Just $ TokenIdentifier name 0
                                     where name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
@@ -312,7 +314,7 @@ getTokenOpOrPunct source _ = go source (min 4 (C.length source))
             | C.length source > 0 = error $ "getTokenOpOrPunct: error near " ++ show source
             | otherwise = Nothing
           go src len
-            | sub `S.member` (operOrPunct ! fromIntegral len) = Just $ TokenOperOrPunct sub 0
+            | sub `HS.member` (operOrPunct ! fromIntegral len) = Just $ TokenOperOrPunct sub 0
             | otherwise = go src (len-1)
                 where sub = C.unpack (C.take len src)
 
@@ -336,17 +338,17 @@ isIdentifierChar :: Char -> Bool
 isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers
 
 
-operOrPunct :: Array Int (S.Set String)
-operOrPunct =  listArray (1, 4) [ S.fromList [ "{","}","[","]","#","(",")",";",":","?",".","+","-","*",
+operOrPunct :: Array Int (HS.HashSet String)
+operOrPunct =  listArray (1, 4) [ HS.fromList [ "{","}","[","]","#","(",")",";",":","?",".","+","-","*",
                                                "/","%","^","&","|","~","!","=","<",">","," ],
-                                  S.fromList [ "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "+=", "-=",
+                                  HS.fromList [ "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "+=", "-=",
                                                "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", ">=", "<=",
                                                "&&", "||", "==", "!=", "++", "--", "->", "//", "/*", "*/"],
-                                  S.fromList [ "...", "<<=", ">>=", "->*"],
-                                  S.fromList [ "%:%:" ]]
+                                  HS.fromList [ "...", "<<=", ">>=", "->*"],
+                                  HS.fromList [ "%:%:" ]]
 
-keywords :: S.Set String
-keywords = S.fromList ["alignas", "continue", "friend", "alignof", "decltype", "goto", "asm",
+keywords :: HS.HashSet String
+keywords = HS.fromList ["alignas", "continue", "friend", "alignof", "decltype", "goto", "asm",
                        "default", "if", "auto", "delete", "inline", "bool", "do", "int", "break",
                        "double", "long", "case", "dynamic_cast", "mutable", "catch", "else",
                        "namespace", "char", "enum", "new", "char16_t", "explicit", "noexcept",
