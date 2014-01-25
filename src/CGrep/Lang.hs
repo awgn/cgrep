@@ -88,7 +88,7 @@ langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (\x -> (x,l)) xs ) $ Map.
 -- utility functions
 
 lookupLang :: FilePath -> Maybe Lang
-lookupLang f = Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap <|> Map.lookup (Name $ takeFileName f) langRevMap
+lookupLang f = Map.lookup (Name $ takeFileName f) langRevMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap
 
 
 forcedLang :: Options -> Maybe Lang
