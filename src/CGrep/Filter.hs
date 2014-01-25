@@ -35,6 +35,14 @@ import qualified Data.ByteString.Lazy.Builder as B
 
 import qualified Data.Map as Map
 
+#ifdef __GLASGOW_HASKELL__
+
+import GHC.Prim
+import GHC.Exts
+
+#endif
+
+
 -- filter Context:
 --
 
@@ -73,9 +81,9 @@ nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | x == '\\'                 = s { display = False, skip = 1 }
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                       lindex = findBoundary (x,xs) (litrBound s)
-                                    in if cindex > 0
+                                    in if cindex >= 0
                                        then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( fst (commBound s !! cindex) ) - 1 }
-                                       else if lindex > 0
+                                       else if lindex >= 0
                                        then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( fst (litrBound s !! lindex) ) - 1 }
                                        else s{ display  = codefilt, skip = 0 }
 
@@ -98,22 +106,25 @@ findBoundary (x,xs) =  findIndex' (\(b,_) -> C.head b == x && C.tail b `C.isPref
 
 {-# INLINE findIndex' #-}
 
+#ifdef __GLASGOW_HASKELL__
+
 findIndex' :: (a -> Bool) -> [a] -> Int
-findIndex' p ls = loop (-1) ls
+findIndex' p ls = loop 0# ls
                  where
-                   loop n [] = n
+                   loop _ [] = -1
+                   loop n (x:xs) | p x       = I# n
+                                 | otherwise = loop (n +# 1#) xs
+
+#else
+
+findIndex' :: (a -> Bool) -> [a] -> Int
+findIndex' p ls = loop 0 ls
+                 where
+                   loop n [] = -1
                    loop n (x:xs) | p x       = n
                                  | otherwise = loop (n + 1) xs
 
--- import GHC.Prim
--- import GHC.Exts
-
--- findIndex' :: (a -> Bool) -> [a] -> Int
--- findIndex' p ls = loop (-1#) ls
---                  where
---                    loop n [] = I# n
---                    loop n (x:xs) | p x       = I# n
---                                  | otherwise = loop (n +# 1#) xs
+#endif
 
 -- filter language map:
 --
