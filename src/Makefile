@@ -28,4 +28,4 @@ install: all
 
 clean:
 	   @rm -f ../bin/cgrep
-	   @rm -f *.o *.hi CGrep/*.o CGrep/*.hi CGrep/Strategy/Cpp/*.o CGrep/Strategy/Cpp/*.hi CGrep/Strategy/*.o CGrep/Strategy/*.hi
+	   @rm -f *.o *.hi */*.o */*/*.o */*/*/*.o */*.hi */*/*.hi */*/*/*.hi
