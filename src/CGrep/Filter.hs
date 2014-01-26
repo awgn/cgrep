@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE ViewPatterns, MagicHash #-}
+{-# LANGUAGE ViewPatterns, MagicHash, BangPatterns #-}
 
 module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
 
@@ -71,29 +71,29 @@ contextParser :: ParState -> ContextFilter -> Text8 -> B.Builder
 contextParser _ _     (C.uncons -> Nothing)     = mempty
 contextParser s  filt (C.uncons -> Just (x,xs)) =
     B.char8 c' <> contextParser s' filt xs
-    where s' = if skip s > 0 then s { skip = skip s - 1 } else nextContextState s (x,xs) filt
-          c' = if display s' || isSpace x then x else ' '
+    where !s' = nextContextState s (x,xs) filt
+          !c' = if display s' || isSpace x then x else ' '
 
 
 nextContextState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | x == '\\'                 = s { display = False, skip = 1 }
+    | skip s > 0                = s { skip = skip s - 1 }
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                       lindex = findBoundary (x,xs) (litrBound s)
-                                    in if cindex >= 0
-                                       then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( fst (commBound s !! cindex) ) - 1 }
-                                       else if lindex >= 0
-                                       then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( fst (litrBound s !! lindex) ) - 1 }
-                                       else s{ display  = codefilt, skip = 0 }
-
+                                  in if cindex >= 0
+                                     then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( fst (commBound s !! cindex) ) - 1 }
+                                     else if lindex >= 0
+                                     then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( fst (litrBound s !! lindex) ) - 1 }
+                                     else s{ display  = codefilt, skip = 0 }
     | CommState n <- cxtState s = let (_,end) = commBound s !! n
-                                    in if C.head end == x && C.tail end `C.isPrefixOf` xs
-                                            then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
-                                            else s{ display  = commfilt, skip = 0 }
+                                  in if C.head end == x && C.tail end `C.isPrefixOf` xs
+                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
+                                     else s{ display  = commfilt, skip = 0 }
     | LitrState n <- cxtState s = let (_,end) = litrBound s !! n
-                                    in if C.head end == x && C.tail end `C.isPrefixOf` xs
-                                            then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
-                                            else s{ display = litrfilt, skip = 0 }
+                                  in if C.head end == x && C.tail end `C.isPrefixOf` xs
+                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
+                                     else s{ display = litrfilt, skip = 0 }
 nextContextState _ (_,_) ContextFilter {} = undefined
 
 
