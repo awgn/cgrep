@@ -33,7 +33,7 @@ import Data.Function
 import Options
 import Debug
 
-import qualified CGrep.Strategy.Cpp.Token  as Cpp
+import qualified CGrep.Cpp.Token  as Cpp
 
 search :: CgrepFunction
 search opt ps f = do

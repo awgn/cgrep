@@ -18,11 +18,11 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Strategy.Cpp.Token(Token(..), TokenFilter(..),
-                                Offset, tokenizer, tokenFilter, tokenCompare,
-                                isIdentifier, isKeyword, isDirective, isLiteralNumber,
-                                isHeaderName, isString, isChar, isOperOrPunct
-                            )  where
+module CGrep.Cpp.Token(Token(..), TokenFilter(..),
+                       Offset, tokenizer, tokenFilter, tokenCompare,
+                       isIdentifier, isKeyword, isDirective, isLiteralNumber,
+                       isHeaderName, isString, isChar, isOperOrPunct
+                       )  where
 
 import Data.Char
 import Data.Maybe

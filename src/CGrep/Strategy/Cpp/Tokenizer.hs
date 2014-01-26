@@ -19,7 +19,7 @@
 module CGrep.Strategy.Cpp.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified CGrep.Strategy.Cpp.Token as Cpp
+import qualified CGrep.Cpp.Token as Cpp
 
 import CGrep.Filter
 import CGrep.Lang
