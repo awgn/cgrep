@@ -26,16 +26,16 @@ module CGrep.Cpp.Token(Token(..), TokenFilter(..),
 
 import Data.Char
 import Data.Maybe
-import Data.HashSet as HS
-
-import Data.Array
 import Control.Monad
--- import Debug.Trace
 
+import qualified Data.HashSet as HS
+import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
+-- import Debug.Trace
 
-type TokenizerState = (Source, Offset, State)
+
+type TokenizerState = (Source, Offset, CppState)
 
 type Source = C.ByteString
 
@@ -43,7 +43,7 @@ type Offset = Int
 
 
 -- Tokenize the source code in a list of Token
--- Precondition: the c++ source code must be well-formed
+-- Precondition: the C++ source code must be well-formed
 --
 
 tokenizer :: Source -> [Token]
@@ -86,6 +86,7 @@ data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
              TokenChar        { toString :: String, offset :: Int  } |
              TokenOperOrPunct { toString :: String, offset :: Int  }
                 deriving (Show, Eq, Ord)
+
 
 tokenCompare :: Token -> Token -> Bool
 tokenCompare (TokenIdentifier { toString = l }) (TokenIdentifier { toString = r }) = l == r
@@ -144,33 +145,39 @@ isOperOrPunct _ = False
 
 dropWhite :: Source -> (Source, Offset)
 dropWhite xs = (xs', doff)
-                where xs'  = C.dropWhile (\c -> isSpace c || c == '\\') xs
-                      doff = fromIntegral $ C.length xs - C.length xs'
+    where xs'  = C.dropWhile (\c -> isSpace c || c == '\\') xs
+          doff = fromIntegral $ C.length xs - C.length xs'
 
 
-data State = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif |
-                    Line | Error | Pragma
-                    deriving (Show, Eq)
+data CppState = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif |
+                Line | Error | Pragma
+                deriving (Show, Eq)
 
 
-nextState :: String -> State -> State
-nextState "#"               _    = Hash
-nextState "include"         Hash = Include
-nextState "include_next"    Hash = Include
-nextState "define"          Hash = Define
-nextState "undef"           Hash = Undef
-nextState "if"              Hash = If
-nextState "ifdef"           Hash = Ifdef
-nextState "ifndef"          Hash = Ifndef
-nextState "elif"            Hash = Elif
-nextState "else"            Hash = Null
-nextState "endif"           Hash = Null
-nextState "line"            Hash = Line
-nextState "error"           Hash = Error
-nextState "pragma"          Hash = Pragma
-nextState _  _  = Null
+directiveKeys :: HM.HashMap String CppState
+directiveKeys = HM.fromList [ ("#",             Hash),
+                              ("include",       Include),
+                              ("include_next",  Include),
+                              ("define",        Define),
+                              ("undef",         Undef),
+                              ("if",            If),
+                              ("ifdef",         Ifdef),
+                              ("ifndef",        Ifndef),
+                              ("elif",          Elif),
+                              ("else",          Else),
+                              ("endif",         Null),
+                              ("line",          Line),
+                              ("error",         Error),
+                              ("pragma",        Pragma) ]
 
----
+
+nextCppState :: String -> CppState -> CppState
+nextCppState str pps
+    | Hash <- pps = case HM.lookup str directiveKeys of
+                          Just v  -> v
+                          Nothing -> Null
+    | otherwise   = if str == "#" then Hash else Null
+
 
 runGetToken :: TokenizerState -> [Token]
 
@@ -191,32 +198,33 @@ getToken (xs, off, state) =
                     getTokenString xs state          `mplus`
                     getTokenChar xs state            `mplus`
                     getTokenOpOrPunct xs state
-        tstring = toString token
-        len = fromIntegral $ length tstring
+        tstring  = toString token
+        len      = fromIntegral $ length tstring
         (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
     in
-        (token { offset = off }, (xs', off + len + w, nextState tstring state))
+        (token { offset = off }, (xs', off + len + w, nextCppState tstring state))
 
 
 getTokenIdOrKeyword, getTokenNumber,
     getTokenHeaderName, getTokenString,
     getTokenChar, getTokenOpOrPunct,
-    getTokenDirective :: Source -> State -> Maybe Token
+    getTokenDirective :: Source -> CppState -> Maybe Token
 
 
 getTokenDirective xs  state
     | state == Hash = Just (TokenDirective name 0)
     | otherwise = Nothing
-                      where name = C.unpack $ C.takeWhile isIdentifierChar xs
+    where name = C.unpack $ C.takeWhile isIdentifierChar xs
 
+
+getTokenHeaderName  (C.uncons -> Nothing) _ = error "getTokenHeaderName: internal error"
 getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
     | state /= Include  = Nothing
     | x == '<'          = Just $ TokenHeaderName (getLiteral '<'  '>'  False xs)   0
     | x == '"'          = Just $ TokenHeaderName (getLiteral '"'  '"'  False xs)   0
     | otherwise         = Just $ TokenHeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0
 
-getTokenHeaderName (C.uncons -> Nothing) _ = error "getTokenHeaderName: internal error"
-getTokenHeaderName _ _ = error "getTokenHeaderName: internal error"
+getTokenHeaderName _ _ = undefined
 
 
 getTokenNumber ys@(C.uncons -> Just (x,_)) _
@@ -227,7 +235,7 @@ getTokenNumber ys@(C.uncons -> Just (x,_)) _
                                     _      -> Just $ TokenNumber ts 0
     | otherwise = Nothing
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
-getTokenNumber _ _ = error "getTokenNumber: internal error"
+getTokenNumber _ _ = undefined
 
 
 validHexSet, validOctSet, validDecSet, validFloatSet :: HS.HashSet Char
@@ -302,9 +310,9 @@ getTokenChar _ _ = Nothing
 
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
-    | not $ isIdentifierChar x = Nothing
+    | not $ isIdentifierChar x  = Nothing
     | name `HS.member` keywords = Just $ TokenKeyword name 0
-    | otherwise                = Just $ TokenIdentifier name 0
+    | otherwise                 = Just $ TokenIdentifier name 0
                                     where name = C.unpack $ C.takeWhile isIdentifierChar xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing
@@ -312,10 +320,10 @@ getTokenIdOrKeyword _ _ = Nothing
 
 getTokenOpOrPunct source _ = go source (min 4 (C.length source))
     where go _ 0
-            | C.length source > 0 = error $ "getTokenOpOrPunct: error near " ++ show source
+            | C.length source > 0 = error $ "operator or punct: error " ++ show source
             | otherwise = Nothing
           go src len
-            | sub `HS.member` (operOrPunct ! fromIntegral len) = Just $ TokenOperOrPunct sub 0
+            | sub `HS.member` operOrPunct = Just $ TokenOperOrPunct sub 0
             | otherwise = go src (len-1)
                 where sub = C.unpack (C.take len src)
 
@@ -324,7 +332,7 @@ getLiteral :: Char -> Char -> Bool -> C.ByteString -> String
 getLiteral _  _  _ (C.uncons -> Nothing)  = []
 getLiteral b e False ys@(C.uncons -> Just (x,xs))
     | x == b     =  b : getLiteral b e True xs
-    | otherwise  = error $ "getLiteral: error near " ++ C.unpack ys
+    | otherwise  = error $ "literal: error " ++ C.unpack ys
 getLiteral b e True (C.uncons -> Just (x,xs))
     | x == e     = [e]
     | x == '\\'  = '\\' : x' : getLiteral b e True xs'
@@ -339,14 +347,14 @@ isIdentifierChar :: Char -> Bool
 isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers
 
 
-operOrPunct :: Array Int (HS.HashSet String)
-operOrPunct =  listArray (1, 4) [ HS.fromList [ "{","}","[","]","#","(",")",";",":","?",".","+","-","*",
-                                               "/","%","^","&","|","~","!","=","<",">","," ],
-                                  HS.fromList [ "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "+=", "-=",
-                                               "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", ">=", "<=",
-                                               "&&", "||", "==", "!=", "++", "--", "->", "//", "/*", "*/"],
-                                  HS.fromList [ "...", "<<=", ">>=", "->*"],
-                                  HS.fromList [ "%:%:" ]]
+operOrPunct :: HS.HashSet String
+operOrPunct =  HS.fromList [ "{","}","[","]","#","(",")",";",":","?",".","+","-","*",
+                             "/","%","^","&","|","~","!","=","<",">","," ,
+                             "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "+=", "-=",
+                             "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", ">=", "<=",
+                             "&&", "||", "==", "!=", "++", "--", "->", "//", "/*", "*/",
+                             "...", "<<=", ">>=", "->*",
+                             "%:%:" ]
 
 keywords :: HS.HashSet String
 keywords = HS.fromList ["alignas", "continue", "friend", "alignof", "decltype", "goto", "asm",
