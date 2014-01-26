@@ -64,21 +64,19 @@ contextFilter (Just language) filt src
         where parFunc = Map.lookup language filterFunctionMap
 
 
--- genericParser:
+-- contextParser:
 --
 
-genericParser :: ParState -> ContextFilter -> Text8 -> B.Builder
-genericParser _ _     (C.uncons -> Nothing) = mempty
-genericParser s  filt (C.uncons -> Just (x,xs))
-    | skip s > 0 = go s { skip = skip s - 1}
-    | otherwise  = go $ nextParserState s (x,xs) filt
-        where go t = let q = if isSpace x || display t then x else ' ' in
-                        seq q $ B.char8 q <> genericParser t filt xs
-genericParser _ _ _ = undefined
+contextParser :: ParState -> ContextFilter -> Text8 -> B.Builder
+contextParser _ _     (C.uncons -> Nothing)     = mempty
+contextParser s  filt (C.uncons -> Just (x,xs)) =
+    B.char8 c' <> contextParser s' filt xs
+    where s' = if skip s > 0 then s { skip = skip s - 1 } else nextContextState s (x,xs) filt
+          c' = if display s' || isSpace x then x else ' '
 
 
-nextParserState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
-nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
+nextContextState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
+nextContextState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | x == '\\'                 = s { display = False, skip = 1 }
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                       lindex = findBoundary (x,xs) (litrBound s)
@@ -96,7 +94,7 @@ nextParserState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
                                     in if C.head end == x && C.tail end `C.isPrefixOf` xs
                                             then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
                                             else s{ display = litrfilt, skip = 0 }
-nextParserState _ (_,_) ContextFilter {} = undefined
+nextContextState _ (_,_) ContextFilter {} = undefined
 
 
 {-# INLINE findBoundary #-}
@@ -158,41 +156,41 @@ data ContextState = CodeState | CommState Int | LitrState Int
 
 
 filterFunctionMap = Map.fromList [
-    (C,          genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Cpp,        genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Csharp,     genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Chapel,     genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (D,          genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Go,         genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Java,       genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Javascript, genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (ObjectiveC, genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Scala,      genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Verilog,    genericParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (VHDL,       genericParser $ mkParState [("--", "\n")] [("\"", "\"")] ),
+    (C,          contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Cpp,        contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Csharp,     contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Chapel,     contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (D,          contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Go,         contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Java,       contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Javascript, contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (ObjectiveC, contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Scala,      contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Verilog,    contextParser $ mkParState [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (VHDL,       contextParser $ mkParState [("--", "\n")] [("\"", "\"")] ),
 
-    (Haskell,    genericParser $ mkParState [("{-", "-}"), ("--", "\n")]      [("\"", "\""), ("[r|", "|]"), ("[q|", "|]"), ("[s|", "|]"), ("[here|","|]"), ("[i|", "|]")] ),
-    (Fsharp,     genericParser $ mkParState [("(*", "*)"), ("//", "\n")]      [("\"", "\"")] ),
-    (Perl,       genericParser $ mkParState [("=pod", "=cut"), ("#", "\n")]   [("'", "'"), ("\"", "\"")] ),
-    (Ruby,       genericParser $ mkParState [("=begin", "=end"), ("#", "\n")] [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ]),
+    (Haskell,    contextParser $ mkParState [("{-", "-}"), ("--", "\n")]      [("\"", "\""), ("[r|", "|]"), ("[q|", "|]"), ("[s|", "|]"), ("[here|","|]"), ("[i|", "|]")] ),
+    (Fsharp,     contextParser $ mkParState [("(*", "*)"), ("//", "\n")]      [("\"", "\"")] ),
+    (Perl,       contextParser $ mkParState [("=pod", "=cut"), ("#", "\n")]   [("'", "'"), ("\"", "\"")] ),
+    (Ruby,       contextParser $ mkParState [("=begin", "=end"), ("#", "\n")] [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ]),
 
-    (CMake,      genericParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
-    (Awk,        genericParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
-    (Tcl,        genericParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
-    (Shell,      genericParser $ mkParState [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
-    (Make,       genericParser $ mkParState [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
+    (CMake,      contextParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
+    (Awk,        contextParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
+    (Tcl,        contextParser $ mkParState [("#", "\n")]    [("\"", "\"")] ),
+    (Shell,      contextParser $ mkParState [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
+    (Make,       contextParser $ mkParState [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
 
-    (Css,        genericParser $ mkParState [("/*", "*/")]   [("\"", "\"")] ),
-    (OCaml,      genericParser $ mkParState [("(*", "*)")]   [("\"", "\"")] ),
-    (Python,     genericParser $ mkParState [("#", "\n")]    [("\"\"\"", "\"\"\""), ("'''", "'''"), ("'", "'"), ("\"", "\"")] ),
+    (Css,        contextParser $ mkParState [("/*", "*/")]   [("\"", "\"")] ),
+    (OCaml,      contextParser $ mkParState [("(*", "*)")]   [("\"", "\"")] ),
+    (Python,     contextParser $ mkParState [("#", "\n")]    [("\"\"\"", "\"\"\""), ("'''", "'''"), ("'", "'"), ("\"", "\"")] ),
 
-    (Erlang,     genericParser $ mkParState [("%", "\n")]    [("\"", "\"")] ),
-    (Latex,      genericParser $ mkParState [("%", "\n")]    [("\"", "\"")] ),
-    (Lua,        genericParser $ mkParState [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] ),
+    (Erlang,     contextParser $ mkParState [("%", "\n")]    [("\"", "\"")] ),
+    (Latex,      contextParser $ mkParState [("%", "\n")]    [("\"", "\"")] ),
+    (Lua,        contextParser $ mkParState [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] ),
 
-    (Html,       genericParser $ mkParState [("<!--", "-->")]  [("\"", "\"")] ),
-    (Vim,        genericParser $ mkParState [("\"", "\n")]     [("'", "'")] ),
+    (Html,       contextParser $ mkParState [("<!--", "-->")]  [("\"", "\"")] ),
+    (Vim,        contextParser $ mkParState [("\"", "\n")]     [("'", "'")] ),
 
-    (PHP,        genericParser $ mkParState [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
+    (PHP,        contextParser $ mkParState [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
     ]
 
