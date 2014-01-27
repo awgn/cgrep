@@ -77,7 +77,7 @@ contextParser s  filt (C.uncons -> Just (x,xs)) =
 
 nextContextState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
-    | x == '\\'                 = s { display = False, skip = 1 }
+    | x == '\\'                 = s { display = litrfilt, skip = 1 }
     | skip s > 0                = s { skip = skip s - 1 }
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                       lindex = findBoundary (x,xs) (litrBound s)
