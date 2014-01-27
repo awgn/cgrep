@@ -28,6 +28,7 @@ module CGrep.Common (CgrepFunction, Text8,
 import qualified Data.ByteString.Char8 as C
 
 import Data.Char
+import Data.Array.Unboxed
 
 import CGrep.Types
 import Options
@@ -45,9 +46,14 @@ getText :: Maybe FilePath -> IO Text8
 getText  = maybe C.getContents C.readFile
 
 
+toLowercase :: Char -> Char
+toLowercase x = ctypeLowercase ! x
+    where ctypeLowercase = listArray ('\0','\255') (map toLower ['\0'..'\255']) :: UArray Char Char
+
+
 ignoreCase :: Options -> Text8 -> Text8
 ignoreCase Options { ignore_case = icase }
-    | icase  =  C.map toLower
+    | icase  =  C.map toLowercase
     | otherwise = id
 
 
