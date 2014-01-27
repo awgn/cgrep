@@ -34,10 +34,12 @@ C/C++ language:
        --string               literal strings
        --char                 literal chars
        --oper                 operators
-    -S --semantic             "code" patterns: _, _1, _2..., $, $1, $2...
-                              (optional), ANY, KEY, STR, CHR, NUM, HEX, OCT, OR.
-                              -> e.g. "_1(_1 && \$)" search for move constructors
-  
+    -S --semantic             "code" pattern: _, _1, _2... (identifiers), $,
+                              $1, $2... (optionals), ANY, KEY, STR, CHR, NUM,
+                              HEX, OCT, OR. -> e.g. "_1(_1 && \$)" search for
+                              move constructors, "struct OR class _ { OR : OR <"
+                              search for a class declaration
+ 
 Output control:
 
     -h --no-filename          suppress the file name prefix on output

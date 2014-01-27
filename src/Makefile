@@ -25,6 +25,7 @@ cgrep: $(SRC)
 
 install: all
 		cp ../bin/cgrep ${INSTDIR}/bin/
+		cp ../cgreprc 	${HOME}/.cgreprc
 
 clean:
 	   @rm -f ../bin/cgrep
