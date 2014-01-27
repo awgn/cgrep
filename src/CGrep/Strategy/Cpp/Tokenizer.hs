@@ -19,6 +19,8 @@
 module CGrep.Strategy.Cpp.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Search as SC
+
 import qualified CGrep.Cpp.Token as Cpp
 
 import CGrep.Filter
@@ -41,40 +43,55 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False}) $ text
+    let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- parse source code, get the Cpp.Token list...
+    -- get indices...
 
-    let tokens = Cpp.tokenizer text'
-
-    -- context-filterting...
-
-    let tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
-                                                           Cpp.filtDirective  = directive opt,
-                                                           Cpp.filtKeyword    = keyword opt,
-                                                           Cpp.filtHeader     = header opt,
-                                                           Cpp.filtString     = string opt,
-                                                           Cpp.filtNumber     = number opt,
-                                                           Cpp.filtChar       = char opt,
-                                                           Cpp.filtOper       = oper opt}) tokens
-
-    -- filter tokens...
-
-    let tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
-
-    -- convert Cpp.Tokens to CGrep.Tokens
-
-    let matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
+    let ids = concatMap (`SC.nonOverlappingIndices` text') ps
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-    putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-    putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
-    putStrLevel2 (debug opt) $ "matches   : " ++ show matches
 
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+    if null ids
+        then do
 
-    return $ mkOutput opt filename text matches
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+            return $ mkOutput opt filename text []
+
+        else do
+
+            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False}) $ text'
+
+            -- parse source code, get the Cpp.Token list...
+
+            let tokens = Cpp.tokenizer text''
+
+            -- context-filterting...
+
+            let tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
+                                                                   Cpp.filtDirective  = directive opt,
+                                                                   Cpp.filtKeyword    = keyword opt,
+                                                                   Cpp.filtHeader     = header opt,
+                                                                   Cpp.filtString     = string opt,
+                                                                   Cpp.filtNumber     = number opt,
+                                                                   Cpp.filtChar       = char opt,
+                                                                   Cpp.filtOper       = oper opt}) tokens
+
+            -- filter tokens...
+
+            let tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
+
+            -- convert Cpp.Tokens to CGrep.Tokens
+
+            let matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
+
+            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+            putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+            putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
+            putStrLevel2 (debug opt) $ "matches   : " ++ show matches
+
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+
+            return $ mkOutput opt filename text matches
 
 
 cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]

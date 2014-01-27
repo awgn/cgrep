@@ -32,8 +32,6 @@ import CGrep.Types
 
 import qualified CGrep.Token as T
 
--- import Control.Monad
-
 import Options
 import Debug
 
@@ -48,23 +46,37 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+    let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- search for matching tokens
+    -- get indices...
 
-    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'))
-
-    -- filter exact matching tokens
-
-    let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkToken opt text') tokens
-                    else tokens
+    let ids = concatMap (`SC.nonOverlappingIndices` text') ps
 
     putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 
-    return $ mkOutput opt filename text tokens'
+    if null ids then do
+
+                    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+                    return $ mkOutput opt filename text []
+
+                else do
+
+                    let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+
+                    -- search for matching tokens
+
+                    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text''))
+
+                    -- filter exact matching tokens
+
+                    let tokens' = if word_match opt || prefix_match opt || suffix_match opt
+                                    then filter (checkToken opt text'') tokens
+                                    else tokens
+
+                    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
+                    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+
+                    return $ mkOutput opt filename text tokens'
 
 
 checkToken :: Options -> Text8 -> (Offset, String) -> Bool
@@ -72,7 +84,22 @@ checkToken opt text (off, tok)
      | word_match    opt = tok `elem` ts
      | prefix_match  opt = any (tok `isPrefixOf`) ts
      | suffix_match  opt = any (tok `isSuffixOf`) ts
-     where ts = T.tokens $ C.take (length tok + delta + 2) $ C.drop (off - delta) text
-           delta = 10
+     where text' = getLineByOffset off text
+           ts    = T.tokens text'
+
 checkToken _ _ (_,_)     = undefined
+
+
+splitLines :: Text8 -> [(Text8,Offset)]
+splitLines xs = zip ls off
+    where ls  = C.lines xs
+          off = scanl (\o l -> 1 + o + C.length l) 0 ls
+
+getLineByOffset :: Offset -> Text8 -> Text8
+getLineByOffset off xs = fst . last $ takeWhile (\(_,o) -> o <= off) sl
+        where sl = splitLines xs
+
+
+
+
 

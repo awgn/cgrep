@@ -21,18 +21,18 @@
 module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Search as SC
 
 import Text.Regex.Posix
 import Data.Array
 
-import CGrep.Filter
-import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
+import CGrep.Filter
+import CGrep.Lang
 
 import Options
 import Debug
-
 
 
 search :: CgrepFunction
@@ -44,16 +44,30 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+    let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- search for matching tokens
+    -- get indices...
 
-    let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ ps >>= (\p -> text' =~ p :: [MatchText C.ByteString]) >>= assocs
+    let ids = concatMap (`SC.nonOverlappingIndices` text') ps
 
     putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
 
-    return $ mkOutput opt filename text tokens
+    if null ids
+        then do
 
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+            return $ mkOutput opt filename text []
+
+        else do
+
+            let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) $ text'
+
+            -- search for matching tokens
+
+            let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ ps >>= (\p -> text'' =~ p :: [MatchText C.ByteString]) >>= assocs
+
+            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+
+            return $ mkOutput opt filename text tokens
 

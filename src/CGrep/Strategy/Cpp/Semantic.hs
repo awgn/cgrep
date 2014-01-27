@@ -19,6 +19,7 @@
 module CGrep.Strategy.Cpp.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Search as SC
 
 import CGrep.WildCard
 import CGrep.Filter
@@ -44,34 +45,56 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) ((mkContextFilter opt) { getComment = False} ) $ text
-
-    -- parse source code, get the Cpp.Token list...
-
-    let tokens = Cpp.tokenizer text'
+    let text' = expandMultiline opt . ignoreCase opt $ text
 
     -- pre-process patterns
 
     let patterns   = map (Cpp.tokenizer . contextFilter (Just Cpp) ((mkContextFilter opt) { getComment = False })) ps  -- [ [t1,t2,..], [t1,t2...] ]
 
-    let patterns'  = map (map mkWildCard) patterns               -- [ [w1,w2,..], [w1,w2,..] ]
+    let patterns'  = map (map mkWildCard) patterns                 -- [ [w1,w2,..], [w1,w2,..] ]
 
     let patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
-    -- get matching tokens ...
+    -- get indices...
 
-    let tokens' = sortBy (compare `on` Cpp.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $ concatMap (\x -> case x of
+                                                                                                   TokenCard t -> [t]
+                                                                                                   otherWise   -> [] ) (concat patterns')
 
-    let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
+    let ids = if null p then [0]
+                        else last p `SC.nonOverlappingIndices` text'
+
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
     putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
-    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
-    putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+    putStrLevel2 (debug opt) $ "identif   : " ++ show p
 
-    return $ mkOutput opt filename text matches
+    if null ids
+        then do
+
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+            return $ mkOutput opt filename text []
+
+        else do
+
+            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False }) $ text'
+
+            -- parse source code, get the Cpp.Token list...
+
+            let tokens = Cpp.tokenizer text''
+
+            -- get matching tokens ...
+
+            let tokens' = sortBy (compare `on` Cpp.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+
+            let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
+
+            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
+            putStrLevel2 (debug opt) $ "matches   : " ++ show matches
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+
+            return $ mkOutput opt filename text matches
 
 
 instance GenericToken Cpp.Token where
