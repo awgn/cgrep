@@ -173,9 +173,7 @@ directiveKeys = HM.fromList [ ("#",             Hash),
 
 nextCppState :: String -> CppState -> CppState
 nextCppState str pps
-    | Hash <- pps = case HM.lookup str directiveKeys of
-                          Just v  -> v
-                          Nothing -> Null
+    | Hash <- pps = fromMaybe Null (HM.lookup str directiveKeys)
     | otherwise   = if str == "#" then Hash else Null
 
 
