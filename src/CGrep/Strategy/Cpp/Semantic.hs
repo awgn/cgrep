@@ -28,8 +28,10 @@ import CGrep.Common
 import CGrep.Output
 
 import qualified Data.Map as M
+
 import Data.List
 import Data.Function
+import Data.Maybe
 
 import Options
 import Debug
@@ -57,9 +59,9 @@ search opt ps f = do
 
     -- get indices...
 
-    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $ concatMap (\x -> case x of
-                                                                                                   TokenCard t -> [t]
-                                                                                                   otherWise   -> [] ) (concat patterns')
+    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $ mapMaybe (\x -> case x of
+                                                                                            TokenCard t -> Just t
+                                                                                            _           -> Nothing) (concat patterns')
 
     let ids = if null p then [0]
                         else last p `SC.nonOverlappingIndices` text'
