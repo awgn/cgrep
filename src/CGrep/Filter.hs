@@ -28,6 +28,7 @@ import Options
 
 import Data.Char
 import Data.Monoid
+import Data.Array.Unboxed
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8   as LC
@@ -79,28 +80,37 @@ nextContextState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | x == '\\'                 = s { display = litrfilt, skip = 1 }
     | skip s > 0                = s { skip = skip s - 1 }
+
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound s)
                                       lindex = findBoundary (x,xs) (litrBound s)
-                                  in if cindex >= 0
-                                     then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( fst (commBound s !! cindex) ) - 1 }
-                                     else if lindex >= 0
-                                     then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( fst (litrBound s !! lindex) ) - 1 }
+                                  in if bloom s ! x
+                                     then
+
+                                         if cindex >= 0
+                                         then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( beg (commBound s !! cindex) ) - 1 }
+                                         else if lindex >= 0
+                                         then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( beg (litrBound s !! lindex) ) - 1 }
+                                         else s{ display  = codefilt, skip = 0 }
+
                                      else s{ display  = codefilt, skip = 0 }
-    | CommState n <- cxtState s = let (_,end) = commBound s !! n
-                                  in if C.head end == x && C.tail end `C.isPrefixOf` xs
-                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
+
+    | CommState n <- cxtState s = let Boundary _ e = commBound s !! n
+                                  in if C.head e == x && C.tail e `C.isPrefixOf` xs
+                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
                                      else s{ display  = commfilt, skip = 0 }
-    | LitrState n <- cxtState s = let (_,end) = litrBound s !! n
-                                  in if C.head end == x && C.tail end `C.isPrefixOf` xs
-                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length end - 1}
+
+    | LitrState n <- cxtState s = let Boundary _ e = litrBound s !! n
+                                  in if C.head e == x && C.tail e `C.isPrefixOf` xs
+                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
                                      else s{ display = litrfilt, skip = 0 }
+
 nextContextState _ (_,_) ContextFilter {} = undefined
 
 
 {-# INLINE findBoundary #-}
 
 findBoundary :: (Char, Text8) -> [Boundary] -> Int
-findBoundary (x,xs) =  findIndex' (\(b,_) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
+findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
 
 
 {-# INLINE findIndex' #-}
@@ -132,12 +142,19 @@ filterFunctionMap :: Map.Map Lang FilterFunction
 
 type StringBoundary = (String, String)
 
-type Boundary = (Text8, Text8)
+data Boundary = Boundary
+                {
+                    beg   :: !Text8 ,
+                    end   :: !Text8
+                }
+                deriving (Show)
+
 
 data ParState =  ParState
                  {
                     commBound :: [Boundary],
                     litrBound :: [Boundary],
+                    bloom     :: UArray Char Bool,
                     cxtState  :: !ContextState,
                     display   :: !Bool,
                     skip      :: !Int
@@ -147,8 +164,14 @@ data ParState =  ParState
 
 mkParState :: [StringBoundary] -> [StringBoundary] -> ParState
 mkParState cs ls =
-    ParState (map (\(a,b) -> (C.pack a, C.pack b)) cs)
-             (map (\(a,b) -> (C.pack a, C.pack b)) ls) CodeState False 0
+    ParState (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
+             (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
+             (mkBloom (cs ++ ls))
+             CodeState False 0
+
+
+mkBloom :: [StringBoundary] -> UArray Char Bool
+mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
 
 
 data ContextState = CodeState | CommState Int | LitrState Int
