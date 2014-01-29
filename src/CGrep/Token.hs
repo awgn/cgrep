@@ -22,7 +22,7 @@
 module CGrep.Token (Token, MatchLine, tokens, tokenizer) where
 
 
-import qualified CGrep.Generic.Token as G
+import qualified CGrep.Semantic.Generic.Token as G
 
 import CGrep.Types
 

@@ -18,7 +18,7 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Cpp.Token(Token(..), TokenFilter(..),
+module CGrep.Semantic.Cpp.Token(Token(..), TokenFilter(..),
                        Offset, tokenizer, tokenFilter, tokenCompare,
                        isIdentifier, isKeyword, isDirective, isLiteralNumber,
                        isHeaderName, isString, isChar, isOperOrPunct

@@ -25,7 +25,7 @@ import qualified Data.Map as M
 
 import CGrep.Common
 import CGrep.Distance
-import CGrep.SemanticToken
+import CGrep.Semantic.Token
 
 import Data.Char
 import Data.List

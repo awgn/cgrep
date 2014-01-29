@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 
-module CGrep.Generic.Token (tokenizer, Token(..)) where
+module CGrep.Semantic.Generic.Token (tokenizer, Token(..)) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -27,7 +27,7 @@ import qualified Data.DList as DL
 import Data.Char
 import Data.Array.Unboxed
 
-import CGrep.SemanticToken
+import CGrep.Semantic.Token
 import CGrep.Types
 
 type DString = DL.DList Char

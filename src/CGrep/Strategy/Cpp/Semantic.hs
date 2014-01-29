@@ -26,7 +26,7 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
-import CGrep.SemanticToken
+import CGrep.Semantic.Token
 
 import qualified Data.Map as M
 
@@ -37,7 +37,7 @@ import Data.Maybe
 import Options
 import Debug
 
-import qualified CGrep.Cpp.Token  as Cpp
+import qualified CGrep.Semantic.Cpp.Token  as Cpp
 
 search :: CgrepFunction
 search opt ps f = do
