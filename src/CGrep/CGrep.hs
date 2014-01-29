@@ -18,38 +18,44 @@
 
 module CGrep.CGrep (sanitizeOptions, cgrepDispatch) where
 
-import qualified CGrep.Strategy.BoyerMoore    as BoyerMoore
-import qualified CGrep.Strategy.Levenshtein   as Levenshtein
-import qualified CGrep.Strategy.Regex         as Regex
-import qualified CGrep.Strategy.Cpp.Tokenizer as CppTokenizer
-import qualified CGrep.Strategy.Cpp.Semantic  as CppSemantic
+import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
+import qualified CGrep.Strategy.Levenshtein      as Levenshtein
+import qualified CGrep.Strategy.Regex            as Regex
+import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
+import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
 
 import CGrep.Lang
 import CGrep.Common
 
 import Data.List
+import Data.Maybe
 import Options
 
 
+hasLanguage :: FilePath -> Options -> [Lang] -> Bool
+hasLanguage path opt xs = isJust $ getLang opt path >>= (`elemIndex` xs)
+
+
 sanitizeOptions  :: FilePath -> Options -> Options
-sanitizeOptions path opt = case getLang opt path >>= (`elemIndex` [C, Cpp]) of
-                            Nothing -> opt {identifier = False,
+sanitizeOptions path opt = if hasLanguage path opt [C, Cpp]
+                               then opt
+                               else opt {
+                                            identifier = False,
                                             keyword    = False,
                                             directive  = False,
                                             header     = False,
                                             string     = False,
                                             char       = False,
-                                            oper       = False,
-                                            semantic   = False
-                                            }
-                            _       -> opt
-
+                                            oper       = False
+                                         }
 
 hasEditDistOpt :: Options -> Bool
 hasEditDistOpt Options { edit_dist = x } = x
 
+
 hasRegexOpt :: Options -> Bool
 hasRegexOpt Options{ regex = x } = x
+
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options{ identifier = i,
@@ -61,16 +67,17 @@ hasTokenizerOpt Options{ identifier = i,
                          char       = c,
                          oper       = o} = i || k || d || h || n || s || c || o
 
+
 hasSemanticOpt :: Options -> Bool
 hasSemanticOpt Options{ semantic = s } = s
 
 
-cgrepDispatch :: Options -> CgrepFunction
+cgrepDispatch :: Options -> FilePath -> CgrepFunction
 
-cgrepDispatch opt
+cgrepDispatch opt f
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) && hasEditDistOpt opt = Levenshtein.search
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = BoyerMoore.search
-    | not (hasRegexOpt opt) && hasSemanticOpt opt = CppSemantic.search
+    | not (hasRegexOpt opt) && hasSemanticOpt opt && hasLanguage f opt [C,Cpp] = CppSemantic.search
     | not (hasRegexOpt opt) = CppTokenizer.search
     | hasRegexOpt opt       = Regex.search
     | otherwise             = undefined
