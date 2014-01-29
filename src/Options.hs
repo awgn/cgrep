@@ -38,6 +38,10 @@ data Options = Options
                 comment     :: Bool,
                 literal     :: Bool,
 
+                -- Semantic:
+
+                semantic    :: Bool,
+
                 -- C/C++ Token:
                 identifier  :: Bool,
                 keyword     :: Bool,
@@ -47,7 +51,6 @@ data Options = Options
                 string      :: Bool,
                 char        :: Bool,
                 oper        :: Bool,
-                semantic    :: Bool,
 
                 -- Output:
                 no_filename    :: Bool,

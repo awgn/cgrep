@@ -23,7 +23,7 @@ import System.Console.CmdArgs
 import Options
 
 version :: String
-version = "5.6"
+version = "6.0-BETA"
 
 options = cmdArgsMode $ Options
           {
@@ -47,7 +47,8 @@ options = cmdArgsMode $ Options
                 string = False             &= help "literal strings" &= explicit &= name "string",
                 char = False               &= help "literal chars" &= explicit &= name "char",
                 oper = False               &= help "operators" &= explicit &= name "oper",
-                semantic = False           &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors, \"struct OR class _ { OR : OR <\" search for a class declaration" &= explicit &= name "S" &= name "semantic",
+
+                semantic = False           &= groupname "\nSemantic (generic)" &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors, \"struct OR class _ { OR : OR <\" search for a class declaration" &= explicit &= name "S" &= name "semantic",
 
                 no_filename = False        &= help "suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control",
                 no_linenumber= False       &= help "suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber",

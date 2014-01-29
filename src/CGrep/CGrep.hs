@@ -23,6 +23,7 @@ import qualified CGrep.Strategy.Levenshtein      as Levenshtein
 import qualified CGrep.Strategy.Regex            as Regex
 import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
+import qualified CGrep.Strategy.Generic.Semantic as Semantic
 
 import CGrep.Lang
 import CGrep.Common
@@ -78,6 +79,7 @@ cgrepDispatch opt f
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) && hasEditDistOpt opt = Levenshtein.search
     | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = BoyerMoore.search
     | not (hasRegexOpt opt) && hasSemanticOpt opt && hasLanguage f opt [C,Cpp] = CppSemantic.search
+    | not (hasRegexOpt opt) && hasSemanticOpt opt = Semantic.search
     | not (hasRegexOpt opt) = CppTokenizer.search
     | hasRegexOpt opt       = Regex.search
     | otherwise             = undefined
