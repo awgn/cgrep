@@ -38,8 +38,15 @@ import Data.String.Utils
 import Data.Function
 
 import CGrep.Types
+import CGrep.Token
+
 import Safe
 import Options
+
+
+data Output = Output FilePath Int Text8 [Token]
+                deriving (Show)
+
 
 getOffsetsLines :: Text8 -> [Int]
 getOffsetsLines = C.elemIndices '\n'
@@ -143,23 +150,23 @@ formatOutput opt (Output f n l ts) =
             ("#f", showFile opt f),
             ("#n", show n),
             ("#l", showLine opt ts l),
-            ("#t", show tokens),
-            ("##", unwords tokens),
-            ("#,", intercalate "," tokens),
-            ("#;", intercalate ";" tokens),
-            ("#0", atDef "" tokens 0),
-            ("#1", atDef "" tokens 1),
-            ("#2", atDef "" tokens 2),
-            ("#3", atDef "" tokens 3),
-            ("#4", atDef "" tokens 4),
-            ("#5", atDef "" tokens 5),
-            ("#6", atDef "" tokens 6),
-            ("#7", atDef "" tokens 7),
-            ("#8", atDef "" tokens 8),
-            ("#9", atDef "" tokens 9)
+            ("#t", show ts'),
+            ("##", unwords ts'),
+            ("#,", intercalate "," ts'),
+            ("#;", intercalate ";" ts'),
+            ("#0", atDef "" ts' 0),
+            ("#1", atDef "" ts' 1),
+            ("#2", atDef "" ts' 2),
+            ("#3", atDef "" ts' 3),
+            ("#4", atDef "" ts' 4),
+            ("#5", atDef "" ts' 5),
+            ("#6", atDef "" ts' 6),
+            ("#7", atDef "" ts' 7),
+            ("#8", atDef "" ts' 8),
+            ("#9", atDef "" ts' 9)
         ]
     where trans str (old, new) = replace old new str
-          tokens = map snd ts
+          ts' = map snd ts
 
 #ifdef ENABLE_HINT
 hintOputput :: Options -> [Output] -> IO [String]

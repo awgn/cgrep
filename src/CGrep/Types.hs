@@ -28,9 +28,3 @@ type OffsetLine = Int
 type Text8     = C.ByteString
 type Line8     = C.ByteString
 
-type Token     = (Offset, String)
-type MatchLine = (OffsetLine, [Token])
-
-data Output    = Output FilePath Int Text8 [Token]
-                    deriving (Show)
-

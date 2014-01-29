@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 
-module CGrep.Token (tokens, tokenizer) where
+module CGrep.Token (Token, MatchLine, tokens, tokenizer) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -41,7 +41,8 @@ data TokenState = TokenSpace |
 
 data TokenAccum = TokenAccum !TokenState !Offset DString (DL.DList Token)
 
-
+type Token      = (Offset, String)
+type MatchLine  = (OffsetLine, [Token])
 
 
 isCharNumberLT :: UArray Char Bool

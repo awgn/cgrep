@@ -31,6 +31,8 @@ import Data.Char
 import Data.Array.Unboxed
 
 import CGrep.Types
+import CGrep.Output
+
 import Options
 
 
