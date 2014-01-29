@@ -73,19 +73,20 @@ search opt ps f = do
                                     then filter (checkToken opt text'') tokens
                                     else tokens
 
-                    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
+                    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+                    putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
                     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
 
                     return $ mkOutput opt filename text tokens'
 
 
 checkToken :: Options -> Text8 -> (Offset, String) -> Bool
-checkToken opt text (off, tok)
-     | word_match    opt = tok `elem` ts
-     | prefix_match  opt = any (tok `isPrefixOf`) ts
-     | suffix_match  opt = any (tok `isSuffixOf`) ts
-     where text' = getLineByOffset off text
-           ts    = T.tokens text'
+checkToken opt text (off, str)
+     | word_match    opt = (off - off', str) `elem` ts
+     | prefix_match  opt = any (\(o,s) -> str `isPrefixOf` s && o + off' == off) ts
+     | suffix_match  opt = any (\(o,s) -> str `isSuffixOf` s && o + off' + (length s - length str) == off) ts
+     where (text',off') = getLineByOffset off text
+           ts           = T.tokenizer text'
 
 checkToken _ _ (_,_)     = undefined
 
@@ -95,8 +96,9 @@ splitLines xs = zip ls off
     where ls  = C.lines xs
           off = scanl (\o l -> 1 + o + C.length l) 0 ls
 
-getLineByOffset :: Offset -> Text8 -> Text8
-getLineByOffset off xs = fst . last $ takeWhile (\(_,o) -> o <= off) sl
+
+getLineByOffset :: Offset -> Text8 -> (Text8, Offset)
+getLineByOffset off xs = last $ takeWhile (\(_,o) -> o <= off) sl
         where sl = splitLines xs
 
 
