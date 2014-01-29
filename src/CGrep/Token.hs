@@ -38,5 +38,3 @@ tokens = map G.toString . G.tokenizer
 tokenizer :: Text8 -> [Token]
 tokenizer = map (\t -> (G.offset t, G.toString t)) . G.tokenizer
 
-
-

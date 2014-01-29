@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Cpp.Token(Token(..), TokenFilter(..),
-                       Offset, tokens, tokenizer, tokenFilter, tokenCompare,
+                       Offset, tokenizer, tokenFilter, tokenCompare,
                        isIdentifier, isKeyword, isDirective, isLiteralNumber,
                        isHeaderName, isString, isChar, isOperOrPunct
                        )  where
@@ -72,10 +72,6 @@ data TokenFilter = TokenFilter
 tokenizer :: Source -> [Token]
 tokenizer xs = runGetToken (ys, n, Null)
             where (ys, n) = dropWhite xs
-
-
-tokens :: Source -> [String]
-tokens = map toString . tokenizer
 
 
 tokenFilter :: TokenFilter -> Token -> Bool

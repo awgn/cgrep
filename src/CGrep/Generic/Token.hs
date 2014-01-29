@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 
-module CGrep.Generic.Token (tokens, tokenizer, Token(..)) where
+module CGrep.Generic.Token (tokenizer, Token(..)) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -103,12 +103,6 @@ isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
         (map (\c -> c `elem` "{[()]}" ) ['\0'..'\255'])
-
-
-
-
-tokens :: Text8 -> [String]
-tokens = map toString . tokenizer
 
 
 {-# INLINE mkToken #-}
