@@ -42,6 +42,8 @@ data TokenState = TokenSpace |
 data TokenAccum = TokenAccum !TokenState !Offset DString (DL.DList Token)
 
 
+
+
 isCharNumberLT :: UArray Char Bool
 isCharNumberLT =
     listArray ('\0', '\255')
@@ -89,7 +91,7 @@ mkToken off ds =  (off - length str, str)
 tokenizer :: Text8 -> [Token]
 tokenizer xs = (\(TokenAccum _  off acc out) -> DL.toList (out `DL.snoc` mkToken off acc)) $ C.foldl' tokens' (TokenAccum TokenSpace 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
-          tokens' (TokenAccum TokenSpace off acc out) x =
+          tokens' (TokenAccum TokenSpace off _ out) x =
               case () of
                 _  | isSpaceLT ! x      ->  TokenAccum TokenSpace   (off+1)  DL.empty         out
                    | isAlphaLT ! x      ->  TokenAccum TokenAlpha   (off+1) (DL.singleton  x) out

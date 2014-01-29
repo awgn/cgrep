@@ -19,7 +19,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Cpp.Token(Token(..), TokenFilter(..),
-                       Offset, tokenizer, tokenFilter, tokenCompare,
+                       Offset, tokens, tokenizer, tokenFilter, tokenCompare,
                        isIdentifier, isKeyword, isDirective, isLiteralNumber,
                        isHeaderName, isString, isChar, isOperOrPunct
                        )  where
@@ -34,9 +34,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
 
--- import Debug.Trace
-
-
 type TokenizerState = (Source, Offset, CppState)
 
 type Source = C.ByteString
@@ -44,13 +41,15 @@ type Source = C.ByteString
 type Offset = Int
 
 
--- Tokenize the source code in a list of Token
--- Precondition: the C++ source code must be well-formed
---
-
-tokenizer :: Source -> [Token]
-tokenizer xs = runGetToken (ys, n, Null)
-            where (ys, n) = dropWhite xs
+data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
+             TokenDirective   { toString :: String, offset :: Int  } |
+             TokenKeyword     { toString :: String, offset :: Int  } |
+             TokenNumber      { toString :: String, offset :: Int  } |
+             TokenHeaderName  { toString :: String, offset :: Int  } |
+             TokenString      { toString :: String, offset :: Int  } |
+             TokenChar        { toString :: String, offset :: Int  } |
+             TokenOperOrPunct { toString :: String, offset :: Int  }
+                deriving (Show, Eq, Ord)
 
 
 data TokenFilter = TokenFilter
@@ -66,9 +65,20 @@ data TokenFilter = TokenFilter
 
                    } deriving (Show,Read,Eq)
 
+-- Tokenize the source code in a list of Token
+-- Precondition: the C++ source code must be well-formed
+--
+
+tokenizer :: Source -> [Token]
+tokenizer xs = runGetToken (ys, n, Null)
+            where (ys, n) = dropWhite xs
+
+
+tokens :: Source -> [String]
+tokens = map toString . tokenizer
+
 
 tokenFilter :: TokenFilter -> Token -> Bool
-
 tokenFilter filt (TokenIdentifier{})  = filtIdentifier filt
 tokenFilter filt (TokenDirective{})   = filtDirective  filt
 tokenFilter filt (TokenKeyword{})     = filtKeyword    filt
@@ -77,17 +87,6 @@ tokenFilter filt (TokenNumber{})      = filtNumber     filt
 tokenFilter filt (TokenString{})      = filtString     filt
 tokenFilter filt (TokenChar{})        = filtChar       filt
 tokenFilter filt (TokenOperOrPunct{}) = filtOper       filt
-
-
-data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
-             TokenDirective   { toString :: String, offset :: Int  } |
-             TokenKeyword     { toString :: String, offset :: Int  } |
-             TokenNumber      { toString :: String, offset :: Int  } |
-             TokenHeaderName  { toString :: String, offset :: Int  } |
-             TokenString      { toString :: String, offset :: Int  } |
-             TokenChar        { toString :: String, offset :: Int  } |
-             TokenOperOrPunct { toString :: String, offset :: Int  }
-                deriving (Show, Eq, Ord)
 
 
 tokenCompare :: Token -> Token -> Bool
