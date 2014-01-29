@@ -27,10 +27,12 @@ module CGrep.Cpp.Token(Token(..), TokenFilter(..),
 import Data.Char
 import Data.Maybe
 import Control.Monad
+import Data.Array.Unboxed
 
 import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
+
 
 -- import Debug.Trace
 
@@ -140,12 +142,24 @@ isOperOrPunct (TokenOperOrPunct {})  = True
 isOperOrPunct _ = False
 
 
+{-# INLINE identifCharFilt #-}
+
+identifCharFilt :: UArray Char Bool
+identifCharFilt = listArray ('\0', '\255') (map (\c -> isAlphaNum c || c == '_' || c == '$') ['\0'..'\255'])  -- GNU allows $ in identifiers
+
+{-# INLINE whiteCharFilt #-}
+
+whiteCharFilt :: UArray Char Bool
+whiteCharFilt = listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\0'..'\255'])
+
 -- Drop leading whitespace and count them
 --
 
+{-# INLINE dropWhite #-}
+
 dropWhite :: Source -> (Source, Offset)
 dropWhite xs = (xs', doff)
-    where xs'  = C.dropWhile (\c -> isSpace c || c == '\\') xs
+    where xs'  = C.dropWhile (whiteCharFilt !) xs
           doff = fromIntegral $ C.length xs - C.length xs'
 
 
@@ -301,7 +315,7 @@ getTokenString _ _ = Nothing
 
 
 getTokenChar xs@(C.uncons -> Just (x,_)) _
-    | x == '\'' = Just $ TokenChar  (getLiteral '\'' '\'' False xs) 0
+    | x == '\'' = Just $ TokenChar (getLiteral '\'' '\'' False xs) 0
     | otherwise = Nothing
 getTokenChar (C.uncons -> Nothing) _ = Nothing
 getTokenChar _ _ = Nothing
@@ -340,9 +354,10 @@ getLiteral b e True (C.uncons -> Just (x,xs))
 getLiteral _  _ _ _ = []
 
 
+{-# INLINE isIdentifier #-}
 
 isIdentifierChar :: Char -> Bool
-isIdentifierChar c = isAlphaNum c || c == '_' || c == '$' -- GNU allows $ in identifiers
+isIdentifierChar c = identifCharFilt ! c
 
 
 operOrPunct :: HS.HashSet String
