@@ -99,15 +99,15 @@ search opt ps f = do
             return $ mkOutput opt filename text matches
 
 
-instance GenericToken Cpp.Token where
-    tkIsIdentifier    = Cpp.isIdentifier
-    tkIsString        = Cpp.isString
-    tkIsChar          = Cpp.isChar
-    tkIsNumber        = Cpp.isLiteralNumber
-    tkIsKeyword       = Cpp.isKeyword
+instance SemanticToken Cpp.Token where
+    tkIsIdentifier  = Cpp.isIdentifier
+    tkIsString      = Cpp.isString
+    tkIsChar        = Cpp.isChar
+    tkIsNumber      = Cpp.isLiteralNumber
+    tkIsKeyword     = Cpp.isKeyword
+    tkToString      = Cpp.toString
+    tkEquivalent    = Cpp.tokenCompare
 
-    tkToString       = Cpp.toString
-    tkEquivalent     = Cpp.tokenCompare
 
 
 wildCardMap :: M.Map String (WildCard a)

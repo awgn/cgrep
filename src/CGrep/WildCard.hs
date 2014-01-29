@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.WildCard (WildCard(..), MultiCard, GenericToken(..),
+module CGrep.WildCard (WildCard(..), MultiCard, SemanticToken(..),
                        filterTokensWithMultiCards,
                        wildCardMatch,
                        multiCardMatch) where
@@ -30,7 +30,8 @@ import Data.Char
 import Data.List
 import Options
 
-class (Show t, Ord t) => GenericToken t where
+
+class (Show t, Ord t) => SemanticToken t where
     tkIsIdentifier :: t -> Bool
     tkIsString     :: t -> Bool
     tkIsChar       :: t -> Bool
@@ -54,11 +55,11 @@ data WildCard a =  TokenCard a          |
 type MultiCard a = [WildCard a]
 
 
-filterTokensWithMultiCards :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> [a]
+filterTokensWithMultiCards :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [a]
 filterTokensWithMultiCards opt ws = filterTokensWithMultiCards' opt (spanOptionalCards ws)
 
 
-filterTokensWithMultiCards' :: (GenericToken a) => Options -> [[MultiCard a]] -> [a] -> [a]
+filterTokensWithMultiCards' :: (SemanticToken a) => Options -> [[MultiCard a]] -> [a] -> [a]
 filterTokensWithMultiCards' _ [] _ = []
 filterTokensWithMultiCards' opt (g:gs) ts =
     concatMap (take grpLen . (`drop` ts)) (findIndices (multiCardCompare opt g) grp) ++
@@ -80,7 +81,7 @@ filterCardIndicies :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]
 filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
-multiCardCompare :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> Bool
+multiCardCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> Bool
 multiCardCompare opt l r =
     multiCardCompareAll ts && multiCardCheckOccurences ts
         where ts = multiCardGroupCompare opt l r
@@ -98,7 +99,7 @@ multiCardCompareAll = all fst
 --       that must compare equal in the relative occurrences
 --
 
-multiCardCheckOccurences :: (GenericToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
+multiCardCheckOccurences :: (SemanticToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
 multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
         where m =  M.mapWithKey (\k xs -> case k of
                                                 [IdentifCard "_0"]  -> xs
@@ -125,23 +126,23 @@ multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True 
                                   ) $ M.fromListWith (++) (map snd ts)
 
 
-multiCardGroupCompare :: (GenericToken a) => Options -> [MultiCard a] -> [a] -> [(Bool, (MultiCard a, [String]))]
+multiCardGroupCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [(Bool, (MultiCard a, [String]))]
 multiCardGroupCompare opt ls rs
     | length rs >= length ls = zipWith (tokensZip opt) ls rs
     | otherwise              = [ (False, ([AnyCard], [])) ]
 
 
-tokensZip :: (GenericToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
+tokensZip :: (SemanticToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
 tokensZip opt l r
     |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
     |  otherwise             =  (False, ([AnyCard],[] ))
 
 
-multiCardMatch :: (GenericToken t) => Options ->  MultiCard t -> t -> Bool
+multiCardMatch :: (SemanticToken t) => Options ->  MultiCard t -> t -> Bool
 multiCardMatch opt m t = any (\w -> wildCardMatch opt w t) m
 
 
-wildCardMatch :: (GenericToken t) => Options ->  WildCard t -> t -> Bool
+wildCardMatch :: (SemanticToken t) => Options ->  WildCard t -> t -> Bool
 wildCardMatch _  AnyCard _          = True
 wildCardMatch _  (IdentifCard _) t  = tkIsIdentifier t
 wildCardMatch _  KeyWordCard     t  = tkIsKeyword t
