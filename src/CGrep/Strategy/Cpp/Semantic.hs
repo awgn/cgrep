@@ -21,12 +21,13 @@ module CGrep.Strategy.Cpp.Semantic (search) where
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
 
-import CGrep.WildCard
 import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
+
 import CGrep.Semantic.Token
+import CGrep.Semantic.WildCard
 
 import qualified Data.Map as M
 

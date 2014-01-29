@@ -16,10 +16,10 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.WildCard (WildCard(..), MultiCard,
-                       filterTokensWithMultiCards,
-                       wildCardMatch,
-                       multiCardMatch) where
+module CGrep.Semantic.WildCard (WildCard(..), MultiCard,
+                                filterTokensWithMultiCards,
+                                wildCardMatch,
+                                multiCardMatch) where
 
 import qualified Data.Map as M
 
