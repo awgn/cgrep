@@ -26,6 +26,7 @@ import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
+import CGrep.SemanticToken
 
 import qualified Data.Map as M
 

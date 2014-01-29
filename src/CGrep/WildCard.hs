@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.WildCard (WildCard(..), MultiCard, SemanticToken(..),
+module CGrep.WildCard (WildCard(..), MultiCard,
                        filterTokensWithMultiCards,
                        wildCardMatch,
                        multiCardMatch) where
@@ -25,20 +25,11 @@ import qualified Data.Map as M
 
 import CGrep.Common
 import CGrep.Distance
+import CGrep.SemanticToken
 
 import Data.Char
 import Data.List
 import Options
-
-
-class (Show t, Ord t) => SemanticToken t where
-    tkIsIdentifier :: t -> Bool
-    tkIsString     :: t -> Bool
-    tkIsChar       :: t -> Bool
-    tkIsNumber     :: t -> Bool
-    tkIsKeyword    :: t -> Bool
-    tkToString     :: t -> String
-    tkEquivalent   :: t -> t -> Bool
 
 
 data WildCard a =  TokenCard a          |
