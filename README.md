@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 5.6 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.0-BETA Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -24,6 +24,13 @@ Context filters (generic):
     -m --comment              enable search in comments
     -l --literal              enable search in string literals
 
+Semantic (generic):
+    -S --semantic             "code" pattern: _, _1, _2... (identifiers), $,
+                              $1, $2... (optionals), ANY, KEY, STR, CHR, NUM,
+                              HEX, OCT, OR. -> e.g. "_1(_1 && \$)" search for
+                              move constructors, "struct OR class _ { OR : OR <"
+                              search for a class declaration
+
 C/C++ language:
 
        --identifier           identifiers
@@ -34,11 +41,6 @@ C/C++ language:
        --string               literal strings
        --char                 literal chars
        --oper                 operators
-    -S --semantic             "code" pattern: _, _1, _2... (identifiers), $,
-                              $1, $2... (optionals), ANY, KEY, STR, CHR, NUM,
-                              HEX, OCT, OR. -> e.g. "_1(_1 && \$)" search for
-                              move constructors, "struct OR class _ { OR : OR <"
-                              search for a class declaration
  
 Output control:
 
