@@ -142,15 +142,12 @@ isOperOrPunct (TokenOperOrPunct {})  = True
 isOperOrPunct _ = False
 
 
-{-# INLINE identifCharFilt #-}
+isIdentifierChar' :: Char -> Bool
+isIdentifierChar' = (((listArray ('\0', '\255') (map (\c -> isAlphaNum c || c == '_' || c == '$') ['\0'..'\255'])) :: UArray Char Bool) !)  -- GNU allows $ in identifier
 
-identifCharFilt :: UArray Char Bool
-identifCharFilt = listArray ('\0', '\255') (map (\c -> isAlphaNum c || c == '_' || c == '$') ['\0'..'\255'])  -- GNU allows $ in identifiers
 
-{-# INLINE whiteCharFilt #-}
-
-whiteCharFilt :: UArray Char Bool
-whiteCharFilt = listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\0'..'\255'])
+isChar' :: Char -> Bool
+isChar'= (((listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\0'..'\255'])) :: UArray Char Bool) !)
 
 -- Drop leading whitespace and count them
 --
@@ -159,7 +156,7 @@ whiteCharFilt = listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\
 
 dropWhite :: Source -> (Source, Offset)
 dropWhite xs = (xs', doff)
-    where xs'  = C.dropWhile (whiteCharFilt !) xs
+    where xs'  = C.dropWhile isChar' xs
           doff = fromIntegral $ C.length xs - C.length xs'
 
 
@@ -226,7 +223,7 @@ getTokenIdOrKeyword, getTokenNumber,
 getTokenDirective xs  state
     | state == Hash = Just (TokenDirective name 0)
     | otherwise = Nothing
-    where name = C.unpack $ C.takeWhile isIdentifierChar xs
+    where name = C.unpack $ C.takeWhile isIdentifierChar' xs
 
 
 getTokenHeaderName  (C.uncons -> Nothing) _ = error "getTokenHeaderName: internal error"
@@ -234,7 +231,7 @@ getTokenHeaderName  xs@(C.uncons -> Just (x,_)) state
     | state /= Include  = Nothing
     | x == '<'          = Just $ TokenHeaderName (getLiteral '<'  '>'  False xs)   0
     | x == '"'          = Just $ TokenHeaderName (getLiteral '"'  '"'  False xs)   0
-    | otherwise         = Just $ TokenHeaderName (C.unpack $ C.takeWhile isIdentifierChar xs) 0
+    | otherwise         = Just $ TokenHeaderName (C.unpack $ C.takeWhile isIdentifierChar' xs) 0
 
 getTokenHeaderName _ _ = undefined
 
@@ -322,10 +319,10 @@ getTokenChar _ _ = Nothing
 
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
-    | not $ isIdentifierChar x  = Nothing
+    | not $ isIdentifierChar' x  = Nothing
     | name `HS.member` keywords = Just $ TokenKeyword name 0
     | otherwise                 = Just $ TokenIdentifier name 0
-                                    where name = C.unpack $ C.takeWhile isIdentifierChar xs
+                                    where name = C.unpack $ C.takeWhile isIdentifierChar' xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 getTokenIdOrKeyword _ _ = Nothing
 
@@ -353,11 +350,6 @@ getLiteral b e True (C.uncons -> Just (x,xs))
                         (C.uncons -> Just(x',xs')) = xs
 getLiteral _  _ _ _ = []
 
-
-{-# INLINE isIdentifier #-}
-
-isIdentifierChar :: Char -> Bool
-isIdentifierChar c = identifCharFilt ! c
 
 
 operOrPunct :: HS.HashSet String
