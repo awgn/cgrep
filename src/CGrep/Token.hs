@@ -24,6 +24,7 @@ module CGrep.Token (tokens, tokenizer) where
 import qualified Data.ByteString.Char8 as C
 
 import Data.Char
+import Data.Array.Unboxed
 
 import CGrep.Types
 
@@ -39,8 +40,31 @@ data TokenAccum = TokenAccum !TokenState !Offset String [Token]
     deriving (Show,Eq)
 
 
-isCharNumber :: Char -> Bool
-isCharNumber c = isHexDigit c || c == '.' || c == 'x' || c == 'X'
+isCharNumberLT :: UArray Char Bool
+isCharNumberLT =
+    listArray ('\0', '\255')
+        (map (\c -> isHexDigit c || c `elem` ['.', 'x','X']) ['\0'..'\255'])
+
+
+isSpaceLT :: UArray Char Bool
+isSpaceLT =
+    listArray ('\0', '\255')
+        (map (\c -> isSpace c) ['\0'..'\255'])
+
+isAlphaLT :: UArray Char Bool
+isAlphaLT =
+    listArray ('\0', '\255')
+        (map (\c -> isAlpha c || c == '_') ['\0'..'\255'])
+
+isAlphaNumLT :: UArray Char Bool
+isAlphaNumLT =
+    listArray ('\0', '\255')
+        (map (\c -> isAlphaNum c || c == '_') ['\0'..'\255'])
+
+isDigitLT :: UArray Char Bool
+isDigitLT =
+    listArray ('\0', '\255')
+        (map (\c -> isDigit c) ['\0'..'\255'])
 
 
 tokens :: Text8 -> [String]
