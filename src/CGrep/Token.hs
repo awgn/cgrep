@@ -21,116 +21,22 @@
 
 module CGrep.Token (Token, MatchLine, tokens, tokenizer) where
 
-import qualified Data.ByteString.Char8 as C
-import qualified Data.DList as DL
 
-import Data.Char
-import Data.Array.Unboxed
+import qualified CGrep.Generic.Token as G
 
 import CGrep.Types
 
-type DString = DL.DList Char
-
-data TokenState = TokenSpace |
-                  TokenAlpha |
-                  TokenDigit |
-                  TokenBracket |
-                  TokenOther
-                    deriving (Eq, Enum, Show)
-
-
-data TokenAccum = TokenAccum !TokenState !Offset DString (DL.DList Token)
 
 type Token      = (Offset, String)
 type MatchLine  = (OffsetLine, [Token])
 
 
-isCharNumberLT :: UArray Char Bool
-isCharNumberLT =
-    listArray ('\0', '\255')
-        (map (\c -> isHexDigit c || c `elem` ['.', 'x','X']) ['\0'..'\255'])
-
-
-isSpaceLT :: UArray Char Bool
-isSpaceLT =
-    listArray ('\0', '\255')
-        (map (\c -> isSpace c) ['\0'..'\255'])
-
-isAlphaLT :: UArray Char Bool
-isAlphaLT =
-    listArray ('\0', '\255')
-        (map (\c -> isAlpha c || c == '_') ['\0'..'\255'])
-
-isAlphaNumLT :: UArray Char Bool
-isAlphaNumLT =
-    listArray ('\0', '\255')
-        (map (\c -> isAlphaNum c || c == '_') ['\0'..'\255'])
-
-isDigitLT :: UArray Char Bool
-isDigitLT =
-    listArray ('\0', '\255')
-        (map (\c -> isDigit c) ['\0'..'\255'])
-
-isBracketLT :: UArray Char Bool
-isBracketLT =
-    listArray ('\0', '\255')
-        (map (\c -> c `elem` "{[()]}" ) ['\0'..'\255'])
-
-
 tokens :: Text8 -> [String]
-tokens = map snd . tokenizer
-
-
-{-# INLINE mkToken #-}
-
-
-mkToken :: Offset -> DString -> Token
-mkToken off ds =  (off - length str, str)
-    where str = DL.toList ds
+tokens = map G.toString . G.tokenizer
 
 
 tokenizer :: Text8 -> [Token]
-tokenizer xs = (\(TokenAccum _  off acc out) -> DL.toList (out `DL.snoc` mkToken off acc)) $ C.foldl' tokens' (TokenAccum TokenSpace 0 DL.empty DL.empty) xs
-    where tokens' :: TokenAccum -> Char -> TokenAccum
-          tokens' (TokenAccum TokenSpace off _ out) x =
-              case () of
-                _  | isSpaceLT ! x      ->  TokenAccum TokenSpace   (off+1)  DL.empty         out
-                   | isAlphaLT ! x      ->  TokenAccum TokenAlpha   (off+1) (DL.singleton  x) out
-                   | isDigitLT ! x      ->  TokenAccum TokenDigit   (off+1) (DL.singleton  x) out
-                   | isBracketLT ! x    ->  TokenAccum TokenBracket (off+1) (DL.singleton  x) out
-                   | otherwise          ->  TokenAccum TokenOther   (off+1) (DL.singleton  x) out
+tokenizer = map (\t -> (G.offset t, G.toString t)) . G.tokenizer
 
-          tokens' (TokenAccum TokenAlpha off acc out) x =
-              case () of
-                _  | isAlphaNumLT ! x   ->  TokenAccum TokenAlpha   (off+1) (acc `DL.snoc` x)  out
-                   | isSpaceLT ! x      ->  TokenAccum TokenSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum TokenBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum TokenOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-
-          tokens' (TokenAccum TokenDigit off acc out) x =
-              case () of
-                _  | isCharNumberLT ! x ->  TokenAccum TokenDigit   (off+1) (acc `DL.snoc` x)  out
-                   | isSpaceLT ! x      ->  TokenAccum TokenSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isAlphaLT ! x      ->  TokenAccum TokenAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum TokenBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum TokenOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-
-          tokens' (TokenAccum TokenBracket off acc out) x =
-              case () of
-                _  | isSpaceLT ! x      ->  TokenAccum TokenSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isAlphaLT ! x      ->  TokenAccum TokenAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isDigitLT ! x      ->  TokenAccum TokenDigit   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum TokenBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum TokenOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-
-          tokens' (TokenAccum TokenOther off acc out) x =
-              case () of
-                _  | isSpaceLT ! x      ->  TokenAccum TokenSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isAlphaLT ! x      ->  TokenAccum TokenAlpha   (off+1) (DL.singleton x)  (out `DL.snoc` mkToken off acc)
-                   | isDigitLT ! x      ->  if DL.toList acc == "."
-                                            then TokenAccum TokenDigit (off+1) (acc `DL.snoc` x)  out
-                                            else TokenAccum TokenDigit (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum TokenBracket    (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum TokenOther      (off+1) (acc `DL.snoc` x)  out
 
 
