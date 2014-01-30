@@ -132,7 +132,8 @@ mkTokenCtor StateOther   = TokenOther
 
 
 tokenizer :: Text8 -> [Token]
-tokenizer xs = (\(TokenAccum ss  off _ acc out) -> DL.toList (out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs
+tokenizer xs = (\(TokenAccum ss  off _ acc out) -> DL.toList (if null (DL.toList acc) then out
+                                                                                      else out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ _ out) x =
               case () of
