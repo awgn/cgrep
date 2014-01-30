@@ -153,10 +153,12 @@ wildCardMatch opt (TokenCard l) r
                                                   | suffix_match opt -> tkToString l `isSuffixOf`  tkToString r
                                                   | otherwise        -> tkToString l `isInfixOf` tkToString r
     | tkIsString l && tkIsString r = case () of
-                                        _ | edit_dist  opt   -> tkToString l ~== tkToString r
-                                          | word_match opt   -> tkToString l ==  tkToString r
-                                          | prefix_match opt -> tkToString l `isPrefixOf` tkToString r
-                                          | suffix_match opt -> tkToString l `isSuffixOf` tkToString r
-                                          | otherwise        -> (unquotes . trim) (tkToString l) `isInfixOf` (unquotes . trim) (tkToString r)
+                                        _ | edit_dist  opt   -> ls ~== rs
+                                          | word_match opt   -> ls ==  rs
+                                          | prefix_match opt -> ls `isPrefixOf` rs
+                                          | suffix_match opt -> ls `isSuffixOf` rs
+                                          | otherwise        -> ls `isInfixOf`  rs
+                                          where ls = unquotes $ trim (tkToString l)
+                                                rs = unquotes $ trim (tkToString r)
     | otherwise  = l `tkEquivalent` r
 
