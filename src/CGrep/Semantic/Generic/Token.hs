@@ -50,22 +50,22 @@ data Token = TokenAlpha       { toString :: String, offset :: Offset  } |
              TokenOther       { toString :: String, offset :: Offset  }
                 deriving (Show, Eq, Ord)
 
-isTokenAlpha, isTokenDigit, isTokenBracket, isTokenOther, isTokenLiteral :: Token -> Bool
+_isTokenAlpha, _isTokenDigit, _isTokenBracket, _isTokenOther, _isTokenLiteral :: Token -> Bool
 
-isTokenAlpha (TokenAlpha _ _) = True
-isTokenAlpha _  = False
+_isTokenAlpha (TokenAlpha _ _) = True
+_isTokenAlpha _  = False
 
-isTokenDigit (TokenDigit _ _) = True
-isTokenDigit _  = False
+_isTokenDigit (TokenDigit _ _) = True
+_isTokenDigit _  = False
 
-isTokenBracket (TokenBracket _ _) = True
-isTokenBracket _  = False
+_isTokenBracket (TokenBracket _ _) = True
+_isTokenBracket _  = False
 
-isTokenLiteral (TokenLiteral _ _) = True
-isTokenLiteral _  = False
+_isTokenLiteral (TokenLiteral _ _) = True
+_isTokenLiteral _  = False
 
-isTokenOther (TokenOther _ _) = True
-isTokenOther _  = False
+_isTokenOther (TokenOther _ _) = True
+_isTokenOther _  = False
 
 
 
@@ -197,10 +197,10 @@ tokenizer xs = (\(TokenAccum ss  off _ acc out) -> DL.toList (out `DL.snoc` mkTo
 
 
 instance SemanticToken Token where
-    tkIsIdentifier  = isTokenAlpha
-    tkIsString      = isTokenLiteral
-    tkIsChar        = isTokenLiteral
-    tkIsNumber      = isTokenDigit
+    tkIsIdentifier  = _isTokenAlpha
+    tkIsString      = _isTokenLiteral
+    tkIsChar        = _isTokenLiteral
+    tkIsNumber      = _isTokenDigit
     tkIsKeyword     = \_ -> False
     tkToString      = toString
     tkEquivalent    = tokenCompare
