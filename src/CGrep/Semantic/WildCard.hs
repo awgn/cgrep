@@ -39,6 +39,7 @@ data WildCard a =  TokenCard a          |
                    OctCard              |
                    HexCard              |
                    StringCard           |
+                   LiteralCard          |
                    CharCard             |
                    IdentifCard String
                        deriving (Show, Eq, Ord)
@@ -139,6 +140,7 @@ wildCardMatch _  (IdentifCard _) t  = tkIsIdentifier t
 wildCardMatch _  KeyWordCard     t  = tkIsKeyword t
 wildCardMatch _  StringCard      t  = tkIsString t
 wildCardMatch _  CharCard        t  = tkIsChar t
+wildCardMatch _  LiteralCard     t  = tkIsString t || tkIsChar t
 wildCardMatch _  NumberCard      t  = tkIsNumber t
 wildCardMatch _  OctCard         t  = tkIsNumber t && case tkToString t of ('0':d: _)  -> isDigit d; _ -> False
 wildCardMatch _  HexCard         t  = tkIsNumber t && case tkToString t of ('0':'x':_) -> True; _     -> False

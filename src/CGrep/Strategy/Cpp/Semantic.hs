@@ -121,7 +121,8 @@ wildCardMap = M.fromList
                 ("HEX", HexCard     ),
                 ("NUM", NumberCard  ),
                 ("CHR", CharCard    ),
-                ("STR", StringCard  )
+                ("STR", StringCard  ),
+                ("LIT", LiteralCard )
             ]
 
 
