@@ -92,7 +92,7 @@ isAlphaLT =
 isAlphaNumLT :: UArray Char Bool
 isAlphaNumLT =
     listArray ('\0', '\255')
-        (map (\c -> isAlphaNum c || c == '_') ['\0'..'\255'])
+        (map (\c -> isAlphaNum c || c == '_' || c == '\'') ['\0'..'\255'])
 
 isDigitLT :: UArray Char Bool
 isDigitLT =
