@@ -61,14 +61,14 @@ search opt ps f = do
 
     -- get indices...
 
-    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $
-                        mapMaybe (\x -> case x of
-                                            TokenCard t -> Just t
-                                            _           -> Nothing) (concat patterns')
+    let p = sortBy (compare `on` C.length) $ map C.pack $
+                mapMaybe (\x -> case x of
+                                    TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
+                                    TokenCard t                           -> Just (tkToString t)
+                                    _                                     -> Nothing) (concat patterns')
 
     let ids = if null p then [0]
                         else last p `SC.nonOverlappingIndices` text'
-
 
     putStrLevel1 (debug opt) $ "strategy  : running generic semantic search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'

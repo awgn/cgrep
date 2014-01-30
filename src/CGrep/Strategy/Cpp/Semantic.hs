@@ -40,6 +40,7 @@ import Debug
 
 import qualified CGrep.Semantic.Cpp.Token  as Cpp
 
+
 search :: CgrepFunction
 search opt ps f = do
 
@@ -61,9 +62,12 @@ search opt ps f = do
 
     -- get indices...
 
-    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $ mapMaybe (\x -> case x of
-                                                                                            TokenCard t -> Just t
-                                                                                            _           -> Nothing) (concat patterns')
+    let p = sortBy (compare `on` C.length) $ map C.pack $
+                mapMaybe (\x -> case x of
+                                    TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
+                                    TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
+                                    TokenCard t                       -> Just $ Cpp.toString t
+                                    _                                 -> Nothing) (concat patterns')
 
     let ids = if null p then [0]
                         else last p `SC.nonOverlappingIndices` text'
@@ -101,6 +105,7 @@ search opt ps f = do
             return $ mkOutput opt filename text matches
 
 
+
 instance SemanticToken Cpp.Token where
     tkIsIdentifier  = Cpp.isIdentifier
     tkIsString      = Cpp.isString
@@ -109,7 +114,6 @@ instance SemanticToken Cpp.Token where
     tkIsKeyword     = Cpp.isKeyword
     tkToString      = Cpp.toString
     tkEquivalent    = Cpp.tokenCompare
-
 
 
 wildCardMap :: M.Map String (WildCard a)
