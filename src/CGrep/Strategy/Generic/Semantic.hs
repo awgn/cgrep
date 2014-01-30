@@ -61,9 +61,10 @@ search opt ps f = do
 
     -- get indices...
 
-    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $ mapMaybe (\x -> case x of
-                                                                                            TokenCard t -> Just t
-                                                                                            _           -> Nothing) (concat patterns')
+    let p = sortBy (compare `on` C.length) $ map (C.pack . tkToString) $
+                        mapMaybe (\x -> case x of
+                                            TokenCard t -> Just t
+                                            _           -> Nothing) (concat patterns')
 
     let ids = if null p then [0]
                         else last p `SC.nonOverlappingIndices` text'
@@ -94,8 +95,10 @@ search opt ps f = do
 
             let matches = map (\t -> let n = fromIntegral (Generic.offset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
-            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
+            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+            putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
+
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
 
             return $ mkOutput opt filename text matches
