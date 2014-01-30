@@ -74,6 +74,7 @@ contextParser s  filt (C.uncons -> Just (x,xs)) =
     B.char8 c' <> contextParser s' filt xs
     where !s' = nextContextState s (x,xs) filt
           !c' = if display s' || isSpace x then x else ' '
+contextParser _ _ _ = undefined
 
 
 nextContextState :: ParState -> (Char,Text8) -> ContextFilter -> ParState
@@ -87,9 +88,9 @@ nextContextState s (x,xs) (ContextFilter codefilt commfilt litrfilt)
                                      then
 
                                          if cindex >= 0
-                                         then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( beg (commBound s !! cindex) ) - 1 }
+                                         then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( _beg (commBound s !! cindex) ) - 1 }
                                          else if lindex >= 0
-                                         then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( beg (litrBound s !! lindex) ) - 1 }
+                                         then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( _beg (litrBound s !! lindex) ) - 1 }
                                          else s{ display  = codefilt, skip = 0 }
 
                                      else s{ display  = codefilt, skip = 0 }
@@ -144,8 +145,8 @@ type StringBoundary = (String, String)
 
 data Boundary = Boundary
                 {
-                    beg   :: !Text8 ,
-                    end   :: !Text8
+                    _beg   :: !Text8 ,
+                    _end   :: !Text8
                 }
                 deriving (Show)
 
