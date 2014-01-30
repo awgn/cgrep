@@ -25,6 +25,7 @@ import Options
 version :: String
 version = "6.0-BETA"
 
+options :: Mode (CmdArgs Options)
 options = cmdArgsMode $ Options
           {
                 file  = ""  &= typ "FILE"  &= help "read PATTERNs from file" &= groupname "Pattern",
