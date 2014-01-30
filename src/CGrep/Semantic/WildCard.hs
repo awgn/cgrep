@@ -157,7 +157,6 @@ wildCardMatch opt (TokenCard l) r
                                           | word_match opt   -> tkToString l ==  tkToString r
                                           | prefix_match opt -> tkToString l `isPrefixOf` tkToString r
                                           | suffix_match opt -> tkToString l `isSuffixOf` tkToString r
-                                          | otherwise        -> trim (tkToString l) `isInfixOf` tkToString r
+                                          | otherwise        -> (unquotes . trim) (tkToString l) `isInfixOf` (unquotes . trim) (tkToString r)
     | otherwise  = l `tkEquivalent` r
-        where trim = init . tail
 
