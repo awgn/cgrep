@@ -74,7 +74,7 @@ spanGroup n xs = take n xs : spanGroup n (tail xs)
 
 
 dropSpaceTail :: String -> String -> String
-dropSpaceTail maybeStuff "" = ""
+dropSpaceTail _ "" = ""
 dropSpaceTail maybeStuff (x:xs)
         | isSpace x = dropSpaceTail (x:maybeStuff) xs
         | null maybeStuff = x : dropSpaceTail "" xs
@@ -92,7 +92,6 @@ unquotes y@(x:xs)
     | x == '"' || x == '\'' =  if x == last xs then init xs
                                                else y
    | otherwise = y
-
 
 
 
