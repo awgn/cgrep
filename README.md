@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 6.0-BETA Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.0 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -66,6 +66,7 @@ Output control:
 Miscellaneous:
 
     -d --debug=INT            debug level: 1, 2 or 3
+    -n --no-turbo             disable turbo mode
     -? --help                 Display help message
     -V --version              Print version information
 
