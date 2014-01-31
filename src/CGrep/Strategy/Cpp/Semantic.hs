@@ -60,7 +60,7 @@ search opt ps f = do
 
     -- quick Search...
 
-    let ps' = map (C.pack . head . sortBy (compare `on` length) . mapMaybe (\x -> case x of
+    let ps' = map (C.pack . maximumBy (compare `on` length) . mapMaybe (\x -> case x of
                                     TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
                                     TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
                                     TokenCard t                       -> Just $ Cpp.toString t
@@ -76,13 +76,10 @@ search opt ps f = do
     putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
 
     if maybe False not found
-        then do
-
-            return $ mkOutput opt filename text []
-
+        then return $ mkOutput opt filename text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False }) $ text'
+            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False }) text'
 
             -- parse source code, get the Cpp.Token list...
 

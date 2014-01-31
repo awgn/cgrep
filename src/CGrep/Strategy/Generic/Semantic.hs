@@ -60,7 +60,7 @@ search opt ps f = do
 
     -- quickSearch ...
 
-    let ps' = map ( C.pack . head . sortBy (compare `on` length) . mapMaybe (\x -> case x of
+    let ps' = map ( C.pack . maximumBy (compare `on` length) . mapMaybe (\x -> case x of
                                     TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
                                     TokenCard t                           -> Just (tkToString t)
                                     _                                     -> Nothing)) patterns'
@@ -75,13 +75,10 @@ search opt ps f = do
     let found = quickSearch opt ps' text'
 
     if maybe False not found
-        then do
-
-            return $ mkOutput opt filename text []
-
+        then return $ mkOutput opt filename text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False }) $ text'
+            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False }) text'
 
             -- parse source code, get the Generic.Token list...
 

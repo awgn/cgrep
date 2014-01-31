@@ -60,7 +60,7 @@ search opt ps f = do
         then return $ mkOutput opt filename text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+            let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) text
 
             -- search for matching tokens
 

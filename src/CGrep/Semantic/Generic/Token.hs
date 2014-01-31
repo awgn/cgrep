@@ -84,13 +84,13 @@ data TokenAccum = TokenAccum !TokenState !Offset !Int DString (DL.DList Token)
 isCharNumberLT :: UArray Char Bool
 isCharNumberLT =
     listArray ('\0', '\255')
-        (map (\c -> isHexDigit c || c `elem` ['.', 'x','X']) ['\0'..'\255'])
+        (map (\c -> isHexDigit c || c `elem` ".xX") ['\0'..'\255'])
 
 
 isSpaceLT :: UArray Char Bool
 isSpaceLT =
     listArray ('\0', '\255')
-        (map (\c -> isSpace c) ['\0'..'\255'])
+        (map isSpace ['\0'..'\255'])
 
 isAlphaLT :: UArray Char Bool
 isAlphaLT =
@@ -105,12 +105,12 @@ isAlphaNumLT =
 isDigitLT :: UArray Char Bool
 isDigitLT =
     listArray ('\0', '\255')
-        (map (\c -> isDigit c) ['\0'..'\255'])
+        (map isDigit ['\0'..'\255'])
 
 isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
-        (map (\c -> c `elem` "{[()]}" ) ['\0'..'\255'])
+        (map (`elem` "{[()]}") ['\0'..'\255'])
 
 
 {-# INLINE mkToken #-}
@@ -121,7 +121,7 @@ mkToken ctor off ds =  ctor str (off - length str)
     where str = DL.toList ds
 
 
-mkTokenCtor :: TokenState -> (String -> Offset -> Token)
+mkTokenCtor :: TokenState -> String -> Offset -> Token
 mkTokenCtor StateSpace   = TokenOther
 mkTokenCtor StateAlpha   = TokenAlpha
 mkTokenCtor StateDigit   = TokenDigit
@@ -202,7 +202,7 @@ instance SemanticToken Token where
     tkIsString      = _isTokenLiteral
     tkIsChar        = _isTokenLiteral
     tkIsNumber      = _isTokenDigit
-    tkIsKeyword     = \_ -> False
+    tkIsKeyword     = const False
     tkToString      = toString
     tkEquivalent    = tokenCompare
 

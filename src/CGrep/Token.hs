@@ -49,13 +49,13 @@ data TokenAccum = TokenAccum !TokenState !Offset DString (DL.DList Token)
 isCharNumberLT :: UArray Char Bool
 isCharNumberLT =
     listArray ('\0', '\255')
-        (map (\c -> isHexDigit c || c `elem` ['.', 'x','X']) ['\0'..'\255'])
+        (map (\c -> isHexDigit c || c `elem` ".xX") ['\0'..'\255'])
 
 
 isSpaceLT :: UArray Char Bool
 isSpaceLT =
     listArray ('\0', '\255')
-        (map (\c -> isSpace c) ['\0'..'\255'])
+        (map isSpace ['\0'..'\255'])
 
 isAlphaLT :: UArray Char Bool
 isAlphaLT =
@@ -70,23 +70,23 @@ isAlphaNumLT =
 isDigitLT :: UArray Char Bool
 isDigitLT =
     listArray ('\0', '\255')
-        (map (\c -> isDigit c) ['\0'..'\255'])
+        (map isDigit ['\0'..'\255'])
 
 isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
-        (map (\c -> c `elem` "{[()]}" ) ['\0'..'\255'])
+        (map (`elem` "{[()]}") ['\0'..'\255'])
 
 
 {-# INLINE mkToken #-}
 
 mkToken :: Offset -> DString -> Token
-mkToken off ds =  ((off - length str), str)
+mkToken off ds =  (off - length str, str)
     where str = DL.toList ds
 
 
 tokens :: Text8 -> [String]
-tokens = (map snd) . tokenizer
+tokens = map snd . tokenizer
 
 
 tokenizer :: Text8 -> [Token]

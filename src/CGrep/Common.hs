@@ -54,9 +54,9 @@ getText  = maybe C.getContents C.readFile
 
 quickSearch :: Options -> [Text8] -> Text8 -> Maybe Bool
 quickSearch opt ps text
-    | no_turbo opt == True = Nothing
-    | otherwise            = Just $ any has_pattern ps
-    where has_pattern pat  = not . null $ pat `SC.nonOverlappingIndices` text
+    | no_turbo opt        = Nothing
+    | otherwise           = Just $ any has_pattern ps
+    where has_pattern pat = not . null $ pat `SC.nonOverlappingIndices` text
 
 
 toLowercase :: Char -> Char

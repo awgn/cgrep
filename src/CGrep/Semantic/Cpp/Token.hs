@@ -138,11 +138,11 @@ isOperOrPunct _ = False
 
 
 isIdentifierChar' :: Char -> Bool
-isIdentifierChar' = (((listArray ('\0', '\255') (map (\c -> isAlphaNum c || c == '_' || c == '$') ['\0'..'\255'])) :: UArray Char Bool) !)  -- GNU allows $ in identifier
+isIdentifierChar' = ((listArray ('\0', '\255') (map (\c -> isAlphaNum c || c == '_' || c == '$') ['\0'..'\255']) :: UArray Char Bool) !)  -- GNU allows $ in identifier
 
 
 isChar' :: Char -> Bool
-isChar'= (((listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\0'..'\255'])) :: UArray Char Bool) !)
+isChar'= ((listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\0'..'\255']) :: UArray Char Bool) !)
 
 -- Drop leading whitespace and count them
 --

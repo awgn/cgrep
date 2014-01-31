@@ -128,7 +128,7 @@ findIndex' p ls = loop 0# ls
 #else
 
 findIndex' :: (a -> Bool) -> [a] -> Int
-findIndex' p ls = loop 0 ls
+findIndex' p = loop 0
                  where
                    loop n [] = -1
                    loop n (x:xs) | p x       = n

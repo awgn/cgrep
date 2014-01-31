@@ -51,13 +51,10 @@ search opt ps f = do
     let found = quickSearch opt ps text'
 
     if maybe False not found
-        then do
-
-            return $ mkOutput opt filename text []
-
+        then return $ mkOutput opt filename text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False}) $ text'
+            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False}) text'
 
             -- parse source code, get the Cpp.Token list...
 
