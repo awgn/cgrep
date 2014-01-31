@@ -21,7 +21,6 @@
 module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as SC
 
 import Text.Regex.Posix
 import Data.Array
@@ -46,18 +45,16 @@ search opt ps f = do
 
     let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- get indices...
+    -- quick search...
 
-    let ids = concatMap (`SC.nonOverlappingIndices` text') ps
+    let found = quickSearch opt ps text'
+
+    -- put banners...
 
     putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
 
-    if null ids
-        then do
-
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
-            return $ mkOutput opt filename text []
-
+    if maybe False not found
+        then return $ mkOutput opt filename text []
         else do
 
             let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) $ text'

@@ -48,36 +48,35 @@ search opt ps f = do
 
     let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- get indices...
+    -- quick search...
 
-    let ids = concatMap (`SC.nonOverlappingIndices` text') ps
+    let found = quickSearch opt ps text'
+
+    -- put banners...
 
     putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
 
-    if null ids then do
+    if maybe False not found
+        then return $ mkOutput opt filename text []
+        else do
 
-                    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
-                    return $ mkOutput opt filename text []
+            let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) $ text
 
-                else do
+            -- search for matching tokens
 
-                    let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+            let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text''))
 
-                    -- search for matching tokens
+            -- filter exact matching tokens
 
-                    let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text''))
+            let tokens' = if word_match opt || prefix_match opt || suffix_match opt
+                            then filter (checkToken opt text'') tokens
+                            else tokens
 
-                    -- filter exact matching tokens
+            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+            putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
 
-                    let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                                    then filter (checkToken opt text'') tokens
-                                    else tokens
-
-                    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-                    putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-                    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
-
-                    return $ mkOutput opt filename text tokens'
+            return $ mkOutput opt filename text tokens'
 
 
 checkToken :: Options -> Text8 -> (Offset, String) -> Bool

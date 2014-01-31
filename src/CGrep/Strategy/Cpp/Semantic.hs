@@ -19,7 +19,8 @@
 module CGrep.Strategy.Cpp.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as SC
+
+import qualified CGrep.Semantic.Cpp.Token  as Cpp
 
 import CGrep.Filter
 import CGrep.Lang
@@ -37,9 +38,6 @@ import Data.Maybe
 
 import Options
 import Debug
-
-import qualified CGrep.Semantic.Cpp.Token  as Cpp
-
 
 search :: CgrepFunction
 search opt ps f = do
@@ -60,28 +58,27 @@ search opt ps f = do
 
     let patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
-    -- get indices...
+    -- quick Search...
 
-    let p = sortBy (compare `on` C.length) $ map C.pack $
+    let ps' = sortBy (compare `on` C.length) $ map C.pack $
                 mapMaybe (\x -> case x of
                                     TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
                                     TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
                                     TokenCard t                       -> Just $ Cpp.toString t
                                     _                                 -> Nothing) (concat patterns')
 
-    let ids = if null p then [0]
-                        else last p `SC.nonOverlappingIndices` text'
+    let found = quickSearch opt ps' text'
 
+    -- put banners...
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
     putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
-    putStrLevel2 (debug opt) $ "identif   : " ++ show p
+    putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
 
-    if null ids
+    if maybe False not found
         then do
 
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
             return $ mkOutput opt filename text []
 
         else do
@@ -103,7 +100,6 @@ search opt ps f = do
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
 
             return $ mkOutput opt filename text matches
-
 
 
 instance SemanticToken Cpp.Token where

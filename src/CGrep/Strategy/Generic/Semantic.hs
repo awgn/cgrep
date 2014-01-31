@@ -19,7 +19,6 @@
 module CGrep.Strategy.Generic.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as SC
 
 import CGrep.Filter
 import CGrep.Lang
@@ -59,26 +58,26 @@ search opt ps f = do
 
     let patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
-    -- get indices...
+    -- quickSearch ...
 
-    let p = sortBy (compare `on` C.length) $ map C.pack $
+    let ps' = sortBy (compare `on` C.length) $ map C.pack $
                 mapMaybe (\x -> case x of
                                     TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
                                     TokenCard t                           -> Just (tkToString t)
                                     _                                     -> Nothing) (concat patterns')
 
-    let ids = if null p then [0]
-                        else last p `SC.nonOverlappingIndices` text'
+    -- put banners...
 
     putStrLevel1 (debug opt) $ "strategy  : running generic semantic search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
     putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
-    putStrLevel2 (debug opt) $ "identif   : " ++ show p
+    putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
 
-    if null ids
+    let found = quickSearch opt ps' text'
+
+    if maybe False not found
         then do
 
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
             return $ mkOutput opt filename text []
 
         else do

@@ -19,7 +19,6 @@
 module CGrep.Strategy.Cpp.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as SC
 
 import qualified CGrep.Semantic.Cpp.Token as Cpp
 
@@ -29,10 +28,10 @@ import CGrep.Common
 import CGrep.Output
 import CGrep.Distance
 
+import Data.List
+
 import Options
 import Debug
-
-import Data.List
 
 search :: CgrepFunction
 search opt ps f = do
@@ -45,16 +44,15 @@ search opt ps f = do
 
     let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- get indices...
-
-    let ids = concatMap (`SC.nonOverlappingIndices` text') ps
-
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
-    if null ids
+    --quickSearch ...
+
+    let found = quickSearch opt ps text'
+
+    if maybe False not found
         then do
 
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
             return $ mkOutput opt filename text []
 
         else do

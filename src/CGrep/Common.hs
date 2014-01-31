@@ -21,6 +21,7 @@
 module CGrep.Common (CgrepFunction, Text8,
                      getFileName,
                      getText,
+                     quickSearch,
                      expandMultiline,
                      ignoreCase,
                      spanGroup,
@@ -28,6 +29,7 @@ module CGrep.Common (CgrepFunction, Text8,
                      unquotes) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Search as SC
 
 import Data.Char
 import Data.Array.Unboxed
@@ -48,6 +50,13 @@ getFileName (Just name) = name
 
 getText :: Maybe FilePath -> IO Text8
 getText  = maybe C.getContents C.readFile
+
+
+quickSearch :: Options -> [Text8] -> Text8 -> Maybe Bool
+quickSearch opt ps text
+    | no_turbo opt == True = Nothing
+    | otherwise            = Just $ any has_pattern ps
+    where has_pattern pat  = not . null $ pat `SC.nonOverlappingIndices` text
 
 
 toLowercase :: Char -> Char
