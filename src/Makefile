@@ -5,7 +5,7 @@
 # GHCFLAGS= --make -O3 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp -DENABLE_HINT
 
 # Light version
-GHCFLAGS= --make -O2 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp
+GHCFLAGS= --make -hide-package bytestring-0.10.0.2 -O2 -Wall -threaded -rtsopts -with-rtsopts="-A64M -N" -cpp
 
 
 INSTDIR=/usr/local

@@ -61,7 +61,7 @@ search opt ps f = do
 
             -- search for matching tokens
 
-            let tokens = map (\(_, (str, (off,_) )) -> (off, C.unpack str)) $ ps >>= (\p -> text'' =~ p :: [MatchText C.ByteString]) >>= assocs
+            let tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $  concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text'' =~ p :: (Array Int) (MatchText Text8)) )
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
