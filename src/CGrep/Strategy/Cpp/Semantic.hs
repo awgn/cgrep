@@ -60,12 +60,11 @@ search opt ps f = do
 
     -- quick Search...
 
-    let ps' = sortBy (compare `on` C.length) $ map C.pack $
-                mapMaybe (\x -> case x of
+    let ps' = map (C.pack . head . sortBy (compare `on` length) . mapMaybe (\x -> case x of
                                     TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
                                     TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
                                     TokenCard t                       -> Just $ Cpp.toString t
-                                    _                                 -> Nothing) (concat patterns')
+                                    _                                 -> Nothing)) patterns'
 
     let found = quickSearch opt ps' text'
 

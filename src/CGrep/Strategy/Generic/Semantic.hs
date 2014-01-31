@@ -60,11 +60,10 @@ search opt ps f = do
 
     -- quickSearch ...
 
-    let ps' = sortBy (compare `on` C.length) $ map C.pack $
-                mapMaybe (\x -> case x of
+    let ps' = map ( C.pack . head . sortBy (compare `on` length) . mapMaybe (\x -> case x of
                                     TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
                                     TokenCard t                           -> Just (tkToString t)
-                                    _                                     -> Nothing) (concat patterns')
+                                    _                                     -> Nothing)) patterns'
 
     -- put banners...
 
