@@ -76,6 +76,7 @@ data Options = Options
                 xml          :: Bool,
 
                 debug        :: Int,
+                no_turbo     :: Bool,
                 others       :: [String]
 
                } deriving (Data, Typeable, Show)

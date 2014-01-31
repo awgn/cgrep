@@ -75,6 +75,7 @@ options = cmdArgsMode $ Options
                 xml = False                &= help "format output as xml document" &= explicit &= name "xml",
 
                 debug = 0                  &= help "debug level: 1, 2 or 3" &= groupname "\nMiscellaneous",
+                no_turbo = False           &= help "disable turbo mode",
                 others = []                &= args
 
           } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
