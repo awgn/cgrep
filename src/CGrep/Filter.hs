@@ -27,12 +27,9 @@ import CGrep.Lang
 import Options
 
 import Data.Char
-import Data.Monoid
 import Data.Array.Unboxed
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8   as LC
-import qualified Data.ByteString.Lazy.Builder as B
 
 import qualified Data.Map as Map
 
@@ -44,7 +41,7 @@ import GHC.Exts
 #endif
 
 
-type FilterFunction = ContextFilter -> Text8 -> B.Builder
+type FilterFunction = ContextFilter -> Text8 -> Text8
 
 type StringBoundary = (String, String)
 
@@ -82,11 +79,12 @@ mkContextFilter opt = if not (code opt || comment opt || literal opt)
 
 
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
-contextFilter _ (ContextFilter True True True) src = src
-contextFilter Nothing _ src = src
-contextFilter (Just language) filt src
-    | Just fun <- parFunc = LC.toStrict . B.toLazyByteString $ fun filt src
-    | otherwise = src
+
+contextFilter _ (ContextFilter True True True) txt = txt
+contextFilter Nothing _ txt = txt
+contextFilter (Just language) filt txt
+    | Just fun <- parFunc = fun filt txt
+    | otherwise = txt
         where parFunc = Map.lookup language filterFunctionMap
 
 
@@ -94,13 +92,19 @@ contextFilter (Just language) filt src
 --
 
 
-contextFilterFun :: ParConf -> ParState -> ContextFilter -> Text8 -> B.Builder
-contextFilterFun _ _ _     (C.uncons -> Nothing)     = mempty
-contextFilterFun c s  filt (C.uncons -> Just (x,xs)) =
-    B.char8 c' <> contextFilterFun c s' filt xs
-    where !s' = nextContextState c s (x,xs) filt
+contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
+contextFilterFun conf filt txt =  fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
+
+
+type ParData = (Text8, ContextFilter, ParState)
+
+
+contextFilterImpl :: ParConf -> ParData ->  Maybe (Char, ParData)
+contextFilterImpl _ ((C.uncons -> Nothing), _, _)     = Nothing
+contextFilterImpl c ((C.uncons -> Just (x,xs)), f, s) = Just (c', (xs, f, s'))
+    where !s' = nextContextState c s (x,xs) f
           !c' = if display s' || isSpace x then x else ' '
-contextFilterFun _ _ _ _ = undefined
+contextFilterImpl _ _ = undefined
 
 
 
@@ -173,7 +177,6 @@ mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction
 mkFilterFunction cs ls = contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
                                                     (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
                                                     (mkBloom (cs ++ ls)))
-                                          (ParState CodeState False 0)
 
 
 mkBloom :: [StringBoundary] -> UArray Char Bool
