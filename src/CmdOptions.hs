@@ -23,7 +23,7 @@ import System.Console.CmdArgs
 import Options
 
 version :: String
-version = "6.0"
+version = "6.1"
 
 options :: Mode (CmdArgs Options)
 options = cmdArgsMode $ Options
