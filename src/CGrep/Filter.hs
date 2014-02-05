@@ -43,7 +43,9 @@ import GHC.Exts
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
 
+
 type StringBoundary = (String, String)
+
 
 data Boundary = Boundary
                 {
@@ -67,6 +69,10 @@ data ParState =  ParState
                     skip      :: !Int
                  }
                  deriving (Show)
+
+
+data ContextState = CodeState | CommState Int | LitrState Int
+                        deriving (Show, Eq, Ord)
 
 
 -- filter Context:
@@ -107,12 +113,19 @@ contextFilterImpl c ((C.uncons -> Just (x,xs)), f, s) = Just (c', (xs, f, s'))
 contextFilterImpl _ _ = undefined
 
 
+{-# INLINE displayContext #-}
+
+displayContext :: ContextState -> ContextFilter -> Bool
+displayContext  CodeState     (ContextFilter b _ _ ) = b
+displayContext  (CommState _) (ContextFilter _ b _ ) = b
+displayContext  (LitrState _) (ContextFilter _ _ b ) = b
+
 
 nextContextState :: ParConf -> ParState -> (Char,Text8) -> ContextFilter -> ParState
-nextContextState c s (x,xs) (ContextFilter codefilt commfilt litrfilt)
+nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
     | skip s > 0                = s { skip = skip s - 1 }
     | x == '\'' && (C.pack "\"'") `C.isPrefixOf` xs = s { skip = 2 }
-    | x == '\\'                 = s { display = True, skip = 1 }
+    | x == '\\'                 = s { display = displayContext (cxtState s) filt, skip = 1 }
 
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
                                       lindex = findBoundary (x,xs) (litrBound c)
@@ -182,10 +195,6 @@ mkFilterFunction cs ls = contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.p
 
 mkBloom :: [StringBoundary] -> UArray Char Bool
 mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
-
-
-data ContextState = CodeState | CommState Int | LitrState Int
-                        deriving (Show, Eq, Ord)
 
 
 filterFunctionMap = Map.fromList [
