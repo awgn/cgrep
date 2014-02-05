@@ -111,7 +111,8 @@ contextFilterImpl _ _ = undefined
 nextContextState :: ParConf -> ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState c s (x,xs) (ContextFilter codefilt commfilt litrfilt)
     | skip s > 0                = s { skip = skip s - 1 }
-    | x == '\\'                 = s { display = litrfilt, skip = 1 }
+    | x == '\'' && (C.pack "\"'") `C.isPrefixOf` xs = s { skip = 2 }
+    | x == '\\'                 = s { display = True, skip = 1 }
 
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
                                       lindex = findBoundary (x,xs) (litrBound c)
