@@ -106,8 +106,8 @@ type ParData = (Text8, ContextFilter, ParState)
 
 
 contextFilterImpl :: ParConf -> ParData ->  Maybe (Char, ParData)
-contextFilterImpl _ ((C.uncons -> Nothing), _, _)     = Nothing
-contextFilterImpl c ((C.uncons -> Just (x,xs)), f, s) = Just (c', (xs, f, s'))
+contextFilterImpl _ (C.uncons -> Nothing, _, _)     = Nothing
+contextFilterImpl c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs, f, s'))
     where !s' = nextContextState c s (x,xs) f
           !c' = if display s' || isSpace x then x else ' '
 contextFilterImpl _ _ = undefined
@@ -124,7 +124,7 @@ displayContext  (LitrState _) (ContextFilter _ _ b ) = b
 nextContextState :: ParConf -> ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
     | skip s > 0                = s { skip = skip s - 1 }
-    | x == '\'' && (C.pack "\"'") `C.isPrefixOf` xs = s { skip = 2 }
+    | x == '\'' && C.pack "\"'" `C.isPrefixOf` xs = s { skip = 2 }
     | x == '\\'                 = s { display = displayContext (cxtState s) filt, skip = 1 }
 
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
