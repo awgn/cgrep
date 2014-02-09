@@ -34,7 +34,7 @@ import Language.Haskell.Interpreter
 
 import Data.Maybe
 import Data.List
-import Data.String.Utils
+import Data.List.Split
 import Data.Function
 
 import CGrep.Types
@@ -167,6 +167,11 @@ formatOutput opt (Output f n l ts) =
         ]
     where trans str (old, new) = replace old new str
           ts' = map snd ts
+
+
+replace :: Eq a => [a] -> [a] -> [a] -> [a]
+replace old new = intercalate new . splitOn old
+
 
 #ifdef ENABLE_HINT
 hintOputput :: Options -> [Output] -> IO [String]
