@@ -21,9 +21,7 @@ module CmdOptions where
 import System.Console.CmdArgs
 
 import Options
-
-version :: String
-version = "6.2"
+import Config
 
 options :: Mode (CmdArgs Options)
 options = cmdArgsMode $ Options
