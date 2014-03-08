@@ -18,18 +18,20 @@
 
 module Config where
 
+import Data.Maybe
 import Control.Monad
-
 import System.Directory
 import System.FilePath ((</>))
-
-import Data.Maybe
 
 import Util
 import CGrep.Lang
 
+
 cgreprc :: FilePath
 cgreprc = "cgreprc"
+
+version :: String
+version = "6.3"
 
 
 data Config = Config
