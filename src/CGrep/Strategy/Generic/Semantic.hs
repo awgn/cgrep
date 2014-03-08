@@ -50,9 +50,11 @@ search opt ps f = do
 
     let text' = expandMultiline opt . ignoreCase opt $ text
 
+    let filt  = (mkContextFilter opt) { getComment = False }
+
     -- pre-process patterns
 
-    let patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) ((mkContextFilter opt) { getComment = False })) ps  -- [ [t1,t2,..], [t1,t2...] ]
+    let patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
 
     let patterns'  = map (map mkWildCard) patterns                 -- [ [w1,w2,..], [w1,w2,..] ]
 
@@ -78,7 +80,7 @@ search opt ps f = do
         then return $ mkOutput opt filename text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False }) text'
+            let text'' = contextFilter (getLang opt filename) filt text'
 
             -- parse source code, get the Generic.Token list...
 

@@ -44,6 +44,8 @@ search opt ps f = do
 
     let text' = expandMultiline opt . ignoreCase opt $ text
 
+    let filt  = (mkContextFilter opt) { getComment = False }
+
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
     --quickSearch ...
@@ -54,7 +56,7 @@ search opt ps f = do
         then return $ mkOutput opt filename text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) ((mkContextFilter opt) {getComment = False}) text'
+            let text'' = contextFilter (getLang opt filename) filt text'
 
             -- parse source code, get the Cpp.Token list...
 
