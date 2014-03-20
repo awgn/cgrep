@@ -62,7 +62,8 @@ search opt ps f = do
 
     -- quick Search...
 
-    let ps' = map (C.pack . maximumBy (compare `on` length) . mapMaybe (\x -> case x of
+    let ps' = map (C.pack . (\l ->  if null l then ""
+                                              else maximumBy (compare `on` length) l) . mapMaybe (\x -> case x of
                                     TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
                                     TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
                                     TokenCard t                       -> Just $ Cpp.toString t

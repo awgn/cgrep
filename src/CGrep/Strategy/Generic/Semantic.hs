@@ -62,7 +62,8 @@ search opt ps f = do
 
     -- quickSearch ...
 
-    let ps' = map ( C.pack . maximumBy (compare `on` length) . mapMaybe (\x -> case x of
+    let ps' = map ( C.pack . (\l -> if null l then ""
+                                              else maximumBy (compare `on` length) l) . mapMaybe (\x -> case x of
                                     TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
                                     TokenCard t                           -> Just (tkToString t)
                                     _                                     -> Nothing)) patterns'
