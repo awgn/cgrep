@@ -1,6 +1,6 @@
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             6.4.1
+Version:             6.4.2
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2
