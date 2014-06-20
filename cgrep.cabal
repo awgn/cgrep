@@ -26,7 +26,7 @@ Executable cgrep
                        FlexibleInstances, 
                        FlexibleContexts
   Other-Modules:       Debug Options CmdOptions Util Config CGrep.Lang CGrep.Filter CGrep.Token CGrep.Types CGrep.CGrep CGrep.Output CGrep.Distance CGrep.Common CGrep.Context CGrep.Semantic.WildCard CGrep.Semantic.Generic.Token CGrep.Semantic.Token CGrep.Semantic.Cpp.Token CGrep.Strategy.Generic.Semantic CGrep.Strategy.Levenshtein CGrep.Strategy.BoyerMoore CGrep.Strategy.Cpp.Tokenizer CGrep.Strategy.Cpp.Semantic CGrep.Strategy.Regex
-  Build-Depends:       base >=4.6 && < 4.7, 
+  Build-Depends:       base >=4.6 && < 4.8, 
                        cmdargs >=0.10, 
                        bytestring >=0.10, 
                        directory >=1.2, 
