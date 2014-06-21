@@ -1,6 +1,6 @@
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             6.4.3
+Version:             6.4.3.1
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2
@@ -41,6 +41,7 @@ Executable cgrep
                        safe >=0.3, 
                        stringsearch >=0.3, 
                        unordered-containers >=0.1, 
-                       regex-posix >=0.90
+                       regex-posix >=0.90,
+                       unix >= 2.5
   Ghc-options:         -O2 -Wall -threaded 
   Default-language:    Haskell2010
