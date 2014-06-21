@@ -19,6 +19,7 @@
 module Main where
 
 import Data.List
+import qualified Data.Set as Set
 import Data.Maybe
 import Data.Char
 import Data.Data()
@@ -53,21 +54,24 @@ import qualified Data.ByteString.Char8 as C
 
 -- push file names in TChan...
 
-putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> IO ()
-putRecursiveContents opts inchan topdir langs prunedir = do
+putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> IO ()
+putRecursiveContents opts inchan topdir langs prunedir visited = do
     dir <-  doesDirectoryExist topdir
     if dir then do
             names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents topdir
             forM_ names $ \n -> do
                 let path = topdir </> n
                 let filename = takeFileName path
+                cpath <- canonicalizePath path
                 isDirectory <- doesDirectoryExist path
-                if isDirectory
-                    then unless (filename `elem` prunedir) $
-                         putRecursiveContents opts inchan path langs prunedir
-                    else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
-                            Nothing -> return ()
-                            _       -> atomically $ writeTChan inchan (Just path)
+                if cpath `Set.member` visited 
+                    then return ()
+                    else if isDirectory
+                            then unless (filename `elem` prunedir)  $
+                                putRecursiveContents opts inchan path langs prunedir (Set.insert cpath visited)
+                            else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
+                                    Nothing -> return ()
+                                    _       -> atomically $ writeTChan inchan (Just path)
            else atomically $ writeTChan inchan (Just topdir)
 
 
@@ -174,7 +178,7 @@ main = do
     _ <- forkIO $ do
 
         if recursive opts
-            then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (pruneDirs conf)
+            then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (pruneDirs conf) (Set.singleton p)
             else do
                 files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)
