@@ -28,7 +28,7 @@ import Data.Maybe
 import Options
 import Util
 
-data Lang = Awk | C | Cpp | Csharp | Chapel | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
+data Lang = Awk | C | Cpp | Csharp | Chapel | Coffee | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
                 Html | Java | Javascript | Latex | Lua | Make | OCaml | ObjectiveC |
                 Perl | PHP | Python | Ruby | Scala | Tcl | Text | Shell | Verilog | VHDL | Vim
                     deriving (Read, Show, Eq, Ord, Bounded)
@@ -52,6 +52,7 @@ langMap = Map.fromList [
             (C,         [Ext "c", Ext "C"]),
             (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"]),
             (Csharp,    [Ext "cs", Ext "CS"]),
+            (Coffee,    [Ext "coffee"]),
             (Chapel,    [Ext "chpl"]),
             (Css,       [Ext "css"]),
             (CMake,     [Name "CMakeLists.txt", Ext "cmake"]),

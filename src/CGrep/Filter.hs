@@ -202,6 +202,7 @@ filterFunctionMap = Map.fromList [
     (Cpp,        mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Csharp,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Chapel,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Coffee,     mkFilterFunction [("###", "###"), ("#", "\n")]  [("\"", "\"")] ),
     (D,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Go,         mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Java,       mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
