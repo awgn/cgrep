@@ -52,7 +52,8 @@ Output control:
        --force-language=ITEM  force the language
     -j --jobs=INT             number of jobs
        --multiline=INT        enable multi-line matching
-    -r --recursive            enable recursive search
+    -r --recursive            Enable recursive search (don't follow symlinks)
+    -R --deference-recursive  Recursive, follow symlinks
     -v --invert-match         select non-matching lines
        --max-count=INT        stop search in files after INT matches
        --count                print only a count of matching lines per file
