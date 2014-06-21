@@ -37,6 +37,7 @@ import System.Console.CmdArgs
 import System.Directory
 import System.FilePath ((</>), takeFileName)
 import System.Environment
+import System.Posix.Files
 import System.IO
 import System.Exit
 
@@ -62,16 +63,16 @@ putRecursiveContents opts inchan topdir langs prunedir visited = do
             forM_ names $ \n -> do
                 let path = topdir </> n
                 let filename = takeFileName path
-                cpath <- canonicalizePath path
-                isDirectory <- doesDirectoryExist path
-                if cpath `Set.member` visited 
-                    then return ()
-                    else if isDirectory
-                            then unless (filename `elem` prunedir)  $
-                                putRecursiveContents opts inchan path langs prunedir (Set.insert cpath visited)
-                            else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
-                                    Nothing -> return ()
-                                    _       -> atomically $ writeTChan inchan (Just path)
+                cpath  <- canonicalizePath path
+                status  <- getFileStatus path
+                lstatus <- getSymbolicLinkStatus path
+                unless (cpath `Set.member` visited) $
+                    if isDirectory status && (not (isSymbolicLink lstatus) || deference_recursive opts)
+                       then unless (filename `elem` prunedir)  $
+                           putRecursiveContents opts inchan path langs prunedir (Set.insert cpath visited)
+                       else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
+                               Nothing -> return ()
+                               _       -> atomically $ writeTChan inchan (Just path)
            else atomically $ writeTChan inchan (Just topdir)
 
 
@@ -177,7 +178,7 @@ main = do
 
     _ <- forkIO $ do
 
-        if recursive opts
+        if recursive opts || deference_recursive opts
             then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (pruneDirs conf) (Set.singleton p)
             else do
                 files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths

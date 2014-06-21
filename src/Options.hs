@@ -63,6 +63,7 @@ data Options = Options
                 jobs         :: Int,
                 multiline    :: Int,
                 recursive    :: Bool,
+                deference_recursive :: Bool,
                 invert_match :: Bool,
                 max_count    :: Int,
                 count        :: Bool,

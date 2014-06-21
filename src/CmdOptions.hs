@@ -60,7 +60,8 @@ options = cmdArgsMode $ Options
 
                 jobs   = 1                 &= help "Number of jobs",
                 multiline = 1              &= help "Enable multi-line matching",
-                recursive = False          &= help "Enable recursive search",
+                recursive = False           &= help "Enable recursive search (don't follow symlinks)" &= explicit &= name "recursive" &= name "r",
+                deference_recursive = False &= help "Recursive, follow symlinks" &= explicit &= name "deference-recursive" &= name "R",
                 invert_match = False       &= help "Select non-matching lines" &= explicit &= name "invert-match" &= name "v",
                 show_match = False         &= help "Show list of matching tokens" &= explicit &= name "show-match",
                 color = False              &= help "Use colors to highlight the matching strings" &= explicit &= name "color",
