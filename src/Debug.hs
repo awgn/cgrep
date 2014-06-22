@@ -3,7 +3,7 @@
 --
 -- this program is free software; you can redistribute it and/or modify
 -- it under the terms of the gnu general public license as published by
--- the free software foundation; either version 2 of the license, or
+-- the free software foundation; either version 1 of the license, or
 -- (at your option) any later version.
 --
 -- this program is distributed in the hope that it will be useful,
