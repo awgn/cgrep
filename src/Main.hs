@@ -170,7 +170,7 @@ main = do
                                         cgrepDispatch op f' op patterns $ guard (f' /= "") >> Just f'
                             unless (null out) $ atomically $ writeTChan out_chan out
                             action )
-                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ " -> " ++ if length msg > 80 then take 80 msg ++ "..." else msg) >> action )
+                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg) >> action )
             )
 
 
