@@ -39,11 +39,13 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = ignoreCase opt . expandMultiline opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+    let text' = ignoreCase opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+
+    let text'' = expandMultiline opt text'
 
     -- parse source code, get the Cpp.Token list...
 
-    let tokens' = tokenizer text'
+    let tokens' = tokenizer text''
 
     -- filter tokens...
 
@@ -55,7 +57,7 @@ search opt ps f = do
     putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches
 
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text' ++ "\n---"
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
 
-    return $ mkOutput opt filename text matches
+    return $ mkOutput opt filename text text'' matches
 

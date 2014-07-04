@@ -48,7 +48,7 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = expandMultiline opt . ignoreCase opt $ text
+    let text' = ignoreCase opt text
 
     let filt  = (mkContextFilter opt) { getComment = False }
 
@@ -78,14 +78,20 @@ search opt ps f = do
     let found = quickSearch opt ps' text'
 
     if maybe False not found
-        then return $ mkOutput opt filename text []
+        then return $ mkOutput opt filename text text []
         else do
+
+            -- context filter
 
             let text'' = contextFilter (getLang opt filename) filt text'
 
+            -- expand multi-line
+
+            let text''' = expandMultiline opt text''
+
             -- parse source code, get the Generic.Token list...
 
-            let tokens = Generic.tokenizer text''
+            let tokens = Generic.tokenizer text'''
 
             -- get matching tokens ...
 
@@ -97,9 +103,9 @@ search opt ps f = do
             putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
 
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            return $ mkOutput opt filename text matches
+            return $ mkOutput opt filename text text''' matches
 
 
 wildCardMap :: M.Map String (WildCard a)

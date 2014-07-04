@@ -59,10 +59,10 @@ getOffset2d idx off = let prc =  fst $ partition (< off) idx in
           _  -> (length prc, off - last prc - 1)
 
 
-mkOutput :: Options -> FilePath -> Text8 -> [Token] -> [Output]
-mkOutput Options { invert_match = invert } f text ts
-    | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines text ts
-    | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines text ts
+mkOutput :: Options -> FilePath -> Text8 -> Text8 -> [Token] -> [Output]
+mkOutput Options { invert_match = invert } f text multi ts
+    | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
+    | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
         where ls = C.lines text
 
 

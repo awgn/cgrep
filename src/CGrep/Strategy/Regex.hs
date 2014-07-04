@@ -49,14 +49,20 @@ search opt ps f = do
 
     putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
 
+    -- context filter
+
     let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) text'
+
+    -- expand multi-line
+
+    let text''' = expandMultiline opt text''
 
     -- search for matching tokens
 
-    let tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $  concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text'' =~ p :: (Array Int) (MatchText Text8)) )
+    let tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $  concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)) )
 
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-    return $ mkOutput opt filename text tokens
+    return $ mkOutput opt filename text text''' tokens
 

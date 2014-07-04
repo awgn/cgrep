@@ -46,7 +46,7 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = expandMultiline opt . ignoreCase opt $ text
+    let text' = ignoreCase opt text
 
     -- quick search...
 
@@ -57,26 +57,32 @@ search opt ps f = do
     putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
 
     if maybe False not found
-        then return $ mkOutput opt filename text []
+        then return $ mkOutput opt filename text text []
         else do
 
-            let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) text
+            -- context filter
+
+            let text''  = contextFilter (getLang opt filename) (mkContextFilter opt) text'
+
+            -- expand multi-line
+
+            let text''' = expandMultiline opt text''
 
             -- search for matching tokens
 
-            let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text''))
+            let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
 
             -- filter exact matching tokens
 
             let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                            then filter (checkToken opt text'') tokens
+                            then filter (checkToken opt text''') tokens
                             else tokens
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
             putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            return $ mkOutput opt filename text tokens'
+            return $ mkOutput opt filename text text''' tokens'
 
 
 checkToken :: Options -> Text8 -> (Offset, String) -> Bool
@@ -99,8 +105,4 @@ splitLines xs = zip ls off
 getLineByOffset :: Offset -> Text8 -> (Text8, Offset)
 getLineByOffset off xs = last $ takeWhile (\(_,o) -> o <= off) sl
         where sl = splitLines xs
-
-
-
-
 
