@@ -50,7 +50,7 @@ search opt ps f = do
 
     -- quick search...
 
-    let found = quickSearch opt ps text'
+        found = quickSearch opt ps text'
 
     -- put banners...
 
@@ -66,15 +66,15 @@ search opt ps f = do
 
             -- expand multi-line
 
-            let text''' = expandMultiline opt text''
+                text''' = expandMultiline opt text''
 
             -- search for matching tokens
 
-            let tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
+                tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
 
-            -- filter exact matching tokens
+            -- filter exact/partial matching tokens
 
-            let tokens' = if word_match opt || prefix_match opt || suffix_match opt
+                tokens' = if word_match opt || prefix_match opt || suffix_match opt
                             then filter (checkToken opt text''') tokens
                             else tokens
 

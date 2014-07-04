@@ -50,19 +50,17 @@ search opt ps f = do
 
     let text' = ignoreCase opt text
 
-    let filt  = (mkContextFilter opt) { getComment = False }
+        filt  = (mkContextFilter opt) { getComment = False }
 
     -- pre-process patterns
 
-    let patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-
-    let patterns'  = map (map mkWildCard) patterns                 -- [ [w1,w2,..], [w1,w2,..] ]
-
-    let patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
+        patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns'  = map (map mkWildCard) patterns                                           -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
     -- quickSearch ...
 
-    let ps' = map ( C.pack . (\l -> if null l then ""
+        ps' = map ( C.pack . (\l -> if null l then ""
                                               else maximumBy (compare `on` length) l) . mapMaybe (\x -> case x of
                                     TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
                                     TokenCard t                           -> Just (tkToString t)
@@ -87,20 +85,19 @@ search opt ps f = do
 
             -- expand multi-line
 
-            let text''' = expandMultiline opt text''
+                text''' = expandMultiline opt text''
 
             -- parse source code, get the Generic.Token list...
 
-            let tokens = Generic.tokenizer text'''
+                tokens = Generic.tokenizer text'''
 
             -- get matching tokens ...
 
-            let tokens' = sortBy (compare `on` Generic.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+                tokens' = sortBy (compare `on` Generic.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
 
-            let matches = map (\t -> let n = fromIntegral (Generic.offset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
+                matches = map (\t -> let n = fromIntegral (Generic.offset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
-            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-            putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
 
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"

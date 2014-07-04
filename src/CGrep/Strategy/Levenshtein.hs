@@ -41,22 +41,21 @@ search opt ps f = do
 
     let text' = ignoreCase opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
 
-    let text'' = expandMultiline opt text'
+        text'' = expandMultiline opt text'
 
     -- parse source code, get the Cpp.Token list...
 
-    let tokens' = tokenizer text''
+        tokens' = tokenizer text''
 
     -- filter tokens...
 
-    let patterns = map C.unpack ps
+        patterns = map C.unpack ps
 
-    let matches  = filter (\t -> any (\p -> p ~== snd t) patterns) tokens'
+        matches  = filter (\t -> any (\p -> p ~== snd t) patterns) tokens'
 
     putStrLevel1 (debug opt) $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
     putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
 
     return $ mkOutput opt filename text text'' matches

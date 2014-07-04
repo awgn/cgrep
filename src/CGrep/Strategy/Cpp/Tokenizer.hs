@@ -43,8 +43,7 @@ search opt ps f = do
     -- transform text
 
     let text' = ignoreCase opt text
-
-    let filt  = (mkContextFilter opt) { getComment = False }
+        filt  = (mkContextFilter opt) { getComment = False }
 
     putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
@@ -62,15 +61,15 @@ search opt ps f = do
 
             -- expand multi-line
 
-            let text''' = expandMultiline opt text''
+                text''' = expandMultiline opt text''
 
             -- parse source code, get the Cpp.Token list...
 
-            let tokens = Cpp.tokenizer text'''
+                tokens = Cpp.tokenizer text'''
 
             -- context-filterting...
 
-            let tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
+                tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
                                                                    Cpp.filtDirective  = directive opt,
                                                                    Cpp.filtKeyword    = keyword opt,
                                                                    Cpp.filtHeader     = header opt,
@@ -81,17 +80,16 @@ search opt ps f = do
 
             -- filter tokens...
 
-            let tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
+                tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
 
             -- convert Cpp.Tokens to CGrep.Tokens
 
-            let matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
+                matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
             putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
             putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches

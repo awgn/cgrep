@@ -45,22 +45,20 @@ search opt ps f = do
 
     let text' = expandMultiline opt . ignoreCase opt $ text
 
-    -- put banners...
-
-    putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
-
     -- context filter
 
-    let text'' = contextFilter (getLang opt filename) (mkContextFilter opt) text'
+        text'' = contextFilter (getLang opt filename) (mkContextFilter opt) text'
 
     -- expand multi-line
 
-    let text''' = expandMultiline opt text''
+        text''' = expandMultiline opt text''
 
     -- search for matching tokens
 
-    let tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $  concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)) )
+        tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
+                    concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)))
 
+    putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
     putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
     putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 

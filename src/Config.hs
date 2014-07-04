@@ -45,7 +45,7 @@ getConfig :: IO Config
 getConfig = do
     home <- getHomeDirectory
     conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
-                doesFileExist f >>= \b -> return $ guard b >> Just f
+                (doesFileExist >=> (\b -> return $ guard b >> Just f)) f
 
     if isJust conf then readFile (fromJust conf) >>= \xs ->
                         return (prettyRead (dropComments xs) "Config error" :: Config)

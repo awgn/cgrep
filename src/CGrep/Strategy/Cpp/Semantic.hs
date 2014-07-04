@@ -50,26 +50,26 @@ search opt ps f = do
 
     let text' = ignoreCase opt text
 
-    let filt  = (mkContextFilter opt) { getComment = False }
+        filt  = (mkContextFilter opt) { getComment = False }
 
     -- pre-process patterns
 
-    let patterns   = map (Cpp.tokenizer . contextFilter (Just Cpp) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (Cpp.tokenizer . contextFilter (Just Cpp) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
 
-    let patterns'  = map (map mkWildCard) patterns                 -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'  = map (map mkWildCard) patterns                 -- [ [w1,w2,..], [w1,w2,..] ]
 
-    let patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
+        patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
     -- quick Search...
 
-    let ps' = map (C.pack . (\l ->  if null l then ""
+        ps' = map (C.pack . (\l ->  if null l then ""
                                               else maximumBy (compare `on` length) l) . mapMaybe (\x -> case x of
                                     TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
                                     TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
                                     TokenCard t                       -> Just $ Cpp.toString t
                                     _                                 -> Nothing)) patterns'
 
-    let found = quickSearch opt ps' text'
+        found = quickSearch opt ps' text'
 
     -- put banners...
 
@@ -88,17 +88,17 @@ search opt ps f = do
 
             -- expand multi-line
 
-            let text''' = expandMultiline opt text''
+                text''' = expandMultiline opt text''
 
             -- parse source code, get the Cpp.Token list...
 
-            let tokens = Cpp.tokenizer text'''
+                tokens = Cpp.tokenizer text'''
 
             -- get matching tokens ...
 
-            let tokens' = sortBy (compare `on` Cpp.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+                tokens' = sortBy (compare `on` Cpp.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
 
-            let matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
+                matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
