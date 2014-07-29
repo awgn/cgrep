@@ -197,10 +197,10 @@ getToken (xs, off, state) =
     let token = fromJust $
                     getTokenDirective xs state       `mplus`
                     getTokenHeaderName xs state      `mplus`
-                    getTokenIdOrKeyword xs state     `mplus`
                     getTokenNumber xs state          `mplus`
                     getTokenString xs state          `mplus`
                     getTokenChar xs state            `mplus`
+                    getTokenIdOrKeyword xs state     `mplus`
                     getTokenOpOrPunct xs state
         tstring  = toString token
         len      = fromIntegral $ length tstring
