@@ -31,6 +31,8 @@ import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 
 import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Either
 import Control.Applicative
 
 import System.Console.CmdArgs
@@ -82,7 +84,6 @@ readPatternsFromFile :: FilePath -> IO [C.ByteString]
 readPatternsFromFile f =
     if null f then return []
               else liftM C.words $ C.readFile f
-
 
 
 main :: IO ()
@@ -158,20 +159,19 @@ main = do
 
     -- launch worker threads...
 
-    forM_ [1 .. jobs opts] $ \_ -> forkIO $
-        fix (\action -> do
-                f <- atomically $ readTChan in_chan
-                E.catch
-                    (case f of
-                        Nothing -> atomically $ writeTChan out_chan []
-                        Just f' -> do
-                            out <- let op = sanitizeOptions f' opts in
-                                       liftM (take (max_count opts)) $
-                                        cgrepDispatch op f' op patterns $ guard (f' /= "") >> Just f'
-                            unless (null out) $ atomically $ writeTChan out_chan out
-                            action )
-                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg) >> action )
-            )
+    forM_ [1 .. jobs opts] $ \_ -> forkIO $ do
+        _ <- runEitherT $ forever $ do
+            f <- lift $ atomically $ readTChan in_chan
+            lift $ E.catch (case f of
+                    Nothing -> atomically $ writeTChan out_chan []
+                    Just x  -> do
+                        out <- let op = sanitizeOptions x opts in
+                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> f
+                        unless (null out) $ atomically $ writeTChan out_chan out
+                   )
+                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
+            when (isNothing f) $ left ()
+        return ()
 
 
     -- push the files to grep for...
@@ -203,8 +203,7 @@ main = do
                           case () of
                             _ | json opts -> when m $ putStrLn ","
                               | otherwise -> return ()
-                          xs <- prettyOutput opts out
-                          mapM_ putStrLn xs
+                          prettyOutput opts out >>= mapM_ putStrLn
                           action n True
         )  0 False
 
