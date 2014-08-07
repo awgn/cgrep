@@ -75,7 +75,7 @@ langMap = Map.fromList [
             (Ruby,      [Ext "rb", Ext "ruby"]),
             (Scala,     [Ext "scala"]),
             (Tcl,       [Ext "tcl", Ext "tk"]),
-            (Text,      [Ext "txt", Ext "md", Name "README", Name "INSTALL"]),
+            (Text,      [Ext "txt", Ext "md", Ext "cabal", Ext "cfg", Name "README", Name "INSTALL"]),
             (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]),
             (Verilog,   [Ext "v", Ext "vh", Ext "sv"]),
             (VHDL,      [Ext "vhd", Ext "vhdl"]),
