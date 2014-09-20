@@ -1,4 +1,4 @@
-CGrep: a context-aware grep for source codes
+CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep)
 ============================================
 
 Usage
