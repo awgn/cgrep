@@ -242,12 +242,11 @@ getTokenNumber (C.uncons -> Nothing) _ = Nothing
 getTokenNumber _ _ = undefined
 
 
-validHexSet, validOctSet, validDecSet, validFloatSet :: HS.HashSet Char
+validHexSet, validOctSet, validDecSet :: HS.HashSet Char
 
-validHexSet   = HS.fromList "0123456789abcdefABCDEFxXuUlL"
-validOctSet   = HS.fromList "01234567uUlL"
-validDecSet   = HS.fromList "0123456789uUlL"
-validFloatSet = HS.fromList "0123456789"
+validHexSet   = HS.fromList "0123456789abcdefABCDEFxX"
+validOctSet   = HS.fromList "01234567"
+validDecSet   = HS.fromList "0123456789"
 
 data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex | NumberMayBeFloat | NumberFloat | NumberExp
                     deriving (Show,Eq,Enum)
@@ -287,7 +286,7 @@ getNumber (C.uncons -> Just (x,xs)) state
                                                 | otherwise                  -> ""
 
     |  state == NumberFloat = case () of _
-                                                | x `HS.member` validFloatSet -> x : getNumber xs NumberFloat
+                                                | x `HS.member` validDecSet -> x : getNumber xs NumberFloat
                                                 | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
                                                 | otherwise                  -> ""
 
