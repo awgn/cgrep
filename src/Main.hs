@@ -60,22 +60,25 @@ import qualified Data.ByteString.Char8 as C
 putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> IO ()
 putRecursiveContents opts inchan topdir langs prunedir visited = do
     dir <-  doesDirectoryExist topdir
-    if dir then do
+    if dir
+        then do
             names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents topdir
-            forM_ names $ \n -> do
-                let path = topdir </> n
-                let filename = takeFileName path
-                cpath  <- canonicalizePath path
-                status  <- getFileStatus path
-                lstatus <- getSymbolicLinkStatus path
-                unless (cpath `Set.member` visited) $
-                    if isDirectory status && (not (isSymbolicLink lstatus) || deference_recursive opts)
-                       then unless (filename `elem` prunedir)  $
-                           putRecursiveContents opts inchan path langs prunedir (Set.insert cpath visited)
-                       else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
-                               Nothing -> return ()
-                               _       -> atomically $ writeTChan inchan (Just path)
-           else atomically $ writeTChan inchan (Just topdir)
+            forM_ names $ \n -> E.catch ( do
+                    let path = topdir </> n
+                    let filename = takeFileName path
+                    cpath  <- canonicalizePath path
+                    status  <- getFileStatus path
+                    lstatus <- getSymbolicLinkStatus path
+                    unless (cpath `Set.member` visited) $
+                        if isDirectory status && (not (isSymbolicLink lstatus) || deference_recursive opts)
+                           then unless (filename `elem` prunedir)  $
+                               putRecursiveContents opts inchan path langs prunedir (Set.insert cpath visited)
+                           else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
+                                   Nothing -> return ()
+                                   _       -> atomically $ writeTChan inchan (Just path)
+                )
+                (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr ("cgrep: " ++ msg))
+        else atomically $ writeTChan inchan (Just topdir)
 
 
 -- read patterns from file
