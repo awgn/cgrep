@@ -28,7 +28,7 @@ import Data.Maybe
 import Options
 import Util
 
-data Lang = Awk | C | Cpp | Csharp | Chapel | Coffee | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
+data Lang = Awk | C | Cpp | Cabal | Csharp | Chapel | Coffee | Conf | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
                 Html | Java | Javascript | Latex | Lua | Make | OCaml | ObjectiveC |
                 Perl | PHP | Python | Ruby | Scala | Tcl | Text | Shell | Verilog | VHDL | Vim
                     deriving (Read, Show, Eq, Ord, Bounded)
@@ -51,8 +51,10 @@ langMap = Map.fromList [
             (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"]),
             (C,         [Ext "c", Ext "C"]),
             (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"]),
+            (Cabal,     [Ext "cabal"]),
             (Csharp,    [Ext "cs", Ext "CS"]),
             (Coffee,    [Ext "coffee"]),
+            (Conf,      [Ext "conf", Ext "cfg", Ext "doxy"]),
             (Chapel,    [Ext "chpl"]),
             (Css,       [Ext "css"]),
             (CMake,     [Name "CMakeLists.txt", Ext "cmake"]),
@@ -75,7 +77,7 @@ langMap = Map.fromList [
             (Ruby,      [Ext "rb", Ext "ruby"]),
             (Scala,     [Ext "scala"]),
             (Tcl,       [Ext "tcl", Ext "tk"]),
-            (Text,      [Ext "txt", Ext "md", Ext "cabal", Ext "cfg", Name "README", Name "INSTALL"]),
+            (Text,      [Ext "txt", Ext "md", Name "README", Name "INSTALL"]),
             (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]),
             (Verilog,   [Ext "v", Ext "vh", Ext "sv"]),
             (VHDL,      [Ext "vhd", Ext "vhdl"]),

@@ -200,9 +200,11 @@ mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == hea
 filterFunctionMap = Map.fromList [
     (C,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Cpp,        mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
+    (Cabal,      mkFilterFunction [("--", "\n")]                [("\"", "\"")] ),
     (Csharp,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Chapel,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Coffee,     mkFilterFunction [("###", "###"), ("#", "\n")]  [("\"", "\"")] ),
+    (Conf,       mkFilterFunction [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
     (D,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Go,         mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
     (Java,       mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),

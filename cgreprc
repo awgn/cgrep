@@ -4,7 +4,7 @@
 
 Config 
 {
-    languages = [Awk, C, Cpp, Csharp, Chapel, Coffee, Css, CMake, D, Erlang, Fsharp, Go, 
+    languages = [Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, Fsharp, Go, 
                  Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, 
                  ObjectiveC , Perl, PHP , Python, Ruby, Scala, Tcl, Text, Shell, 
                  Verilog, VHDL, Vim ],
