@@ -76,8 +76,7 @@ putRecursiveContents opts inchan topdir langs prunedir visited = do
                            else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
                                    Nothing -> return ()
                                    _       -> atomically $ writeTChan inchan (Just path)
-                )
-                (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr ("cgrep: " ++ msg))
+                ) (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr ("cgrep: " ++ msg))
         else atomically $ writeTChan inchan (Just topdir)
 
 
@@ -103,8 +102,8 @@ main = do
 
     -- read command-line options
 
-    opts  <- if isTermOut then (\o@Options{color = c} -> o { color = c || configColor conf}) <$> cmdArgsRun options
-                          else (\x -> x {color = False}) <$>  cmdArgsRun options
+    opts  <- (if isTermOut then (\o@Options{color = c} -> o { color = c || configAutoColor conf})
+                           else id) <$> cmdArgsRun options
 
     -- check for multiple backends...
 

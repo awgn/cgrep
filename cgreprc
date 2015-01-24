@@ -8,7 +8,7 @@ Config
                         Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC , Perl, PHP , 
                         Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim ],
     configPruneDirs = [".svn", ".git", "CMakeFiles" ],
-    configColor = False
+    configAutoColor = True
 } 
 
 

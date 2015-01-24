@@ -31,14 +31,14 @@ cgreprc :: FilePath
 cgreprc = "cgreprc"
 
 version :: String
-version = "6.4.10"
+version = "6.4.11"
 
 
 data Config = Config
               {
                     configLanguages  :: [Lang],
                     configPruneDirs  :: [String],
-                    configColor      :: Bool
+                    configAutoColor  :: Bool
 
               } deriving (Show, Read)
 
