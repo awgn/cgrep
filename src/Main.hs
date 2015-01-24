@@ -92,9 +92,16 @@ readPatternsFromFile f =
 main :: IO ()
 main = do
 
+    -- check whether is a terminal device
+
+    isTermIn  <- hIsTerminalDevice stdin
+    isTermOut <- hIsTerminalDevice stdout
+
+
     -- read command-line options
 
-    opts  <- cmdArgsRun options
+    opts  <- if isTermOut then cmdArgsRun options
+                          else fmap (\x -> x {color = False}) $ cmdArgsRun options
 
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
     putStrLevel1 (debug opts) $ "options   : " ++ show opts
@@ -131,15 +138,11 @@ main = do
                                 else ps
 
 
-    -- check whether is a terminal device
-
-    isTerm <- hIsTerminalDevice stdin
-
     -- retrieve files to parse
 
     let tailOpts = tail $ others opts
 
-    let paths = if null $ file opts then if null tailOpts && isTerm then ["."] else tailOpts
+    let paths = if null $ file opts then if null tailOpts && isTermIn then ["."] else tailOpts
                                     else others opts
 
     -- parse cmd line language list:
@@ -153,7 +156,8 @@ main = do
     putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
     putStrLevel1 (debug opts) $ "files     : " ++ show paths
-    putStrLevel1 (debug opts) $ "isTerm    : " ++ show isTerm
+    putStrLevel1 (debug opts) $ "isTermIn  : " ++ show isTermIn
+    putStrLevel1 (debug opts) $ "isTermOut : " ++ show isTermOut
 
     -- create Transactional Chan and Vars...
 
@@ -184,7 +188,7 @@ main = do
         if recursive opts || deference_recursive opts
             then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (pruneDirs conf) (Set.singleton p)
             else do
-                files <- liftM (\l -> if null l && not isTerm then [""] else l) $ filterM doesFileExist paths
+                files <- liftM (\l -> if null l && not isTermIn then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)
 
         -- enqueue EOF messages:
