@@ -95,12 +95,12 @@ trim xs = dropSpaceTail "" $ dropWhile isSpace xs
 
 
 unquotes :: String -> String
-unquotes []     = []
-unquotes (x:[]) = [x]
+unquotes []   = []
+unquotes [x]  = [x]
 unquotes y@(x:xs)
     | x == '"' || x == '\'' =  if x == last xs then init xs
                                                else y
-   | otherwise = y
+    | otherwise = y
 
 
 

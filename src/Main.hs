@@ -105,8 +105,6 @@ main = do
 
     opts  <- if isTermOut then (\o@Options{color = c} -> o { color = c || configColor conf}) <$> cmdArgsRun options
                           else (\x -> x {color = False}) <$>  cmdArgsRun options
-    putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
-    putStrLevel1 (debug opts) $ "options   : " ++ show opts
 
     -- check for multiple backends...
 
@@ -151,6 +149,8 @@ main = do
 
     let lang_enabled = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
+    putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
+    putStrLevel1 (debug opts) $ "options   : " ++ show opts
     putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
     putStrLevel1 (debug opts) $ "files     : " ++ show paths
