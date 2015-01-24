@@ -4,12 +4,11 @@
 
 Config 
 {
-    languages = [Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, Fsharp, Go, 
-                 Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, 
-                 ObjectiveC , Perl, PHP , Python, Ruby, Scala, Tcl, Text, Shell, 
-                 Verilog, VHDL, Vim ],
-    
-    pruneDirs = [".svn", ".git", "CMakeFiles" ] 
+    configLanguages = [ Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, Fsharp, Go, 
+                        Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC , Perl, PHP , 
+                        Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim ],
+    configPruneDirs = [".svn", ".git", "CMakeFiles" ],
+    configColor = False
 } 
 
 

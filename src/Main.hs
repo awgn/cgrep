@@ -97,12 +97,14 @@ main = do
     isTermIn  <- hIsTerminalDevice stdin
     isTermOut <- hIsTerminalDevice stdout
 
+    -- read Cgrep config options
+
+    conf  <- getConfig
 
     -- read command-line options
 
-    opts  <- if isTermOut then cmdArgsRun options
-                          else fmap (\x -> x {color = False}) $ cmdArgsRun options
-
+    opts  <- if isTermOut then (\o@Options{color = c} -> o { color = c || configColor conf}) <$> cmdArgsRun options
+                          else (\x -> x {color = False}) <$>  cmdArgsRun options
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
     putStrLevel1 (debug opts) $ "options   : " ++ show opts
 
@@ -124,10 +126,6 @@ main = do
     -- check whether patterns list is empty, display help message if it's the case
 
     when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)
-
-    -- read Cgrep config options
-
-    conf  <- getConfig
 
     -- load patterns:
 
@@ -151,7 +149,7 @@ main = do
 
     -- language enabled:
 
-    let lang_enabled = (if null l0 then languages conf else l0 `union` l1) \\ l2
+    let lang_enabled = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
     putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
@@ -186,7 +184,7 @@ main = do
     _ <- forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (pruneDirs conf) (Set.singleton p)
+            then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (configPruneDirs conf) (Set.singleton p)
             else do
                 files <- liftM (\l -> if null l && not isTermIn then [""] else l) $ filterM doesFileExist paths
                 forM_ files (atomically . writeTChan in_chan . Just)

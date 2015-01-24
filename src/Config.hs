@@ -33,12 +33,15 @@ cgreprc = "cgreprc"
 version :: String
 version = "6.4.9"
 
+
 data Config = Config
               {
-                    languages :: [Lang],
-                    pruneDirs :: [String]
+                    configLanguages  :: [Lang],
+                    configPruneDirs  :: [String],
+                    configColor      :: Bool
 
               } deriving (Show, Read)
+
 
 
 getConfig :: IO Config
@@ -49,7 +52,7 @@ getConfig = do
 
     if isJust conf then readFile (fromJust conf) >>= \xs ->
                         return (prettyRead (dropComments xs) "Config error" :: Config)
-                   else return $ Config [] []
+                   else return $ Config [] [] False
 
     where dropComments :: String -> String
           dropComments = unlines . map (takeWhile $ not .(== '#')) . lines
