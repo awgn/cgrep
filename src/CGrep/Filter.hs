@@ -130,19 +130,16 @@ nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
                                       lindex = findBoundary (x,xs) (litrBound c)
                                   in if bloom c ! x
-                                     then
-
-                                         if cindex >= 0
-                                         then s{ cxtState = CommState cindex, display = codefilt, skip = C.length ( _beg (commBound c !! cindex) ) - 1 }
-                                         else if lindex >= 0
-                                         then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( _beg (litrBound c !! lindex) ) - 1 }
-                                         else s{ display  = codefilt, skip = 0 }
-
+                                     then if cindex >= 0
+                                          then s{ cxtState = CommState cindex, display = commfilt, skip = C.length ( _beg (commBound c !! cindex) ) - 1 }
+                                          else if lindex >= 0
+                                               then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( _beg (litrBound c !! lindex) ) - 1 }
+                                               else s{ display  = codefilt, skip = 0 }
                                      else s{ display  = codefilt, skip = 0 }
 
     | CommState n <- cxtState s = let Boundary _ e = commBound c !! n
                                   in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
+                                     then s{ cxtState = CodeState, display = commfilt, skip = C.length e - 1}
                                      else s{ display  = commfilt, skip = 0 }
 
     | LitrState n <- cxtState s = let Boundary _ e = litrBound c !! n
