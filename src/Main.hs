@@ -87,11 +87,10 @@ readPatternsFromFile f =
     if null f then return []
               else liftM C.words $ C.readFile f
 
-
 main :: IO ()
 main = do
 
-    -- check whether is a terminal device
+    -- check whether this is a terminal device
 
     isTermIn  <- hIsTerminalDevice stdin
     isTermOut <- hIsTerminalDevice stdout
@@ -114,7 +113,8 @@ main = do
                 format opts,
                 if xml opts  then Just "" else Nothing,
                 if json opts then Just "" else Nothing
-               ]) > 1) $ error "you can use one back-end at time!"
+               ]) > 1)
+        $ error "you can use one back-end at time!"
 
     -- display lang-map...
 
@@ -126,12 +126,10 @@ main = do
 
     -- load patterns:
 
-    patterns <- (if null $ file opts then return [C.pack $ head $ others opts]
-                                     else readPatternsFromFile $ file opts ) >>= \ps ->
-                    return $ if ignore_case opts
-                                then map (C.map toLower) ps
-                                else ps
+    patterns <- if null $ file opts then return [C.pack $ head $ others opts]
+                                    else readPatternsFromFile $ file opts
 
+    let patternsLc = map (if ignore_case opts then C.map toLower else id) patterns
 
     -- retrieve files to parse
 
@@ -170,7 +168,7 @@ main = do
                     Nothing -> atomically $ writeTChan out_chan []
                     Just x  -> do
                         out <- let op = sanitizeOptions x opts in
-                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> f
+                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patternsLc $ guard (x /= "") >> f
                         unless (null out) $ atomically $ writeTChan out_chan out
                    )
                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
