@@ -39,7 +39,7 @@ import System.Console.CmdArgs
 import System.Directory
 import System.FilePath ((</>), takeFileName)
 import System.Environment
-import System.Posix.Files
+import System.PosixCompat.Files
 import System.IO
 import System.Exit
 
