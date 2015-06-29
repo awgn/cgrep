@@ -85,7 +85,7 @@ putRecursiveContents opts inchan topdir langs prunedir visited = do
 readPatternsFromFile :: FilePath -> IO [C.ByteString]
 readPatternsFromFile f =
     if null f then return []
-              else liftM C.words $ C.readFile f
+              else liftM C.lines $ C.readFile f
 
 main :: IO ()
 main = do

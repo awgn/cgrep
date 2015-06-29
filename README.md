@@ -10,7 +10,7 @@ cgrep [OPTIONS] [ITEM]
 
 Pattern:
 
-    -f --file=FILE            read PATTERNs from file
+    -f --file=FILE            read PATTERNs from file (one per line)
     -w --word                 force word matching
     -p --prefix               force prefix matching
     -s --suffix               force suffix matching
