@@ -26,6 +26,7 @@ module CGrep.Common (CgrepFunction, Text8,
                      ignoreCase,
                      spanGroup,
                      trim,
+                     trim8,
                      unquotes) where
 
 import qualified Data.ByteString.Char8 as C
@@ -82,16 +83,12 @@ spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
 
 
-dropSpaceTail :: String -> String -> String
-dropSpaceTail _ "" = ""
-dropSpaceTail maybeStuff (x:xs)
-        | isSpace x = dropSpaceTail (x:maybeStuff) xs
-        | null maybeStuff = x : dropSpaceTail "" xs
-        | otherwise       = reverse maybeStuff ++ x : dropSpaceTail "" xs
-
-
 trim :: String -> String
-trim xs = dropSpaceTail "" $ dropWhile isSpace xs
+trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
+
+
+trim8 :: Text8 -> Text8
+trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 
 
 unquotes :: String -> String
@@ -101,6 +98,4 @@ unquotes y@(x:xs)
     | x == '"' || x == '\'' =  if x == last xs then init xs
                                                else y
     | otherwise = y
-
-
 

@@ -46,6 +46,7 @@ import System.Exit
 import CGrep.CGrep
 import CGrep.Lang
 import CGrep.Output
+import CGrep.Common
 
 import CmdOptions
 import Options
@@ -85,7 +86,7 @@ putRecursiveContents opts inchan topdir langs prunedir visited = do
 readPatternsFromFile :: FilePath -> IO [C.ByteString]
 readPatternsFromFile f =
     if null f then return []
-              else liftM C.lines $ C.readFile f
+              else liftM (map trim8 . C.lines) $ C.readFile f
 
 main :: IO ()
 main = do
