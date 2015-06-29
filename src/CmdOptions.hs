@@ -26,7 +26,7 @@ import Config
 options :: Mode (CmdArgs Options)
 options = cmdArgsMode $ Options
           {
-                file  = ""  &= typ "FILE"   &= help "Read PATTERNs from file" &= groupname "Pattern",
+                file  = ""  &= typ "FILE"   &= help "Read PATTERNs from file (one per line)" &= groupname "Pattern",
                 word_match  = False         &= help "Force word matching" &=explicit &= name "word" &= name "w",
                 prefix_match  = False       &= help "Force prefix matching" &=explicit &= name "prefix" &= name "p",
                 suffix_match  = False       &= help "Force suffix matching" &=explicit &= name "suffix" &= name "s",
