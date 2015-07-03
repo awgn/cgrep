@@ -88,6 +88,16 @@ readPatternsFromFile f =
     if null f then return []
               else liftM (map trim8 . C.lines) $ C.readFile f
 
+getFilePaths :: Bool        ->     -- pattern(s) from file
+                Bool        ->     -- is terminal (no from STDIN)
+                [String]    ->     -- list of patterns and files
+                [String]
+
+getFilePaths False True xs = if length xs == 1 then [ ] else tail xs
+getFilePaths True  True xs = xs
+getFilePaths _ False _ = [ ]
+
+
 main :: IO ()
 main = do
 
@@ -117,27 +127,25 @@ main = do
                ]) > 1)
         $ error "you can use one back-end at time!"
 
-    -- display lang-map...
+
+    -- display lang-map and exit...
 
     when (lang_maps opts) $ dumpLangMap langMap >> exitSuccess
 
     -- check whether patterns list is empty, display help message if it's the case
 
-    when (null $ others opts) $ withArgs ["--help"] $ void (cmdArgsRun options)
+    when (null (others opts) && (isTermIn && null (file opts))) $ withArgs ["--help"] $ void (cmdArgsRun options)
 
     -- load patterns:
 
-    patterns <- if null $ file opts then return [C.pack $ head $ others opts]
+    patterns <- if null (file opts) then return $ (if isTermIn then (:[]) . head else id) $ map C.pack (others opts)
                                     else readPatternsFromFile $ file opts
 
-    let patternsLc = map (if ignore_case opts then C.map toLower else id) patterns
+    let patterns' = map (if ignore_case opts then C.map toLower else id) patterns
 
-    -- retrieve files to parse
+    -- load files to parse:
 
-    let tailOpts = tail $ others opts
-
-    let paths = if null $ file opts then if null tailOpts && isTermIn then ["."] else tailOpts
-                                    else others opts
+    let paths = getFilePaths (not $ null (file opts)) isTermIn (others opts)
 
     -- parse cmd line language list:
 
@@ -169,7 +177,7 @@ main = do
                     Nothing -> atomically $ writeTChan out_chan []
                     Just x  -> do
                         out <- let op = sanitizeOptions x opts in
-                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patternsLc $ guard (x /= "") >> f
+                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns' $ guard (x /= "") >> f
                         unless (null out) $ atomically $ writeTChan out_chan out
                    )
                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
@@ -182,10 +190,10 @@ main = do
     _ <- forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ paths $ \p -> putRecursiveContents opts in_chan p lang_enabled (configPruneDirs conf) (Set.singleton p)
-            else do
-                files <- liftM (\l -> if null l && not isTermIn then [""] else l) $ filterM doesFileExist paths
-                forM_ files (atomically . writeTChan in_chan . Just)
+            then
+                forM_ (if null paths then ["."] else paths) $ \p -> putRecursiveContents opts in_chan p lang_enabled (configPruneDirs conf) (Set.singleton p)
+            else
+                forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
 
         -- enqueue EOF messages:
 
