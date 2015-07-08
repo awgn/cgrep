@@ -17,7 +17,7 @@
 --
 
 
-module CGrep.Output (Output(..),
+module CGrep.Output (Output(),
                      mkOutput,
                      putPrettyHeader,
                      putPrettyFooter,
@@ -103,20 +103,23 @@ prettyOutput opt out
     | isJust $ format opt = return $ map (formatOutput opt) out
     | json opt            = return $ jsonOutput opt out
     | xml opt             = return $ xmlOutput opt out
-    | otherwise           = return $ map (defaultOutput opt) out
+    | otherwise           = return $ defaultOutput opt out
 
 
-defaultOutput :: Options -> Output -> String
-defaultOutput opt@ Options { no_filename = False, no_linenumber = False , count = False } (Output f n l ts) =
-    showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-defaultOutput opt@ Options { no_filename = False, no_linenumber = True  , count = False } (Output f _ l ts) =
-    showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-defaultOutput opt@ Options { no_filename = True , no_linenumber = False , count = False } (Output _ n l ts) =
-    show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l
-defaultOutput opt@ Options { no_filename = True , no_linenumber = True  , count = False } (Output _ _ l ts) =
-    showTokens opt ts ++ showLine opt ts l
-defaultOutput opt@ Options { count = True } (Output f n _ _) =
-    showFile opt f ++ ":" ++ show n
+defaultOutput :: Options -> [Output] -> [String]
+
+defaultOutput opt@Options{ no_filename = False, no_linenumber = False , count = False } xs =
+    map (\(Output f n l ts) -> showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
+defaultOutput opt@Options{ no_filename = False, no_linenumber = True  , count = False } xs =
+    map (\(Output f _ l ts) -> showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
+defaultOutput opt@Options{ no_filename = True , no_linenumber = False , count = False } xs =
+    map (\(Output _ n l ts) -> show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
+defaultOutput opt@Options{ no_filename = True , no_linenumber = True  , count = False } xs =
+    map (\(Output _ _ l ts) -> showTokens opt ts ++ showLine opt ts l) xs
+defaultOutput opt@Options{ count = True } xs =
+    let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+    in map (\ys@(y:_) -> showFile opt (outputFilename y) ++ ":" ++ show (length ys)) gs
+    where outputFilename (Output f _ _ _) = f
 
 
 jsonOutput :: Options -> [Output] -> [String]
@@ -141,7 +144,6 @@ xmlOutput _ outs =
               mkMatch xs (Output _ n l ts) = xs ++  "<match line=" ++ show l ++ " row=\"" ++ show n ++ "\">" ++
                                                     unwords (map mkToken ts) ++
                                                     "</match>"
-
 
 formatOutput :: Options -> Output -> String
 formatOutput opt (Output f n l ts) =
