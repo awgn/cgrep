@@ -120,12 +120,11 @@ wildCardMap = M.fromList
 
 
 mkWildCard :: Generic.Token -> WildCard Generic.Token
-mkWildCard t@(Generic.TokenAlpha s _) =
+mkWildCard t@(Generic.TokenAlpha s off) =
     case () of
         _  |  Just wc <-  M.lookup str wildCardMap -> wc
-           | ('$':_)  <- s             -> IdentifCard str
-           | ('_':_)  <- s             -> IdentifCard str
-           | otherwise                 -> TokenCard t
+           | isWildCardPattern s -> IdentifCard str
+           | otherwise           -> TokenCard $ Generic.TokenAlpha (rmWildCardEscape s) off
     where str = tkToString t
 mkWildCard t = TokenCard t
 

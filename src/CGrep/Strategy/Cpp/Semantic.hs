@@ -129,12 +129,11 @@ wildCardMap = M.fromList
             ]
 
 mkWildCard :: Cpp.Token -> WildCard Cpp.Token
-mkWildCard t@(Cpp.TokenIdentifier s _) =
+mkWildCard t@(Cpp.TokenIdentifier s off) =
     case () of
         _  |  Just wc <-  M.lookup str wildCardMap -> wc
-           | ('$':_)  <- s             -> IdentifCard str
-           | ('_':_)  <- s             -> IdentifCard str
-           | otherwise                 -> TokenCard t
+           | isWildCardPattern s -> IdentifCard str
+           | otherwise           -> TokenCard $ Cpp.TokenIdentifier (rmWildCardEscape s) off
     where str = tkToString t
 mkWildCard t = TokenCard t
 

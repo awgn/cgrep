@@ -19,6 +19,8 @@
 module CGrep.Semantic.WildCard (WildCard(..), MultiCard,
                                 filterTokensWithMultiCards,
                                 wildCardMatch,
+                                isWildCardPattern,
+                                rmWildCardEscape,
                                 multiCardMatch) where
 
 import qualified Data.Map as M
@@ -77,6 +79,22 @@ multiCardCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> Bool
 multiCardCompare opt l r =
     multiCardCompareAll ts && multiCardCheckOccurences ts
         where ts = multiCardGroupCompare opt l r
+
+
+isWildCardPattern :: String -> Bool
+isWildCardPattern s =
+    case () of
+        _ | (x:y:_) <- s   -> wprefix x && not (wprefix y)
+          | [x]     <- s   -> wprefix x
+          | otherwise     -> error "isWildCardPattern"
+    where wprefix x = x == '$' || x == '_'
+
+
+rmWildCardEscape :: String -> String
+rmWildCardEscape ('$':'_':xs) = '_' : xs
+rmWildCardEscape ('_':'_':xs) = '_' : xs
+rmWildCardEscape ('$':'$':xs) = '$' : xs
+rmWildCardEscape xs = xs
 
 
 {-# INLINE multiCardCompareAll #-}
