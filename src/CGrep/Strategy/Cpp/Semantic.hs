@@ -55,10 +55,8 @@ search opt ps f = do
     -- pre-process patterns
 
         patterns   = map (Cpp.tokenizer . contextFilter (Just Cpp) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-
-        patterns'  = map (map mkWildCard) patterns                 -- [ [w1,w2,..], [w1,w2,..] ]
-
-        patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
+        patterns'  = map (map mkWildCard) patterns                           -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineMultiCard . map (:[])) patterns'            -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
     -- quick Search...
 
@@ -130,7 +128,6 @@ wildCardMap = M.fromList
                 ("LIT", LiteralCard )
             ]
 
-
 mkWildCard :: Cpp.Token -> WildCard Cpp.Token
 mkWildCard t@(Cpp.TokenIdentifier s _) =
     case () of
@@ -145,9 +142,9 @@ mkWildCard t = TokenCard t
 combineMultiCard :: [MultiCard Cpp.Token] -> [MultiCard Cpp.Token]
 combineMultiCard (m1:r@(m2:m3:ms))
     | [TokenCard (Cpp.TokenIdentifier {Cpp.toString = "OR"})] <- m2 =  combineMultiCard $ (m1++m3):ms
-    | otherwise             =  m1 : combineMultiCard r
-combineMultiCard [m1,m2]    =  [m1,m2]
-combineMultiCard [m1]       =  [m1]
-combineMultiCard []         =  []
+    | otherwise          =  m1 : combineMultiCard r
+combineMultiCard [m1,m2] =  [m1,m2]
+combineMultiCard [m1]    =  [m1]
+combineMultiCard []      =  []
 
 

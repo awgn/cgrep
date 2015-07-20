@@ -127,7 +127,7 @@ multiCardGroupCompare opt ls rs
 tokensZip :: (SemanticToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
 tokensZip opt l r
     |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
-    |  otherwise             =  (False, ([AnyCard],[] ))
+    |  otherwise              =  (False, ([AnyCard],[] ))
 
 
 multiCardMatch :: (SemanticToken t) => Options ->  MultiCard t -> t -> Bool
