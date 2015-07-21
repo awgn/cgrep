@@ -54,15 +54,17 @@ search opt ps f = do
 
         patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkWildCardFromToken) patterns                                  -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
+        patterns'' = map (combineMultiCard . map (:[])) patterns'                            -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
     -- quickSearch ...
 
-        ps' = map ( C.pack . (\l -> if null l then ""
-                                              else maximumBy (compare `on` length) l) . mapMaybe (\x -> case x of
-                                    TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
-                                    TokenCard t                           -> Just (tkToString t)
-                                    _                                     -> Nothing)) patterns'
+        ps' = map C.pack $ (mapMaybe (\x -> case x of
+                                            TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
+                                            TokenCard t                           -> Just (tkToString t)
+                                            _                                     -> Nothing
+                                     ) . concat) patterns'
+
+        found = quickSearch opt ps' text'
 
     -- put banners...
 
@@ -71,7 +73,6 @@ search opt ps f = do
     putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
     putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
 
-    let found = quickSearch opt ps' text'
 
     if maybe False not found
         then return $ mkOutput opt filename text text []

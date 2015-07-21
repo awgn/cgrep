@@ -57,12 +57,12 @@ search opt ps f = do
 
     -- quick Search...
 
-        ps' = map (C.pack . (\l ->  if null l then ""
-                                              else maximumBy (compare `on` length) l) . mapMaybe (\x -> case x of
-                                    TokenCard (Cpp.TokenChar    xs _) -> Just $ unquotes $ trim xs
-                                    TokenCard (Cpp.TokenString  xs _) -> Just $ unquotes $ trim xs
-                                    TokenCard t                       -> Just $ Cpp.toString t
-                                    _                                 -> Nothing)) patterns'
+        ps' = map C.pack $ (mapMaybe (\x -> case x of
+                                            TokenCard (Cpp.TokenChar   xs _) -> Just (unquotes $ trim xs)
+                                            TokenCard (Cpp.TokenString xs _) -> Just (unquotes $ trim xs)
+                                            TokenCard t                      -> Just (Cpp.toString t)
+                                            _                                -> Nothing
+                                     ) . concat) patterns'
 
         found = quickSearch opt ps' text'
 
