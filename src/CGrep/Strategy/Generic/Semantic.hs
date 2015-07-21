@@ -58,13 +58,13 @@ search opt ps f = do
 
     -- quickSearch ...
 
-        ps' = map C.pack $ (mapMaybe (\x -> case x of
-                                            TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
-                                            TokenCard t                           -> Just (tkToString t)
-                                            _                                     -> Nothing
-                                     ) . concat) patterns'
+        ps' = filter (/= "OR") $ (mapMaybe (\x -> case x of
+                                                    TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
+                                                    TokenCard t                           -> Just (tkToString t)
+                                                    _                                     -> Nothing
+                                            ) . concat) patterns'
 
-        found = quickSearch opt ps' text'
+        found = quickSearch opt (map C.pack ps') text'
 
     -- put banners...
 

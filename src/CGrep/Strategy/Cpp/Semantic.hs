@@ -57,14 +57,14 @@ search opt ps f = do
 
     -- quick Search...
 
-        ps' = map C.pack $ (mapMaybe (\x -> case x of
-                                            TokenCard (Cpp.TokenChar   xs _) -> Just (unquotes $ trim xs)
-                                            TokenCard (Cpp.TokenString xs _) -> Just (unquotes $ trim xs)
-                                            TokenCard t                      -> Just (Cpp.toString t)
-                                            _                                -> Nothing
-                                     ) . concat) patterns'
+        ps' = filter (/= "OR") $ (mapMaybe (\x -> case x of
+                                                    TokenCard (Cpp.TokenChar   xs _) -> Just (unquotes $ trim xs)
+                                                    TokenCard (Cpp.TokenString xs _) -> Just (unquotes $ trim xs)
+                                                    TokenCard t                      -> Just (Cpp.toString t)
+                                                    _                                -> Nothing
+                                            ) . concat) patterns'
 
-        found = quickSearch opt ps' text'
+        found = quickSearch opt (map C.pack ps') text'
 
     -- put banners...
 
