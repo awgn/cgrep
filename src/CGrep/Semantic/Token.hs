@@ -25,7 +25,8 @@ class (Show t, Ord t) => SemanticToken t where
     tkIsChar       :: t -> Bool
     tkIsNumber     :: t -> Bool
     tkIsKeyword    :: t -> Bool
-    tkToString     :: t -> String
     tkEquivalent   :: t -> t -> Bool
-
+    tkToString     :: t -> String
+    tkToOffset     :: t -> Int
+    tkToIdentif    :: String -> Int -> t
 

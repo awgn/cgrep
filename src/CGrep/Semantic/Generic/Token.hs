@@ -43,12 +43,25 @@ data TokenState = StateSpace   |
                     deriving (Eq, Enum, Show)
 
 
-data Token = TokenAlpha       { toString :: String, offset :: Offset  } |
-             TokenDigit       { toString :: String, offset :: Offset  } |
-             TokenBracket     { toString :: String, offset :: Offset  } |
-             TokenLiteral     { toString :: String, offset :: Offset  } |
-             TokenOther       { toString :: String, offset :: Offset  }
+data Token = TokenAlpha       { toString :: String, toOffset :: Offset  } |
+             TokenDigit       { toString :: String, toOffset :: Offset  } |
+             TokenBracket     { toString :: String, toOffset :: Offset  } |
+             TokenLiteral     { toString :: String, toOffset :: Offset  } |
+             TokenOther       { toString :: String, toOffset :: Offset  }
                 deriving (Show, Eq, Ord)
+
+
+instance SemanticToken Token where
+    tkIsIdentifier  = _isTokenAlpha
+    tkIsString      = _isTokenLiteral
+    tkIsChar        = _isTokenLiteral
+    tkIsNumber      = _isTokenDigit
+    tkIsKeyword     = const False
+    tkEquivalent    = tokenCompare
+    tkToString      = toString
+    tkToOffset      = toOffset
+    tkToIdentif     = TokenAlpha
+
 
 _isTokenAlpha, _isTokenDigit, _isTokenBracket, _isTokenOther, _isTokenLiteral :: Token -> Bool
 
@@ -195,14 +208,4 @@ tokenizer xs = (\(TokenAccum ss  off _ acc out) -> DL.toList (if null (DL.toList
                    | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (DL.singleton  x) (out `DL.snoc` mkToken TokenBracket off acc)
                    | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (DL.singleton  x) (out `DL.snoc` mkToken TokenBracket off acc)
                    | otherwise          ->  TokenAccum StateOther      (off+1) 0 (acc `DL.snoc` x)  out
-
-
-instance SemanticToken Token where
-    tkIsIdentifier  = _isTokenAlpha
-    tkIsString      = _isTokenLiteral
-    tkIsChar        = _isTokenLiteral
-    tkIsNumber      = _isTokenDigit
-    tkIsKeyword     = const False
-    tkToString      = toString
-    tkEquivalent    = tokenCompare
 

@@ -84,7 +84,7 @@ search opt ps f = do
 
             -- convert Cpp.Tokens to CGrep.Tokens
 
-                matches = map (\t -> let off = fromIntegral (Cpp.offset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
+                matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
             putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'

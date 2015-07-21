@@ -94,25 +94,15 @@ search opt ps f = do
 
             -- get matching tokens ...
 
-                tokens' = sortBy (compare `on` Cpp.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+                tokens' = sortBy (compare `on` Cpp.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
 
-                matches = map (\t -> let n = fromIntegral (Cpp.offset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
+                matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches
-
-
-instance SemanticToken Cpp.Token where
-    tkIsIdentifier  = Cpp.isIdentifier
-    tkIsString      = Cpp.isString
-    tkIsChar        = Cpp.isChar
-    tkIsNumber      = Cpp.isLiteralNumber
-    tkIsKeyword     = Cpp.isKeyword
-    tkToString      = Cpp.toString
-    tkEquivalent    = Cpp.tokenCompare
 
 
 wildCardMap :: M.Map String (WildCard a)

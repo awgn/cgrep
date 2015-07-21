@@ -33,6 +33,7 @@ import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
+import CGrep.Semantic.Token
 
 type TokenizerState = (Source, Offset, CppState)
 
@@ -41,14 +42,14 @@ type Source = C.ByteString
 type Offset = Int
 
 
-data Token = TokenIdentifier  { toString :: String, offset :: Int  } |
-             TokenDirective   { toString :: String, offset :: Int  } |
-             TokenKeyword     { toString :: String, offset :: Int  } |
-             TokenNumber      { toString :: String, offset :: Int  } |
-             TokenHeaderName  { toString :: String, offset :: Int  } |
-             TokenString      { toString :: String, offset :: Int  } |
-             TokenChar        { toString :: String, offset :: Int  } |
-             TokenOperOrPunct { toString :: String, offset :: Int  }
+data Token = TokenIdentifier  { toString :: String, toOffset :: Int  } |
+             TokenDirective   { toString :: String, toOffset :: Int  } |
+             TokenKeyword     { toString :: String, toOffset :: Int  } |
+             TokenNumber      { toString :: String, toOffset :: Int  } |
+             TokenHeaderName  { toString :: String, toOffset :: Int  } |
+             TokenString      { toString :: String, toOffset :: Int  } |
+             TokenChar        { toString :: String, toOffset :: Int  } |
+             TokenOperOrPunct { toString :: String, toOffset :: Int  }
                 deriving (Show, Eq, Ord)
 
 
@@ -64,6 +65,19 @@ data TokenFilter = TokenFilter
                         filtOper       :: Bool
 
                    } deriving (Show,Read,Eq)
+
+
+instance SemanticToken Token where
+    tkIsIdentifier  = isIdentifier
+    tkIsString      = isString
+    tkIsChar        = isChar
+    tkIsNumber      = isLiteralNumber
+    tkIsKeyword     = isKeyword
+    tkEquivalent    = tokenCompare
+    tkToString      = toString
+    tkToOffset      = toOffset
+    tkToIdentif     = TokenIdentifier
+
 
 -- Tokenize the source code in a list of Token
 -- Precondition: the C++ source code must be well-formed
@@ -206,7 +220,7 @@ getToken (xs, off, state) =
         len      = fromIntegral $ length tstring
         (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
     in
-        (token { offset = off }, (xs', off + len + w, nextCppState tstring state))
+        (token { toOffset = off }, (xs', off + len + w, nextCppState tstring state))
 
 
 getTokenIdOrKeyword, getTokenNumber,

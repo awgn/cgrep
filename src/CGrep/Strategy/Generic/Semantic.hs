@@ -93,9 +93,9 @@ search opt ps f = do
 
             -- get matching tokens ...
 
-                tokens' = sortBy (compare `on` Generic.offset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+                tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
 
-                matches = map (\t -> let n = fromIntegral (Generic.offset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
+                matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
