@@ -19,6 +19,7 @@
 module CGrep.Strategy.Generic.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified CGrep.Semantic.Generic.Token as Generic
 
 import CGrep.Filter
 import CGrep.Lang
@@ -28,8 +29,6 @@ import CGrep.Output
 import CGrep.Semantic.Token
 import CGrep.Semantic.WildCard
 
-import qualified Data.Map as M
-
 import Data.List
 import Data.Function
 import Data.Maybe
@@ -37,7 +36,6 @@ import Data.Maybe
 import Options
 import Debug
 
-import qualified CGrep.Semantic.Generic.Token as Generic
 
 search :: CgrepFunction
 search opt ps f = do
@@ -55,7 +53,7 @@ search opt ps f = do
     -- pre-process patterns
 
         patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkWildCard) patterns                                           -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'  = map (map mkWildCardFromToken) patterns                                  -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'  -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
     -- quickSearch ...
@@ -99,42 +97,7 @@ search opt ps f = do
 
             putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
             putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-
             putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches
-
-
-wildCardMap :: M.Map String (WildCard a)
-wildCardMap = M.fromList
-            [
-                ("ANY", AnyCard     ),
-                ("KEY", KeyWordCard ),
-                ("OCT", OctCard     ),
-                ("HEX", HexCard     ),
-                ("NUM", NumberCard  ),
-                ("CHR", CharCard    ),
-                ("STR", StringCard  ),
-                ("LIT", StringCard  )
-            ]
-
-
-mkWildCard :: Generic.Token -> WildCard Generic.Token
-mkWildCard t@(Generic.TokenAlpha s off) =
-    case () of
-        _  |  Just wc <-  M.lookup str wildCardMap -> wc
-           | isWildCardPattern s -> IdentifCard str
-           | otherwise           -> TokenCard $ Generic.TokenAlpha (rmWildCardEscape s) off
-    where str = tkToString t
-mkWildCard t = TokenCard t
-
-
-combineMultiCard :: [MultiCard Generic.Token] -> [MultiCard Generic.Token]
-combineMultiCard (m1:r@(m2:m3:ms))
-    | [TokenCard (Generic.TokenAlpha {Generic.toString = "OR"})] <- m2 =  combineMultiCard $ (m1++m3):ms
-    | otherwise          =  m1 : combineMultiCard r
-combineMultiCard [m1,m2] =  [m1,m2]
-combineMultiCard [m1]    =  [m1]
-combineMultiCard []      =  []
-
 

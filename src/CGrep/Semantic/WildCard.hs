@@ -17,10 +17,12 @@
 --
 
 module CGrep.Semantic.WildCard (WildCard(..), MultiCard,
+                                wildCardMap,
+                                mkWildCardFromToken,
+                                combineMultiCard,
                                 filterTokensWithMultiCards,
                                 wildCardMatch,
                                 isWildCardPattern,
-                                rmWildCardEscape,
                                 multiCardMatch) where
 
 import qualified Data.Map as M
@@ -46,7 +48,41 @@ data WildCard a =  TokenCard a          |
                    IdentifCard String
                        deriving (Show, Eq, Ord)
 
+
 type MultiCard a = [WildCard a]
+
+
+wildCardMap :: M.Map String (WildCard a)
+wildCardMap = M.fromList
+            [
+                ("ANY", AnyCard     ),
+                ("KEY", KeyWordCard ),
+                ("OCT", OctCard     ),
+                ("HEX", HexCard     ),
+                ("NUM", NumberCard  ),
+                ("CHR", CharCard    ),
+                ("STR", StringCard  ),
+                ("LIT", StringCard  )
+            ]
+
+
+mkWildCardFromToken :: (SemanticToken a) => a -> WildCard a
+mkWildCardFromToken t
+    | tkIsIdentifier t = case () of
+                            _ | Just wc <- M.lookup str wildCardMap -> wc
+                              | isWildCardPattern str               -> IdentifCard str
+                              | otherwise                           -> TokenCard $ tkToIdentif (rmWildCardEscape str) (tkToOffset t)
+                              where str = tkToString t
+    | otherwise = TokenCard t
+
+
+combineMultiCard :: (SemanticToken a) => [MultiCard a] -> [MultiCard a]
+combineMultiCard (m1:r@(m2:m3:ms))
+    | [TokenCard b] <- m2, tkToString b == "OR" = combineMultiCard $ (m1++m3):ms
+    | otherwise          =  m1 : combineMultiCard r
+combineMultiCard [m1,m2] =  [m1,m2]
+combineMultiCard [m1]    =  [m1]
+combineMultiCard []      =  []
 
 
 filterTokensWithMultiCards :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [a]
@@ -84,8 +120,8 @@ multiCardCompare opt l r =
 isWildCardPattern :: String -> Bool
 isWildCardPattern s =
     case () of
-        _ | (x:y:_) <- s   -> wprefix x && not (wprefix y)
-          | [x]     <- s   -> wprefix x
+        _ | (x:y:_) <- s  -> wprefix x && not (wprefix y)
+          | [x]     <- s  -> wprefix x
           | otherwise     -> error "isWildCardPattern"
     where wprefix x = x == '$' || x == '_'
 
