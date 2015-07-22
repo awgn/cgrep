@@ -103,4 +103,3 @@ cppTokenFilter opt patterns tokens
     | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Cpp.toString) tokens
     | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
 
-

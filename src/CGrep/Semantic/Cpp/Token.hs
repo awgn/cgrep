@@ -36,35 +36,32 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Semantic.Token
 
 type TokenizerState = (Source, Offset, CppState)
-
-type Source = C.ByteString
-
-type Offset = Int
+type Source         = C.ByteString
+type Offset         = Int
 
 
-data Token = TokenIdentifier  { toString :: String, toOffset :: Int  } |
-             TokenDirective   { toString :: String, toOffset :: Int  } |
-             TokenKeyword     { toString :: String, toOffset :: Int  } |
-             TokenNumber      { toString :: String, toOffset :: Int  } |
-             TokenHeaderName  { toString :: String, toOffset :: Int  } |
-             TokenString      { toString :: String, toOffset :: Int  } |
-             TokenChar        { toString :: String, toOffset :: Int  } |
-             TokenOperOrPunct { toString :: String, toOffset :: Int  }
-                deriving (Show, Eq, Ord)
+data Token =
+    TokenIdentifier  { toString :: String, toOffset :: Int  } |
+    TokenDirective   { toString :: String, toOffset :: Int  } |
+    TokenKeyword     { toString :: String, toOffset :: Int  } |
+    TokenNumber      { toString :: String, toOffset :: Int  } |
+    TokenHeaderName  { toString :: String, toOffset :: Int  } |
+    TokenString      { toString :: String, toOffset :: Int  } |
+    TokenChar        { toString :: String, toOffset :: Int  } |
+    TokenOperOrPunct { toString :: String, toOffset :: Int  }
+       deriving (Show, Eq, Ord)
 
 
 data TokenFilter = TokenFilter
-                   {
-                        filtIdentifier :: Bool,
-                        filtDirective  :: Bool,
-                        filtKeyword    :: Bool,
-                        filtHeader     :: Bool,
-                        filtString     :: Bool,
-                        filtNumber     :: Bool,
-                        filtChar       :: Bool,
-                        filtOper       :: Bool
-
-                   } deriving (Show,Read,Eq)
+    {   filtIdentifier :: Bool
+    ,   filtDirective  :: Bool
+    ,   filtKeyword    :: Bool
+    ,   filtHeader     :: Bool
+    ,   filtString     :: Bool
+    ,   filtNumber     :: Bool
+    ,   filtChar       :: Bool
+    ,   filtOper       :: Bool
+    } deriving (Show,Read,Eq)
 
 
 instance SemanticToken Token where
@@ -357,7 +354,6 @@ getLiteral b e True (C.uncons -> Just (x,xs))
                     where
                         (C.uncons -> Just(x',xs')) = xs
 getLiteral _  _ _ _ = []
-
 
 
 operOrPunct :: HS.HashSet String

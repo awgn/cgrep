@@ -38,50 +38,39 @@ hasLanguage path opt xs = isJust $ getLang opt path >>= (`elemIndex` xs)
 
 
 sanitizeOptions  :: FilePath -> Options -> Options
-sanitizeOptions path opt = if hasLanguage path opt [C, Cpp]
-                               then opt
-                               else opt {
-                                            identifier = False,
-                                            keyword    = False,
-                                            directive  = False,
-                                            header     = False,
-                                            string     = False,
-                                            char       = False,
-                                            oper       = False
-                                         }
-
-hasEditDistOpt :: Options -> Bool
-hasEditDistOpt Options { edit_dist = x } = x
-
-
-hasRegexOpt :: Options -> Bool
-hasRegexOpt Options{ regex = x } = x
+sanitizeOptions path opt =
+    if hasLanguage path opt [C, Cpp]
+        then opt
+        else opt { identifier = False
+                 , keyword    = False
+                 , directive  = False
+                 , header     = False
+                 , string     = False
+                 , char       = False
+                 , oper       = False
+                 }
 
 
 hasTokenizerOpt :: Options -> Bool
-hasTokenizerOpt Options{ identifier = i,
-                         keyword    = k,
-                         directive  = d,
-                         header     = h,
-                         number     = n,
-                         string     = s,
-                         char       = c,
-                         oper       = o} = i || k || d || h || n || s || c || o
-
-
-hasSemanticOpt :: Options -> Bool
-hasSemanticOpt Options{ semantic = s } = s
+hasTokenizerOpt Options
+                { identifier = i
+                , keyword    = k
+                , directive  = d
+                , header     = h
+                , number     = n
+                , string     = s
+                , char       = c
+                , oper       = o
+                } = i || k || d || h || n || s || c || o
 
 
 cgrepDispatch :: Options -> FilePath -> CgrepFunction
-
 cgrepDispatch opt f
-    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) && hasEditDistOpt opt = Levenshtein.search
-    | not (hasRegexOpt opt) && not (hasTokenizerOpt opt) && not (hasSemanticOpt opt) = BoyerMoore.search
-    | not (hasRegexOpt opt) && hasSemanticOpt opt && hasLanguage f opt [C,Cpp] = CppSemantic.search
-    | not (hasRegexOpt opt) && hasSemanticOpt opt = Semantic.search
-    | not (hasRegexOpt opt) = CppTokenizer.search
-    | hasRegexOpt opt       = Regex.search
-    | otherwise             = undefined
-
+    | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt   = Levenshtein.search
+    | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt)                    = BoyerMoore.search
+    | not (regex opt) && semantic opt && hasLanguage f opt [C,Cpp]                          = CppSemantic.search
+    | not (regex opt) && semantic opt                                                       = Semantic.search
+    | not (regex opt)                                                                       = CppTokenizer.search
+    | regex opt                                                                             = Regex.search
+    | otherwise                                                                             = undefined
 

@@ -30,14 +30,11 @@ import Data.Char
 import Data.Array.Unboxed
 
 import qualified Data.ByteString.Char8 as C
-
 import qualified Data.Map as Map
 
 #ifdef __GLASGOW_HASKELL__
-
 import GHC.Prim
 import GHC.Exts
-
 #endif
 
 
@@ -48,40 +45,37 @@ type StringBoundary = (String, String)
 
 
 data Boundary = Boundary
-                {
-                    _beg   :: !Text8 ,
-                    _end   :: !Text8
-                }
-                deriving (Show)
+    {   _beg   :: !Text8
+    ,   _end   :: !Text8
+    } deriving (Show)
 
 
 data ParConf  =  ParConf
-                 {
-                    commBound :: [Boundary],
-                    litrBound :: [Boundary],
-                    bloom     :: UArray Char Bool
-                 }
+    {   commBound :: [Boundary]
+    ,   litrBound :: [Boundary]
+    ,   bloom     :: UArray Char Bool
+    } deriving (Show)
+
 
 data ParState =  ParState
-                 {
-                    cxtState  :: !ContextState,
-                    display   :: !Bool,
-                    skip      :: !Int
-                 }
-                 deriving (Show)
+    {   cxtState  :: !ContextState
+    ,   display   :: !Bool
+    ,   skip      :: !Int
+    } deriving (Show)
 
 
 data ContextState = CodeState | CommState Int | LitrState Int
-                        deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord)
 
 
 -- filter Context:
 --
 
 mkContextFilter :: Options -> ContextFilter
-mkContextFilter opt = if not (code opt || comment opt || literal opt)
-                       then ContextFilter { getCode = True, getComment = True,  getLiteral = True }
-                       else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
+mkContextFilter opt =
+    if not (code opt || comment opt || literal opt)
+        then ContextFilter { getCode = True, getComment = True,  getLiteral = True }
+        else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
 
 
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
@@ -96,7 +90,6 @@ contextFilter (Just language) filt txt
 
 -- contextFilterFun:
 --
-
 
 contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
 contextFilterFun conf filt txt =  fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
@@ -161,20 +154,20 @@ findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b
 #ifdef __GLASGOW_HASKELL__
 
 findIndex' :: (a -> Bool) -> [a] -> Int
-findIndex' p ls = loop 0# ls
-                 where
-                   loop _ [] = -1
-                   loop n (x:xs) | p x       = I# n
-                                 | otherwise = loop (n +# 1#) xs
+findIndex' p ls =
+    loop 0# ls
+        where loop _ [] = -1
+              loop n (x:xs) | p x       = I# n
+                            | otherwise = loop (n +# 1#) xs
 
 #else
 
 findIndex' :: (a -> Bool) -> [a] -> Int
-findIndex' p = loop 0
-                 where
-                   loop n [] = -1
-                   loop n (x:xs) | p x       = n
-                                 | otherwise = loop (n + 1) xs
+findIndex' p =
+    loop 0
+        where loop n [] = -1
+              loop n (x:xs) | p x       = n
+                            | otherwise = loop (n + 1) xs
 
 #endif
 

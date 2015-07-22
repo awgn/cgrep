@@ -52,5 +52,3 @@ prettyRead xs err =
 readMaybe :: Read a => String -> Maybe a
 readMaybe = fmap fst . listToMaybe . reads
 
-
-

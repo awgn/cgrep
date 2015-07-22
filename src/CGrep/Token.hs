@@ -26,22 +26,22 @@ import qualified Data.DList as DL
 
 import Data.Char
 import Data.Array.Unboxed
-
 import CGrep.Types
 
 
 type Token      = (Offset, String)
 type MatchLine  = (OffsetLine, [Token])
-
 type DString    = DL.DList Char
 
 
-data TokenState = StateSpace   |
-                  StateAlpha   |
-                  StateDigit   |
-                  StateBracket |
-                  StateOther
-                    deriving (Eq, Enum, Show)
+data TokenState =
+    StateSpace   |
+    StateAlpha   |
+    StateDigit   |
+    StateBracket |
+    StateOther
+        deriving (Eq, Enum, Show)
+
 
 data TokenAccum = TokenAccum !TokenState !Offset DString (DL.DList Token)
 
@@ -133,3 +133,4 @@ tokenizer xs = (\(TokenAccum _ off acc out) -> DL.toList (if null (DL.toList acc
                                             else TokenAccum StateDigit (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
                    | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
                    | otherwise          ->  TokenAccum StateOther      (off+1) (acc `DL.snoc` x)  out
+

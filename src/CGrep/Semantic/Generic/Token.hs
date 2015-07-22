@@ -33,22 +33,24 @@ import CGrep.Types
 type DString = DL.DList Char
 
 
-data TokenState = StateSpace   |
-                  StateAlpha   |
-                  StateDigit   |
-                  StateBracket |
-                  StateLit1    |
-                  StateLit2    |
-                  StateOther
-                    deriving (Eq, Enum, Show)
+data TokenState =
+    StateSpace   |
+    StateAlpha   |
+    StateDigit   |
+    StateBracket |
+    StateLit1    |
+    StateLit2    |
+    StateOther
+      deriving (Eq, Enum, Show)
 
 
-data Token = TokenAlpha       { toString :: String, toOffset :: Offset  } |
-             TokenDigit       { toString :: String, toOffset :: Offset  } |
-             TokenBracket     { toString :: String, toOffset :: Offset  } |
-             TokenLiteral     { toString :: String, toOffset :: Offset  } |
-             TokenOther       { toString :: String, toOffset :: Offset  }
-                deriving (Show, Eq, Ord)
+data Token =
+    TokenAlpha       { toString :: String, toOffset :: Offset  } |
+    TokenDigit       { toString :: String, toOffset :: Offset  } |
+    TokenBracket     { toString :: String, toOffset :: Offset  } |
+    TokenLiteral     { toString :: String, toOffset :: Offset  } |
+    TokenOther       { toString :: String, toOffset :: Offset  }
+       deriving (Show, Eq, Ord)
 
 
 instance SemanticToken Token where
@@ -79,7 +81,6 @@ _isTokenLiteral _  = False
 
 _isTokenOther (TokenOther _ _) = True
 _isTokenOther _  = False
-
 
 
 tokenCompare :: Token -> Token -> Bool
@@ -145,8 +146,9 @@ mkTokenCtor StateOther   = TokenOther
 
 
 tokenizer :: Text8 -> [Token]
-tokenizer xs = (\(TokenAccum ss  off _ acc out) -> DL.toList (if null (DL.toList acc) then out
-                                                                                      else out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs
+tokenizer xs = (\(TokenAccum ss  off _ acc out) ->
+    DL.toList (if null (DL.toList acc) then out
+                                       else out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ _ out) x =
               case () of

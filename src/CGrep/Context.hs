@@ -20,11 +20,12 @@ module CGrep.Context where
 
 
 data Context = Code | Comment | Literal
-                deriving (Eq, Show)
+    deriving (Eq, Show)
 
 
-data ContextFilter = ContextFilter { getCode    :: Bool,
-                                     getComment :: Bool,
-                                     getLiteral :: Bool
-                     } deriving (Eq, Show)
+data ContextFilter = ContextFilter
+    {   getCode    :: Bool
+    ,   getComment :: Bool
+    ,   getLiteral :: Bool
+    } deriving (Eq, Show)
 

@@ -35,13 +35,10 @@ version = "6.4.20"
 
 
 data Config = Config
-              {
-                    configLanguages  :: [Lang],
-                    configPruneDirs  :: [String],
-                    configAutoColor  :: Bool
-
-              } deriving (Show, Read)
-
+    {   configLanguages  :: [Lang]
+    ,   configPruneDirs  :: [String]
+    ,   configAutoColor  :: Bool
+    } deriving (Show, Read)
 
 
 getConfig :: IO Config
@@ -56,5 +53,4 @@ getConfig = do
 
     where dropComments :: String -> String
           dropComments = unlines . map (takeWhile $ not .(== '#')) . lines
-
 

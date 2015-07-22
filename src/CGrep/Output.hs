@@ -16,7 +16,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-
 module CGrep.Output (Output(),
                      mkOutput,
                      putPrettyHeader,
@@ -25,7 +24,6 @@ module CGrep.Output (Output(),
                      showFile) where
 
 import qualified Data.ByteString.Char8 as C
-
 import System.Console.ANSI
 
 #ifdef ENABLE_HINT
@@ -45,7 +43,7 @@ import Options
 
 
 data Output = Output FilePath Int Text8 [Token]
-                deriving (Show)
+    deriving (Show)
 
 
 getOffsetsLines :: Text8 -> [Int]
@@ -224,5 +222,4 @@ hilightLine ts =  hilightLine' (hilightIndicies ts, 0)
 
 hilightIndicies :: [Token] -> [Int]
 hilightIndicies = concatMap (\(o, s) -> take (length s) [o..])
-
 
