@@ -21,11 +21,10 @@ module Util where
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
 
+import Data.Array.Unboxed
+
 import Data.Maybe
-
-
-toStrict :: LC.ByteString -> C.ByteString
-toStrict = C.concat . LC.toChunks
+import Data.Char
 
 
 toMaybe :: a -> Bool -> Maybe a
@@ -51,4 +50,27 @@ prettyRead xs err =
 
 readMaybe :: Read a => String -> Maybe a
 readMaybe = fmap fst . listToMaybe . reads
+
+
+spanGroup :: Int -> [a] -> [[a]]
+spanGroup _ [] = []
+spanGroup 1 xs = map (: []) xs
+spanGroup n xs = take n xs : spanGroup n (tail xs)
+
+
+toStrict :: LC.ByteString -> C.ByteString
+toStrict = C.concat . LC.toChunks
+
+toLowercase :: Char -> Char
+toLowercase x = ctypeLowercase ! x
+    where ctypeLowercase = listArray ('\0','\255') (map toLower ['\0'..'\255']) :: UArray Char Char
+
+
+rmQuote :: String -> String
+rmQuote []   = []
+rmQuote [x]  = [x]
+rmQuote y@(x:xs)
+    | x == '"' || x == '\'' =  if x == last xs then init xs
+                                               else y
+    | otherwise = y
 

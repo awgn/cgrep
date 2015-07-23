@@ -16,31 +16,34 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE FlexibleContexts #-}
-
 module CGrep.Common (CgrepFunction, Text8,
                      getFileName,
                      getText,
                      quickSearch,
                      expandMultiline,
                      ignoreCase,
-                     spanGroup,
-                     trim,
-                     trim8,
-                     unquotes) where
+                     trim, trim8) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
-
 import Data.Char
-import Data.Array.Unboxed
 
 import CGrep.Types
 import CGrep.Output
+
 import Options
+import Util
 
 
 type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output]
+
+
+trim :: String -> String
+trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
+
+
+trim8 :: Text8 -> Text8
+trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 
 
 getFileName :: Maybe FilePath -> String
@@ -56,18 +59,7 @@ quickSearch :: Options -> [Text8] -> Text8 -> Maybe Bool
 quickSearch opt ps text
     | no_turbo opt        = Nothing
     | otherwise           = Just $ any has_pattern ps
-    where has_pattern pat = not . null $ pat `SC.nonOverlappingIndices` text
-
-
-toLowercase :: Char -> Char
-toLowercase x = ctypeLowercase ! x
-    where ctypeLowercase = listArray ('\0','\255') (map toLower ['\0'..'\255']) :: UArray Char Char
-
-
-ignoreCase :: Options -> Text8 -> Text8
-ignoreCase Options { ignore_case = icase }
-    | icase  =  C.map toLowercase
-    | otherwise = id
+    where has_pattern pat = notNull $ pat `SC.nonOverlappingIndices` text
 
 
 expandMultiline :: Options -> Text8 -> Text8
@@ -76,25 +68,8 @@ expandMultiline Options { multiline = n } xs
     | otherwise = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
 
 
-spanGroup :: Int -> [a] -> [[a]]
-spanGroup _ [] = []
-spanGroup 1 xs = map (: []) xs
-spanGroup n xs = take n xs : spanGroup n (tail xs)
-
-
-trim :: String -> String
-trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
-
-
-trim8 :: Text8 -> Text8
-trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
-
-
-unquotes :: String -> String
-unquotes []   = []
-unquotes [x]  = [x]
-unquotes y@(x:xs)
-    | x == '"' || x == '\'' =  if x == last xs then init xs
-                                               else y
-    | otherwise = y
+ignoreCase :: Options -> Text8 -> Text8
+ignoreCase Options { ignore_case = icase }
+    | icase  =  C.map toLowercase
+    | otherwise = id
 

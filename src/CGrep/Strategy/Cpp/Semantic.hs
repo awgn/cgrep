@@ -34,6 +34,7 @@ import Data.Maybe
 
 import Options
 import Debug
+import Util
 
 
 search :: CgrepFunction
@@ -58,8 +59,8 @@ search opt ps f = do
     -- quick Search...
 
         ps' = filter (/= "OR") $ (mapMaybe (\x -> case x of
-                                                    TokenCard (Cpp.TokenChar   xs _) -> Just (unquotes $ trim xs)
-                                                    TokenCard (Cpp.TokenString xs _) -> Just (unquotes $ trim xs)
+                                                    TokenCard (Cpp.TokenChar   xs _) -> Just (rmQuote $ trim xs)
+                                                    TokenCard (Cpp.TokenString xs _) -> Just (rmQuote $ trim xs)
                                                     TokenCard t                      -> Just (Cpp.toString t)
                                                     _                                -> Nothing
                                             ) . concat) patterns'

@@ -34,7 +34,7 @@ import CGrep.Semantic.Token
 import Data.Char
 import Data.List
 import Options
-
+import Util
 
 data WildCard a =
     TokenCard a        |
@@ -214,7 +214,7 @@ wildCardMatch opt (TokenCard l) r
           | prefix_match opt -> ls `isPrefixOf` rs
           | suffix_match opt -> ls `isSuffixOf` rs
           | otherwise        -> ls `isInfixOf`  rs
-            where ls = unquotes $ trim (tkToString l)
-                  rs = unquotes $ trim (tkToString r)
+            where ls = rmQuote $ trim (tkToString l)
+                  rs = rmQuote $ trim (tkToString r)
     | otherwise  = l `tkEquivalent` r
 

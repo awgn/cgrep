@@ -35,7 +35,7 @@ import Data.Maybe
 
 import Options
 import Debug
-
+import Util
 
 search :: CgrepFunction
 search opt ps f = do
@@ -59,7 +59,7 @@ search opt ps f = do
     -- quickSearch ...
 
         ps' = filter (/= "OR") $ (mapMaybe (\x -> case x of
-                                                    TokenCard (Generic.TokenLiteral xs _) -> Just (unquotes $ trim xs)
+                                                    TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
                                                     TokenCard t                           -> Just (tkToString t)
                                                     _                                     -> Nothing
                                             ) . concat) patterns'
