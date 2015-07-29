@@ -112,7 +112,7 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
                     Nothing -> atomically $ writeTChan out_chan []
                     Just x  -> do
                         out <- let op = sanitizeOptions x opts in
-                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> f
+                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> f
                         unless (null out) $ atomically $ writeTChan out_chan out
                    )
                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
@@ -124,7 +124,7 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
     _ <- forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (\x -> atomically $ writeTChan in_chan (Just x))
+            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan . Just)
             else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
 
         -- enqueue EOF messages:
