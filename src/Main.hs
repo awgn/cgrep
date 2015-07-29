@@ -56,29 +56,26 @@ import Config
 
 import qualified Data.ByteString.Char8 as C
 
+
 -- push file names in Chan...
 
-putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> IO ()
-putRecursiveContents opts inchan topdir langs prunedir visited = do
-    dir <-  doesDirectoryExist topdir
-    if dir
-        then do
-            names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents topdir
-            forM_ names $ \n -> E.catch ( do
-                    let path = topdir </> n
-                    let filename = takeFileName path
-                    cpath  <- canonicalizePath path
-                    status  <- getFileStatus path
+withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> (FilePath -> IO ()) -> IO ()
+withRecursiveContents opts dir langs prunedir visited action = do
+    isDir <-  doesDirectoryExist dir
+    if isDir then do
+               names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents dir
+               forM_ names $ \n -> E.catch (do
+                    let path = dir </> n
+                        filename = takeFileName path
+                    fstatus <- getFileStatus path
                     lstatus <- getSymbolicLinkStatus path
-                    unless (cpath `Set.member` visited) $
-                        if isDirectory status && (not (isSymbolicLink lstatus) || deference_recursive opts)
-                           then unless (filename `elem` prunedir)  $
-                               putRecursiveContents opts inchan path langs prunedir (Set.insert cpath visited)
-                           else case getLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs) ) of
-                                   Nothing -> return ()
-                                   _       -> atomically $ writeTChan inchan (Just path)
-                ) (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr ("cgrep: " ++ msg))
-        else atomically $ writeTChan inchan (Just topdir)
+                    if isDirectory fstatus && (deference_recursive opts || not (isSymbolicLink lstatus))
+                        then unless (filename `elem` prunedir) $ do -- this is a good directory (unless already visited)!
+                                cpath <- canonicalizePath path
+                                unless (cpath `Set.member` visited) $ withRecursiveContents opts path langs prunedir (Set.insert cpath visited) action
+                        else unless (isNothing $ getFileLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs))) $ action path
+                ) (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr ("Cgrep: " ++ msg))
+             else action dir
 
 
 -- read patterns from file
@@ -127,10 +124,8 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
     _ <- forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then
-                forM_ (if null paths then ["."] else paths) $ \p -> putRecursiveContents opts in_chan p langs (configPruneDirs conf) (Set.singleton p)
-            else
-                forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
+            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (\x -> atomically $ writeTChan in_chan (Just x))
+            else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
 
         -- enqueue EOF messages:
 
