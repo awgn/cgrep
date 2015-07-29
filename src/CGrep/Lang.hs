@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Lang (Lang(..), langMap, getLang, splitLangList,
+module CGrep.Lang (Lang(..), langMap, getFileLang, splitLangList,
                    dumpLangMap, dumpLangRevMap) where
 
 import qualified Data.Map as Map
@@ -91,8 +91,8 @@ langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (\x -> (x,l)) xs ) $ Map.
 
 -- utility functions
 
-lookupLang :: FilePath -> Maybe Lang
-lookupLang f = Map.lookup (Name $ takeFileName f) langRevMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap
+lookupFileLang :: FilePath -> Maybe Lang
+lookupFileLang f = Map.lookup (Name $ takeFileName f) langRevMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap
 
 
 forcedLang :: Options -> Maybe Lang
@@ -101,8 +101,8 @@ forcedLang Options{ force_language = l }
     | otherwise    = Map.lookup (Ext $ fromJust l) langRevMap <|> Map.lookup (Name $ fromJust l) langRevMap
 
 
-getLang :: Options -> FilePath -> Maybe Lang
-getLang opts f = forcedLang opts <|> lookupLang f
+getFileLang :: Options -> FilePath -> Maybe Lang
+getFileLang opts f = forcedLang opts <|> lookupFileLang f
 
 
 dumpLangMap :: LangMapType -> IO ()

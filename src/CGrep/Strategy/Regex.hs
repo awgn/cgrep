@@ -47,7 +47,7 @@ search opt ps f = do
 
     -- context filter
 
-        text'' = contextFilter (getLang opt filename) (mkContextFilter opt) text'
+        text'' = contextFilter (getFileLang opt filename) (mkContextFilter opt) text'
 
     -- expand multi-line
 

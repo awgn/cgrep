@@ -52,7 +52,7 @@ search opt ps f = do
 
     -- pre-process patterns
 
-        patterns   = map (Generic.tokenizer . contextFilter (getLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (Generic.tokenizer . contextFilter (getFileLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkWildCardFromToken) patterns                                  -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'                            -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
@@ -80,7 +80,7 @@ search opt ps f = do
 
             -- context filter
 
-            let text'' = contextFilter (getLang opt filename) filt text'
+            let text'' = contextFilter (getFileLang opt filename) filt text'
 
             -- expand multi-line
 

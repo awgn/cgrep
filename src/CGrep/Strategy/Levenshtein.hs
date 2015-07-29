@@ -39,7 +39,7 @@ search opt ps f = do
 
     -- transform text
 
-    let text' = ignoreCase opt . contextFilter (getLang opt filename) (mkContextFilter opt) $ text
+    let text' = ignoreCase opt . contextFilter (getFileLang opt filename) (mkContextFilter opt) $ text
 
         text'' = expandMultiline opt text'
 

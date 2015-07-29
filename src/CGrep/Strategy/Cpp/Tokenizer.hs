@@ -57,7 +57,7 @@ search opt ps f = do
 
             -- context filter
 
-            let text'' = contextFilter (getLang opt filename) filt text'
+            let text'' = contextFilter (getFileLang opt filename) filt text'
 
             -- expand multi-line
 

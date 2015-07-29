@@ -34,7 +34,7 @@ import Options
 
 
 hasLanguage :: FilePath -> Options -> [Lang] -> Bool
-hasLanguage path opt xs = isJust $ getLang opt path >>= (`elemIndex` xs)
+hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
 
 
 sanitizeOptions  :: FilePath -> Options -> Options
