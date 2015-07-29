@@ -56,7 +56,7 @@ import Config
 
 import qualified Data.ByteString.Char8 as C
 
--- push file names in TChan...
+-- push file names in Chan...
 
 putRecursiveContents :: Options -> TChan (Maybe FilePath) -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> IO ()
 putRecursiveContents opts inchan topdir langs prunedir visited = do
@@ -97,6 +97,65 @@ getFilePaths False True xs = if length xs == 1 then [ ] else tail xs
 getFilePaths True  True xs = xs
 getFilePaths _ False _ = [ ]
 
+
+parallelSearch :: Config -> Options -> [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> IO ()
+parallelSearch conf opts paths patterns langs (isTermIn, _) = do
+
+    -- create Transactional Chan and Vars...
+
+    in_chan  <- newTChanIO
+    out_chan <- newTChanIO
+
+    -- launch worker threads...
+
+    forM_ [1 .. jobs opts] $ \_ -> forkIO $
+        void $ runEitherT $ forever $ do
+            f <- lift $ atomically $ readTChan in_chan
+            lift $ E.catch (case f of
+                    Nothing -> atomically $ writeTChan out_chan []
+                    Just x  -> do
+                        out <- let op = sanitizeOptions x opts in
+                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> f
+                        unless (null out) $ atomically $ writeTChan out_chan out
+                   )
+                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
+            when (isNothing f) $ left ()
+
+
+    -- push the files to grep for...
+
+    _ <- forkIO $ do
+
+        if recursive opts || deference_recursive opts
+            then
+                forM_ (if null paths then ["."] else paths) $ \p -> putRecursiveContents opts in_chan p langs (configPruneDirs conf) (Set.singleton p)
+            else
+                forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
+
+        -- enqueue EOF messages:
+
+        replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
+
+    -- dump output until workers are done
+
+    putPrettyHeader opts
+
+    let stop = jobs opts
+
+    fix (\action n m ->
+         unless (n == stop) $ do
+                 out <- atomically $ readTChan out_chan
+                 case out of
+                      [] -> action (n+1) m
+                      _  -> do
+                          case () of
+                            _ | json opts -> when m $ putStrLn ","
+                              | otherwise -> return ()
+                          prettyOutput opts out >>= mapM_ putStrLn
+                          action n True
+        )  0 False
+
+    putPrettyFooter opts
 
 main :: IO ()
 main = do
@@ -153,70 +212,15 @@ main = do
 
     -- language enabled:
 
-    let lang_enabled = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
+    let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
     putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
     putStrLevel1 (debug opts) $ "options   : " ++ show opts
-    putStrLevel1 (debug opts) $ "languages : " ++ show lang_enabled
+    putStrLevel1 (debug opts) $ "languages : " ++ show langs
     putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
     putStrLevel1 (debug opts) $ "files     : " ++ show paths
     putStrLevel1 (debug opts) $ "isTermIn  : " ++ show isTermIn
     putStrLevel1 (debug opts) $ "isTermOut : " ++ show isTermOut
 
-    -- create Transactional Chan and Vars...
-
-    in_chan  <- newTChanIO
-    out_chan <- newTChanIO
-
-    -- launch worker threads...
-
-    forM_ [1 .. jobs opts] $ \_ -> forkIO $ do
-        _ <- runEitherT $ forever $ do
-            f <- lift $ atomically $ readTChan in_chan
-            lift $ E.catch (case f of
-                    Nothing -> atomically $ writeTChan out_chan []
-                    Just x  -> do
-                        out <- let op = sanitizeOptions x opts in
-                                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns' $ guard (x /= "") >> f
-                        unless (null out) $ atomically $ writeTChan out_chan out
-                   )
-                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
-            when (isNothing f) $ left ()
-        return ()
-
-
-    -- push the files to grep for...
-
-    _ <- forkIO $ do
-
-        if recursive opts || deference_recursive opts
-            then
-                forM_ (if null paths then ["."] else paths) $ \p -> putRecursiveContents opts in_chan p lang_enabled (configPruneDirs conf) (Set.singleton p)
-            else
-                forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
-
-        -- enqueue EOF messages:
-
-        replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
-
-    -- dump output until workers are done
-
-    putPrettyHeader opts
-
-    let stop = jobs opts
-
-    fix (\action n m ->
-         unless (n == stop) $ do
-                 out <- atomically $ readTChan out_chan
-                 case out of
-                      [] -> action (n+1) m
-                      _  -> do
-                          case () of
-                            _ | json opts -> when m $ putStrLn ","
-                              | otherwise -> return ()
-                          prettyOutput opts out >>= mapM_ putStrLn
-                          action n True
-        )  0 False
-
-    putPrettyFooter opts
+    parallelSearch conf opts paths patterns' langs (isTermIn, isTermOut)
 

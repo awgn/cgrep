@@ -45,5 +45,5 @@ Executable cgrep
                        either >= 4.0,
                        mtl >= 2.0,
                        unix-compat >= 0.4
-  Ghc-options:         -O2 -Wall -threaded 
+  Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
   Default-language:    Haskell2010
