@@ -1,6 +1,6 @@
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             6.4.20
+Version:             6.4.21
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2
@@ -19,7 +19,7 @@ Executable cgrep
   Hs-Source-Dirs:      src
   Default-Extensions:  CPP
   
-  Other-Extensions:     DeriveDataTypeable, 
+  Other-Extensions:    DeriveDataTypeable, 
                        ViewPatterns, 
                        MagicHash, 
                        BangPatterns, 
@@ -45,5 +45,5 @@ Executable cgrep
                        either >= 4.0,
                        mtl >= 2.0,
                        unix-compat >= 0.4
-  Ghc-options:         -O2 -Wall -threaded 
+  Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
   Default-language:    Haskell2010
