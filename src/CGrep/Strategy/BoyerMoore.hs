@@ -37,12 +37,12 @@ import Debug
 
 import Control.Arrow as A
 
-search :: CgrepFunction
+search :: Options -> [Text8] -> FilePath -> IO [Output]
 search opt ps f = do
 
-    let filename = getFileName f
+    let filename = getTargetName f
 
-    text <- getText f
+    text <- getTargetContents f
 
     -- transform text
 

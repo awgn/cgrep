@@ -16,9 +16,9 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Common (CgrepFunction, Text8,
-                     getFileName,
-                     getText,
+module CGrep.Common (SearchFunction, Text8,
+                     getTargetName,
+                     getTargetContents,
                      quickSearch,
                      expandMultiline,
                      ignoreCase,
@@ -35,7 +35,7 @@ import Options
 import Util
 
 
-type CgrepFunction = Options -> [Text8] -> Maybe FilePath -> IO [Output]
+type SearchFunction = Options -> [Text8] -> FilePath -> IO [Output]
 
 
 trim :: String -> String
@@ -46,13 +46,14 @@ trim8 :: Text8 -> Text8
 trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 
 
-getFileName :: Maybe FilePath -> String
-getFileName Nothing = "<STDIN>"
-getFileName (Just name) = name
+getTargetName :: FilePath -> String
+getTargetName [] = "<STDIN>"
+getTargetName name = name
 
 
-getText :: Maybe FilePath -> IO Text8
-getText  = maybe C.getContents C.readFile
+getTargetContents :: FilePath -> IO Text8
+getTargetContents [] = C.getContents
+getTargetContents xs = C.readFile xs
 
 
 quickSearch :: Options -> [Text8] -> Text8 -> Maybe Bool

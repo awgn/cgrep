@@ -64,7 +64,7 @@ hasTokenizerOpt Options
                 } = i || k || d || h || n || s || c || o
 
 
-cgrepDispatch :: Options -> FilePath -> CgrepFunction
+cgrepDispatch :: Options -> FilePath -> SearchFunction
 cgrepDispatch opt f
     | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt   = Levenshtein.search
     | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt)                    = BoyerMoore.search

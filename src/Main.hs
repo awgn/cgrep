@@ -107,16 +107,16 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
 
     forM_ [1 .. jobs opts] $ \_ -> forkIO $
         void $ runEitherT $ forever $ do
-            f <- lift $ atomically $ readTChan in_chan
-            lift $ E.catch (case f of
-                    Nothing -> atomically $ writeTChan out_chan []
-                    Just x  -> do
+            fs <- lift $ atomically $ readTChan in_chan
+            lift $ E.catch (case fs of
+                    []  -> atomically $ writeTChan out_chan []
+                    [x] -> do
                         out <- let op = sanitizeOptions x opts in
-                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> f
+                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> (head fs)
                         unless (null out) $ atomically $ writeTChan out_chan out
                    )
-                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (fromMaybe "<STDIN>" f) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
-            when (isNothing f) $ left ()
+                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
+            when (null fs) $ left ()
 
 
     -- push the files to grep for...
@@ -124,12 +124,12 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
     _ <- forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan . Just)
-            else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . Just)
+            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan . (:[]))
+            else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . (:[]))
 
         -- enqueue EOF messages:
 
-        replicateM_ (jobs opts) ((atomically . writeTChan in_chan) Nothing)
+        replicateM_ (jobs opts) ((atomically . writeTChan in_chan) [])
 
     -- dump output until workers are done
 
