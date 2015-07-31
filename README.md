@@ -66,9 +66,9 @@ Output control:
 Concurrency:
 
     -j --jobs=INT             Number of jobs
-       --cores=INT            Set number of physical processor used
-       --chunk=INT            Set per-job chunk length
-    -a --asynch               Process chunk of files asynchronously
+       --cores=INT            Number of physical processors utilized
+       --chunk=INT            Specify the length of chunks
+    -a --asynch               Process chunks asynchronously
 
 Miscellaneous:
 
@@ -76,5 +76,4 @@ Miscellaneous:
     -n --no-turbo             disable turbo mode
     -? --help                 Display help message
     -V --version              Print version information
-
 

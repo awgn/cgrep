@@ -64,9 +64,9 @@ options = cmdArgsMode $ Options
           ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
           ,     xml = False                 &= help "Format output as xml document" &= explicit &= name "xml"
           ,     jobs   = 1                  &= groupname "\nConcurrency" &= help "Number of jobs"
-          ,     cores  = 0                  &= help "Set number of physical processor used"
-          ,     chunk  = 16                 &= help "Set per-job chunk length"
-          ,     asynch = False              &= help "Process chunk of files asynchronously"
+          ,     cores  = 0                  &= help "Number of physical processors utilized"
+          ,     chunk  = 16                 &= help "Specify the length of chunks"
+          ,     asynch = False              &= help "Process chunks asynchronously"
           ,     debug = 0                   &= groupname "\nMiscellaneous" &= help "Debug level: 1, 2 or 3"
           ,     no_turbo = False            &= help "Disable turbo mode"
           ,     others = []                 &= args
