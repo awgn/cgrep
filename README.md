@@ -50,7 +50,6 @@ Output control:
        --lang=ITEM            specify languages. ie: Cpp, +Haskell, -Makefile
        --lang-maps            lists the language mappings
        --force-language=ITEM  force the language
-    -j --jobs=INT             number of jobs
        --multiline=INT        enable multi-line matching
     -r --recursive            Enable recursive search (don't follow symlinks)
     -R --deference-recursive  Recursive, follow symlinks
@@ -64,10 +63,18 @@ Output control:
        --json                 format output as json object
        --xml                  format output as xml document
   
+Parallel:
+
+    -j --jobs=INT             Number of jobs
+       --cores=INT            Set number of physical processor used
+       --chunk=INT            Set per-job chunk length
+    -a --asynch               Process chunk of files asynchronously
+
 Miscellaneous:
 
     -d --debug=INT            debug level: 1, 2 or 3
     -n --no-turbo             disable turbo mode
     -? --help                 Display help message
     -V --version              Print version information
+
 
