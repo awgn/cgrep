@@ -19,14 +19,16 @@
 module Main where
 
 import Data.List
-import qualified Data.Set as Set
+import Data.List.Split
 import Data.Maybe
 import Data.Char
 import Data.Data()
 import Data.Function
+import qualified Data.Set as Set
 
 import Control.Exception as E
 import Control.Concurrent
+import Control.Concurrent.Async
 import Control.Monad.STM
 import Control.Concurrent.STM.TChan
 
@@ -59,23 +61,33 @@ import qualified Data.ByteString.Char8 as C
 
 -- push file names in Chan...
 
-withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> (FilePath -> IO ()) -> IO ()
+withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
 withRecursiveContents opts dir langs prunedir visited action = do
     isDir <-  doesDirectoryExist dir
     if isDir then do
-               names <- liftM (filter (`notElem` [".", ".."])) $ getDirectoryContents dir
-               forM_ names $ \n -> E.catch (do
-                    let path = dir </> n
-                        filename = takeFileName path
-                    fstatus <- getFileStatus path
+               xs <- getDirectoryContents dir
+               (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs, x `notElem` [".", ".."]]
+               -- process files
+               let files' = flip mapMaybe files
+                                (\n -> let filename = takeFileName n
+                                       in if isNothing $ getFileLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs))
+                                            then Nothing
+                                            else Just n)
+
+               unless (null files') $
+                    let chunks = chunksOf (Options.chunk opts) files' in
+                    forM_ chunks $ \b -> action b
+
+               -- process dirs
+               --
+               forM_ dirs $ \path -> do
+                    let filename = takeFileName path
                     lstatus <- getSymbolicLinkStatus path
-                    if isDirectory fstatus && (deference_recursive opts || not (isSymbolicLink lstatus))
-                        then unless (filename `elem` prunedir) $ do -- this is a good directory (unless already visited)!
-                                cpath <- canonicalizePath path
-                                unless (cpath `Set.member` visited) $ withRecursiveContents opts path langs prunedir (Set.insert cpath visited) action
-                        else unless (isNothing $ getFileLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs))) $ action path
-                ) (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr ("Cgrep: " ++ msg))
-             else action dir
+                    when ( deference_recursive opts || not (isSymbolicLink lstatus)) $
+                        unless (filename `elem` prunedir) $ do -- this is a good directory (unless already visited)!
+                            cpath <- canonicalizePath path
+                            unless (cpath `Set.member` visited) $ withRecursiveContents opts path langs prunedir (Set.insert cpath visited) action
+             else action [dir]
 
 
 -- read patterns from file
@@ -109,11 +121,11 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
         void $ runEitherT $ forever $ do
             fs <- lift $ atomically $ readTChan in_chan
             lift $ E.catch (case fs of
-                    []  -> atomically $ writeTChan out_chan []
-                    [x] -> do
-                        out <- let op = sanitizeOptions x opts in
-                            liftM (take (max_count opts)) $ cgrepDispatch op x op patterns $ guard (x /= "") >> (head fs)
-                        unless (null out) $ atomically $ writeTChan out_chan out
+                    [] -> atomically $ writeTChan out_chan []
+                    xs -> void ((if asynch opts then flip mapConcurrently
+                                                else forM) xs $ \x -> do
+                            out <- let op = sanitizeOptions x opts in (liftM (take (max_count opts)) $ cgrepDispatch op x op patterns x)
+                            unless (null out) $ atomically $ writeTChan out_chan out)
                    )
                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
             when (null fs) $ left ()
@@ -124,7 +136,7 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
     _ <- forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan . (:[]))
+            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan)
             else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . (:[]))
 
         -- enqueue EOF messages:
@@ -216,6 +228,10 @@ main = do
     putStrLevel1 (debug opts) $ "files     : " ++ show paths
     putStrLevel1 (debug opts) $ "isTermIn  : " ++ show isTermIn
     putStrLevel1 (debug opts) $ "isTermOut : " ++ show isTermOut
+
+    -- specify number of cores
+
+    when (cores opts /= 0) $ setNumCapabilities (cores opts)
 
     parallelSearch conf opts paths patterns' langs (isTermIn, isTermOut)
 

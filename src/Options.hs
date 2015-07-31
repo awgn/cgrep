@@ -53,7 +53,6 @@ data Options = Options
     ,   lang_maps           :: Bool
     ,   force_language      :: Maybe String
     -- General:
-    ,   jobs                :: Int
     ,   multiline           :: Int
     ,   recursive           :: Bool
     ,   deference_recursive :: Bool
@@ -68,6 +67,12 @@ data Options = Options
     ,   format              :: Maybe String
     ,   json                :: Bool
     ,   xml                 :: Bool
+    -- Parallel:
+    ,   jobs                :: Int
+    ,   cores               :: Int
+    ,   chunk               :: Int
+    ,   asynch              :: Bool
+    -- Misc:
     ,   debug               :: Int
     ,   no_turbo            :: Bool
     ,   others              :: [String]

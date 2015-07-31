@@ -25,6 +25,16 @@ import Data.Array.Unboxed
 
 import Data.Maybe
 import Data.Char
+import Control.Monad
+
+-- from hlint :-)
+
+partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a], [a])
+partitionM f [] = return ([], [])
+partitionM f (x:xs) = do
+    res <- f x
+    (as,bs) <- partitionM f xs
+    return ([x | res]++as, [x | not res]++bs)
 
 
 toMaybe :: a -> Bool -> Maybe a

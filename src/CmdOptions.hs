@@ -25,17 +25,17 @@ import Config
 
 options :: Mode (CmdArgs Options)
 options = cmdArgsMode $ Options
-          {     file  = ""  &= typ "FILE"   &= help "Read PATTERNs from file (one per line)" &= groupname "Pattern"
+          {     file  = ""  &= typ "FILE"   &= groupname "Pattern" &= help "Read PATTERNs from file (one per line)"
           ,     word_match  = False         &= help "Force word matching" &=explicit &= name "word" &= name "w"
           ,     prefix_match  = False       &= help "Force prefix matching" &=explicit &= name "prefix" &= name "p"
           ,     suffix_match  = False       &= help "Force suffix matching" &=explicit &= name "suffix" &= name "s"
           ,     edit_dist   = False         &= help "Use edit distance" &=explicit &= name "edit" &= name "e"
           ,     regex = False               &= help "Use regex matching" &= explicit &= name "G" &=name "regex"
           ,     ignore_case = False         &= help "Ignore case distinctions"
-          ,     code = False                &= help "Enable search in source code"     &= explicit &= name "c" &= name "code" &= groupname "\nContext filters (generic)"
+          ,     code = False                &= groupname "\nContext filters (generic)" &= help "Enable search in source code"     &= explicit &= name "c" &= name "code"
           ,     comment = False             &= help "Enable search in comments"        &= explicit &= name "m" &= name "comment"
           ,     literal = False             &= help "Enable search in string literals" &= explicit &= name "l" &= name "literal"
-          ,     identifier = False          &= help "Identifiers" &= explicit &= name "identifier" &= groupname "\nC/C++ language"
+          ,     identifier = False          &= groupname "\nC/C++ language" &= help "Identifiers" &= explicit &= name "identifier"
           ,     keyword = False             &= help "Keywords" &= explicit &= name "keyword"
           ,     directive = False           &= help "Preprocessing directives" &= explicit &= name "directive"
           ,     header = False              &= help "Headers names" &= explicit &= name "header"
@@ -44,14 +44,13 @@ options = cmdArgsMode $ Options
           ,     char = False                &= help "Literal chars" &= explicit &= name "char"
           ,     oper = False                &= help "Operators" &= explicit &= name "oper"
           ,     semantic = False            &= groupname "\nSemantic (generic)" &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, CHR, LIT, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors, \"struct OR class _ { OR : OR <\" search for a class declaration" &= explicit &= name "S" &= name "semantic"
-          ,     no_filename = False         &= help "Suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename" &= groupname "\nOutput control"
+          ,     no_filename = False         &= groupname "\nOutput control"&= help "Suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename"
           ,     no_linenumber= False        &= help "Suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber"
           ,     lang = []                   &= help "Specify languages. ie: Cpp, +Haskell, -Makefile"
           ,     lang_maps = False           &= help "Lists the language mappings"
           ,     force_language = Nothing    &= help "Force the language" &= explicit &= name "force-language"
           ,     max_count = maxBound        &= help "Stop search in files after INT matches" &= explicit &= name "max-count"
           ,     count = False               &= help "Print only a count of matching lines per file" &= explicit &= name "count"
-          ,     jobs   = 1                  &= help "Number of jobs"
           ,     multiline = 1               &= help "Enable multi-line matching"
           ,     recursive = False           &= help "Enable recursive search (don't follow symlinks)" &= explicit &= name "recursive" &= name "r"
           ,     deference_recursive = False &= help "Recursive, follow symlinks" &= explicit &= name "deference-recursive" &= name "R"
@@ -62,10 +61,14 @@ options = cmdArgsMode $ Options
 #ifdef ENABLE_HINT
           ,     hint = Nothing  &= typ "STRING" &= help "Haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint"
 #endif
-          ,     json = False               &= help "Format output as json object" &= explicit &= name "json"
-          ,     xml = False                &= help "Format output as xml document" &= explicit &= name "xml"
-          ,     debug = 0                  &= help "Debug level: 1, 2 or 3" &= groupname "\nMiscellaneous"
-          ,     no_turbo = False           &= help "Disable turbo mode"
-          ,     others = []                &= args
+          ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
+          ,     xml = False                 &= help "Format output as xml document" &= explicit &= name "xml"
+          ,     jobs   = 1                  &= groupname "\nParallel" &= help "Number of jobs"
+          ,     cores  = 0                  &= help "Set number of physical processor used"
+          ,     chunk  = 16                 &= help "Set per-job chunk length"
+          ,     asynch = False              &= help "Process chunk of files asynchronously"
+          ,     debug = 0                   &= groupname "\nMiscellaneous" &= help "Debug level: 1, 2 or 3"
+          ,     no_turbo = False            &= help "Disable turbo mode"
+          ,     others = []                 &= args
           } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
 

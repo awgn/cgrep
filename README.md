@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.4.22 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.5.0 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
