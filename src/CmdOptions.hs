@@ -63,7 +63,7 @@ options = cmdArgsMode $ Options
 #endif
           ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
           ,     xml = False                 &= help "Format output as xml document" &= explicit &= name "xml"
-          ,     jobs   = 1                  &= groupname "\nParallel" &= help "Number of jobs"
+          ,     jobs   = 1                  &= groupname "\nConcurrency" &= help "Number of jobs"
           ,     cores  = 0                  &= help "Set number of physical processor used"
           ,     chunk  = 16                 &= help "Set per-job chunk length"
           ,     asynch = False              &= help "Process chunk of files asynchronously"

@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.5.0 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.5.1 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -63,7 +63,7 @@ Output control:
        --json                 format output as json object
        --xml                  format output as xml document
   
-Parallel:
+Concurrency:
 
     -j --jobs=INT             Number of jobs
        --cores=INT            Set number of physical processor used
