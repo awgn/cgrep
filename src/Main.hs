@@ -68,11 +68,11 @@ withRecursiveContents opts dir langs prunedir visited action = do
                xs <- getDirectoryContents dir
                (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs, x `notElem` [".", ".."]]
                -- process files
-               let files' = flip mapMaybe files
+               let files' = mapMaybe
                                 (\n -> let filename = takeFileName n
                                        in if isNothing $ getFileLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs))
                                             then Nothing
-                                            else Just n)
+                                            else Just n) files
 
                unless (null files') $
                     let chunks = chunksOf (Options.chunk opts) files' in

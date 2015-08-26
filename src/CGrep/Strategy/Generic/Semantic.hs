@@ -59,11 +59,12 @@ search opt ps f = do
 
     -- quickSearch ...
 
-        ps' = filter (/= "OR") $ (mapMaybe (\x -> case x of
-                                                    TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
-                                                    TokenCard t                           -> Just (tkToString t)
-                                                    _                                     -> Nothing
-                                            ) . concat) patterns'
+        ps' = (mapMaybe (\x -> case x of
+                            TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
+                            TokenCard (Generic.TokenAlpha "OR" _) -> Nothing
+                            TokenCard t                           -> Just (tkToString t)
+                            _                                     -> Nothing
+                            ) . concat) patterns'
 
         found = quickSearch opt (map C.pack ps') text'
 

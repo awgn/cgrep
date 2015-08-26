@@ -25,12 +25,11 @@ import Data.Array.Unboxed
 
 import Data.Maybe
 import Data.Char
-import Control.Monad
 
 -- from hlint :-)
 
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a], [a])
-partitionM f [] = return ([], [])
+partitionM _ [] = return ([], [])
 partitionM f (x:xs) = do
     res <- f x
     (as,bs) <- partitionM f xs
