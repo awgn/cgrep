@@ -59,7 +59,7 @@ getTargetContents xs = C.readFile xs
 quickSearch :: Options -> [Text8] -> Text8 -> Maybe Bool
 quickSearch opt ps text
     | no_turbo opt        = Nothing
-    | otherwise           = Just $ any has_pattern ps
+    | otherwise           = Just $ any has_pattern ps || null ps
     where has_pattern pat = notNull $ pat `SC.nonOverlappingIndices` text
 
 
