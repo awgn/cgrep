@@ -17,12 +17,10 @@
 --
 
 module CGrep.Semantic.WildCard (WildCard(..), MultiCard,
-                                wildCardMap,
                                 mkWildCardFromToken,
                                 combineMultiCard,
                                 filterTokensWithMultiCards,
                                 wildCardMatch,
-                                isWildCardPattern,
                                 multiCardMatch) where
 
 import qualified Data.Map as M
@@ -36,6 +34,7 @@ import Data.List
 import Options
 import Util
 
+
 data WildCard a =
     TokenCard a        |
     AnyCard            |
@@ -48,6 +47,7 @@ data WildCard a =
     CharCard           |
     IdentifCard String
         deriving (Show, Eq, Ord)
+
 
 
 type MultiCard a = [WildCard a]
@@ -70,10 +70,11 @@ wildCardMap = M.fromList
 mkWildCardFromToken :: (SemanticToken a) => a -> WildCard a
 mkWildCardFromToken t
     | tkIsIdentifier t = case () of
-                            _ | Just wc <- M.lookup str wildCardMap -> wc
-                              | isWildCardPattern str  -> IdentifCard str
-                              | otherwise              -> TokenCard $ tkToIdentif (rmWildCardEscape str) (tkToOffset t)
-                              where str = tkToString t
+        _ | Just wc <- M.lookup str wildCardMap -> wc
+          | isWildCardIdentif str               -> IdentifCard str
+          | otherwise                           -> TokenCard $ tkToIdentif (rmWildCardEscape str) (tkToOffset t)
+            where str = tkToString t
+
     | otherwise = TokenCard t
 
 
@@ -118,19 +119,18 @@ multiCardCompare opt l r =
         where ts = multiCardGroupCompare opt l r
 
 
-isWildCardPattern :: String -> Bool
-isWildCardPattern s =
+isWildCardIdentif :: String -> Bool
+isWildCardIdentif s =
     case () of
-        _ | (x:y:_) <- s  -> wprefix x && not (wprefix y)
+        _ | (x:y:_) <- s  -> wprefix x && isNumber y
           | [x]     <- s  -> wprefix x
-          | otherwise     -> error "isWildCardPattern"
+          | otherwise     -> error "isWildCardIdentif"
     where wprefix x = x == '$' || x == '_'
 
 
 rmWildCardEscape :: String -> String
-rmWildCardEscape ('$':'_':xs) = '_' : xs
-rmWildCardEscape ('_':'_':xs) = '_' : xs
-rmWildCardEscape ('$':'$':xs) = '$' : xs
+rmWildCardEscape ('$':xs) = xs
+rmWildCardEscape ('_':xs) = xs
 rmWildCardEscape xs = xs
 
 
@@ -143,7 +143,7 @@ multiCardCompareAll = all fst
 {-# INLINE multiCardCheckOccurences #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
---       that must compare equal in the relative occurrences
+--       that must compare equal in the respective occurrences
 --
 
 multiCardCheckOccurences :: (SemanticToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
