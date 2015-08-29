@@ -97,7 +97,7 @@ checkToken opt text (off, str)
      where (text',off') = getLineByOffset off text
            ts           = T.tokenizer text'
 
-checkToken _ _ (_,_)     = undefined
+checkToken _ _ (_,_) = undefined
 
 
 splitLines :: Text8 -> [(Text8,Offset)]
