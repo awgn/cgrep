@@ -24,6 +24,7 @@ import Control.Monad.IO.Class
 import Control.Monad
 import Options
 
+
 putStrLevel1 :: String -> ReaderT Options IO ()
 putStrLevel1 xs = do
     n <- reader debug

@@ -18,7 +18,9 @@
 
 module Config where
 
-import Data.Maybe
+import Data.List
+import Data.Char
+
 import Control.Monad
 import System.Directory
 import System.FilePath ((</>))
@@ -41,16 +43,17 @@ data Config = Config
     } deriving (Show, Read)
 
 
+
+dropComments :: String -> String
+dropComments =  unlines . filter notComment . lines
+    where notComment = (not . ("#" `isPrefixOf`)) . dropWhile isSpace
+
+
 getConfig :: IO Config
 getConfig = do
-    home <- getHomeDirectory
-    conf <- liftM msum $ forM [ home </> "." ++ cgreprc, "/etc" </> cgreprc ] $ \f ->
-                (doesFileExist >=> (\b -> return $ guard b >> Just f)) f
-
-    if isJust conf then readFile (fromJust conf) >>= \xs ->
-                        return (prettyRead (dropComments xs) "Config error" :: Config)
-                   else return $ Config [] [] False
-
-    where dropComments :: String -> String
-          dropComments = unlines . map (takeWhile $ not .(== '#')) . lines
+    home  <- getHomeDirectory
+    confs <- filterM doesFileExist [home </> "." ++ cgreprc, "/etc" </> cgreprc]
+    if notNull confs then liftM dropComments (readFile (head confs)) >>= \xs ->
+                            return (prettyRead xs "Config error" :: Config)
+                    else return $ Config [] [] False
 

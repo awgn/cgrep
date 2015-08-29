@@ -28,6 +28,7 @@ import Data.Char
 
 -- from hlint :-)
 
+
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a], [a])
 partitionM _ [] = return ([], [])
 partitionM f (x:xs) = do
@@ -51,10 +52,9 @@ a `xor` b = a && not b || not a && b
 
 prettyRead :: Read a => String -> String -> a
 prettyRead xs err =
-    case value of
+    case readMaybe xs of
         Just v -> v
-        _      -> error $ err ++ ": parse error near " ++ show(take 40 xs)
-        where value = readMaybe xs
+        _      -> error $ err ++ ": parse error near " ++ show (take 40 xs)
 
 
 readMaybe :: Read a => String -> Maybe a
@@ -69,6 +69,7 @@ spanGroup n xs = take n xs : spanGroup n (tail xs)
 
 toStrict :: LC.ByteString -> C.ByteString
 toStrict = C.concat . LC.toChunks
+
 
 toLowercase :: Char -> Char
 toLowercase x = ctypeLowercase ! x
