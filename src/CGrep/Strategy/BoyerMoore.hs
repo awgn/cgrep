@@ -37,6 +37,7 @@ import Debug
 
 import Control.Arrow as A
 
+
 search :: Options -> [Text8] -> FilePath -> IO [Output]
 search opt ps f = do
 

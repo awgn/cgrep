@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Common (SearchFunction, Text8,
+module CGrep.Common (Text8,
                      getTargetName,
                      getTargetContents,
                      quickSearch,
@@ -29,13 +29,9 @@ import qualified Data.ByteString.Search as SC
 import Data.Char
 
 import CGrep.Types
-import CGrep.Output
 
 import Options
 import Util
-
-
-type SearchFunction = Options -> [Text8] -> FilePath -> IO [Output]
 
 
 trim :: String -> String

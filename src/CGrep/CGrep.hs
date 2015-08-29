@@ -27,6 +27,7 @@ import qualified CGrep.Strategy.Generic.Semantic as Semantic
 
 import CGrep.Lang
 import CGrep.Common
+import CGrep.Output
 
 import Data.List
 import Data.Maybe
@@ -64,7 +65,7 @@ hasTokenizerOpt Options
                 } = i || k || d || h || n || s || c || o
 
 
-cgrepDispatch :: Options -> FilePath -> SearchFunction
+cgrepDispatch :: Options -> FilePath -> Options -> [Text8] -> FilePath -> IO [Output]
 cgrepDispatch opt f
     | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt   = Levenshtein.search
     | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt)                    = BoyerMoore.search
