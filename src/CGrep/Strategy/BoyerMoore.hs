@@ -52,41 +52,35 @@ search f ps = do
 
     let text' = ignoreCase opt text
 
-    -- quick search...
-
-        found = quickSearch opt ps text'
-
     -- put banners...
 
     putStrLevel1 $ "strategy  : running string search on " ++ filename ++ "..."
 
-    if maybe False not found
-        then mkOutput filename text text []
-        else do
+    runSearch filename (quickSearch opt ps text') $ do
 
-            -- context filter
+        -- context filter
 
-            let text''  = contextFilter (getFileLang opt filename) (mkContextFilter opt) text'
+        let text''  = contextFilter (getFileLang opt filename) (mkContextFilter opt) text'
 
-            -- expand multi-line
+        -- expand multi-line
 
-                text''' = expandMultiline opt text''
+            text''' = expandMultiline opt text''
 
-            -- search for matching tokens
+        -- search for matching tokens
 
-                tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
+            tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
 
-            -- filter exact/partial matching tokens
+        -- filter exact/partial matching tokens
 
-                tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                            then filter (checkToken opt text''') tokens
-                            else tokens
+            tokens' = if word_match opt || prefix_match opt || suffix_match opt
+                        then filter (checkToken opt text''') tokens
+                        else tokens
 
-            putStrLevel2 $ "tokens    : " ++ show tokens
-            putStrLevel2 $ "tokens'   : " ++ show tokens'
-            putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLevel2 $ "tokens    : " ++ show tokens
+        putStrLevel2 $ "tokens'   : " ++ show tokens'
+        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            mkOutput filename text text''' tokens'
+        mkOutput filename text text''' tokens'
 
 
 checkToken :: Options -> Text8 -> (Offset, String) -> Bool

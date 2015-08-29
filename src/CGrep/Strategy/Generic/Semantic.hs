@@ -71,8 +71,6 @@ search f ps = do
                             _                                     -> Nothing
                             ) . concat) patterns'
 
-        found = quickSearch opt (map C.pack ps') text'
-
     -- put banners...
 
     putStrLevel1 $ "strategy  : running generic semantic search on " ++ filename ++ "..."
@@ -81,31 +79,29 @@ search f ps = do
     putStrLevel2 $ "identif   : " ++ show ps'
 
 
-    if maybe False not found
-        then mkOutput filename text text []
-        else do
+    runSearch filename (quickSearch opt (map C.pack ps') text') $ do
 
-            -- context filter
+        -- context filter
 
-            let text'' = contextFilter (getFileLang opt filename) filt text'
+        let text'' = contextFilter (getFileLang opt filename) filt text'
 
-            -- expand multi-line
+        -- expand multi-line
 
-                text''' = expandMultiline opt text''
+            text''' = expandMultiline opt text''
 
-            -- parse source code, get the Generic.Token list...
+        -- parse source code, get the Generic.Token list...
 
-                tokens = Generic.tokenizer text'''
+            tokens = Generic.tokenizer text'''
 
-            -- get matching tokens ...
+        -- get matching tokens ...
 
-                tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+            tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
 
-                matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
+            matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
-            putStrLevel2 $ "tokens    : " ++ show tokens'
-            putStrLevel2 $ "matches   : " ++ show matches
-            putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLevel2 $ "tokens    : " ++ show tokens'
+        putStrLevel2 $ "matches   : " ++ show matches
+        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            mkOutput filename text text''' matches
+        mkOutput filename text text''' matches
 

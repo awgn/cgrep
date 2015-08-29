@@ -54,50 +54,46 @@ search f ps = do
 
     --quickSearch ...
 
-    let found = quickSearch opt ps text'
+    runSearch filename (quickSearch opt ps text') $ do
 
-    if maybe False not found
-        then mkOutput filename text text []
-        else do
+        -- context filter
 
-            -- context filter
+        let text'' = contextFilter (getFileLang opt filename) filt text'
 
-            let text'' = contextFilter (getFileLang opt filename) filt text'
+        -- expand multi-line
 
-            -- expand multi-line
+            text''' = expandMultiline opt text''
 
-                text''' = expandMultiline opt text''
+        -- parse source code, get the Cpp.Token list...
 
-            -- parse source code, get the Cpp.Token list...
+            tokens = Cpp.tokenizer text'''
 
-                tokens = Cpp.tokenizer text'''
+        -- context-filterting...
 
-            -- context-filterting...
+            tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
+                                                               Cpp.filtDirective  = directive opt,
+                                                               Cpp.filtKeyword    = keyword opt,
+                                                               Cpp.filtHeader     = header opt,
+                                                               Cpp.filtString     = string opt,
+                                                               Cpp.filtNumber     = number opt,
+                                                               Cpp.filtChar       = char opt,
+                                                               Cpp.filtOper       = oper opt}) tokens
 
-                tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
-                                                                   Cpp.filtDirective  = directive opt,
-                                                                   Cpp.filtKeyword    = keyword opt,
-                                                                   Cpp.filtHeader     = header opt,
-                                                                   Cpp.filtString     = string opt,
-                                                                   Cpp.filtNumber     = number opt,
-                                                                   Cpp.filtChar       = char opt,
-                                                                   Cpp.filtOper       = oper opt}) tokens
+        -- filter tokens...
 
-            -- filter tokens...
+            tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
 
-                tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
+        -- convert Cpp.Tokens to CGrep.Tokens
 
-            -- convert Cpp.Tokens to CGrep.Tokens
+            matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
-                matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
+        putStrLevel2 $ "tokens    : " ++ show tokens
+        putStrLevel2 $ "tokens'   : " ++ show tokens'
+        putStrLevel2 $ "tokens''  : " ++ show tokens''
+        putStrLevel2 $ "matches   : " ++ show matches
+        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            putStrLevel2 $ "tokens    : " ++ show tokens
-            putStrLevel2 $ "tokens'   : " ++ show tokens'
-            putStrLevel2 $ "tokens''  : " ++ show tokens''
-            putStrLevel2 $ "matches   : " ++ show matches
-            putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
-
-            mkOutput filename text text''' matches
+        mkOutput filename text text''' matches
 
 
 cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]
