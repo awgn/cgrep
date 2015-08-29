@@ -22,6 +22,9 @@ module CGrep.Strategy.BoyerMoore (search) where
 import qualified Data.ByteString.Char8  as C
 import qualified Data.ByteString.Search as SC
 
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
+import Control.Arrow as A
 import Data.List
 
 import CGrep.Common
@@ -35,15 +38,15 @@ import qualified CGrep.Token as T
 import Options
 import Debug
 
-import Control.Arrow as A
 
+search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search f ps = do
 
-search :: Options -> [Text8] -> FilePath -> IO [Output]
-search opt ps f = do
+    opt <- ask
 
     let filename = getTargetName f
 
-    text <- getTargetContents f
+    text <- liftIO $ getTargetContents f
 
     -- transform text
 
@@ -55,7 +58,7 @@ search opt ps f = do
 
     -- put banners...
 
-    putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
+    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
 
     if maybe False not found
         then return $ mkOutput opt filename text text []
@@ -79,9 +82,9 @@ search opt ps f = do
                             then filter (checkToken opt text''') tokens
                             else tokens
 
-            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-            putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+            liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+            liftIO $ putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+            liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' tokens'
 

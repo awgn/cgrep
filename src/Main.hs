@@ -35,6 +35,7 @@ import Control.Concurrent.STM.TChan
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Either
+import Control.Monad.Trans.Reader
 import Control.Applicative
 
 import System.Console.CmdArgs
@@ -124,8 +125,8 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
                     [] -> atomically $ writeTChan out_chan []
                     xs -> void ((if asynch opts then flip mapConcurrently
                                                 else forM) xs $ \x -> do
-                            out <- let op = sanitizeOptions x opts in (liftM (take (max_count opts)) $ cgrepDispatch op x op patterns x)
-                            unless (null out) $ atomically $ writeTChan out_chan out)
+                                                    out <- fmap (take (max_count opts)) (runReaderT (cgrepDispatch x patterns) (sanitizeOptions x opts))
+                                                    unless (null out) $ atomically $ writeTChan out_chan out)
                    )
                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
             when (null fs) $ left ()

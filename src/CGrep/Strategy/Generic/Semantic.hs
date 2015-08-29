@@ -29,6 +29,9 @@ import CGrep.Output
 import CGrep.Semantic.Token
 import CGrep.Semantic.WildCard
 
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
+
 import Data.List
 import Data.Function
 import Data.Maybe
@@ -38,12 +41,14 @@ import Debug
 import Util
 
 
-search :: Options -> [Text8] -> FilePath -> IO [Output]
-search opt ps f = do
+search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search f ps = do
+
+    opt <- ask
 
     let filename = getTargetName f
 
-    text <- getTargetContents f
+    text <- liftIO $ getTargetContents f
 
     -- transform text
 
@@ -70,10 +75,10 @@ search opt ps f = do
 
     -- put banners...
 
-    putStrLevel1 (debug opt) $ "strategy  : running generic semantic search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
-    putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
-    putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
+    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running generic semantic search on " ++ filename ++ "..."
+    liftIO $ putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
+    liftIO $ putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
+    liftIO $ putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
 
 
     if maybe False not found
@@ -98,9 +103,9 @@ search opt ps f = do
 
                 matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
-            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
-            putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+            liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
+            liftIO $ putStrLevel2 (debug opt) $ "matches   : " ++ show matches
+            liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches
 

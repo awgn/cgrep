@@ -22,6 +22,8 @@ module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
 
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
 import Text.Regex.Posix
 import Data.Array
 
@@ -34,12 +36,14 @@ import Options
 import Debug
 
 
-search :: Options -> [Text8] -> FilePath -> IO [Output]
-search opt ps f = do
+search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search f ps = do
+
+    opt <- ask
 
     let filename = getTargetName f
 
-    text <- getTargetContents f
+    text <- liftIO $ getTargetContents f
 
     -- transform text
 
@@ -58,9 +62,9 @@ search opt ps f = do
         tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
                     concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)))
 
-    putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
-    putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-    putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
+    liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+    liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     return $ mkOutput opt filename text text''' tokens
 

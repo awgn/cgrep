@@ -19,8 +19,10 @@
 module CGrep.Strategy.Cpp.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
-
 import qualified CGrep.Semantic.Cpp.Token as Cpp
+
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
 
 import CGrep.Filter
 import CGrep.Lang
@@ -34,19 +36,21 @@ import Options
 import Debug
 
 
-search :: Options -> [Text8] -> FilePath -> IO [Output]
-search opt ps f = do
+search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search f ps = do
+
+    opt <- ask
 
     let filename = getTargetName f
 
-    text <- getTargetContents f
+    text <- liftIO $ getTargetContents f
 
     -- transform text
 
     let text' = ignoreCase opt text
         filt  = (mkContextFilter opt) { getComment = False }
 
-    putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
+    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
     --quickSearch ...
 
@@ -87,11 +91,11 @@ search opt ps f = do
 
                 matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
-            putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-            putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-            putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
-            putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-            putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+            liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
+            liftIO $ putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
+            liftIO $ putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
+            liftIO $ putStrLevel2 (debug opt) $ "matches   : " ++ show matches
+            liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches
 
@@ -103,4 +107,5 @@ cppTokenFilter opt patterns tokens
     | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . Cpp.toString) tokens
     | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Cpp.toString) tokens
     | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
+
 

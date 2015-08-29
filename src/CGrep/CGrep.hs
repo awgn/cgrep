@@ -25,6 +25,8 @@ import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
 import qualified CGrep.Strategy.Generic.Semantic as Semantic
 
+import Control.Monad.Trans.Reader
+
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
@@ -54,24 +56,27 @@ sanitizeOptions path opt =
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options
-                { identifier = i
-                , keyword    = k
-                , directive  = d
-                , header     = h
-                , number     = n
-                , string     = s
-                , char       = c
-                , oper       = o
-                } = i || k || d || h || n || s || c || o
+    { identifier = i
+    , keyword    = k
+    , directive  = d
+    , header     = h
+    , number     = n
+    , string     = s
+    , char       = c
+    , oper       = o
+    } = i || k || d || h || n || s || c || o
 
 
-cgrepDispatch :: Options -> FilePath -> Options -> [Text8] -> FilePath -> IO [Output]
-cgrepDispatch opt f
-    | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt   = Levenshtein.search
-    | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt)                    = BoyerMoore.search
-    | not (regex opt) && semantic opt && hasLanguage f opt [C,Cpp]                          = CppSemantic.search
-    | not (regex opt) && semantic opt                                                       = Semantic.search
-    | not (regex opt)                                                                       = CppTokenizer.search
-    | regex opt                                                                             = Regex.search
-    | otherwise                                                                             = undefined
+cgrepDispatch :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+cgrepDispatch filename patterns = do
+    opt <- ask
+    case () of
+        _ | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
+          | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
+          | not (regex opt) && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
+          | not (regex opt) && semantic opt                                                     -> Semantic.search filename patterns
+          | not (regex opt)                                                                     -> CppTokenizer.search filename patterns
+          | regex opt                                                                           -> Regex.search filename patterns
+          | otherwise                                                                           -> undefined
+
 
