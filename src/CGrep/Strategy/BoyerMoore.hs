@@ -58,7 +58,7 @@ search f ps = do
 
     -- put banners...
 
-    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running string search on " ++ filename ++ "..."
+    putStrLevel1 $ "strategy  : running string search on " ++ filename ++ "..."
 
     if maybe False not found
         then return $ mkOutput opt filename text text []
@@ -82,9 +82,9 @@ search f ps = do
                             then filter (checkToken opt text''') tokens
                             else tokens
 
-            liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-            liftIO $ putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-            liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+            putStrLevel2 $ "tokens    : " ++ show tokens
+            putStrLevel2 $ "tokens'   : " ++ show tokens'
+            putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' tokens'
 

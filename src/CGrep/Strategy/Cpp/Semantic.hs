@@ -74,10 +74,10 @@ search f ps = do
 
     -- put banners...
 
-    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
-    liftIO $ putStrLevel2 (debug opt) $ "wildcards : " ++ show patterns'
-    liftIO $ putStrLevel2 (debug opt) $ "multicards: " ++ show patterns''
-    liftIO $ putStrLevel2 (debug opt) $ "identif   : " ++ show ps'
+    putStrLevel1 $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
+    putStrLevel2 $ "wildcards : " ++ show patterns'
+    putStrLevel2 $ "multicards: " ++ show patterns''
+    putStrLevel2 $ "identif   : " ++ show ps'
 
     if maybe False not found
         then return $ mkOutput opt filename text text []
@@ -101,9 +101,9 @@ search f ps = do
 
                 matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
-            liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
-            liftIO $ putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-            liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+            putStrLevel2 $ "tokens    : " ++ show tokens'
+            putStrLevel2 $ "matches   : " ++ show matches
+            putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches
 

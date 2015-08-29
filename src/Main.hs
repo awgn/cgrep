@@ -222,13 +222,14 @@ main = do
 
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
-    putStrLevel1 (debug opts) $ "Cgrep " ++ version ++ "!"
-    putStrLevel1 (debug opts) $ "options   : " ++ show opts
-    putStrLevel1 (debug opts) $ "languages : " ++ show langs
-    putStrLevel1 (debug opts) $ "pattern   : " ++ show patterns
-    putStrLevel1 (debug opts) $ "files     : " ++ show paths
-    putStrLevel1 (debug opts) $ "isTermIn  : " ++ show isTermIn
-    putStrLevel1 (debug opts) $ "isTermOut : " ++ show isTermOut
+    runReaderT (do putStrLevel1 $ "Cgrep " ++ version ++ "!"
+                   putStrLevel1 $ "options   : " ++ show opts
+                   putStrLevel1 $ "languages : " ++ show langs
+                   putStrLevel1 $ "pattern   : " ++ show patterns
+                   putStrLevel1 $ "files     : " ++ show paths
+                   putStrLevel1 $ "isTermIn  : " ++ show isTermIn
+                   putStrLevel1 $ "isTermOut : " ++ show isTermOut
+        ) opts
 
     -- specify number of cores
 

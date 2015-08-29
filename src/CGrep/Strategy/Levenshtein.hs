@@ -59,10 +59,10 @@ search f ps = do
 
         matches  = filter (\t -> any (\p -> p ~== snd t) patterns) tokens'
 
-    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
-    liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens'
-    liftIO $ putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-    liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text'' ++ "\n---"
+    putStrLevel1 $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
+    putStrLevel2 $ "tokens    : " ++ show tokens'
+    putStrLevel2 $ "matches   : " ++ show matches
+    putStrLevel3 $ "---\n" ++ C.unpack text'' ++ "\n---"
 
     return $ mkOutput opt filename text text'' matches
 

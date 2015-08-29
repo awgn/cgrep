@@ -19,13 +19,22 @@
 
 module Debug where
 
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
 import Control.Monad
+import Options
 
-putStrLevel1 :: Int -> String -> IO ()
-putStrLevel1 n xs = when (n > 0) $ putStrLn xs
+putStrLevel1 :: String -> ReaderT Options IO ()
+putStrLevel1 xs = do
+    n <- reader debug
+    when (n > 0) $ liftIO $ putStrLn xs
 
-putStrLevel2 :: Int -> String -> IO ()
-putStrLevel2 n xs = when (n > 1) $ putStrLn xs
+putStrLevel2 :: String -> ReaderT Options IO ()
+putStrLevel2 xs = do
+    n <- reader debug
+    when (n > 1) $ liftIO $ putStrLn xs
 
-putStrLevel3 :: Int -> String -> IO ()
-putStrLevel3 n xs = when (n > 2) $ putStrLn xs
+putStrLevel3 :: String -> ReaderT Options IO ()
+putStrLevel3 xs = do
+    n <- reader debug
+    when (n > 2) $ liftIO $ putStrLn xs

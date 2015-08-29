@@ -62,9 +62,9 @@ search f ps = do
         tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
                     concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)))
 
-    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running regex search on " ++ filename ++ "..."
-    liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-    liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+    putStrLevel1 $ "strategy  : running regex search on " ++ filename ++ "..."
+    putStrLevel2 $ "tokens    : " ++ show tokens
+    putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     return $ mkOutput opt filename text text''' tokens
 

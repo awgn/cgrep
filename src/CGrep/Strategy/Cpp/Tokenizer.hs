@@ -50,7 +50,7 @@ search f ps = do
     let text' = ignoreCase opt text
         filt  = (mkContextFilter opt) { getComment = False }
 
-    liftIO $ putStrLevel1 (debug opt) $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
+    putStrLevel1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
     --quickSearch ...
 
@@ -91,11 +91,11 @@ search f ps = do
 
                 matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
-            liftIO $ putStrLevel2 (debug opt) $ "tokens    : " ++ show tokens
-            liftIO $ putStrLevel2 (debug opt) $ "tokens'   : " ++ show tokens'
-            liftIO $ putStrLevel2 (debug opt) $ "tokens''  : " ++ show tokens''
-            liftIO $ putStrLevel2 (debug opt) $ "matches   : " ++ show matches
-            liftIO $ putStrLevel3 (debug opt) $ "---\n" ++ C.unpack text''' ++ "\n---"
+            putStrLevel2 $ "tokens    : " ++ show tokens
+            putStrLevel2 $ "tokens'   : " ++ show tokens'
+            putStrLevel2 $ "tokens''  : " ++ show tokens''
+            putStrLevel2 $ "matches   : " ++ show matches
+            putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
             return $ mkOutput opt filename text text''' matches
 
