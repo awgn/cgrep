@@ -30,6 +30,9 @@ import System.Console.ANSI
 import Language.Haskell.Interpreter
 #endif
 
+import Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
+
 import Data.Maybe
 import Data.List
 import Data.List.Split
@@ -77,31 +80,35 @@ invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, [])
     where idx = map fst xs
 
 
-putPrettyHeader :: Options -> IO ()
-putPrettyHeader opt =
+putPrettyHeader :: ReaderT Options IO ()
+putPrettyHeader = do
+    opt <- ask
     case () of
-      _  | json opt  -> putStrLn "["
-         | xml  opt  -> putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
+      _  | json opt  -> liftIO $ putStrLn "["
+         | xml  opt  -> liftIO $ putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
          | otherwise -> return ()
 
 
-putPrettyFooter :: Options -> IO ()
-putPrettyFooter opt =
+putPrettyFooter :: ReaderT Options IO ()
+putPrettyFooter = do
+    opt <- ask
     case () of
-      _  | json opt  -> putStrLn "]"
-         | xml  opt  -> putStrLn "</cgrep>"
+      _  | json opt  -> liftIO $ putStrLn "]"
+         | xml  opt  -> liftIO $ putStrLn "</cgrep>"
          | otherwise -> return ()
 
 
-prettyOutput :: Options -> [Output] -> IO [String]
-prettyOutput opt out
+prettyOutput :: [Output] -> ReaderT Options IO [String]
+prettyOutput out = do
+    opt <- ask
+    case () of
+        _ | isJust $ format opt -> return $ map (formatOutput opt) out
+          | json opt            -> return $ jsonOutput opt out
+          | xml opt             -> return $ xmlOutput opt out
 #ifdef ENABLE_HINT
-    | isJust $ hint opt   = hintOputput opt out
+          | isJust $ hint opt   -> hintOputput opt out
 #endif
-    | isJust $ format opt = return $ map (formatOutput opt) out
-    | json opt            = return $ jsonOutput opt out
-    | xml opt             = return $ xmlOutput opt out
-    | otherwise           = return $ defaultOutput opt out
+          | otherwise           -> return $ defaultOutput opt out
 
 
 defaultOutput :: Options -> [Output] -> [String]

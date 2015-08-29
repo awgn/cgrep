@@ -108,17 +108,19 @@ getFilePaths True  True xs = xs
 getFilePaths _ False _ = [ ]
 
 
-parallelSearch :: Config -> Options -> [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> IO ()
-parallelSearch conf opts paths patterns langs (isTermIn, _) = do
+parallelSearch :: Config -> [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> ReaderT Options IO ()
+parallelSearch conf paths patterns langs (isTermIn, _) = do
+
+    opts <- ask
 
     -- create Transactional Chan and Vars...
 
-    in_chan  <- newTChanIO
-    out_chan <- newTChanIO
+    in_chan  <- liftIO newTChanIO
+    out_chan <- liftIO newTChanIO
 
     -- launch worker threads...
 
-    forM_ [1 .. jobs opts] $ \_ -> forkIO $
+    forM_ [1 .. jobs opts] $ \_ -> liftIO . forkIO $
         void $ runEitherT $ forever $ do
             fs <- lift $ atomically $ readTChan in_chan
             lift $ E.catch (case fs of
@@ -134,7 +136,7 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
 
     -- push the files to grep for...
 
-    _ <- forkIO $ do
+    _ <- liftIO . forkIO $ do
 
         if recursive opts || deference_recursive opts
             then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan)
@@ -146,24 +148,25 @@ parallelSearch conf opts paths patterns langs (isTermIn, _) = do
 
     -- dump output until workers are done
 
-    putPrettyHeader opts
+    putPrettyHeader
 
     let stop = jobs opts
 
     fix (\action n m ->
          unless (n == stop) $ do
-                 out <- atomically $ readTChan out_chan
+                 out <- liftIO $ atomically $ readTChan out_chan
                  case out of
                       [] -> action (n+1) m
                       _  -> do
                           case () of
-                            _ | json opts -> when m $ putStrLn ","
+                            _ | json opts -> when m $ liftIO $ putStrLn ","
                               | otherwise -> return ()
-                          prettyOutput opts out >>= mapM_ putStrLn
+                          prettyOutput out >>= mapM_ (liftIO . putStrLn)
                           action n True
         )  0 False
 
-    putPrettyFooter opts
+    putPrettyFooter
+
 
 main :: IO ()
 main = do
@@ -235,5 +238,5 @@ main = do
 
     when (cores opts /= 0) $ setNumCapabilities (cores opts)
 
-    parallelSearch conf opts paths patterns' langs (isTermIn, isTermOut)
+    runReaderT (parallelSearch conf paths patterns' langs (isTermIn, isTermOut)) opts
 
