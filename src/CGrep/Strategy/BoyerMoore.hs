@@ -61,7 +61,7 @@ search f ps = do
     putStrLevel1 $ "strategy  : running string search on " ++ filename ++ "..."
 
     if maybe False not found
-        then return $ mkOutput opt filename text text []
+        then mkOutput filename text text []
         else do
 
             -- context filter
@@ -86,7 +86,7 @@ search f ps = do
             putStrLevel2 $ "tokens'   : " ++ show tokens'
             putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            return $ mkOutput opt filename text text''' tokens'
+            mkOutput filename text text''' tokens'
 
 
 checkToken :: Options -> Text8 -> (Offset, String) -> Bool

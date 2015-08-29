@@ -60,11 +60,13 @@ getOffset2d idx off = let prc =  fst $ partition (< off) idx in
           _  -> (length prc, off - last prc - 1)
 
 
-mkOutput :: Options -> FilePath -> Text8 -> Text8 -> [Token] -> [Output]
-mkOutput Options { invert_match = invert } f text multi ts
-    | invert    = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
-    | otherwise = map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
-        where ls = C.lines text
+mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> ReaderT Options m [Output]
+mkOutput f text multi ts = do
+    invert <- reader invert_match
+    case () of
+        _ | invert      -> return $ map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
+          | otherwise   -> return $ map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
+            where ls = C.lines text
 
 
 mkMatchLines :: Text8 -> [Token] -> [MatchLine]
@@ -98,37 +100,34 @@ putPrettyFooter = do
          | otherwise -> return ()
 
 
-prettyOutput :: [Output] -> ReaderT Options IO [String]
+prettyOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
 prettyOutput out = do
     opt <- ask
     case () of
-        _ | isJust $ format opt -> return $ map (formatOutput opt) out
-          | json opt            -> return $ jsonOutput opt out
-          | xml opt             -> return $ xmlOutput opt out
+        _ | isJust $ format opt -> mapM formatOutput out
+          | json opt            -> jsonOutput out
+          | xml opt             -> xmlOutput  out
 #ifdef ENABLE_HINT
-          | isJust $ hint opt   -> hintOputput opt out
+          | isJust $ hint opt   -> hintOputput out
 #endif
-          | otherwise           -> return $ defaultOutput opt out
+          | otherwise           -> defaultOutput out
+
+defaultOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
+defaultOutput xs = do
+    opt <- ask
+    case () of
+        _ |  Options{ no_filename = False, no_linenumber = False , count = False } <- opt -> return $ map (\(Output f n l ts) -> showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
+          |  Options{ no_filename = False, no_linenumber = True  , count = False } <- opt -> return $ map (\(Output f _ l ts) -> showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
+          |  Options{ no_filename = True , no_linenumber = False , count = False } <- opt -> return $ map (\(Output _ n l ts) -> show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
+          |  Options{ no_filename = True , no_linenumber = True  , count = False } <- opt -> return $ map (\(Output _ _ l ts) -> showTokens opt ts ++ showLine opt ts l) xs
+          |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+                                                  return $ map (\ys@(y:_) -> showFile opt (outputFilename y) ++ ":" ++ show (length ys)) gs
+          |  otherwise -> undefined
+            where outputFilename (Output f _ _ _) = f
 
 
-defaultOutput :: Options -> [Output] -> [String]
-
-defaultOutput opt@Options{ no_filename = False, no_linenumber = False , count = False } xs =
-    map (\(Output f n l ts) -> showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
-defaultOutput opt@Options{ no_filename = False, no_linenumber = True  , count = False } xs =
-    map (\(Output f _ l ts) -> showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
-defaultOutput opt@Options{ no_filename = True , no_linenumber = False , count = False } xs =
-    map (\(Output _ n l ts) -> show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
-defaultOutput opt@Options{ no_filename = True , no_linenumber = True  , count = False } xs =
-    map (\(Output _ _ l ts) -> showTokens opt ts ++ showLine opt ts l) xs
-defaultOutput opt@Options{ count = True } xs =
-    let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-    in map (\ys@(y:_) -> showFile opt (outputFilename y) ++ ":" ++ show (length ys)) gs
-    where outputFilename (Output f _ _ _) = f
-
-
-jsonOutput :: Options -> [Output] -> [String]
-jsonOutput _ outs =
+jsonOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
+jsonOutput outs = return $
     [" { \"file\": " ++ show fname ++ ", \"matches\": ["] ++
     [ intercalate "," (foldl mkMatch [] outs) ] ++
     ["] }"]
@@ -137,8 +136,8 @@ jsonOutput _ outs =
               mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
 
 
-xmlOutput :: Options -> [Output] -> [String]
-xmlOutput _ outs =
+xmlOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
+xmlOutput outs = return $
     ["<file name=" ++ show fname ++ ">" ] ++
     ["<matches>" ] ++
     [foldl mkMatch "" outs] ++
@@ -150,9 +149,10 @@ xmlOutput _ outs =
                                                     unwords (map mkToken ts) ++
                                                     "</match>"
 
-formatOutput :: Options -> Output -> String
-formatOutput opt (Output f n l ts) =
-    foldl trans (fromJust $ format opt)
+formatOutput :: (Monad m) => Output -> ReaderT Options m String
+formatOutput (Output f n l ts) = do
+    opt <- ask
+    return $ foldl trans (fromJust $ format opt)
         [
             ("#f", showFile opt f),
             ("#n", show n),
@@ -181,8 +181,9 @@ replace old new = intercalate new . splitOn old
 
 
 #ifdef ENABLE_HINT
-hintOputput :: Options -> [Output] -> IO [String]
-hintOputput opt outs = do
+hintOputput :: [Output] -> ReaderT Options IO [String]
+hintOputput outs = do
+    opt <- ask
     let cmds = map mkCmd outs
     out <- runInterpreter $ setImports ["Prelude", "Data.List"] >> mapM (`interpret` (as :: String)) cmds
     return $ either ((:[]) . show) id out

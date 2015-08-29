@@ -66,5 +66,5 @@ search f ps = do
     putStrLevel2 $ "tokens    : " ++ show tokens
     putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-    return $ mkOutput opt filename text text''' tokens
+    mkOutput filename text text''' tokens
 

@@ -57,7 +57,7 @@ search f ps = do
     let found = quickSearch opt ps text'
 
     if maybe False not found
-        then return $ mkOutput opt filename text text []
+        then mkOutput filename text text []
         else do
 
             -- context filter
@@ -97,7 +97,7 @@ search f ps = do
             putStrLevel2 $ "matches   : " ++ show matches
             putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-            return $ mkOutput opt filename text text''' matches
+            mkOutput filename text text''' matches
 
 
 cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]

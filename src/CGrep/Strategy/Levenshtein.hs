@@ -64,5 +64,5 @@ search f ps = do
     putStrLevel2 $ "matches   : " ++ show matches
     putStrLevel3 $ "---\n" ++ C.unpack text'' ++ "\n---"
 
-    return $ mkOutput opt filename text text'' matches
+    mkOutput filename text text'' matches
 
