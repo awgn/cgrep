@@ -52,7 +52,7 @@ dropComments =  unlines . filter notComment . lines
 getConfig :: IO Config
 getConfig = do
     home  <- getHomeDirectory
-    confs <- filterM doesFileExist [home </> "." ++ cgreprc, "/etc" </> cgreprc]
+    confs <- filterM doesFileExist ["." ++ cgreprc, home </> "." ++ cgreprc, "/etc" </> cgreprc]
     if notNull confs then liftM dropComments (readFile (head confs)) >>= \xs ->
                             return (prettyRead xs "Config error" :: Config)
                     else return $ Config [] [] False
