@@ -53,6 +53,7 @@ options = cmdArgsMode $ Options
           ,     count = False               &= help "Print only a count of matching lines per file" &= explicit &= name "count"
           ,     multiline = 1               &= help "Enable multi-line matching"
           ,     recursive = False           &= help "Enable recursive search (don't follow symlinks)" &= explicit &= name "recursive" &= name "r"
+          ,     prune_dir = []              &= help "Do not descend into dir" &= explicit &= name "prune-dir"
           ,     deference_recursive = False &= help "Recursive, follow symlinks" &= explicit &= name "deference-recursive" &= name "R"
           ,     invert_match = False        &= help "Select non-matching lines" &= explicit &= name "invert-match" &= name "v"
           ,     show_match = False          &= help "Show list of matching tokens" &= explicit &= name "show-match"

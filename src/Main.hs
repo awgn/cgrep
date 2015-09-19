@@ -82,10 +82,10 @@ withRecursiveContents opts dir langs prunedir visited action = do
                -- process dirs
                --
                forM_ dirs $ \path -> do
-                    let filename = takeFileName path
+                    let dirname = takeFileName path
                     lstatus <- getSymbolicLinkStatus path
                     when ( deference_recursive opts || not (isSymbolicLink lstatus)) $
-                        unless (filename `elem` prunedir) $ do -- this is a good directory (unless already visited)!
+                        unless (dirname `elem` prunedir) $ do -- this is a good directory (unless already visited)!
                             cpath <- canonicalizePath path
                             unless (cpath `Set.member` visited) $ withRecursiveContents opts path langs prunedir (Set.insert cpath visited) action
              else action [dir]
@@ -139,7 +139,7 @@ parallelSearch conf paths patterns langs (isTermIn, _) = do
     _ <- liftIO . forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf) (Set.singleton p) (atomically . writeTChan in_chan)
+            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf ++ prune_dir opts) (Set.singleton p) (atomically . writeTChan in_chan)
             else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . (:[]))
 
         -- enqueue EOF messages:

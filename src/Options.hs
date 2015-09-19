@@ -55,6 +55,7 @@ data Options = Options
     -- General:
     ,   multiline           :: Int
     ,   recursive           :: Bool
+    ,   prune_dir           :: [FilePath]
     ,   deference_recursive :: Bool
     ,   invert_match        :: Bool
     ,   max_count           :: Int
