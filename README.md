@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.5.4 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.5.5 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -52,6 +52,7 @@ Output control:
        --force-language=ITEM  force the language
        --multiline=INT        enable multi-line matching
     -r --recursive            Enable recursive search (don't follow symlinks)
+       --prune-dir=ITEM       Do not descend into dir
     -R --deference-recursive  Recursive, follow symlinks
     -v --invert-match         select non-matching lines
        --max-count=INT        stop search in files after INT matches
