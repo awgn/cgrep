@@ -54,7 +54,7 @@ search f ps = do
 
     let text' = ignoreCase opt text
 
-        filt  = (mkContextFilter opt) { getComment = False }
+        filt  = (mkContextFilter opt) { getFilterComment = False }
 
     -- pre-process patterns
 

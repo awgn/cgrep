@@ -92,7 +92,7 @@ tokenCompare (TokenOther   { toString = l }) (TokenOther   { toString = r }) = l
 tokenCompare _ _ = False
 
 
-data TokenAccum = TokenAccum !TokenState !Offset !Int DString (DL.DList Token)
+data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset {-# UNPACK #-} !Int DString (DL.DList Token)
 
 
 isCharNumberLT :: UArray Char Bool

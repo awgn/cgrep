@@ -48,7 +48,7 @@ search f ps = do
     -- transform text
 
     let text' = ignoreCase opt text
-        filt  = (mkContextFilter opt) { getComment = False }
+        filt  = (mkContextFilter opt) { getFilterComment = False }
 
     putStrLevel1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 

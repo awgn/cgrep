@@ -24,8 +24,8 @@ data Context = Code | Comment | Literal
 
 
 data ContextFilter = ContextFilter
-    {   getCode    :: Bool
-    ,   getComment :: Bool
-    ,   getLiteral :: Bool
+    {   getFilterCode    :: !Bool
+    ,   getFilterComment :: !Bool
+    ,   getFilterLiteral :: !Bool
     } deriving (Eq, Show)
 

@@ -35,33 +35,33 @@ import qualified Data.ByteString.Char8 as C
 
 import CGrep.Semantic.Token
 
-type TokenizerState = (Source, Offset, CppState)
+data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
 type Source         = C.ByteString
 type Offset         = Int
 
 
 data Token =
-    TokenIdentifier  { toString :: String, toOffset :: Int  } |
-    TokenDirective   { toString :: String, toOffset :: Int  } |
-    TokenKeyword     { toString :: String, toOffset :: Int  } |
-    TokenNumber      { toString :: String, toOffset :: Int  } |
-    TokenHeaderName  { toString :: String, toOffset :: Int  } |
-    TokenString      { toString :: String, toOffset :: Int  } |
-    TokenChar        { toString :: String, toOffset :: Int  } |
-    TokenOperOrPunct { toString :: String, toOffset :: Int  }
+    TokenIdentifier  { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenDirective   { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenKeyword     { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenNumber      { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenHeaderName  { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenString      { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenChar        { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
+    TokenOperOrPunct { toString :: !String, toOffset :: {-# UNPACK #-} !Int  }
        deriving (Show, Eq, Ord)
 
 
 data TokenFilter = TokenFilter
-    {   filtIdentifier :: Bool
-    ,   filtDirective  :: Bool
-    ,   filtKeyword    :: Bool
-    ,   filtHeader     :: Bool
-    ,   filtString     :: Bool
-    ,   filtNumber     :: Bool
-    ,   filtChar       :: Bool
-    ,   filtOper       :: Bool
-    } deriving (Show,Read,Eq)
+    {   filtIdentifier :: !Bool
+    ,   filtDirective  :: !Bool
+    ,   filtKeyword    :: !Bool
+    ,   filtHeader     :: !Bool
+    ,   filtString     :: !Bool
+    ,   filtNumber     :: !Bool
+    ,   filtChar       :: !Bool
+    ,   filtOper       :: !Bool
+    } deriving (Eq)
 
 
 instance SemanticToken Token where
@@ -81,7 +81,7 @@ instance SemanticToken Token where
 --
 
 tokenizer :: Source -> [Token]
-tokenizer xs = runGetToken (ys, n, Null)
+tokenizer xs = runGetToken (TokenizerState ys n Null)
             where (ys, n) = dropWhite xs
 
 
@@ -196,15 +196,15 @@ nextCppState str pps
 
 runGetToken :: TokenizerState -> [Token]
 
-runGetToken (C.uncons  -> Nothing, _, _) = []
+runGetToken (TokenizerState (C.uncons  -> Nothing) _ _) = []
 runGetToken tstate = token : runGetToken ns
     where (token, ns) = getToken tstate
 
 
 getToken :: TokenizerState -> (Token, TokenizerState)
 
-getToken (C.uncons -> Nothing, _, _) = error "getToken: internal error"
-getToken (xs, off, state) =
+getToken (TokenizerState (C.uncons -> Nothing) _ _) = error "getToken: internal error"
+getToken (TokenizerState xs off state) =
     let token = fromJust $
                     getTokenDirective xs state       `mplus`
                     getTokenHeaderName xs state      `mplus`
@@ -217,7 +217,7 @@ getToken (xs, off, state) =
         len      = fromIntegral $ length tstring
         (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
     in
-        (token { toOffset = off }, (xs', off + len + w, nextCppState tstring state))
+        (token { toOffset = off }, (TokenizerState xs' (off + len + w) (nextCppState tstring state)))
 
 
 getTokenIdOrKeyword, getTokenNumber,

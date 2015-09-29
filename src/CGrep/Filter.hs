@@ -60,11 +60,11 @@ data ParConf  =  ParConf
 data ParState =  ParState
     {   cxtState  :: !ContextState
     ,   display   :: !Bool
-    ,   skip      :: !Int
+    ,   skip      :: {-# UNPACK #-} !Int
     } deriving (Show)
 
 
-data ContextState = CodeState | CommState Int | LitrState Int
+data ContextState = CodeState | CommState {-# UNPACK #-} !Int | LitrState {-# UNPACK #-} !Int
     deriving (Show, Eq, Ord)
 
 
@@ -74,8 +74,8 @@ data ContextState = CodeState | CommState Int | LitrState Int
 mkContextFilter :: Options -> ContextFilter
 mkContextFilter opt =
     if not (code opt || comment opt || literal opt)
-        then ContextFilter { getCode = True, getComment = True,  getLiteral = True }
-        else ContextFilter { getCode = code opt, getComment = comment opt, getLiteral = literal opt }
+        then ContextFilter { getFilterCode = True, getFilterComment = True,  getFilterLiteral = True }
+        else ContextFilter { getFilterCode = code opt, getFilterComment = comment opt, getFilterLiteral = literal opt }
 
 
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
