@@ -45,11 +45,11 @@ data TokenState =
 
 
 data Token =
-    TokenAlpha       { toString :: String, toOffset :: Offset  } |
-    TokenDigit       { toString :: String, toOffset :: Offset  } |
-    TokenBracket     { toString :: String, toOffset :: Offset  } |
-    TokenLiteral     { toString :: String, toOffset :: Offset  } |
-    TokenOther       { toString :: String, toOffset :: Offset  }
+    TokenAlpha       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
+    TokenDigit       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
+    TokenBracket     { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
+    TokenLiteral     { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
+    TokenOther       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  }
        deriving (Show, Eq, Ord)
 
 
