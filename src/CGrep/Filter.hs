@@ -177,8 +177,8 @@ findIndex' p =
 filterFunctionMap :: Map.Map Lang FilterFunction
 
 
-mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction
-mkFilterFunction cs ls = contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
+mkContextFilterFun :: [StringBoundary] -> [StringBoundary] -> FilterFunction
+mkContextFilterFun cs ls = contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
                                                     (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
                                                     (mkBloom (cs ++ ls)))
 
@@ -187,45 +187,43 @@ mkBloom :: [StringBoundary] -> UArray Char Bool
 mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
 
 
-filterFunctionMap = Map.fromList [
-    (C,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Cpp,        mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Cabal,      mkFilterFunction [("--", "\n")]                [("\"", "\"")] ),
-    (Csharp,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Chapel,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Coffee,     mkFilterFunction [("###", "###"), ("#", "\n")]  [("\"", "\"")] ),
-    (Conf,       mkFilterFunction [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
-    (D,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Go,         mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Java,       mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Javascript, mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (ObjectiveC, mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Scala,      mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (Verilog,    mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] ),
-    (VHDL,       mkFilterFunction [("--", "\n")] [("\"", "\"")] ),
-
-    (Haskell,    mkFilterFunction [("{-", "-}"), ("--", "\n")]      [("\"", "\""), ("[r|", "|]"), ("[q|", "|]"), ("[s|", "|]"), ("[here|","|]"), ("[i|", "|]")] ),
-    (Fsharp,     mkFilterFunction [("(*", "*)"), ("//", "\n")]      [("\"", "\"")] ),
-    (Perl,       mkFilterFunction [("=pod", "=cut"), ("#", "\n")]   [("'", "'"), ("\"", "\"")] ),
-    (Ruby,       mkFilterFunction [("=begin", "=end"), ("#", "\n")] [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ]),
-
-    (CMake,      mkFilterFunction [("#", "\n")]    [("\"", "\"")] ),
-    (Awk,        mkFilterFunction [("#", "\n")]    [("\"", "\"")] ),
-    (Tcl,        mkFilterFunction [("#", "\n")]    [("\"", "\"")] ),
-    (Shell,      mkFilterFunction [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
-    (Make,       mkFilterFunction [("#", "\n")]    [("'", "'"), ("\"", "\"")] ),
-
-    (Css,        mkFilterFunction [("/*", "*/")]   [("\"", "\"")] ),
-    (OCaml,      mkFilterFunction [("(*", "*)")]   [("\"", "\"")] ),
-    (Python,     mkFilterFunction [("#", "\n")]    [("\"\"\"", "\"\"\""), ("'''", "'''"), ("'", "'"), ("\"", "\"")] ),
-
-    (Erlang,     mkFilterFunction [("%", "\n")]    [("\"", "\"")] ),
-    (Latex,      mkFilterFunction [("%", "\n")]    [("\"", "\"")] ),
-    (Lua,        mkFilterFunction [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] ),
-
-    (Html,       mkFilterFunction [("<!--", "-->")]  [("\"", "\"")] ),
-    (Vim,        mkFilterFunction [("\"", "\n")]     [("'", "'")] ),
-
-    (PHP,        mkFilterFunction [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
+filterFunctionMap = Map.fromList
+    [   (Awk,        mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
+    ,   (C,         mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (CMake,      mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
+    ,   (Cabal,      mkContextFilterFun [("--", "\n")] [("\"", "\"")] )
+    ,   (Chapel,     mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Clojure,    mkContextFilterFun [(";", "\n")] [("\"", "\"")] )
+    ,   (Coffee,     mkContextFilterFun [("###", "###"), ("#", "\n")]  [("\"", "\"")] )
+    ,   (Conf,       mkContextFilterFun [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
+    ,   (Cpp,        mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Csharp,     mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Css,        mkContextFilterFun [("/*", "*/")] [("\"", "\"")] )
+    ,   (D,          mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Elixir,     mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
+    ,   (Erlang,     mkContextFilterFun [("%", "\n")]  [("\"", "\"")] )
+    ,   (Fsharp,     mkContextFilterFun [("(*", "*)"), ("//", "\n")]      [("\"", "\"")] )
+    ,   (Go,         mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Haskell,    mkContextFilterFun [("{-", "-}"), ("--", "\n")]  [("\"", "\""), ("[r|", "|]"), ("[q|", "|]"), ("[s|", "|]"), ("[here|","|]"), ("[i|", "|]")] )
+    ,   (Html,       mkContextFilterFun [("<!--", "-->")]  [("\"", "\"")] )
+    ,   (Idris,      mkContextFilterFun [("{-", "-}"), ("--", "\n"), ("|||", "\n")] [("\"", "\"")] )
+    ,   (Java,       mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Javascript, mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Latex,      mkContextFilterFun [("%", "\n")]  [("\"", "\"")] )
+    ,   (Lua,        mkContextFilterFun [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] )
+    ,   (Make,       mkContextFilterFun [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
+    ,   (OCaml,      mkContextFilterFun [("(*", "*)")] [("\"", "\"")] )
+    ,   (ObjectiveC, mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (PHP,        mkContextFilterFun [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
+    ,   (Perl,       mkContextFilterFun [("=pod", "=cut"), ("#", "\n")]   [("'", "'"), ("\"", "\"")] )
+    ,   (Python,     mkContextFilterFun [("#", "\n")]  [("\"\"\"", "\"\"\""), ("'''", "'''"), ("'", "'"), ("\"", "\"")] )
+    ,   (Ruby,       mkContextFilterFun [("=begin", "=end"), ("#", "\n")] [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ])
+    ,   (Scala,      mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Shell,      mkContextFilterFun [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
+    ,   (Tcl,        mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
+    ,   (VHDL,       mkContextFilterFun [("--", "\n")] [("\"", "\"")] )
+    ,   (Verilog,    mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    ,   (Vim,        mkContextFilterFun [("\"", "\n")] [("'", "'")] )
     ]
+
 

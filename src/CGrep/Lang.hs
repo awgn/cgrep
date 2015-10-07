@@ -28,9 +28,10 @@ import Data.Maybe
 import Options
 import Util
 
-data Lang = Awk | C | Cpp | Cabal | Csharp | Chapel | Coffee | Conf | Css | CMake | D | Erlang | Fsharp | Go | Haskell |
-            Html | Java | Javascript | Latex | Lua | Make | OCaml | ObjectiveC |
-            Perl | PHP | Python | Ruby | Scala | Tcl | Text | Shell | Verilog | VHDL | Vim
+data Lang = Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
+            D | Elixir | Erlang | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Latex |
+            Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Tcl |
+            Text | VHDL | Verilog | Vim
                 deriving (Read, Show, Eq, Ord, Bounded)
 
 
@@ -48,42 +49,44 @@ type LangRevMapType = Map.Map FileType Lang
 
 
 langMap :: LangMapType
-langMap = Map.fromList [
-    (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"]),
-    (C,         [Ext "c", Ext "C"]),
-    (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"]),
-    (Cabal,     [Ext "cabal"]),
-    (Csharp,    [Ext "cs", Ext "CS"]),
-    (Coffee,    [Ext "coffee"]),
-    (Conf,      [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"]),
-    (Chapel,    [Ext "chpl"]),
-    (Css,       [Ext "css"]),
-    (CMake,     [Name "CMakeLists.txt", Ext "cmake"]),
-    (D,         [Ext "d", Ext "D"]),
-    (Erlang,    [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"]),
-    (Fsharp,    [Ext "fs", Ext "fsx", Ext "fsi"]),
-    (Go,        [Ext "go"]),
-    (Haskell,   [Ext "hs", Ext "lhs", Ext "hsc"]),
-    (Html,      [Ext "htm", Ext "html"]),
-    (Java,      [Ext "java"]),
-    (Javascript,[Ext "js"]),
-    (Latex,     [Ext "latex", Ext "tex"]),
-    (Lua,       [Ext "lua"]),
-    (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"]),
-    (OCaml ,    [Ext "ml", Ext "mli"]),
-    (ObjectiveC,[Ext "m", Ext "mi"]),
-    (Perl,      [Ext "pl", Ext "pm", Ext "pm6", Ext "plx", Ext "perl"]),
-    (PHP,       [Ext "php", Ext "php3", Ext "php4", Ext "php5",Ext "phtml"]),
-    (Python,    [Ext "py", Ext "pyx", Ext "pxd", Ext "pxi", Ext "scons"]),
-    (Ruby,      [Ext "rb", Ext "ruby"]),
-    (Scala,     [Ext "scala"]),
-    (Tcl,       [Ext "tcl", Ext "tk"]),
-    (Text,      [Ext "txt", Ext "md", Ext "markdown", Ext "mdown", Ext "mkdn", Ext "mkd", Ext "mdwn", Ext "mdtxt", Ext "mdtext", Ext "text",
-                 Name "README", Name "INSTALL", Name "VERSION", Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"]),
-    (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]),
-    (Verilog,   [Ext "v", Ext "vh", Ext "sv"]),
-    (VHDL,      [Ext "vhd", Ext "vhdl"]),
-    (Vim,       [Ext "vim"])
+langMap = Map.fromList
+    [  (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"])
+    ,  (C,         [Ext "c", Ext "C"])
+    ,  (CMake,     [Name "CMakeLists.txt", Ext "cmake"])
+    ,  (Cabal,     [Ext "cabal"])
+    ,  (Chapel,    [Ext "chpl"])
+    ,  (Clojure,   [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"])
+    ,  (Coffee,    [Ext "coffee"])
+    ,  (Conf,      [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"])
+    ,  (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"])
+    ,  (Csharp,    [Ext "cs", Ext "CS"])
+    ,  (Css,       [Ext "css"])
+    ,  (D,         [Ext "d", Ext "D"])
+    ,  (Elixir,    [Ext "ex", Ext "exs"])
+    ,  (Erlang,    [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"])
+    ,  (Fsharp,    [Ext "fs", Ext "fsx", Ext "fsi"])
+    ,  (Go,        [Ext "go"])
+    ,  (Haskell,   [Ext "hs", Ext "lhs", Ext "hsc"])
+    ,  (Html,      [Ext "htm", Ext "html"])
+    ,  (Idris,     [Ext "idr", Ext "lidr"])
+    ,  (Java,      [Ext "java"])
+    ,  (Javascript,[Ext "js"])
+    ,  (Latex,     [Ext "latex", Ext "tex"])
+    ,  (Lua,       [Ext "lua"])
+    ,  (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"])
+    ,  (OCaml ,    [Ext "ml", Ext "mli"])
+    ,  (ObjectiveC,[Ext "m", Ext "mi"])
+    ,  (PHP,       [Ext "php", Ext "php3", Ext "php4", Ext "php5",Ext "phtml"])
+    ,  (Perl,      [Ext "pl", Ext "pm", Ext "pm6", Ext "plx", Ext "perl"])
+    ,  (Python,    [Ext "py", Ext "pyx", Ext "pxd", Ext "pxi", Ext "scons"])
+    ,  (Ruby,      [Ext "rb", Ext "ruby"])
+    ,  (Scala,     [Ext "scala"])
+    ,  (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"])
+    ,  (Tcl,       [Ext "tcl", Ext "tk"])
+    ,  (Text,      [Ext "txt", Ext "md", Ext "markdown", Ext "mdown", Ext "mkdn", Ext "mkd", Ext "mdwn", Ext "mdtxt", Ext "mdtext", Ext "text", Name "README", Name "INSTALL", Name "VERSION", Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"])
+    ,  (VHDL,      [Ext "vhd", Ext "vhdl"])
+    ,  (Verilog,   [Ext "v", Ext "vh", Ext "sv"])
+    ,  (Vim,       [Ext "vim"])
     ]
 
 
