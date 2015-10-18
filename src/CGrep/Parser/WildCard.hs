@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Semantic.WildCard (WildCard(..), MultiCard,
+module CGrep.Parser.WildCard (WildCard(..), MultiCard,
                                 mkWildCardFromToken,
                                 combineMultiCard,
                                 filterTokensWithMultiCards,
@@ -27,7 +27,7 @@ import qualified Data.Map as M
 
 import CGrep.Common
 import CGrep.Distance
-import CGrep.Semantic.Token
+import CGrep.Parser.Token
 
 import Data.Char
 import Data.List

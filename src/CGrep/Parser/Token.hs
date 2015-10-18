@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Semantic.Token (SemanticToken(..)) where
+module CGrep.Parser.Token (SemanticToken(..)) where
 
 
 class (Show t, Ord t) => SemanticToken t where

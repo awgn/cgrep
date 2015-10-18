@@ -20,13 +20,14 @@ module CGrep.Common (Text8,
                      getTargetName,
                      getTargetContents,
                      quickSearch,
-                     runSearch,
+                     runQuickSearch,
                      expandMultiline,
                      ignoreCase,
                      trim, trim8) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
+
 import Data.Char
 
 import Control.Monad.Trans.Reader
@@ -62,11 +63,11 @@ quickSearch opt ps text
     where has_pattern pat = notNull $ pat `SC.nonOverlappingIndices` text
 
 
-runSearch :: FilePath
+runQuickSearch :: FilePath
           -> Maybe Bool                     -- quicksearch
           -> ReaderT Options IO [Output]
           -> ReaderT Options IO [Output]
-runSearch filename quick doSearch =
+runQuickSearch filename quick doSearch =
     if maybe False not quick
         then mkOutput filename C.empty C.empty []
         else doSearch
@@ -79,7 +80,7 @@ expandMultiline Options { multiline = n } xs
 
 
 ignoreCase :: Options -> Text8 -> Text8
-ignoreCase Options { ignore_case = icase }
-    | icase  =  C.map toLowercase
+ignoreCase opt
+    | ignore_case opt =  C.map toLowercase
     | otherwise = id
 

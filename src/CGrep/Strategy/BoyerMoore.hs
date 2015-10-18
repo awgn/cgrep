@@ -40,41 +40,35 @@ import Debug
 
 
 search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
-search f ps = do
+search f patterns = do
 
-    opt <- ask
+    opt  <- ask
+    text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
 
-    text <- liftIO $ getTargetContents f
-
     -- transform text
 
-    let text' = ignoreCase opt text
+    let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
+                                                 , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                                 , ignoreCase opt
+                                                 ]
 
-    -- put banners...
+    putStrLevel1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
 
-    putStrLevel1 $ "strategy  : running string search on " ++ filename ++ "..."
-
-    runSearch filename (quickSearch opt ps text') $ do
-
-        -- context filter
-
-        let text''  = contextFilter (getFileLang opt filename) (mkContextFilter opt) text'
-
-        -- expand multi-line
-
-            text''' = expandMultiline opt text''
+    runQuickSearch filename (quickSearch opt patterns text') $ do
 
         -- search for matching tokens
 
-            tokens  = map (A.second C.unpack) $ ps >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
+        let tokens  = map (A.second C.unpack) $ patterns >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
 
         -- filter exact/partial matching tokens
 
             tokens' = if word_match opt || prefix_match opt || suffix_match opt
                         then filter (checkToken opt text''') tokens
                         else tokens
+
+        -- print banners...
 
         putStrLevel2 $ "tokens    : " ++ show tokens
         putStrLevel2 $ "tokens'   : " ++ show tokens'

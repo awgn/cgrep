@@ -16,7 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.CGrep (sanitizeOptions, cgrepDispatch) where
+module CGrep.CGrep (sanitizeOptions, runCgrep) where
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
@@ -56,19 +56,20 @@ sanitizeOptions path opt =
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options
-    { identifier = i
-    , keyword    = k
-    , directive  = d
-    , header     = h
-    , number     = n
-    , string     = s
-    , char       = c
-    , oper       = o
-    } = i || k || d || h || n || s || c || o
+  { identifier = i
+  , keyword    = k
+  , directive  = d
+  , header     = h
+  , number     = n
+  , string     = s
+  , char       = c
+  , oper       = o
+  } = i || k || d || h || n || s || c || o
 
 
-cgrepDispatch :: FilePath -> [Text8] -> ReaderT Options IO [Output]
-cgrepDispatch filename patterns = do
+
+runCgrep :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+runCgrep filename patterns = do
     opt <- ask
     case () of
         _ | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns

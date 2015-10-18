@@ -19,7 +19,7 @@
 module CGrep.Strategy.Cpp.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified CGrep.Semantic.Cpp.Token as Cpp
+import qualified CGrep.Parser.Cpp.Token as Cpp
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
@@ -40,33 +40,29 @@ search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
 search f ps = do
 
     opt <- ask
+    text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
 
-    text <- liftIO $ getTargetContents f
-
     -- transform text
 
-    let text' = ignoreCase opt text
-        filt  = (mkContextFilter opt) { getFilterComment = False }
+    let filt = (mkContextFilter opt) { getFilterComment = False }
+
+        [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
+                                                 , contextFilter (getFileLang opt filename) filt
+                                                 , ignoreCase opt
+                                                 ]
+
 
     putStrLevel1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
     --quickSearch ...
 
-    runSearch filename (quickSearch opt ps text') $ do
-
-        -- context filter
-
-        let text'' = contextFilter (getFileLang opt filename) filt text'
-
-        -- expand multi-line
-
-            text''' = expandMultiline opt text''
+    runQuickSearch filename (quickSearch opt ps text') $ do
 
         -- parse source code, get the Cpp.Token list...
 
-            tokens = Cpp.tokenizer text'''
+        let tokens = Cpp.tokenizer text'''
 
         -- context-filterting...
 

@@ -37,30 +37,24 @@ import Debug
 
 
 search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
-search f ps = do
+search f patterns = do
 
     opt <- ask
+    text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
 
-    text <- liftIO $ getTargetContents f
-
     -- transform text
 
-    let text' = expandMultiline opt . ignoreCase opt $ text
-
-    -- context filter
-
-        text'' = contextFilter (getFileLang opt filename) (mkContextFilter opt) text'
-
-    -- expand multi-line
-
-        text''' = expandMultiline opt text''
+    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
+                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                              , ignoreCase opt
+                                              ]
 
     -- search for matching tokens
 
         tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
-                    concatMap elems $ ps >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)))
+                    concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)))
 
     putStrLevel1 $ "strategy  : running regex search on " ++ filename ++ "..."
     putStrLevel2 $ "tokens    : " ++ show tokens

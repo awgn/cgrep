@@ -35,34 +35,34 @@ import Debug
 
 
 search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
-search f ps = do
+search f patterns = do
 
     opt <- ask
+    text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
 
-    text <- liftIO $ getTargetContents f
-
     -- transform text
 
-    let text' = ignoreCase opt . contextFilter (getFileLang opt filename) (mkContextFilter opt) $ text
-
-        text'' = expandMultiline opt text'
+    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
+                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                              , ignoreCase opt
+                                              ]
 
     -- parse source code, get the Cpp.Token list...
 
-        tokens' = tokenizer text''
+        tokens' = tokenizer text'''
 
     -- filter tokens...
 
-        patterns = map C.unpack ps
+        patterns' = map C.unpack patterns
 
-        matches  = filter (\t -> any (\p -> p ~== snd t) patterns) tokens'
+        matches  = filter (\t -> any (\p -> p ~== snd t) patterns') tokens'
 
     putStrLevel1 $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
     putStrLevel2 $ "tokens    : " ++ show tokens'
     putStrLevel2 $ "matches   : " ++ show matches
-    putStrLevel3 $ "---\n" ++ C.unpack text'' ++ "\n---"
+    putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-    mkOutput filename text text'' matches
+    mkOutput filename text text''' matches
 

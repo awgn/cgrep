@@ -127,7 +127,7 @@ parallelSearch conf paths patterns langs (isTermIn, _) = do
                     [] -> atomically $ writeTChan out_chan []
                     xs -> void ((if asynch opts then flip mapConcurrently
                                                 else forM) xs $ \x -> do
-                                                    out <- fmap (take (max_count opts)) (runReaderT (cgrepDispatch x patterns) (sanitizeOptions x opts))
+                                                    out <- fmap (take (max_count opts)) (runReaderT (runCgrep x patterns) (sanitizeOptions x opts))
                                                     unless (null out) $ atomically $ writeTChan out_chan out)
                    )
                    (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFile opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))

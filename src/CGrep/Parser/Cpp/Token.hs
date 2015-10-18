@@ -18,7 +18,7 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Semantic.Cpp.Token(Token(..), TokenFilter(..),
+module CGrep.Parser.Cpp.Token(Token(..), TokenFilter(..),
                        Offset, tokenizer, tokenFilter, tokenCompare,
                        isIdentifier, isKeyword, isDirective, isLiteralNumber,
                        isHeaderName, isString, isChar, isOperOrPunct
@@ -33,7 +33,7 @@ import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.Semantic.Token
+import CGrep.Parser.Token
 
 data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
 type Source         = C.ByteString
@@ -217,7 +217,7 @@ getToken (TokenizerState xs off state) =
         len      = fromIntegral $ length tstring
         (xs', w) = dropWhite $ C.drop (fromIntegral len) xs
     in
-        (token { toOffset = off }, (TokenizerState xs' (off + len + w) (nextCppState tstring state)))
+        (token { toOffset = off }, TokenizerState xs' (off + len + w) (nextCppState tstring state))
 
 
 getTokenIdOrKeyword, getTokenNumber,

@@ -37,10 +37,10 @@ version = "6.5.7"
 
 
 data Config = Config
-    {   configLanguages  :: [Lang]
-    ,   configPruneDirs  :: [String]
-    ,   configAutoColor  :: Bool
-    } deriving (Show, Read)
+  {   configLanguages  :: [Lang]
+  ,   configPruneDirs  :: [String]
+  ,   configAutoColor  :: Bool
+  } deriving (Show, Read)
 
 
 
@@ -53,7 +53,9 @@ getConfig :: IO Config
 getConfig = do
     home  <- getHomeDirectory
     confs <- filterM doesFileExist ["." ++ cgreprc, home </> "." ++ cgreprc, "/etc" </> cgreprc]
-    if notNull confs then liftM dropComments (readFile (head confs)) >>= \xs ->
-                            return (prettyRead xs "Config error" :: Config)
-                    else return $ Config [] [] False
+    if notNull confs
+        then liftM dropComments (readFile (head confs)) >>= \xs ->
+              return (prettyRead xs "Config error" :: Config)
+        else return $ Config [] [] False
+
 

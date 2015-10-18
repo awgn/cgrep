@@ -19,15 +19,15 @@
 module CGrep.Strategy.Generic.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified CGrep.Semantic.Generic.Token as Generic
+import qualified CGrep.Parser.Generic.Token as Generic
 
 import CGrep.Filter
 import CGrep.Lang
 import CGrep.Common
 import CGrep.Output
 
-import CGrep.Semantic.Token
-import CGrep.Semantic.WildCard
+import CGrep.Parser.Token
+import CGrep.Parser.WildCard
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
@@ -45,10 +45,9 @@ search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
 search f ps = do
 
     opt <- ask
+    text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
-
-    text <- liftIO $ getTargetContents f
 
     -- transform text
 
@@ -59,8 +58,8 @@ search f ps = do
     -- pre-process patterns
 
         patterns   = map (Generic.tokenizer . contextFilter (getFileLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkWildCardFromToken) patterns                                  -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineMultiCard . map (:[])) patterns'                            -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+        patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
     -- quickSearch ...
 
@@ -79,7 +78,7 @@ search f ps = do
     putStrLevel2 $ "identif   : " ++ show ps'
 
 
-    runSearch filename (quickSearch opt (map C.pack ps') text') $ do
+    runQuickSearch filename (quickSearch opt (map C.pack ps') text') $ do
 
         -- context filter
 
