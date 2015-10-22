@@ -1,91 +1,74 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-us">
   <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
-
+    <meta charset="UTF-8">
     <title>Cgrep by awgn</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
   </head>
-
   <body>
+    <section class="page-header">
+      <h1 class="project-name">Cgrep</h1>
+      <h2 class="project-tagline">Cgrep: a context-aware grep for source codes</h2>
+      <a href="https://github.com/awgn/cgrep" class="btn">View on GitHub</a>
+      <a href="https://github.com/awgn/cgrep/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/awgn/cgrep/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
 
-    <header>
-      <div class="container">
-        <h1>Cgrep</h1>
-        <h2>Cgrep: a context-aware grep for source codes</h2>
-
-        <section id="downloads">
-          <a href="https://github.com/awgn/cgrep/tarball/master" class="btn">Download as .tar.gz</a>
-          <a href="https://github.com/awgn/cgrep" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
-
-        </section>
-      </div>
-    </header>
-
-    <div class="container">
-      <section id="main_content">
-        <h3>
+    <section class="main-content">
+      <h3>
 <a id="welcome-to-cgrep-home-page" class="anchor" href="#welcome-to-cgrep-home-page" aria-hidden="true"><span class="octicon octicon-link"></span></a>Welcome to CGrep Home-Page.</h3>
 
 <blockquote>
-<p>Cgrep is a grep tool suitable for searching in large code repositories. It supports several programming languages and searches that go beyond the simple pattern matching. 
-It enables context-aware filtering and semantic searches through wildcard and combinators. </p>
+<p>Cgrep is a grep tool suitable for searching in large code repositories. It supports several programming languages and searches that go beyond the simple pattern matching. It enables context-aware filtering and semantic searches through wildcard and combinators.</p>
 </blockquote>
 
 <h3>
 <a id="features" class="anchor" href="#features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h3>
 
 <ul>
-<li><p><strong>Fine grained Multi-threading</strong> with configurable number of jobs, physical cores used and chunks.</p></li>
-<li><p><strong>Blazing fast</strong>. Running on a single core it is nearly as fast as GNU grep, up to 6x times faster than <em>ack</em>.</p></li>
+<li><p><strong>Fine grained Multi-threading</strong> with configurable number of jobs, tasks, physical cores and chunks.</p></li>
+<li><p><strong>Blazing fast</strong>. Running on a single core it is nearly as fast as GNU grep, up to 6x times faster than <a href="http://beyondgrep.com/">ack</a>.</p></li>
 <li><p><strong>Multi-line</strong> pattern searches.</p></li>
-<li><p><strong>Colors</strong> that highlight tokens and strings matching.</p></li>
-<li><p><strong>Recursive searches</strong>. Support of language filters and pruned directories.</p></li>
-<li><p><strong>Standard searches</strong>. Searches with Boyer–Moore and Posix regular expressions.</p></li>
-<li><p><strong>Code Tokenizer</strong>. Searches within tokens, as prefix, infix, or suffix sub strings or by means of the edit distance (Levenshtein).</p></li>
-<li><p><strong>Context-aware filters</strong>. Filters distinguish among <strong>code</strong>, <strong>comments</strong> and <strong>literals</strong> int different programming languages.</p></li>
+<li><p><strong>Automatic coloring</strong> of tokens and strings matching when the output device is a terminal.</p></li>
+<li><p><strong>Recursive searches</strong>. Support of language filters and pruned directories, with local or global configurations (cgreprc).</p></li>
+<li><p><strong>Classic searches</strong> with Boyer–Moore algorithm and Posix regular expressions.</p></li>
+<li><p><strong>Code Tokenizer</strong>. Searches within tokens, as prefix, infix, or suffix sub-strings and by means of the edit distance (Levenshtein).</p></li>
+<li><p><strong>Context-aware filters</strong>. Filters distinguish among code, comments and literals in different programming languages.</p></li>
 <li><p><strong>Languages support</strong> for Awk, C, CMake, Cabal, Chapel, Clojure, Coffee, Conf, Cpp, Csharp, Css, D, Elixir, Erlang, Fsharp, Go, Haskell, Html, Idris, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC, PHP, Perl, Python, Ruby, Scala, Shell, Tcl, Text, VHDL, Verilog, Vim.</p></li>
 <li><p><strong>Semantic searches</strong> through wildcards and combinators. _, _1, _2..., $, $1, $2..., ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. E.g. "_1(_1 &amp;&amp; $)" search for move constructors, "struct OR class _ { OR : OR &lt;" search for class declarations.</p></li>
-<li><p><strong>Customizable output</strong> with format string, XML and JSON back-ends.</p></li>
+<li><p><strong>Customizable</strong> output with format string, XML and JSON back-ends.</p></li>
 </ul>
 
 <h3>
-<a id="hackage" class="anchor" href="#hackage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Hackage</h3>
+<a id="install" class="anchor" href="#install" aria-hidden="true"><span class="octicon octicon-link"></span></a>Install</h3>
 
 <ul>
-<li>Cgrep is available from <a href="http://hackage.haskell.org/package/cgrep">Hackage</a> and can be installed using the cabal utility.</li>
-
-<p> With cabal:</p>
-<code>cabal install cgrep</code>
-
-<p> With  stack:</p>
-<code>stack install cgrep</code>
-
+<li>Cgrep is available from <a href="http://hackage.haskell.org/package/cgrep">Hackage</a> and can be installed using <a href="https://www.haskell.org/cabal/">cabal</a> or <a href="https://www.stackage.org/">stack</a> tool.</li>
 </ul>
 
-<h3>
-<a id="binary-releases" class="anchor" href="#binary-releases" aria-hidden="true"><span class="octicon octicon-link"></span></a>Binary Releases</h3>
+<p><code>cabal install cgrep</code></p>
 
-<ul>
-<li>The packages for AMD64 Debian Wheezy and Jessie are available at <a href="https://github.com/awgn/cgrep/releases">https://github.com/awgn/cgrep/releases</a>
-</li>
-</ul>
+<p>or</p>
+
+<p><code>stack install cgrep</code></p>
 
 <h3>
 <a id="author" class="anchor" href="#author" aria-hidden="true"><span class="octicon octicon-link"></span></a>Author</h3>
 
-<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+<p>Nicola Bonelli <a href="mailto:nicola@pfq.io">nicola@pfq.io</a></p>
 
-<p>Nicola Bonelli <a href="mailto:nicola@pfq.io">nicola@pfq.io</a>    
-<a href="https://twitter.com/nicolabonelli" class="twitter-follow-button" data-show-count="false">Follow @nicolabonelli</a>
-</p>
-      </section>
-    </div>
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/awgn/cgrep">Cgrep</a> is maintained by <a href="https://github.com/awgn">awgn</a>.</span>
 
-    
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
   </body>
 </html>
