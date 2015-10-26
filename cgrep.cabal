@@ -14,6 +14,10 @@ Build-type:          Simple
 Extra-source-files:  README.md
 Cabal-version:       >=1.10
 
+Flag UsePcreRegexes
+  Description: Use PCRE instead of Posix regexes
+  Default:     False
+
 Executable cgrep
   Main-Is:             Main.hs
   Hs-Source-Dirs:      src
@@ -41,7 +45,6 @@ Executable cgrep
                        safe >=0.3, 
                        stringsearch >=0.3, 
                        unordered-containers >=0.1, 
-                       regex-posix >=0.90,
                        either >= 4.0,
                        mtl >= 2.0,
                        unix-compat >= 0.4,
@@ -49,3 +52,9 @@ Executable cgrep
                        transformers
   Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
   Default-language:    Haskell2010
+
+  if flag(UsePcreRegexes)
+    Build-Depends: regex-pcre >=0.90
+    Cpp-options: -DENABLE_PCRE
+  else
+    Build-Depends: regex-posix >=0.90
