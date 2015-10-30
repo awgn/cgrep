@@ -24,7 +24,11 @@ import qualified Data.ByteString.Char8 as C
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+
+import Text.Regex.Base
 import Text.Regex.Posix
+import Text.Regex.PCRE
+
 import Data.Array
 
 import CGrep.Common
@@ -34,6 +38,7 @@ import CGrep.Lang
 
 import Options
 import Debug
+
 
 
 search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
@@ -53,10 +58,12 @@ search f patterns = do
 
     -- search for matching tokens
 
-        tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
-                    concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~ p :: (Array Int) (MatchText Text8)))
+        (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
 
-    putStrLevel1 $ "strategy  : running regex search on " ++ filename ++ "..."
+        tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
+                    concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
+
+    putStrLevel1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."
     putStrLevel2 $ "tokens    : " ++ show tokens
     putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
