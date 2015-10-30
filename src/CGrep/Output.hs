@@ -221,13 +221,19 @@ showLine Options { color = c } ts l
 
 
 hilightLine :: [Token] -> String -> String
-hilightLine ts =  hilightLine' (hilightIndicies ts, 0)
-    where hilightLine' :: ([Int],Int) -> String -> String
+hilightLine ts =  hilightLine' (hilightIndicies ts, 0, 0)
+    where hilightLine' :: ([(Int, Int)], Int, Int) -> String -> String
           hilightLine'  _ [] = []
-          hilightLine' (ns,n) (x:xs) = (if n `elem` ns then bold ++ [x] ++ resetTerm
-                                                       else [x]) ++ hilightLine' (ns, n+1) xs
+          hilightLine' (ns, n, bs) (x:xs) = (case () of
+                                                 _ | check && bs' == 0 -> if fst stack > 0 then bold ++ [x] ++ resetTerm
+                                                                                           else x : resetTerm
+                                                   | check && bs' > 0 -> bold ++ [x]
+                                                   | otherwise -> [x]
+                                            ) ++ hilightLine' (ns, n+1, bs') xs
+            where stack = foldr (\(a, b) (c, d) -> (c + fromEnum (a == n), d + fromEnum (b == n))) (0, 0) ns
+                  check = fst stack > 0 || snd stack > 0
+                  bs' = bs + fst stack - snd stack
 
-
-hilightIndicies :: [Token] -> [Int]
-hilightIndicies = concatMap (\(o, s) -> take (length s) [o..])
+hilightIndicies :: [Token] -> [(Int, Int)]
+hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) []
 
