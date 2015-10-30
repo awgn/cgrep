@@ -4,19 +4,20 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.5.8 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.5.9 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
 Pattern:
 
-    -f --file=FILE            read PATTERNs from file (one per line)
-    -w --word                 force word matching
-    -p --prefix               force prefix matching
-    -s --suffix               force suffix matching
-    -e --edit                 use edit distance
-    -i --ignore-case          ignore case distinctions
-    -G --regex                regex matching
+    -f --file=FILE            Read PATTERNs from file (one per line)
+    -w --word                 Force word matching
+    -p --prefix               Force prefix matching
+    -s --suffix               Force suffix matching
+    -e --edit                 Use edit distance
+    -G --regex                Use regex matching (posix)
+    -P --regex-pcre           Use regex matching (pcre)
+    -i --ignore-case          Ignore case distinctions
 
 Context filters (generic):
 

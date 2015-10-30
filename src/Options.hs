@@ -29,8 +29,9 @@ data Options = Options
     ,   prefix_match        :: Bool
     ,   suffix_match        :: Bool
     ,   edit_dist           :: Bool
+    ,   regex_posix         :: Bool
+    ,   regex_pcre          :: Bool
     ,   ignore_case         :: Bool
-    ,   regex               :: Bool
     -- Context:
     ,   code                :: Bool
     ,   comment             :: Bool

@@ -67,17 +67,19 @@ hasTokenizerOpt Options
   } = i || k || d || h || n || s || c || o
 
 
+isRegexp :: Options -> Bool
+isRegexp opt = regex_posix opt || regex_pcre opt
 
 runCgrep :: FilePath -> [Text8] -> ReaderT Options IO [Output]
 runCgrep filename patterns = do
     opt <- ask
     case () of
-        _ | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
-          | not (regex opt) && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
-          | not (regex opt) && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
-          | not (regex opt) && semantic opt                                                     -> Semantic.search filename patterns
-          | not (regex opt)                                                                     -> CppTokenizer.search filename patterns
-          | regex opt                                                                           -> Regex.search filename patterns
-          | otherwise                                                                           -> undefined
+        _ | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
+          | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
+          | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
+          | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
+          | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
+          | isRegexp opt                                                                             -> Regex.search filename patterns
+          | otherwise                                                                                -> undefined
 
 
