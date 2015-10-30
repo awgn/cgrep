@@ -24,11 +24,7 @@ import qualified Data.ByteString.Char8 as C
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
-#ifdef ENABLE_PCRE
-import Text.Regex.PCRE
-#else
 import Text.Regex.Posix
-#endif
 import Data.Array
 
 import CGrep.Common
