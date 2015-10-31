@@ -50,7 +50,7 @@ data Output = Output FilePath Int Text8 [Token]
 
 
 getOffsetsLines :: Text8 -> [Int]
-getOffsetsLines = C.elemIndices '\n'
+getOffsetsLines txt = let l = C.length txt in filter (<(l-1)) $ C.elemIndices '\n' txt
 
 
 getOffset2d :: [OffsetLine] -> Offset -> Offset2d
