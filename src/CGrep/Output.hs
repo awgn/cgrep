@@ -63,10 +63,9 @@ getOffset2d idx off = let prc =  fst $ partition (< off) idx in
 mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> ReaderT Options m [Output]
 mkOutput f text multi ts = do
     invert <- reader invert_match
-    case () of
-        _ | invert      -> return $ map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
-          | otherwise   -> return $ map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
-            where ls = C.lines text
+    return $ if invert then map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
+                       else map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
+    where ls = C.lines text
 
 
 mkMatchLines :: Text8 -> [Token] -> [MatchLine]
