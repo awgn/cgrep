@@ -35,7 +35,6 @@ import Control.Monad.IO.Class
 
 import Data.Maybe
 import Data.List
-import Data.List.Split
 import Data.Function
 
 import CGrep.Types
@@ -148,10 +147,11 @@ xmlOutput outs = return $
                                                     unwords (map mkToken ts) ++
                                                     "</match>"
 
+
 formatOutput :: (Monad m) => Output -> ReaderT Options m String
 formatOutput (Output f n l ts) = do
     opt <- ask
-    return $ foldl trans (fromJust $ format opt)
+    return $ replace (fromJust $ format opt)
         [
             ("#f", showFile opt f),
             ("#n", show n),
@@ -171,12 +171,15 @@ formatOutput (Output f n l ts) = do
             ("#8", atDef "" ts' 8),
             ("#9", atDef "" ts' 9)
         ]
-    where trans str (old, new) = replace old new str
-          ts' = map snd ts
+    where ts' = map snd ts
 
 
-replace :: Eq a => [a] -> [a] -> [a] -> [a]
-replace old new = intercalate new . splitOn old
+replace :: String -> [(String, String)] -> String
+replace ys@(x:xs) pats =
+  let pats' = filter ((`isPrefixOf` ys) . fst) pats  in
+  if null pats' then x : replace xs pats
+                else let new = head pats' in snd new ++ replace (drop (length(fst new) - 1) xs) pats
+replace [] _ = []
 
 
 #ifdef ENABLE_HINT
