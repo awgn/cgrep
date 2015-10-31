@@ -243,5 +243,5 @@ hilightLine ts =  hilightLine' (hilightIndicies ts, 0, 0)
                   (next, rest) = splitAt nn s
 
 hilightIndicies :: [Token] -> [(Int, Int)]
-hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) []
+hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) [] . filter ((>0) . length . snd)
 
