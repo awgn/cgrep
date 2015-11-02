@@ -20,6 +20,7 @@ module Main where
 
 import Data.List
 import Data.List.Split
+import qualified Data.Map as M
 import Data.Maybe
 import Data.Char
 import Data.Data()
@@ -50,6 +51,7 @@ import CGrep.CGrep
 import CGrep.Lang
 import CGrep.Output
 import CGrep.Common
+import CGrep.Parser.WildCard
 
 import CmdOptions
 import Options
@@ -211,7 +213,10 @@ main = do
     patterns <- if null (file opts) then return $ (if isTermIn then (:[]) . head else id) $ map C.pack (others opts)
                                     else readPatternsFromFile $ file opts
 
-    let patterns' = map (if ignore_case opts then C.map toLower else id) patterns
+    let patterns' = map (if ignore_case opts then ic else id) patterns
+            where ic | (not . isRegexp) opts && semantic opts = C.unwords . map (\p -> if C.unpack p `M.member` wildCardTokens then p else C.map toLower p) . C.words
+                     | otherwise = C.map toLower
+                        where wildCardTokens = wildCardMap `M.union` M.singleton "OR" AnyCard   -- "OR" is not included in wildCardMap
 
     -- load files to parse:
 
@@ -228,7 +233,7 @@ main = do
     runReaderT (do putStrLevel1 $ "Cgrep " ++ version ++ "!"
                    putStrLevel1 $ "options   : " ++ show opts
                    putStrLevel1 $ "languages : " ++ show langs
-                   putStrLevel1 $ "pattern   : " ++ show patterns
+                   putStrLevel1 $ "pattern   : " ++ show patterns'
                    putStrLevel1 $ "files     : " ++ show paths
                    putStrLevel1 $ "isTermIn  : " ++ show isTermIn
                    putStrLevel1 $ "isTermOut : " ++ show isTermOut
