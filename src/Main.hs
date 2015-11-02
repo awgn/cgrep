@@ -214,9 +214,9 @@ main = do
                                     else readPatternsFromFile $ file opts
 
     let patterns' = map (if ignore_case opts then ic else id) patterns
-            where ic | (not . isRegexp) opts && semantic opts = C.unwords . map (\p -> if C.unpack p `M.member` wildCardTokens then p else C.map toLower p) . C.words
+            where ic | (not . isRegexp) opts && semantic opts = C.unwords . map (\p -> if C.unpack p `elem` wildCardTokens then p else C.map toLower p) . C.words
                      | otherwise = C.map toLower
-                        where wildCardTokens = wildCardMap `M.union` M.singleton "OR" AnyCard   -- "OR" is not included in wildCardMap
+                        where wildCardTokens = "OR" : M.keys wildCardMap   -- "OR" is not included in wildCardMap
 
     -- load files to parse:
 
