@@ -20,6 +20,7 @@ module CGrep.Parser.WildCard (WildCard(..), MultiCard,
                                 mkWildCardFromToken,
                                 combineMultiCard,
                                 filterTokensWithMultiCards,
+                                wildCardMap,
                                 wildCardMatch,
                                 multiCardMatch) where
 
