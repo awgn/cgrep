@@ -100,7 +100,7 @@ lookupFileLang f = Map.lookup (Name $ takeFileName f) langRevMap <|> Map.lookup 
 
 
 forcedLang :: Options -> Maybe Lang
-forcedLang Options{ force_language = l }
+forcedLang Options{ language_force = l }
     | Nothing <- l = Nothing
     | otherwise    = Map.lookup (Ext $ fromJust l) langRevMap <|> Map.lookup (Name $ fromJust l) langRevMap
 

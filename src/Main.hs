@@ -202,7 +202,7 @@ main = do
 
     -- display lang-map and exit...
 
-    when (lang_maps opts) $ dumpLangMap langMap >> exitSuccess
+    when (language_map opts) $ dumpLangMap langMap >> exitSuccess
 
     -- check whether patterns list is empty, display help message if it's the case
 
@@ -224,7 +224,7 @@ main = do
 
     -- parse cmd line language list:
 
-    let (l0, l1, l2) = splitLangList (lang opts)
+    let (l0, l1, l2) = splitLangList (language_filter opts)
 
     -- language enabled:
 

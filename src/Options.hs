@@ -50,9 +50,9 @@ data Options = Options
     -- Output:
     ,   no_filename         :: Bool
     ,   no_linenumber       :: Bool
-    ,   lang                :: [String]
-    ,   lang_maps           :: Bool
-    ,   force_language      :: Maybe String
+    ,   language_filter     :: [String]
+    ,   language_force      :: Maybe String
+    ,   language_map        :: Bool
     -- General:
     ,   multiline           :: Int
     ,   recursive           :: Bool
