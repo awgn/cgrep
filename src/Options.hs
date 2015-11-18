@@ -53,6 +53,7 @@ data Options = Options
     ,   language_filter     :: [String]
     ,   language_force      :: Maybe String
     ,   language_map        :: Bool
+    ,   magic_filter        :: [String]
     -- General:
     ,   multiline           :: Int
     ,   recursive           :: Bool

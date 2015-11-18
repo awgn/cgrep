@@ -46,6 +46,7 @@ import System.Environment
 import System.PosixCompat.Files
 import System.IO
 import System.Exit
+import System.Process (readProcess)
 
 import CGrep.CGrep
 import CGrep.Lang
@@ -62,6 +63,14 @@ import Config
 import qualified Data.ByteString.Char8 as C
 
 
+fileFilter :: Options -> [Lang] -> FilePath -> Bool
+fileFilter opts langs filename = maybe False (`elem` langs) (getFileLang opts filename)
+
+
+getFilesMagic :: [FilePath] -> IO [String]
+getFilesMagic filenames = fmap lines $ readProcess "/usr/bin/file" (["-b" ] ++ filenames) []
+
+
 -- push file names in Chan...
 
 withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
@@ -69,13 +78,19 @@ withRecursiveContents opts dir langs prunedir visited action = do
     isDir <-  doesDirectoryExist dir
     if isDir then do
                xs <- getDirectoryContents dir
+
                (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs, x `notElem` [".", ".."]]
-               -- process files
-               let files' = mapMaybe
-                                (\n -> let filename = takeFileName n
-                                       in if isNothing $ getFileLang opts filename >>= (\f -> f `elemIndex` langs <|> toMaybe 0 (null langs))
-                                            then Nothing
-                                            else Just n) files
+
+               magics <- if null (magic_filter opts) || null files
+                          then return []
+                          else getFilesMagic files
+
+               -- filter the list of files
+               --
+               let files' = if null magics
+                              then  filter (fileFilter opts langs) files
+                              else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) (magic_filter opts) then Just f else Nothing ) files magics
+
 
                unless (null files') $
                     let chunks = chunksOf (Options.chunk opts) files' in

@@ -48,6 +48,7 @@ Executable cgrep
                        mtl >= 2.0,
                        unix-compat >= 0.4,
                        async >= 2.0,
-                       transformers
+                       transformers,
+                       process
   Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
   Default-language:    Haskell2010

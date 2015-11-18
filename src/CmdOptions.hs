@@ -50,6 +50,7 @@ options = cmdArgsMode $ Options
           ,     language_filter = []        &= help "Specify languages. ie: Cpp, +Haskell, -Makefile"
           ,     language_force = Nothing    &= help "Force the language" &= explicit &= name "language-force"
           ,     language_map = False        &= help "Lists the language mappings"
+          ,     magic_filter = []           &= help "Use unix magic as file-filter"
           ,     max_count = maxBound        &= help "Stop search in files after INT matches" &= explicit &= name "max-count"
           ,     count = False               &= help "Print only a count of matching lines per file" &= explicit &= name "count"
           ,     multiline = 1               &= help "Enable multi-line matching"

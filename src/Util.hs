@@ -37,11 +37,6 @@ partitionM f (x:xs) = do
     return ([x | res]++as, [x | not res]++bs)
 
 
-toMaybe :: a -> Bool -> Maybe a
-toMaybe a True  = Just a
-toMaybe _ False = Nothing
-
-
 notNull :: [a] -> Bool
 notNull = not . null
 
