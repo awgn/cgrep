@@ -46,7 +46,7 @@ options = cmdArgsMode $ Options
           ,     oper = False                &= help "Operators" &= explicit &= name "oper"
           ,     semantic = False            &= groupname "\nSemantic (generic)" &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, CHR, LIT, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors, \"struct OR class _ { OR : OR <\" search for a class declaration" &= explicit &= name "S" &= name "semantic"
           ,     no_filename = False         &= groupname "\nOutput control"&= help "Suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename"
-          ,     no_linenumber= False        &= help "Suppress the line number on output lines" &= explicit &= name "N" &= name "no-line-umber"
+          ,     no_linenumber= False        &= help "Suppress the line number on output lines" &= explicit &= name "N" &= name "no-linenumber"
           ,     language_filter = []        &= help "Specify languages. ie: Cpp, +Haskell, -Makefile"
           ,     language_force = Nothing    &= help "Force the language" &= explicit &= name "language-force"
           ,     language_map = False        &= help "Lists the language mappings"

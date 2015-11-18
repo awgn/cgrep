@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.5.11 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.5.12 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -47,7 +47,7 @@ C/C++ language:
 Output control:
  
     -h --no-filename          Suppress the file name prefix on output
-    -N --no-line-umber        Suppress the line number on output lines
+    -N --no-linenumber        Suppress the line number on output lines
        --language-filter=ITEM Specify languages. ie: Cpp, +Haskell, -Makefile
        --language-force=ITEM  Force the language
        --language-map         Lists the language mappings
