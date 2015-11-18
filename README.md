@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.5.10 Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.5.11 Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -45,13 +45,14 @@ C/C++ language:
        --oper                 operators
  
 Output control:
-
-    -h --no-filename          suppress the file name prefix on output
-    -N --no-line-umber        suppress the line number on output lines
-       --lang=ITEM            specify languages. ie: Cpp, +Haskell, -Makefile
-       --lang-maps            lists the language mappings
-       --force-language=ITEM  force the language
-       --multiline=INT        enable multi-line matching
+ 
+    -h --no-filename          Suppress the file name prefix on output
+    -N --no-line-umber        Suppress the line number on output lines
+       --language-filter=ITEM Specify languages. ie: Cpp, +Haskell, -Makefile
+       --language-force=ITEM  Force the language
+       --language-map         Lists the language mappings
+       --magic-filter=ITEM    Use unix magic as file-filter
+       --multiline=INT        Enable multi-line matching
     -r --recursive            Enable recursive search (don't follow symlinks)
        --prune-dir=ITEM       Do not descend into dir
     -R --deference-recursive  Recursive, follow symlinks

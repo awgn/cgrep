@@ -33,7 +33,7 @@ cgreprc :: FilePath
 cgreprc = "cgreprc"
 
 version :: String
-version = "6.5.10"
+version = "6.5.11"
 
 
 data Config = Config
