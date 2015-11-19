@@ -64,7 +64,7 @@ import qualified Data.ByteString.Char8 as C
 
 
 fileFilter :: Options -> [Lang] -> FilePath -> Bool
-fileFilter opts langs filename = maybe False (`elem` langs) (getFileLang opts filename)
+fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
 
 
 getFilesMagic :: [FilePath] -> IO [String]
@@ -90,7 +90,6 @@ withRecursiveContents opts dir langs prunedir visited action = do
                let files' = if null magics
                               then  filter (fileFilter opts langs) files
                               else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) (magic_filter opts) then Just f else Nothing ) files magics
-
 
                unless (null files') $
                     let chunks = chunksOf (Options.chunk opts) files' in
