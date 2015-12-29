@@ -24,8 +24,10 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.Char
 import Data.Data()
+import Data.Version(showVersion)
 import Data.Function
 import qualified Data.Set as Set
+import Paths_cgrep
 
 import Control.Exception as E
 import Control.Concurrent
@@ -244,7 +246,7 @@ main = do
 
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
-    runReaderT (do putStrLevel1 $ "Cgrep " ++ version ++ "!"
+    runReaderT (do putStrLevel1 $ "Cgrep " ++ showVersion version ++ "!"
                    putStrLevel1 $ "options   : " ++ show opts
                    putStrLevel1 $ "languages : " ++ show langs
                    putStrLevel1 $ "pattern   : " ++ show patterns'

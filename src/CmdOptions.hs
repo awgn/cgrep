@@ -18,10 +18,11 @@
 
 module CmdOptions where
 
+import Data.Version(showVersion)
 import System.Console.CmdArgs
 
+import Paths_cgrep
 import Options
-import Config
 
 options :: Mode (CmdArgs Options)
 options = cmdArgsMode $ Options
@@ -73,5 +74,5 @@ options = cmdArgsMode $ Options
           ,     debug = 0                   &= groupname "\nMiscellaneous" &= help "Debug level: 1, 2 or 3"
           ,     no_turbo = False            &= help "Disable turbo mode"
           ,     others = []                 &= args
-          } &= summary ("Cgrep " ++ version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
+          } &= summary ("Cgrep " ++ showVersion version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
 

@@ -32,9 +32,6 @@ import CGrep.Lang
 cgreprc :: FilePath
 cgreprc = "cgreprc"
 
-version :: String
-version = "6.5.13"
-
 
 data Config = Config
   {   configLanguages  :: [Lang]
