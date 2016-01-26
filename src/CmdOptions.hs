@@ -72,7 +72,7 @@ options = cmdArgsMode $ Options
           ,     chunk  = 16                 &= help "Specify the length of chunks"
           ,     asynch = False              &= help "Process chunks asynchronously"
           ,     debug = 0                   &= groupname "\nMiscellaneous" &= help "Debug level: 1, 2 or 3"
-          ,     no_turbo = False            &= help "Disable turbo mode"
+          ,     no_quick = False            &= help "Disable quick-search mode"
           ,     others = []                 &= args
           } &= summary ("Cgrep " ++ showVersion version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
 

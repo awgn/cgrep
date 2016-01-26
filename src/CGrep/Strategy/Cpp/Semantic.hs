@@ -61,13 +61,13 @@ search f patterns = do
 
     -- quickSearch
 
-        identif = (mapMaybe (\x -> case x of
+        identif = mapMaybe (\x -> case x of
                               TokenCard (Cpp.TokenChar   xs _) -> Just (rmQuote $ trim xs)
                               TokenCard (Cpp.TokenString xs _) -> Just (rmQuote $ trim xs)
                               TokenCard (Cpp.TokenIdentifier "OR" _) -> Nothing
                               TokenCard t                            -> Just (Cpp.toString t)
                               _                                      -> Nothing
-                  ) . concat) patterns''
+                  ) . concat $ patterns''
 
     -- put banners...
 

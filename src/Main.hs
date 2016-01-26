@@ -70,7 +70,7 @@ fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (
 
 
 getFilesMagic :: [FilePath] -> IO [String]
-getFilesMagic filenames = fmap lines $ readProcess "/usr/bin/file" (["-b" ] ++ filenames) []
+getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filenames) []
 
 
 -- push file names in Chan...

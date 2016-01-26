@@ -63,12 +63,12 @@ search f ps = do
 
     -- quickSearch ...
 
-        ps' = (mapMaybe (\x -> case x of
+        ps' = mapMaybe (\x -> case x of
                             TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
                             TokenCard (Generic.TokenAlpha "OR" _) -> Nothing
                             TokenCard t                           -> Just (tkToString t)
                             _                                     -> Nothing
-                            ) . concat) patterns'
+                            ) . concat $ patterns'
 
     -- put banners...
 
