@@ -103,6 +103,7 @@ prettyOutput out = do
     opt <- ask
     case () of
         _ | isJust $ format opt -> mapM formatOutput out
+          | filename_only opt   -> filenameOutput out
           | json opt            -> jsonOutput out
           | xml opt             -> xmlOutput  out
 #ifdef ENABLE_HINT
@@ -132,6 +133,10 @@ jsonOutput outs = return $
         where fname | (Output f _ _ _) <- head outs = f
               mkToken (n, xs) = "{ \"col\": " ++ show n ++ ", \"token\": " ++ show xs ++ " }"
               mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
+
+
+filenameOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
+filenameOutput outs = return $ nub $ map (\(Output fname _ _ _) -> fname) outs
 
 
 xmlOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
