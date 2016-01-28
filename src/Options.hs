@@ -47,23 +47,24 @@ data Options = Options
     ,   string              :: Bool
     ,   char                :: Bool
     ,   oper                :: Bool
-    -- Output:
-    ,   no_filename         :: Bool
-    ,   no_linenumber       :: Bool
+    -- Output control:
+    ,   max_count           :: Int
     ,   language_filter     :: [String]
     ,   language_force      :: Maybe String
     ,   language_map        :: Bool
     ,   magic_filter        :: [String]
-    -- General:
+    ,   invert_match        :: Bool
     ,   multiline           :: Int
     ,   recursive           :: Bool
     ,   prune_dir           :: [FilePath]
     ,   deference_recursive :: Bool
-    ,   invert_match        :: Bool
-    ,   max_count           :: Int
-    ,   count               :: Bool
-    ,   show_match          :: Bool
+    -- Output format:
     ,   color               :: Bool
+    ,   show_match          :: Bool
+    ,   no_filename         :: Bool
+    ,   no_linenumber       :: Bool
+    ,   count               :: Bool
+    ,   filename_only       :: Bool
 #ifdef ENABLE_HINT
     ,   hint                :: Maybe String
 #endif
