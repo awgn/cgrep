@@ -10,6 +10,7 @@ cgrep [OPTIONS] [ITEM]
 
 
 Pattern:
+
     -f --file=FILE             Read PATTERNs from file (one per line)
     -w --word                  Force word matching
     -p --prefix                Force prefix matching
@@ -21,12 +22,14 @@ Pattern:
 
 
 Context filters (generic):
+    
     -c --code                  Enable search in source code
     -m --comment               Enable search in comments
     -l --literal               Enable search in string literals
 
 
 Semantic (generic):
+
     -S --semantic              "code" pattern: _, _1, _2... (identifiers), $,
                                $1, $2... (optionals), ANY, KEY, STR, CHR, LIT,
                                NUM, HEX, OCT, OR. -> e.g. "_1(_1 && \$)" search
@@ -35,17 +38,19 @@ Semantic (generic):
 
 
 C/C++ language:
-       --identifier            Identifiers
-       --keyword               Keywords
-       --directive             Preprocessing directives
-       --header                Headers names
-       --number                Literal numbers
-       --string                Literal strings
-       --char                  Literal chars
-       --oper                  Operators
+
+      --identifier            Identifiers
+      --keyword               Keywords
+      --directive             Preprocessing directives
+      --header                Headers names
+      --number                Literal numbers
+      --string                Literal strings
+      --char                  Literal chars
+      --oper                  Operators
 
 
 Output control:
+
        --max-count=INT         Stop search in files after INT matches
        --language-filter=ITEM  Specify languages. ie: Cpp, +Haskell, -Makefile
        --language-force=ITEM   Force the language
@@ -59,6 +64,7 @@ Output control:
 
 
 Output format:
+
        --color                 Use colors to highlight the matching strings
        --show-match            Show list of matching tokens
     -h --no-filename           Suppress the file name prefix on output
@@ -72,6 +78,7 @@ Output format:
 
 
 Concurrency:
+
     -j --jobs=INT              Number of jobs
        --cores=INT             Number of physical processors utilized
        --chunk=INT             Specify the length of chunks
@@ -79,6 +86,7 @@ Concurrency:
 
 
 Miscellaneous:
+
     -d --debug=INT             Debug level: 1, 2 or 3
     -n --no-quick              Disable quick-search mode
     -? --help                  Display help message
