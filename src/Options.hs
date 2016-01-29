@@ -59,8 +59,9 @@ data Options = Options
     ,   prune_dir           :: [FilePath]
     ,   deference_recursive :: Bool
     -- Output format:
-    ,   color               :: Bool
     ,   show_match          :: Bool
+    ,   color               :: Bool
+    ,   no_color            :: Bool
     ,   no_filename         :: Bool
     ,   no_linenumber       :: Bool
     ,   count               :: Bool

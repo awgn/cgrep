@@ -216,15 +216,15 @@ showTokens Options { show_match = st } xs
 
 
 showFile :: Options -> String -> String
-showFile Options { color = c } f
-    | c         = bold ++ blue ++ f ++ resetTerm
-    | otherwise = f
+showFile Options { color = c, no_color = c'} f
+    | c && not c'= bold ++ blue ++ f ++ resetTerm
+    | otherwise  = f
 
 
 showLine :: Options -> [Token] -> Line8 -> String
-showLine Options { color = c } ts l
-    | c         = hilightLine (sortBy (flip compare `on` (length . snd )) ts) (C.unpack l)
-    | otherwise = C.unpack l
+showLine Options { color = c, no_color = c' } ts l
+    | c && not c'= hilightLine (sortBy (flip compare `on` (length . snd )) ts) (C.unpack l)
+    | otherwise  = C.unpack l
 
 
 hilightLine :: [Token] -> String -> String
