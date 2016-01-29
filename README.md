@@ -4,7 +4,7 @@ CGrep: a context-aware grep for source codes [![Hackage](https://img.shields.io/
 Usage
 -----
 
-Cgrep 6.6. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.6.1. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -65,8 +65,9 @@ Output control:
 
 Output format:
 
-       --color                 Use colors to highlight the matching strings
        --show-match            Show list of matching tokens
+       --color                 Use colors to highlight the matching strings
+       --no-color              Do not use colors (override configAutoColor)
     -h --no-filename           Suppress the file name prefix on output
     -N --no-linenumber         Suppress the line number on output lines
        --count                 Print only a count of matching lines per file
