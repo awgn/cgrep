@@ -1,4 +1,3 @@
---
 -- Copyright (c) 2013 Bonelli Nicola <bonelli@antifork.org>
 --
 -- This program is free software; you can redistribute it and/or modify
@@ -21,7 +20,8 @@ module CGrep.Output (Output(),
                      putPrettyHeader,
                      putPrettyFooter,
                      prettyOutput,
-                     showFile) where
+                     showFile,
+                     showBold) where
 
 import qualified Data.ByteString.Char8 as C
 import System.Console.ANSI
@@ -209,6 +209,15 @@ bold      = setSGRCode [SetConsoleIntensity BoldIntensity]
 resetTerm = setSGRCode []
 
 
+type ColorString = String
+
+
+showColor :: Options -> ColorString -> String -> String
+showColor Options { color = c, no_color = c'} colorCode f
+    | c && not c'= colorCode ++ f ++ resetTerm
+    | otherwise  = f
+
+
 showTokens :: Options -> [Token] -> String
 showTokens Options { show_match = st } xs
     | st        = show (map snd xs)
@@ -216,9 +225,11 @@ showTokens Options { show_match = st } xs
 
 
 showFile :: Options -> String -> String
-showFile Options { color = c, no_color = c'} f
-    | c && not c'= bold ++ blue ++ f ++ resetTerm
-    | otherwise  = f
+showFile opt = showColor opt (bold ++ blue)
+
+
+showBold :: Options -> String -> String
+showBold opt = showColor opt bold
 
 
 showLine :: Options -> [Token] -> Line8 -> String

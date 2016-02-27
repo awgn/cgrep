@@ -196,7 +196,7 @@ main = do
 
     -- read Cgrep config options
 
-    conf  <- getConfig
+    (conf, confpath)  <- getConfig
 
     -- read command-line options
 
@@ -234,6 +234,11 @@ main = do
                      | otherwise = C.map toLower
                         where wildCardTokens = "OR" : M.keys wildCardMap   -- "OR" is not included in wildCardMap
 
+    -- display the configuration in use
+
+    when (isJust confpath) $
+      putStrLn $ showBold opts ("Using '" ++ (fromJust confpath) ++ "' configuration file...")
+
     -- load files to parse:
 
     let paths = getFilePaths (not $ null (file opts)) isTermIn (others opts)
@@ -259,5 +264,8 @@ main = do
 
     when (cores opts /= 0) $ setNumCapabilities (cores opts)
 
+    -- run search
+
     runReaderT (parallelSearch conf paths patterns' langs (isTermIn, isTermOut)) opts
+
 
