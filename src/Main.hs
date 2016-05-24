@@ -45,7 +45,7 @@ import System.Console.CmdArgs
 import System.Directory
 import System.FilePath ((</>), takeFileName)
 import System.Environment
-import System.PosixCompat.Files
+import System.PosixCompat.Files as PosixCompat
 import System.IO
 import System.Exit
 import System.Process (readProcess)
@@ -102,7 +102,7 @@ withRecursiveContents opts dir langs prunedir visited action = do
                forM_ dirs $ \path -> do
                     let dirname = takeFileName path
                     lstatus <- getSymbolicLinkStatus path
-                    when ( deference_recursive opts || not (isSymbolicLink lstatus)) $
+                    when ( deference_recursive opts || not (PosixCompat.isSymbolicLink lstatus)) $
                         unless (dirname `elem` prunedir) $ do -- this is a good directory (unless already visited)!
                             cpath <- canonicalizePath path
                             unless (cpath `Set.member` visited) $ withRecursiveContents opts path langs prunedir (Set.insert cpath visited) action
