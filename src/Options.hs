@@ -72,6 +72,7 @@ data Options = Options
     ,   format              :: Maybe String
     ,   json                :: Bool
     ,   xml                 :: Bool
+    ,   vim                 :: Bool
     -- Parallel:
     ,   jobs                :: Int
     ,   cores               :: Int

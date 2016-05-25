@@ -15,7 +15,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Output (Output(),
+module CGrep.Output (Output(..),
                      mkOutput,
                      putPrettyHeader,
                      putPrettyFooter,
@@ -44,7 +44,12 @@ import Safe
 import Options
 
 
-data Output = Output FilePath Int Text8 [Token]
+data Output = Output
+    { outFilePath :: FilePath
+    , outLineNo   :: Int
+    , outLine     :: Text8
+    , outTokens   :: [Token]
+    }
     deriving (Show)
 
 

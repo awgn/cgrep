@@ -24,6 +24,8 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.Char
 import Data.Data()
+
+import Data.IORef
 import Data.Version(showVersion)
 import Data.Function
 import qualified Data.Set as Set
@@ -48,7 +50,7 @@ import System.Environment
 import System.PosixCompat.Files as PosixCompat
 import System.IO
 import System.Exit
-import System.Process (readProcess)
+import System.Process (readProcess, runProcess, waitForProcess)
 
 import CGrep.CGrep
 import CGrep.Lang
@@ -170,6 +172,8 @@ parallelSearch conf paths patterns langs (isTermIn, _) = do
 
     let stop = jobs opts
 
+    matchingFiles <- liftIO $ newIORef Set.empty
+
     fix (\action n m ->
          unless (n == stop) $ do
                  out <- liftIO $ atomically $ readTChan out_chan
@@ -180,10 +184,17 @@ parallelSearch conf paths patterns langs (isTermIn, _) = do
                             _ | json opts -> when m $ liftIO $ putStrLn ","
                               | otherwise -> return ()
                           prettyOutput out >>= mapM_ (liftIO . putStrLn)
+                          liftIO $ when (vim opts) $ mapM_ (modifyIORef matchingFiles . Set.insert . outFilePath) out
                           action n True
         )  0 False
 
     putPrettyFooter
+
+    -- run vim...
+
+    liftIO $ when (vim opts) $ do
+        files <- readIORef matchingFiles
+        void (runProcess "vim" (Set.toList files) Nothing Nothing (Just stdin) (Just stdout) (Just stderr) >>= waitForProcess)
 
 
 main :: IO ()

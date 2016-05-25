@@ -63,6 +63,7 @@ options = cmdArgsMode $ Options
           ,     no_linenumber= False        &= help "Suppress the line number on output lines" &= explicit &= name "N" &= name "no-linenumber"
           ,     count = False               &= help "Print only a count of matching lines per file" &= explicit &= name "count"
           ,     filename_only = False       &= help "Print only the name of files containing matches" &= explicit &= name "filename-only"
+          ,     vim = False                 &= help "Invoke vim program by passing the files that match" &= explicit &= name "vim"
 #ifdef ENABLE_HINT
           ,     hint = Nothing  &= typ "STRING" &= help "Haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint"
 #endif
