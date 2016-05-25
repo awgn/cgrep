@@ -7,7 +7,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 6.6.4. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.6.5. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -79,7 +79,8 @@ Output format:
                                #1... e.g. "#f:#n #0 #1"
        --json                  Format output as json object
        --xml                   Format output as xml document
-
+       --vim                   Invoke vim program by passing the files that
+                               match
 
 Concurrency:
 
