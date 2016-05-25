@@ -237,7 +237,7 @@ main = do
     -- display the configuration in use
 
     when (isJust confpath) $
-      hPutStrLn stderr $ showBold opts ("Using '" ++ (fromJust confpath) ++ "' configuration file...")
+      hPutStrLn stderr $ showBold opts ("Using '" ++ fromJust confpath ++ "' configuration file...")
 
     -- load files to parse:
 

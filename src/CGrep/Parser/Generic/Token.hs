@@ -84,11 +84,11 @@ _isTokenOther _  = False
 
 
 tokenCompare :: Token -> Token -> Bool
-tokenCompare (TokenAlpha   { toString = l }) (TokenAlpha   { toString = r }) = l == r
-tokenCompare (TokenDigit   { toString = l }) (TokenDigit   { toString = r }) = l == r
-tokenCompare (TokenLiteral { toString = l }) (TokenLiteral { toString = r }) = l == r
-tokenCompare (TokenBracket { toString = l }) (TokenBracket { toString = r }) = l == r
-tokenCompare (TokenOther   { toString = l }) (TokenOther   { toString = r }) = l == r
+tokenCompare TokenAlpha  { toString = l } TokenAlpha  { toString = r } = l == r
+tokenCompare TokenDigit  { toString = l } TokenDigit  { toString = r } = l == r
+tokenCompare TokenLiteral{ toString = l } TokenLiteral{ toString = r } = l == r
+tokenCompare TokenBracket{ toString = l } TokenBracket{ toString = r } = l == r
+tokenCompare TokenOther  { toString = l } TokenOther  { toString = r } = l == r
 tokenCompare _ _ = False
 
 

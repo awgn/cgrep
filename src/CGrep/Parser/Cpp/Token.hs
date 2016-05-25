@@ -86,65 +86,65 @@ tokenizer xs = runGetToken (TokenizerState ys n Null)
 
 
 tokenFilter :: TokenFilter -> Token -> Bool
-tokenFilter filt (TokenIdentifier{})  = filtIdentifier filt
-tokenFilter filt (TokenDirective{})   = filtDirective  filt
-tokenFilter filt (TokenKeyword{})     = filtKeyword    filt
-tokenFilter filt (TokenHeaderName{})  = filtHeader     filt
-tokenFilter filt (TokenNumber{})      = filtNumber     filt
-tokenFilter filt (TokenString{})      = filtString     filt
-tokenFilter filt (TokenChar{})        = filtChar       filt
-tokenFilter filt (TokenOperOrPunct{}) = filtOper       filt
+tokenFilter filt TokenIdentifier{}  = filtIdentifier filt
+tokenFilter filt TokenDirective{}   = filtDirective  filt
+tokenFilter filt TokenKeyword{}     = filtKeyword    filt
+tokenFilter filt TokenHeaderName{}  = filtHeader     filt
+tokenFilter filt TokenNumber{}      = filtNumber     filt
+tokenFilter filt TokenString{}      = filtString     filt
+tokenFilter filt TokenChar{}        = filtChar       filt
+tokenFilter filt TokenOperOrPunct{} = filtOper       filt
 
 
 tokenCompare :: Token -> Token -> Bool
-tokenCompare (TokenIdentifier { toString = l }) (TokenIdentifier { toString = r }) = l == r
-tokenCompare (TokenDirective  { toString = l }) (TokenDirective  { toString = r }) = l == r
-tokenCompare (TokenKeyword    { toString = l }) (TokenKeyword    { toString = r }) = l == r
-tokenCompare (TokenNumber     { toString = l }) (TokenNumber     { toString = r }) = l == r
-tokenCompare (TokenHeaderName { toString = l }) (TokenHeaderName { toString = r }) = l == r
-tokenCompare (TokenString     { toString = l }) (TokenString     { toString = r }) = l == r
-tokenCompare (TokenChar       { toString = l }) (TokenChar       { toString = r }) = l == r
-tokenCompare (TokenOperOrPunct{ toString = l }) (TokenOperOrPunct{ toString = r }) = l == r
+tokenCompare TokenIdentifier { toString = l } TokenIdentifier { toString = r } = l == r
+tokenCompare TokenDirective  { toString = l } TokenDirective  { toString = r } = l == r
+tokenCompare TokenKeyword    { toString = l } TokenKeyword    { toString = r } = l == r
+tokenCompare TokenNumber     { toString = l } TokenNumber     { toString = r } = l == r
+tokenCompare TokenHeaderName { toString = l } TokenHeaderName { toString = r } = l == r
+tokenCompare TokenString     { toString = l } TokenString     { toString = r } = l == r
+tokenCompare TokenChar       { toString = l } TokenChar       { toString = r } = l == r
+tokenCompare TokenOperOrPunct{ toString = l } TokenOperOrPunct{ toString = r } = l == r
 tokenCompare _ _ = False
 
 
 isIdentifier :: Token -> Bool
-isIdentifier (TokenIdentifier {})  = True
+isIdentifier TokenIdentifier{}  = True
 isIdentifier _ = False
 
 
 isKeyword :: Token -> Bool
-isKeyword (TokenKeyword {})  = True
+isKeyword TokenKeyword{}  = True
 isKeyword _ = False
 
 
 isDirective :: Token -> Bool
-isDirective (TokenDirective {})  = True
+isDirective TokenDirective {}  = True
 isDirective _ = False
 
 
 isLiteralNumber :: Token -> Bool
-isLiteralNumber (TokenNumber {}) = True
+isLiteralNumber TokenNumber {} = True
 isLiteralNumber _ = False
 
 
 isHeaderName :: Token -> Bool
-isHeaderName (TokenHeaderName {})  = True
+isHeaderName TokenHeaderName {}  = True
 isHeaderName _ = False
 
 
 isString :: Token -> Bool
-isString (TokenString {}) = True
+isString TokenString {} = True
 isString _ = False
 
 
 isChar :: Token -> Bool
-isChar (TokenChar {}) = True
+isChar TokenChar{} = True
 isChar _ = False
 
 
 isOperOrPunct :: Token -> Bool
-isOperOrPunct (TokenOperOrPunct {})  = True
+isOperOrPunct TokenOperOrPunct {}  = True
 isOperOrPunct _ = False
 
 
