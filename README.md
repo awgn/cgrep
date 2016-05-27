@@ -79,8 +79,10 @@ Output format:
                                #1... e.g. "#f:#n #0 #1"
        --json                  Format output as json object
        --xml                   Format output as xml document
-       --vim                   Invoke vim program by passing the files that
-                               match
+       --editor                Run the editor specified by EDITOR var., passing
+                               the files that match
+       --vim                   Run vim the editor passing the files that match
+
 
 Concurrency:
 
