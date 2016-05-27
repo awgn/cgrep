@@ -184,17 +184,20 @@ parallelSearch conf paths patterns langs (isTermIn, _) = do
                             _ | json opts -> when m $ liftIO $ putStrLn ","
                               | otherwise -> return ()
                           prettyOutput out >>= mapM_ (liftIO . putStrLn)
-                          liftIO $ when (vim opts) $ mapM_ (modifyIORef matchingFiles . Set.insert . outFilePath) out
+                          liftIO $ when (vim opts || editor opts) $ mapM_ (modifyIORef matchingFiles . Set.insert . outFilePath) out
                           action n True
         )  0 False
 
     putPrettyFooter
 
-    -- run vim...
+    -- run editor...
 
-    liftIO $ when (vim opts) $ do
-        files <- readIORef matchingFiles
-        void (runProcess "vim" (Set.toList files) Nothing Nothing (Just stdin) (Just stdout) (Just stderr) >>= waitForProcess)
+    liftIO $ when (vim opts || editor opts) $ do
+        editor' <- if vim opts
+                    then return (Just "vim")
+                    else lookupEnv "EDITOR"
+        files   <- readIORef matchingFiles
+        void (runProcess (fromJust $ editor' <|> Just "vi") (Set.toList files) Nothing Nothing (Just stdin) (Just stdout) (Just stderr) >>= waitForProcess)
 
 
 main :: IO ()
