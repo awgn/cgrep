@@ -20,6 +20,7 @@ module CGrep.Output (Output(..),
                      putPrettyHeader,
                      putPrettyFooter,
                      prettyOutput,
+                     showFileName,
                      showFile,
                      showBold) where
 
@@ -30,6 +31,7 @@ import System.Console.ANSI
 import Language.Haskell.Interpreter
 #endif
 
+import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 
@@ -120,14 +122,13 @@ defaultOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
 defaultOutput xs = do
     opt <- ask
     case () of
-        _ |  Options{ no_filename = False, no_linenumber = False , count = False } <- opt -> return $ map (\(Output f n l ts) -> showFile opt f ++ ":" ++ show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
-          |  Options{ no_filename = False, no_linenumber = True  , count = False } <- opt -> return $ map (\(Output f _ l ts) -> showFile opt f ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
-          |  Options{ no_filename = True , no_linenumber = False , count = False } <- opt -> return $ map (\(Output _ n l ts) -> show n ++ ":" ++ showTokens opt ts ++ showLine opt ts l) xs
-          |  Options{ no_filename = True , no_linenumber = True  , count = False } <- opt -> return $ map (\(Output _ _ l ts) -> showTokens opt ts ++ showLine opt ts l) xs
+        _ |  Options{ no_filename = False, no_numbers = False , count = False } <- opt -> return $ map (\out -> mconcat $ [showFile, showSep ":", showLineCol, showSep ":", showTokens, showLine ] `ap` [opt] `ap` [out]) xs
+          |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt -> return $ map (\out -> mconcat $ [showFile, showSep ":", showTokens,  showLine] `ap` [opt] `ap` [out] ) xs
+          |  Options{ no_filename = True , no_numbers = False , count = False } <- opt -> return $ map (\out -> mconcat $ [showLineCol, showSep ":",  showTokens, showLine] `ap` [opt] `ap` [out] ) xs
+          |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt -> return $ map (\out -> mconcat $ [showTokens, showLine] `ap` [opt] `ap`  [out]) xs
           |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                                                  return $ map (\ys@(y:_) -> showFile opt (outputFilename y) ++ ":" ++ show (length ys)) gs
+                                                  return $ map (\ys@(y:_) -> showFile opt y ++ ":" ++ show (length ys)) gs
           |  otherwise -> undefined
-            where outputFilename (Output f _ _ _) = f
 
 
 jsonOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
@@ -159,13 +160,13 @@ xmlOutput outs = return $
 
 
 formatOutput :: (Monad m) => Output -> ReaderT Options m String
-formatOutput (Output f n l ts) = do
+formatOutput out = do
     opt <- ask
     return $ replace (fromJust $ format opt)
         [
-            ("#f", showFile opt f),
-            ("#n", show n),
-            ("#l", showLine opt ts l),
+            ("#f", showFile opt out),
+            ("#n", showLineCol opt out),
+            ("#l", showLine opt out),
             ("#t", show ts'),
             ("##", unwords ts'),
             ("#,", intercalate "," ts'),
@@ -181,7 +182,7 @@ formatOutput (Output f n l ts) = do
             ("#8", atDef "" ts' 8),
             ("#9", atDef "" ts' 9)
         ]
-    where ts' = map snd ts
+    where ts' = map snd (outTokens out)
 
 
 replace :: String -> [(String, String)] -> String
@@ -199,12 +200,12 @@ hintOputput outs = do
     let cmds = map mkCmd outs
     out <- runInterpreter $ setImports ["Prelude", "Data.List"] >> mapM (`interpret` (as :: String)) cmds
     return $ either ((:[]) . show) id out
-        where mkCmd (Output f n l ts) = "let a # b = a !! b " ++
-                                          "; file   = " ++ show (showFile opt f) ++
-                                          "; row    = " ++ show n ++
-                                          "; line   = " ++ show (showLine opt ts l) ++
-                                          "; tokens = " ++ show (map snd ts) ++ " in " ++
-                                         (fromJust $ hint opt)
+        where mkCmd out@(Output f n l ts) = "let a # b = a !! b " ++
+                                             "; file   = " ++ show (showFile opt out) ++
+                                             "; row    = " ++ show n ++
+                                             "; line   = " ++ show (showLine opt ts l) ++
+                                             "; tokens = " ++ show (map snd ts) ++ " in " ++
+                                            (fromJust $ hint opt)
 #endif
 
 blue, bold, resetTerm :: String
@@ -217,30 +218,43 @@ resetTerm = setSGRCode []
 type ColorString = String
 
 
-showColor :: Options -> ColorString -> String -> String
-showColor Options { color = c, no_color = c'} colorCode f
-    | c && not c'= colorCode ++ f ++ resetTerm
-    | otherwise  = f
+showSep  :: String -> Options -> Output -> String
+showSep xs _ _ = xs
 
 
-showTokens :: Options -> [Token] -> String
-showTokens Options { show_match = st } xs
-    | st        = show (map snd xs)
+showFile :: Options -> Output -> String
+showFile opt = showFileName opt . outFilePath
+
+
+showLineCol :: Options -> Output -> String
+showLineCol Options{no_numbers = True } _ = ""
+showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
+showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . fst . head $ ts)
+
+
+showTokens :: Options -> Output -> String
+showTokens Options { show_match = st } out
+    | st        = show (map snd (outTokens out))
     | otherwise = ""
 
+showLine :: Options -> Output -> String
+showLine Options { color = c, no_color = c' } out
+    | c && not c'= hilightLine (sortBy (flip compare `on` (length . snd )) (outTokens out)) (C.unpack (outLine out))
+    | otherwise  = C.unpack (outLine out)
 
-showFile :: Options -> String -> String
-showFile opt = showColor opt (bold ++ blue)
+
+showFileName :: Options -> String -> String
+showFileName opt = showColor opt (bold ++ blue)
 
 
 showBold :: Options -> String -> String
 showBold opt = showColor opt bold
 
 
-showLine :: Options -> [Token] -> Line8 -> String
-showLine Options { color = c, no_color = c' } ts l
-    | c && not c'= hilightLine (sortBy (flip compare `on` (length . snd )) ts) (C.unpack l)
-    | otherwise  = C.unpack l
+showColor :: Options -> ColorString -> String -> String
+showColor Options { color = c, no_color = c'} colorCode f
+    | c && not c'= colorCode ++ f ++ resetTerm
+    | otherwise  = f
 
 
 hilightLine :: [Token] -> String -> String

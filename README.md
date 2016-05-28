@@ -7,7 +7,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 6.6.7. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.6.8. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -72,7 +72,8 @@ Output format:
        --color                 Use colors to highlight the matching strings
        --no-color              Do not use colors (override configAutoColor)
     -h --no-filename           Suppress the file name prefix on output
-    -N --no-linenumber         Suppress the line number on output lines
+       --no-numbers            Suppress both line and column numbers on output
+       --no-column             Suppress the column number on output
        --count                 Print only a count of matching lines per file
        --filename-only         Print only the name of files containing matches
        --format=STRING         Format output. Var: #f #n #l #t ## #, #; #0

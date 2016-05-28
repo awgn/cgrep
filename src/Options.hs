@@ -63,7 +63,8 @@ data Options = Options
     ,   color               :: Bool
     ,   no_color            :: Bool
     ,   no_filename         :: Bool
-    ,   no_linenumber       :: Bool
+    ,   no_numbers          :: Bool
+    ,   no_column           :: Bool
     ,   count               :: Bool
     ,   filename_only       :: Bool
 #ifdef ENABLE_HINT
