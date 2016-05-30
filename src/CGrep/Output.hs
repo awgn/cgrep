@@ -122,10 +122,10 @@ defaultOutput :: (Monad m) => [Output] -> ReaderT Options m [String]
 defaultOutput xs = do
     opt <- ask
     case () of
-        _ |  Options{ no_filename = False, no_numbers = False , count = False } <- opt -> return $ map (\out -> mconcat $ [showFile, showSep ":", showLineCol, showSep ":", showTokens, showLine ] `ap` [opt] `ap` [out]) xs
-          |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt -> return $ map (\out -> mconcat $ [showFile, showSep ":", showTokens,  showLine] `ap` [opt] `ap` [out] ) xs
-          |  Options{ no_filename = True , no_numbers = False , count = False } <- opt -> return $ map (\out -> mconcat $ [showLineCol, showSep ":",  showTokens, showLine] `ap` [opt] `ap` [out] ) xs
-          |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt -> return $ map (\out -> mconcat $ [showTokens, showLine] `ap` [opt] `ap`  [out]) xs
+        _ |  Options{ no_filename = False, no_numbers = False , count = False } <- opt -> return $ map (\out -> concat $ [showFile, showSep ":", showLineCol, showSep ":", showTokens, showLine ] `ap` [opt] `ap` [out]) xs
+          |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt -> return $ map (\out -> concat $ [showFile, showSep ":", showTokens,  showLine] `ap` [opt] `ap` [out] ) xs
+          |  Options{ no_filename = True , no_numbers = False , count = False } <- opt -> return $ map (\out -> concat $ [showLineCol, showSep ":",  showTokens, showLine] `ap` [opt] `ap` [out] ) xs
+          |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt -> return $ map (\out -> concat $ [showTokens, showLine] `ap` [opt] `ap`  [out]) xs
           |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
                                                   return $ map (\ys@(y:_) -> showFile opt y ++ ":" ++ show (length ys)) gs
           |  otherwise -> undefined
