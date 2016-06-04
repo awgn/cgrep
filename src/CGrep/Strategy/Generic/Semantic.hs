@@ -29,6 +29,7 @@ import CGrep.Output
 import CGrep.Parser.Token
 import CGrep.Parser.WildCard
 
+import Control.Applicative (liftA2)
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 
@@ -52,7 +53,6 @@ search f ps = do
     -- transform text
 
     let text' = ignoreCase opt text
-
         filt  = (mkContextFilter opt) { getFilterComment = False }
 
     -- pre-process patterns
@@ -63,7 +63,7 @@ search f ps = do
 
     -- quickSearch ...
 
-        ps' = mapMaybe (\x -> case x of
+        identif = mapMaybe (\x -> case x of
                             TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
                             TokenCard (Generic.TokenAlpha "OR" _) -> Nothing
                             TokenCard t                           -> Just (tkToString t)
@@ -75,18 +75,18 @@ search f ps = do
     putStrLevel1 $ "strategy  : running generic semantic search on " ++ filename ++ "..."
     putStrLevel2 $ "wildcards : " ++ show patterns'
     putStrLevel2 $ "multicards: " ++ show patterns''
-    putStrLevel2 $ "identif   : " ++ show ps'
+    putStrLevel2 $ "identif   : " ++ show identif
 
+    let text'' = contextFilter (getFileLang opt filename) filt text'
+        idpack = map C.pack identif
+        quick1 = quickSearch opt idpack text'
+        quick2 = quickSearch opt idpack text''
 
-    runQuickSearch filename (quickSearch opt (map C.pack ps') text') $ do
-
-        -- context filter
-
-        let text'' = contextFilter (getFileLang opt filename) filt text'
+    runQuickSearch filename (liftA2 (&&) quick1 quick2) $ do
 
         -- expand multi-line
 
-            text''' = expandMultiline opt text''
+        let text''' = expandMultiline opt text''
 
         -- parse source code, get the Generic.Token list...
 

@@ -23,6 +23,7 @@ import qualified CGrep.Parser.Cpp.Token  as Cpp
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+import Control.Applicative (liftA2)
 import Data.List
 import Data.Function
 import Data.Maybe
@@ -76,7 +77,12 @@ search f patterns = do
     putStrLevel2 $ "multicards: " ++ show patterns'''
     putStrLevel2 $ "identif   : " ++ show identif
 
-    runQuickSearch filename (quickSearch opt (map C.pack identif) text') $ do
+    let text'' = contextFilter (getFileLang opt filename) filt text'
+        idpack = map C.pack identif
+        quick1 = quickSearch opt idpack text'
+        quick2 = quickSearch opt idpack text''
+
+    runQuickSearch filename (liftA2 (&&) quick1 quick2) $ do
 
         let [text''', _ , _] = scanr ($) text'  [ expandMultiline opt
                                                 , contextFilter (getFileLang opt filename) filt
