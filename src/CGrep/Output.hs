@@ -15,6 +15,8 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE CPP #-}
+
 module CGrep.Output (Output(..),
                      mkOutput,
                      putPrettyHeader,
@@ -33,6 +35,10 @@ import Language.Haskell.Interpreter
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative
+#endif
 
 import Data.Maybe
 import Data.List
