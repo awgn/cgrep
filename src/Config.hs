@@ -24,6 +24,7 @@ import Data.Char
 import Control.Monad
 import System.Directory
 import System.FilePath ((</>))
+import System.Console.ANSI
 
 import Util
 import CGrep.Lang
@@ -37,8 +38,20 @@ data Config = Config
   {   configLanguages  :: [Lang]
   ,   configPruneDirs  :: [String]
   ,   configAutoColor  :: Bool
+  ,   configColorFile  :: [SGR]
+  ,   configColorMatch :: [SGR]
   } deriving (Show, Read)
 
+
+defaultConfig :: Config
+
+defaultConfig = Config
+  {   configLanguages   = []
+  ,   configPruneDirs   = []
+  ,   configAutoColor   = False
+  ,   configColorFile   = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Blue]
+  ,   configColorMatch  = [SetConsoleIntensity BoldIntensity]
+  }
 
 
 dropComments :: String -> String
@@ -53,6 +66,6 @@ getConfig = do
     if notNull confs
         then liftM dropComments (readFile (head confs)) >>= \xs ->
               return (prettyRead xs "Config error" :: Config, Just (head confs))
-        else return (Config [] [] False, Nothing)
+        else return (defaultConfig, Nothing)
 
 

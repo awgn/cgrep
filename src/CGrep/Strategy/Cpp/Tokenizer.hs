@@ -32,14 +32,15 @@ import CGrep.Distance
 
 import Data.List
 
+import Reader
 import Options
 import Debug
 
 
-search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search :: FilePath -> [Text8] -> OptionT IO [Output]
 search f ps = do
 
-    opt <- ask
+    opt  <- reader snd
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

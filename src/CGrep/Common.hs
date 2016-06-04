@@ -30,11 +30,11 @@ import qualified Data.ByteString.Search as SC
 
 import Data.Char
 
-import Control.Monad.Trans.Reader
 import CGrep.Types
 import CGrep.Output
 
 import Options
+import Reader
 import Util
 
 
@@ -65,8 +65,8 @@ quickSearch opt ps text
 
 runQuickSearch :: FilePath
           -> Maybe Bool                     -- quicksearch
-          -> ReaderT Options IO [Output]
-          -> ReaderT Options IO [Output]
+          -> OptionT IO [Output]
+          -> OptionT IO [Output]
 runQuickSearch filename quick doSearch =
     if maybe False not quick
         then mkOutput filename C.empty C.empty []

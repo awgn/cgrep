@@ -36,15 +36,16 @@ import CGrep.Output
 import CGrep.Filter
 import CGrep.Lang
 
+import Reader
 import Options
 import Debug
 
 
 
-search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search :: FilePath -> [Text8] -> OptionT IO [Output]
 search f patterns = do
 
-    opt <- ask
+    opt  <- reader snd
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

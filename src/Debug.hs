@@ -22,20 +22,22 @@ module Debug where
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Control.Monad
+
 import Options
+import Reader
 
 
-putStrLevel1 :: String -> ReaderT Options IO ()
+putStrLevel1 :: String -> OptionT IO ()
 putStrLevel1 xs = do
-    n <- reader debug
+    n <- reader $ debug . snd
     when (n > 0) $ liftIO $ putStrLn xs
 
-putStrLevel2 :: String -> ReaderT Options IO ()
+putStrLevel2 :: String -> OptionT IO ()
 putStrLevel2 xs = do
-    n <- reader debug
+    n <- reader $ debug . snd
     when (n > 1) $ liftIO $ putStrLn xs
 
-putStrLevel3 :: String -> ReaderT Options IO ()
+putStrLevel3 :: String -> OptionT IO ()
 putStrLevel3 xs = do
-    n <- reader debug
+    n <- reader $ debug . snd
     when (n > 2) $ liftIO $ putStrLn xs

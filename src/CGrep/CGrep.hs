@@ -34,7 +34,7 @@ import CGrep.Output
 import Data.List
 import Data.Maybe
 import Options
-
+import Reader
 
 hasLanguage :: FilePath -> Options -> [Lang] -> Bool
 hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
@@ -70,9 +70,9 @@ hasTokenizerOpt Options
 isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
 
-runCgrep :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+runCgrep :: FilePath -> [Text8] -> OptionT IO [Output]
 runCgrep filename patterns = do
-    opt <- ask
+    opt <- reader snd
     case () of
         _ | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
           | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns

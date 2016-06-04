@@ -30,14 +30,14 @@ import CGrep.Output
 import CGrep.Distance
 import CGrep.Token
 
-import Options
+import Reader
 import Debug
 
 
-search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search :: FilePath -> [Text8] -> OptionT IO [Output]
 search f patterns = do
 
-    opt <- ask
+    opt  <- reader snd
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

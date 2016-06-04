@@ -63,6 +63,7 @@ import Options
 import Util
 import Debug
 import Config
+import Reader
 
 import qualified Data.ByteString.Char8 as C
 
@@ -128,10 +129,10 @@ getFilePaths True  True xs = xs
 getFilePaths _ False _ = [ ]
 
 
-parallelSearch :: Config -> [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> ReaderT Options IO ()
-parallelSearch conf paths patterns langs (isTermIn, _) = do
+parallelSearch :: [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> OptionT IO ()
+parallelSearch paths patterns langs (isTermIn, _) = do
 
-    opts <- ask
+    (conf,opts) <- ask
 
     -- create Transactional Chan and Vars...
 
@@ -147,10 +148,10 @@ parallelSearch conf paths patterns langs (isTermIn, _) = do
                     [] -> atomically $ writeTChan out_chan []
                     xs -> void ((if asynch opts then flip mapConcurrently
                                                 else forM) xs $ \x -> do
-                                                    out <- fmap (take (max_count opts)) (runReaderT (runCgrep x patterns) (sanitizeOptions x opts))
+                                                    out <- fmap (take (max_count opts)) (runReaderT (runCgrep x patterns) (conf,sanitizeOptions x opts))
                                                     unless (null out) $ atomically $ writeTChan out_chan out)
                    )
-                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFileName opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
+                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFileName conf opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
             when (null fs) $ left ()
 
 
@@ -214,8 +215,9 @@ main = do
 
     -- read command-line options
 
-    opts  <- (if isTermOut then (\o@Options{color = c} -> o { color = c || configAutoColor conf})
-                           else id) <$> cmdArgsRun options
+    opts  <- (if isTermOut
+                then \o -> o { color = (color o || configAutoColor conf) }
+                else id) <$> cmdArgsRun options
 
     -- check for multiple backends...
 
@@ -272,7 +274,7 @@ main = do
                    putStrLevel1 $ "files     : " ++ show paths
                    putStrLevel1 $ "isTermIn  : " ++ show isTermIn
                    putStrLevel1 $ "isTermOut : " ++ show isTermOut
-        ) opts
+        ) (conf, opts)
 
     -- specify number of cores
 
@@ -280,6 +282,6 @@ main = do
 
     -- run search
 
-    runReaderT (parallelSearch conf paths patterns' langs (isTermIn, isTermOut)) opts
+    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (conf, opts)
 
 

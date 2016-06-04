@@ -34,15 +34,15 @@ import CGrep.Output
 
 import CGrep.Parser.WildCard
 
-import Options
+import Reader
 import Debug
 import Util
 
 
-search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search :: FilePath -> [Text8] -> OptionT IO [Output]
 search f patterns = do
 
-    opt  <- ask
+    opt  <- reader snd
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

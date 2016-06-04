@@ -36,15 +36,15 @@ import Data.List
 import Data.Function
 import Data.Maybe
 
-import Options
+import Reader
 import Debug
 import Util
 
 
-search :: FilePath -> [Text8] -> ReaderT Options IO [Output]
+search :: FilePath -> [Text8] -> OptionT IO [Output]
 search f ps = do
 
-    opt <- ask
+    opt  <- reader snd
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
