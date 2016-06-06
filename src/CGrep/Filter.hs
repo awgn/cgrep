@@ -188,8 +188,9 @@ mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == hea
 
 
 filterFunctionMap = Map.fromList
-    [   (Awk,        mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
-    ,   (C,         mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
+    [   (Assembly,   mkContextFilterFun [("#", "\n"), (";", "\n"), ("|", "\n"), ("!", "\n"), ("/*", "*/")]  [("\"", "\"")] )
+    ,   (Awk,        mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
+    ,   (C,          mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
     ,   (CMake,      mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
     ,   (Cabal,      mkContextFilterFun [("--", "\n")] [("\"", "\"")] )
     ,   (Chapel,     mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )

@@ -28,8 +28,8 @@ import Data.Maybe
 import Options
 import Util
 
-data Lang = Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
-            D | Elixir | Erlang | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Latex |
+data Lang = Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
+            D | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Latex |
             Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Tcl |
             Text | VHDL | Verilog | Vim
                 deriving (Read, Show, Eq, Ord, Bounded)
@@ -50,7 +50,8 @@ type LangRevMapType = Map.Map FileType Lang
 
 langMap :: LangMapType
 langMap = Map.fromList
-    [  (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"])
+    [  (Assembly,  [Ext "s", Ext "S"])
+    ,  (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"])
     ,  (C,         [Ext "c", Ext "C"])
     ,  (CMake,     [Name "CMakeLists.txt", Ext "cmake"])
     ,  (Cabal,     [Ext "cabal"])
@@ -58,12 +59,17 @@ langMap = Map.fromList
     ,  (Clojure,   [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"])
     ,  (Coffee,    [Ext "coffee"])
     ,  (Conf,      [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"])
-    ,  (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "tcc", Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp"])
+    ,  (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "c++", Ext "tcc",
+                    Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp", Ext "h++"])
     ,  (Csharp,    [Ext "cs", Ext "CS"])
     ,  (Css,       [Ext "css"])
     ,  (D,         [Ext "d", Ext "D"])
     ,  (Elixir,    [Ext "ex", Ext "exs"])
     ,  (Erlang,    [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"])
+    ,  (Fortran,   [Ext "f", Ext "for", Ext "ftn",
+                    Ext "F", Ext "FOR", Ext "FTN", Ext "fpp", Ext "FPP",
+                    Ext "f90", Ext "f95", Ext "f03", Ext "f08",
+                    Ext "F90", Ext "F95", Ext "F03", Ext "F08"])
     ,  (Fsharp,    [Ext "fs", Ext "fsx", Ext "fsi"])
     ,  (Go,        [Ext "go"])
     ,  (Haskell,   [Ext "hs", Ext "lhs", Ext "hsc"])
