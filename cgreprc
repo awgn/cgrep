@@ -5,13 +5,13 @@
 
 Config 
 {
-    configLanguages  = [ Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, Fsharp, Go, 
-                         Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC , Perl, PHP, 
-                         Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim ]
+    configLanguages  = [ Assembly, Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, 
+                         Fortran, Fsharp, Go, Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC , 
+                         Perl, PHP, Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim ]
   , configPruneDirs  = [".svn", ".git", "CMakeFiles" ]
   , configAutoColor  = True
   , configColorFile  = [SetColor Foreground Dull Blue]
-  , configColorMatch = [SetConsoleIntensity BoldIntensity, SetColor Foreground Dull Magenta]
+  , configColorMatch = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
 } 
 
 
