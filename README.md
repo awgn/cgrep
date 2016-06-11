@@ -7,7 +7,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 6.6.14. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.6.15. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -96,7 +96,7 @@ Concurrency:
 Miscellaneous:
 
     -d --debug=INT             Debug level: 1, 2 or 3
-    -n --no-quick              Disable quick-search mode
+       --no-shallow            Disable shallow-search 
     -? --help                  Display help message
     -V --version               Print version information
        --numeric-version       Print just the version number
