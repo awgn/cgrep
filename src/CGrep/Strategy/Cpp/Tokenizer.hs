@@ -50,7 +50,7 @@ search f ps = do
 
     let filt = (mkContextFilter opt) { getFilterComment = False }
 
-        [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
+    let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
                                                  , contextFilter (getFileLang opt filename) filt
                                                  , ignoreCase opt
                                                  ]

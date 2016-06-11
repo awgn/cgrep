@@ -56,7 +56,6 @@ search f patterns = do
     -- filter tokens...
 
         patterns' = map C.unpack patterns
-
         matches  = filter (\t -> any (\p -> p ~== snd t) patterns') tokens'
 
     putStrLevel1 $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."

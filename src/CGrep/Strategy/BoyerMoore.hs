@@ -55,21 +55,23 @@ search f patterns = do
                                               , ignoreCase opt
                                               ]
 
-    putStrLevel1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
+    -- make shallow search
 
     let shallow = shallowSearch patterns text'''
 
+    -- search for matching tokens
+
+    let tokens = concatMap (\(p, xs) -> let p' = C.unpack p in map (,p') xs ) $ zip patterns shallow
+
+    -- filter exact/partial matching tokens
+
+    let tokens' = if word_match opt || prefix_match opt || suffix_match opt
+                    then filter (checkToken opt text''') tokens
+                    else tokens
+
+    putStrLevel1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
+
     runSearch opt filename (all notNull shallow) $ do
-
-        -- search for matching tokens
-
-        let tokens = concatMap (\(p, xs) -> let p' = C.unpack p in map (,p') xs ) $ zip patterns shallow
-
-        -- filter exact/partial matching tokens
-
-            tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                        then filter (checkToken opt text''') tokens
-                        else tokens
 
         -- print banners...
 
@@ -85,10 +87,9 @@ checkToken opt text (off, str)
      | word_match    opt = (off - off', str) `elem` ts
      | prefix_match  opt = any (\(o,s) -> str `isPrefixOf` s && o + off' == off) ts
      | suffix_match  opt = any (\(o,s) -> str `isSuffixOf` s && o + off' + (length s - length str) == off) ts
+     | otherwise         = undefined
      where (text',off') = getLineByOffset off text
            ts           = T.tokenizer text'
-
-checkToken _ _ (_,_) = undefined
 
 
 splitLines :: Text8 -> [(Text8,Offset)]

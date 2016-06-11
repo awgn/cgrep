@@ -50,7 +50,12 @@ search f patterns = do
     -- transform text
 
     let filt = (mkContextFilter opt) { getFilterComment = False }
-        text' = ignoreCase opt text
+
+
+    let [text''', text'' , text', _] = scanr ($) text  [ expandMultiline opt
+                                                       , contextFilter (getFileLang opt filename) filt
+                                                       , ignoreCase opt
+                                                       ]
 
     -- pre-process patterns
 
@@ -73,26 +78,21 @@ search f patterns = do
     putStrLevel2 $ "multicards: " ++ show patterns'''
     putStrLevel2 $ "identif   : " ++ show identif
 
-    let text'' = contextFilter (getFileLang opt filename) filt text'
-        idpack = map C.pack identif
+    let idpack = map C.pack identif
         quick1 = all notNull $ shallowSearch idpack text'
         quick2 = all notNull $ shallowSearch idpack text''
 
     runSearch opt filename (quick1 && quick2) $ do
 
-        let [text''', _ , _] = scanr ($) text'  [ expandMultiline opt
-                                                , contextFilter (getFileLang opt filename) filt
-                                                ]
-
         -- parse source code, get the Cpp.Token list...
 
-        let  tokens = Cpp.tokenizer text'''
+        let tokens = Cpp.tokenizer text'''
 
         -- get matching tokens ...
 
-             tokens' = sortBy (compare `on` Cpp.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns'''
+        let tokens' = sortBy (compare `on` Cpp.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns'''
 
-             matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
+        let matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
         putStrLevel2 $ "tokens    : " ++ show tokens'
         putStrLevel2 $ "matches   : " ++ show matches

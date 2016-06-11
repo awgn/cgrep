@@ -51,7 +51,11 @@ search f ps = do
 
     -- transform text
 
-    let text' = ignoreCase opt text
+    let [text''', text'', text', _ ] = scanr ($) text [ expandMultiline opt
+                                                      , contextFilter (getFileLang opt filename) filt
+                                                      , ignoreCase opt
+                                                      ]
+
         filt  = (mkContextFilter opt) { getFilterComment = False }
 
     -- pre-process patterns
@@ -74,26 +78,20 @@ search f ps = do
     putStrLevel2 $ "multicards: " ++ show patterns''
     putStrLevel2 $ "identif   : " ++ show identif
 
-    let text'' = contextFilter (getFileLang opt filename) filt text'
-        idpack = map C.pack identif
+    let idpack = map C.pack identif
         quick1 = all notNull $ shallowSearch idpack text'
         quick2 = all notNull $ shallowSearch idpack text''
 
     runSearch opt filename (quick1 && quick2) $ do
 
-        -- expand multi-line
-
-        let text''' = expandMultiline opt text''
-
         -- parse source code, get the Generic.Token list...
 
-            tokens = Generic.tokenizer text'''
+        let tokens = Generic.tokenizer text'''
 
         -- get matching tokens ...
 
-            tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
-
-            matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
+        let tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
         putStrLevel2 $ "tokens    : " ++ show tokens'
         putStrLevel2 $ "matches   : " ++ show matches
