@@ -19,8 +19,8 @@
 module CGrep.Common (Text8,
                      getTargetName,
                      getTargetContents,
-                     quickSearch,
-                     runQuickSearch,
+                     shallowSearch,
+                     runSearch,
                      expandMultiline,
                      ignoreCase,
                      trim, trim8) where
@@ -56,21 +56,19 @@ getTargetContents [] = C.getContents
 getTargetContents xs = C.readFile xs
 
 
-quickSearch :: Options -> [Text8] -> Text8 -> Maybe Bool
-quickSearch opt ps text
-    | no_quick opt        = Nothing
-    | otherwise           = Just $ all findToken ps || null ps
-    where findToken tok = notNull $ tok `SC.nonOverlappingIndices` text
+shallowSearch :: [Text8] -> Text8 -> [[Int]]
+shallowSearch ps text = ps >>= (\p -> [p `SC.nonOverlappingIndices` text])
 
 
-runQuickSearch :: FilePath
-          -> Maybe Bool                     -- quicksearch
+runSearch :: Options
+          -> FilePath
+          -> Bool
           -> OptionT IO [Output]
           -> OptionT IO [Output]
-runQuickSearch filename quick doSearch =
-    if maybe False not quick
-        then mkOutput filename C.empty C.empty []
-        else doSearch
+runSearch opt filename shallowTest doSearch =
+    if shallowTest || no_shallow opt
+        then doSearch
+        else mkOutput filename C.empty C.empty []
 
 
 expandMultiline :: Options -> Text8 -> Text8

@@ -216,7 +216,7 @@ main = do
     -- read command-line options
 
     opts  <- (if isTermOut
-                then \o -> o { color = (color o || configAutoColor conf) }
+                then \o -> o { color = color o || configAutoColor conf }
                 else id) <$> cmdArgsRun options
 
     -- check for multiple backends...

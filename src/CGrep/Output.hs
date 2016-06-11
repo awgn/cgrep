@@ -48,6 +48,7 @@ import CGrep.Types
 import CGrep.Token
 
 import Options
+import Util
 import Config
 import Reader
 import Safe
@@ -290,5 +291,5 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
 
 
 hilightIndicies :: [Token] -> [(Int, Int)]
-hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) [] . filter (not . null . snd)
+hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) [] . filter (notNull . snd)
 

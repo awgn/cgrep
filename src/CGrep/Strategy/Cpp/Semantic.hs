@@ -23,7 +23,6 @@ import qualified CGrep.Parser.Cpp.Token  as Cpp
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
-import Control.Applicative (liftA2)
 import Data.List
 import Data.Function
 import Data.Maybe
@@ -59,9 +58,6 @@ search f patterns = do
         patterns''  = map (map mkWildCardFromToken) patterns'                         -- [ [w1,w2,..], [w1,w2,..] ]
         patterns''' = map (combineMultiCard . map (:[])) patterns''                   -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
-
-    -- quickSearch
-
         identif = mapMaybe (\x -> case x of
                               TokenCard (Cpp.TokenChar   xs _) -> Just (rmQuote $ trim xs)
                               TokenCard (Cpp.TokenString xs _) -> Just (rmQuote $ trim xs)
@@ -79,10 +75,10 @@ search f patterns = do
 
     let text'' = contextFilter (getFileLang opt filename) filt text'
         idpack = map C.pack identif
-        quick1 = quickSearch opt idpack text'
-        quick2 = quickSearch opt idpack text''
+        quick1 = all notNull $ shallowSearch idpack text'
+        quick2 = all notNull $ shallowSearch idpack text''
 
-    runQuickSearch filename (liftA2 (&&) quick1 quick2) $ do
+    runSearch opt filename (quick1 && quick2) $ do
 
         let [text''', _ , _] = scanr ($) text'  [ expandMultiline opt
                                                 , contextFilter (getFileLang opt filename) filt

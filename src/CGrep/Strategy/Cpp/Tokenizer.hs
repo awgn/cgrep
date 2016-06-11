@@ -35,6 +35,7 @@ import Data.List
 import Reader
 import Options
 import Debug
+import Util
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -57,9 +58,9 @@ search f ps = do
 
     putStrLevel1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
-    --quickSearch ...
+    let quick = all notNull $ shallowSearch ps text'
 
-    runQuickSearch filename (quickSearch opt ps text') $ do
+    runSearch opt filename quick $ do
 
         -- parse source code, get the Cpp.Token list...
 

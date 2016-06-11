@@ -82,7 +82,7 @@ data Options = Options
     ,   asynch              :: Bool
     -- Misc:
     ,   debug               :: Int
-    ,   no_quick            :: Bool
+    ,   no_shallow          :: Bool
     ,   others              :: [String]
     } deriving (Data, Typeable, Show)
 

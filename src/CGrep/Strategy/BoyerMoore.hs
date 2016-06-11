@@ -16,15 +16,14 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE TupleSections #-}
 
 module CGrep.Strategy.BoyerMoore (search) where
 
 import qualified Data.ByteString.Char8  as C
-import qualified Data.ByteString.Search as SC
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
-import Control.Arrow as A
 import Data.List
 
 import CGrep.Common
@@ -38,6 +37,7 @@ import qualified CGrep.Token as T
 import Reader
 import Options
 import Debug
+import Util
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -50,18 +50,20 @@ search f patterns = do
 
     -- transform text
 
-    let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (getFileLang opt filename) (mkContextFilter opt)
-                                                 , ignoreCase opt
-                                                 ]
+    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
+                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                              , ignoreCase opt
+                                              ]
 
     putStrLevel1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
 
-    runQuickSearch filename (quickSearch opt patterns text') $ do
+    let shallow = shallowSearch patterns text'''
+
+    runSearch opt filename (all notNull shallow) $ do
 
         -- search for matching tokens
 
-        let tokens  = map (A.second C.unpack) $ patterns >>= (\p -> map (\i -> (i,p)) (p `SC.nonOverlappingIndices` text'''))
+        let tokens = concatMap (\(p, xs) -> let p' = C.unpack p in map (,p') xs ) $ zip patterns shallow
 
         -- filter exact/partial matching tokens
 
