@@ -81,6 +81,7 @@ data Options = Options
     ,   chunk               :: Int
     ,   asynch              :: Bool
     -- Misc:
+    ,   utf8                :: Bool
     ,   debug               :: Int
     ,   no_shallow          :: Bool
     ,   others              :: [String]

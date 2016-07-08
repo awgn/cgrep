@@ -20,7 +20,9 @@
 
 module CGrep.Strategy.BoyerMoore (search) where
 
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8  as C
+import qualified Codec.Binary.UTF8.String as UC
 
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
@@ -50,10 +52,12 @@ search f patterns = do
 
     -- transform text
 
-    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
-                                              , ignoreCase opt
-                                              ]
+    let utext = if utf8 opt then C.pack $ UC.decode $ B.unpack text else text
+
+    let [text''', _ , _ , _] = scanr ($) utext [ expandMultiline opt
+                                               , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                               , ignoreCase opt
+                                               ]
 
     -- make shallow search
 
