@@ -66,6 +66,7 @@ import Config
 import Reader
 
 import qualified Data.ByteString.Char8 as C
+import qualified Codec.Binary.UTF8.String as UC
 
 
 fileFilter :: Options -> [Lang] -> FilePath -> Bool
@@ -242,7 +243,7 @@ main = do
 
     -- load patterns:
 
-    patterns <- if null (file opts) then return $ (if isTermIn then (:[]) . head else id) $ map C.pack (others opts)
+    patterns <- if null (file opts) then return $ (if isTermIn then (:[]) . head else id) $ map (C.pack . UC.encodeString) (others opts)
                                     else readPatternsFromFile $ file opts
 
     let patterns' = map (if ignore_case opts then ic else id) patterns

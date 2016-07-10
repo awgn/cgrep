@@ -257,7 +257,7 @@ showLine conf Options { color = c, no_color = c' } out
     | otherwise  = unpack line
     where unpack = UC.decode . B.unpack
           line = outLine out
-          ts = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off line, s)) $ outTokens out
+          ts = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off line, UC.decodeString s)) $ outTokens out
 
 
 showFileName :: Config -> Options -> String -> String
