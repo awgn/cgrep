@@ -18,9 +18,7 @@
 
 module CGrep.Strategy.Generic.Semantic (search) where
 
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import qualified Codec.Binary.UTF8.String as UC
 
 import qualified CGrep.Parser.Generic.Token as Generic
 
@@ -40,7 +38,6 @@ import Data.Function
 import Data.Maybe
 
 import Reader
-import Options
 import Debug
 import Util
 
@@ -55,12 +52,10 @@ search f ps = do
 
     -- transform text
 
-    let utext = if utf8 opt then C.pack $ UC.decode $ B.unpack text else text
-
-    let [text''', text'', text', _ ] = scanr ($) utext [ expandMultiline opt
-                                                       , contextFilter (getFileLang opt filename) filt
-                                                       , ignoreCase opt
-                                                       ]
+    let [text''', text'', text', _ ] = scanr ($) text [ expandMultiline opt
+                                                      , contextFilter (getFileLang opt filename) filt
+                                                      , ignoreCase opt
+                                                      ]
 
         filt  = (mkContextFilter opt) { getFilterComment = False }
 

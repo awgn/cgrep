@@ -18,9 +18,7 @@
 
 module CGrep.Strategy.Cpp.Semantic (search) where
 
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import qualified Codec.Binary.UTF8.String as UC
 
 import qualified CGrep.Parser.Cpp.Token  as Cpp
 
@@ -38,7 +36,6 @@ import CGrep.Output
 import CGrep.Parser.WildCard
 
 import Reader
-import Options
 import Debug
 import Util
 
@@ -53,15 +50,13 @@ search f patterns = do
 
     -- transform text
 
-    let utext = if utf8 opt then C.pack $ UC.decode $ B.unpack text else text
-
     let filt = (mkContextFilter opt) { getFilterComment = False }
 
 
-    let [text''', text'' , text', _] = scanr ($) utext [ expandMultiline opt
-                                                       , contextFilter (getFileLang opt filename) filt
-                                                       , ignoreCase opt
-                                                       ]
+    let [text''', text'' , text', _] = scanr ($) text [ expandMultiline opt
+                                                      , contextFilter (getFileLang opt filename) filt
+                                                      , ignoreCase opt
+                                                      ]
 
     -- pre-process patterns
 

@@ -29,6 +29,7 @@ module CGrep.Output (Output(..),
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
+
 import System.Console.ANSI
 
 #ifdef ENABLE_HINT
@@ -251,10 +252,12 @@ showTokens Options { show_match = st } out
 
 
 showLine :: Config -> Options -> Output -> String
-showLine conf Options { color = c, no_color = c', utf8 = u } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . snd )) (outTokens out)) (unpack (outLine out))
-    | otherwise  = unpack (outLine out)
-    where unpack = if u then UC.decode . B.unpack else C.unpack
+showLine conf Options { color = c, no_color = c' } out
+    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . snd )) ts) (unpack line)
+    | otherwise  = unpack line
+    where unpack = UC.decode . B.unpack
+          line = outLine out
+          ts = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off line, s)) $ outTokens out
 
 
 showFileName :: Config -> Options -> String -> String
