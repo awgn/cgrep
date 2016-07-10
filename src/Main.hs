@@ -65,6 +65,7 @@ import Debug
 import Config
 import Reader
 
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
@@ -185,7 +186,8 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                           case () of
                             _ | json opts -> when m $ liftIO $ putStrLn ","
                               | otherwise -> return ()
-                          prettyOutput out >>= mapM_ (liftIO . putStrLn)
+                          let out' = map (\p -> p {outTokens = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off $ outLine p, UC.decodeString s)) $ outTokens p}) out
+                          prettyOutput out' >>= mapM_ (liftIO . putStrLn)
                           liftIO $ when (vim opts || editor opts) $ mapM_ (modifyIORef matchingFiles . Set.insert . outFilePath) out
                           action n True
         )  0 False

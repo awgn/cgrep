@@ -253,11 +253,9 @@ showTokens Options { show_match = st } out
 
 showLine :: Config -> Options -> Output -> String
 showLine conf Options { color = c, no_color = c' } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . snd )) ts) (unpack line)
-    | otherwise  = unpack line
-    where unpack = UC.decode . B.unpack
-          line = outLine out
-          ts = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off line, UC.decodeString s)) $ outTokens out
+    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . snd )) (outTokens out)) line
+    | otherwise  = line
+    where line = UC.decode $ B.unpack $ outLine out
 
 
 showFileName :: Config -> Options -> String -> String
