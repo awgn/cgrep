@@ -49,6 +49,7 @@ Executable cgrep
                        unix-compat >= 0.4,
                        async >= 2.0,
                        utf8-string,
+                       unicode-show,
                        transformers,
                        process
   Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N

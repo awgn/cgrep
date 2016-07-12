@@ -30,6 +30,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
+import Text.Show.Unicode
 import System.Console.ANSI
 
 #ifdef ENABLE_HINT
@@ -182,7 +183,7 @@ formatOutput out = do
             ("#f", showFile conf opt out),
             ("#n", showLineCol opt out),
             ("#l", showLine conf opt out),
-            ("#t", show ts'),
+            ("#t", ushow ts'),
             ("##", unwords ts'),
             ("#,", intercalate "," ts'),
             ("#;", intercalate ";" ts'),
@@ -219,7 +220,7 @@ hintOputput outs = do
                                              "; file   = " ++ show (showFile opt out) ++
                                              "; row    = " ++ show n ++
                                              "; line   = " ++ show (showLine conf opt ts l) ++
-                                             "; tokens = " ++ show (map snd ts) ++ " in " ++
+                                             "; tokens = " ++ ushow (map snd ts) ++ " in " ++
                                             (fromJust $ hint opt)
 #endif
 
@@ -247,7 +248,7 @@ showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = 
 
 showTokens :: Options -> Output -> String
 showTokens Options { show_match = st } out
-    | st        = show (map snd (outTokens out))
+    | st        = ushow (map snd (outTokens out))
     | otherwise = ""
 
 
