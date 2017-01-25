@@ -7,7 +7,7 @@ CGrep: a context-aware grep for source codes
 Usage
 -----
 
-Cgrep 6.6.15. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 6.6.17. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
