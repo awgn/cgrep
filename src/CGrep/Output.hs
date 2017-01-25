@@ -72,11 +72,10 @@ getOffsetsLines txt = let l = C.length txt in filter (<(l-1)) $ C.elemIndices '\
 
 
 getOffset2d :: [OffsetLine] -> Offset -> Offset2d
-getOffset2d idx off = let prc =  fst $ partition (< off) idx in
-        case prc of
-          [] -> (0, off)
-          _  -> (length prc, off - last prc - 1)
-
+getOffset2d idx off =
+  let prc = filter (< off) idx
+      (len_prc, last_prc) = foldl' (\(len,_) cur -> (len + 1, cur)) (0,off) prc
+  in (len_prc, off - last_prc - 1)
 
 mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> OptionT m [Output]
 mkOutput f text multi ts = do
