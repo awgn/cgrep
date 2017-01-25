@@ -243,6 +243,7 @@ showFile conf opt = showFileName conf opt . outFilePath
 showLineCol :: Options -> Output -> String
 showLineCol Options{no_numbers = True } _ = ""
 showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
+showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n 
 showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . fst . head $ ts)
 
 
