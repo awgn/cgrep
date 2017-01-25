@@ -16,6 +16,7 @@
 --
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE BangPatterns #-}
 
 module CGrep.Output (Output(..),
                      mkOutput,
@@ -66,36 +67,42 @@ data Output = Output
     }
     deriving (Show)
 
+toMatchLine :: OffsetLine -> OffsetLine -> Int ->  [Token] -> MatchLine 
+toMatchLine start end no matches = (no, start, end-start, map mkLineRelative matches)
+  where mkLineRelative (off,str) = (off - start,str)
 
-getOffsetsLines :: Text8 -> [Int]
-getOffsetsLines txt = let l = C.length txt in filter (<(l-1)) $ C.elemIndices '\n' txt
+
+mkMatchLines :: Text8 -> [Token] -> Bool -> [MatchLine]
+mkMatchLines txt matches inverted = 
+  -- Assume: txt is terminated by line break, matches are sorted by offset
+  -- Then matchLines are also sorted by line number
+  let (matchLines,_,_,_,_) = C.foldl' collectMatchLines ([],matches,1,0,0) txt
+  in reverse matchLines -- the fold collects match lines in reverse order
+
+  where collectMatchLines (!matchLines,!matches',lineNo,lineStart,pos) sym 
+          | sym == '\n' = let matchLines' = if includeLine matches' pos inverted
+                                            then (toMatchLine lineStart pos lineNo (matches' `before` pos)) : matchLines
+                                            else matchLines
+                          in (matchLines',matches' `after` pos,lineNo +1,pos +1,pos+1)
+
+          | otherwise = (matchLines,matches',lineNo,lineStart,pos +1)
+
+        includeLine matches' pos True = null $ matches' `before` pos
+        includeLine matches' pos False = not $ null $ matches' `before` pos
+
+        before toks pos = takeWhile ((<= pos) . tokenOffset) toks
+        after toks pos = dropWhile ((<= pos) . tokenOffset) toks
+        tokenOffset = fst
 
 
-getOffset2d :: [OffsetLine] -> Offset -> Offset2d
-getOffset2d idx off =
-  let prc = filter (< off) idx
-      (len_prc, last_prc) = foldl' (\(len,_) cur -> (len + 1, cur)) (0,off) prc
-  in (len_prc, off - last_prc - 1)
 
 mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> OptionT m [Output]
 mkOutput f text multi ts = do
-    invert <- reader (invert_match . snd)
-    return $ if invert then map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
-                       else map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
-    where ls = C.lines text
+  invert <- reader (invert_match . snd)
+  return $ map (\(n, start, len, xs) -> Output f n (substr start len text) xs) $ mkMatchLines multi ts invert
 
+   where substr i l = C.take l . C.drop i
 
-mkMatchLines :: Text8 -> [Token] -> [MatchLine]
-mkMatchLines _ [] = []
-mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
-    sortBy (compare `on` fst) $ map (\t -> let (r,c) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts
-    where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)
-          ols = getOffsetsLines text
-
-
-invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
-invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]]
-    where idx = map fst xs
 
 
 putPrettyHeader :: OptionT IO ()

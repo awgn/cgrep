@@ -30,7 +30,7 @@ import CGrep.Types
 
 
 type Token      = (Offset, String)
-type MatchLine  = (OffsetLine, [Token])
+type MatchLine  = (OffsetLine, Offset, Int, [Token]) -- (Line number, start, length, match list)
 type DString    = DL.DList Char
 
 
