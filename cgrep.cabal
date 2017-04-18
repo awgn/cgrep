@@ -25,7 +25,32 @@ Executable cgrep
                        BangPatterns, 
                        FlexibleInstances, 
                        FlexibleContexts
-  Other-Modules:       Debug Options CmdOptions Util Config Reader CGrep.Lang CGrep.Filter CGrep.Token CGrep.Types CGrep.CGrep CGrep.Output CGrep.Distance CGrep.Common CGrep.Context CGrep.Parser.WildCard CGrep.Parser.Generic.Token CGrep.Parser.Token CGrep.Parser.Cpp.Token CGrep.Strategy.Generic.Semantic CGrep.Strategy.Levenshtein CGrep.Strategy.BoyerMoore CGrep.Strategy.Cpp.Tokenizer CGrep.Strategy.Cpp.Semantic CGrep.Strategy.Regex
+  Other-Modules:       Debug 
+                       Options 
+                       CmdOptions 
+                       Util 
+                       Config 
+                       Reader 
+                       CGrep.Lang 
+                       CGrep.Filter 
+                       CGrep.Token 
+                       CGrep.Types 
+                       CGrep.CGrep 
+                       CGrep.Output 
+                       CGrep.Distance 
+                       CGrep.Common 
+                       CGrep.Context 
+                       CGrep.Parser.WildCard 
+                       CGrep.Parser.Generic.Token 
+                       CGrep.Parser.Token 
+                       CGrep.Parser.Cpp.Token 
+                       CGrep.Strategy.Generic.Semantic 
+                       CGrep.Strategy.Levenshtein 
+                       CGrep.Strategy.BoyerMoore 
+                       CGrep.Strategy.Cpp.Tokenizer 
+                       CGrep.Strategy.Cpp.Semantic 
+                       CGrep.Strategy.Regex
+                       Paths_cgrep
   Build-Depends:       base < 5.0, 
                        cmdargs >=0.10, 
                        bytestring >=0.10, 
