@@ -31,7 +31,7 @@ import Util
 data Lang = Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
             D | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Latex |
             Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Tcl |
-            Text | VHDL | Verilog | Vim
+            Text | VHDL | Verilog | Vim | Yaml
                 deriving (Read, Show, Eq, Ord, Bounded)
 
 
@@ -93,6 +93,7 @@ langMap = Map.fromList
     ,  (VHDL,      [Ext "vhd", Ext "vhdl"])
     ,  (Verilog,   [Ext "v", Ext "vh", Ext "sv"])
     ,  (Vim,       [Ext "vim"])
+    ,  (Yaml,      [Ext "yaml", Ext "yml"])
     ]
 
 

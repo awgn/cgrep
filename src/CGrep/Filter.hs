@@ -225,6 +225,7 @@ filterFunctionMap = Map.fromList
     ,   (VHDL,       mkContextFilterFun [("--", "\n")] [("\"", "\"")] )
     ,   (Verilog,    mkContextFilterFun [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
     ,   (Vim,        mkContextFilterFun [("\"", "\n")] [("'", "'")] )
+    ,   (Yaml,       mkContextFilterFun [("#", "\n")]  [("\"", "\"")] )
     ]
 
 

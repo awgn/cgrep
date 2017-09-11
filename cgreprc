@@ -7,7 +7,7 @@ Config
 {
     configLanguages  = [ Assembly, Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, 
                          Fortran, Fsharp, Go, Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC , 
-                         Perl, PHP, Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim ]
+                         Perl, PHP, Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim, Yaml ]
   , configPruneDirs  = [".svn", ".git", "CMakeFiles" ]
   , configAutoColor  = True
   , configColorFile  = [SetColor Foreground Dull Blue]
