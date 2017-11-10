@@ -52,7 +52,7 @@ langMap :: LangMapType
 langMap = Map.fromList
     [  (Assembly,  [Ext "s", Ext "S"])
     ,  (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"])
-    ,  (C,         [Ext "c", Ext "C"])
+    ,  (C,         [Ext "c", Ext "C", Ext "inc"])
     ,  (CMake,     [Name "CMakeLists.txt", Ext "cmake"])
     ,  (Cabal,     [Ext "cabal"])
     ,  (Chapel,    [Ext "chpl"])
