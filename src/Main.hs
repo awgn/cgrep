@@ -39,7 +39,7 @@ import Control.Concurrent.STM.TChan
 
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.Either
+import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
 import Control.Applicative
 
@@ -144,17 +144,20 @@ parallelSearch paths patterns langs (isTermIn, _) = do
     -- launch worker threads...
 
     forM_ [1 .. jobs opts] $ \_ -> liftIO . forkIO $
-        void $ runEitherT $ forever $ do
+        void $ runExceptT . forever $ do
             fs <- lift $ atomically $ readTChan in_chan
             lift $ E.catch (case fs of
                     [] -> atomically $ writeTChan out_chan []
-                    xs -> void ((if asynch opts then flip mapConcurrently
-                                                else forM) xs $ \x -> do
-                                                    out <- fmap (take (max_count opts)) (runReaderT (runCgrep x patterns) (conf,sanitizeOptions x opts))
-                                                    unless (null out) $ atomically $ writeTChan out_chan out)
-                   )
-                   (\e -> let msg = show (e :: SomeException) in hPutStrLn stderr (showFileName conf opts (getTargetName (head fs)) ++ ": exception: " ++ if length msg > 80 then take 80 msg ++ "..." else msg))
-            when (null fs) $ left ()
+                    xs -> void $ (if asynch opts then flip mapConcurrently
+                                                 else forM) xs $ \x -> do
+                            out <- fmap (take (max_count opts)) (runReaderT (runCgrep x patterns) (conf,sanitizeOptions x opts))
+                            unless (null out) $ atomically $ writeTChan out_chan out)
+                   (\e -> let msg = show (e :: SomeException) in
+                        hPutStrLn stderr (showFileName conf opts (getTargetName (head fs))
+                            ++ ": exception: " ++ if length msg > 80
+                                                    then take 80 msg ++ "..."
+                                                    else msg))
+            when (null fs) $ throwE ()
 
 
     -- push the files to grep for...
