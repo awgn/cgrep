@@ -71,7 +71,7 @@ search f patterns = do
 
     putStrLevel1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
 
-    runSearch opt filename (all notNull shallow) $ do
+    runSearch opt filename (any notNull shallow) $ do
 
         -- print banners...
 
