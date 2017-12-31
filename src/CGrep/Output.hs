@@ -135,14 +135,21 @@ defaultOutput xs = do
     case () of
         _ |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
                 -> return $ map (\out -> concat $ [showFile conf, showSep ":", showLineCol, showSep ":", showTokens, showLine conf] <*> [opt] <*> [out]) xs
+
           |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
                 -> return $ map (\out -> concat $ [showFile conf, showSep ":", showTokens,  showLine conf] <*> [opt] <*> [out] ) xs
+
           |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
                 -> return $ map (\out -> concat $ [showLineCol, showSep ":",  showTokens, showLine conf] <*> [opt] <*> [out] ) xs
+
           |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
                 -> return $ map (\out -> concat $ [showTokens, showLine conf] <*> [opt] <*>  [out]) xs
+
+          |  Options{ no_filename = False, count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+                                                                       return $ map (\ys@(y:_) -> showFile conf opt y ++ ":" ++ show (length ys)) gs
+
           |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                                                  return $ map (\ys@(y:_) -> showFile conf opt y ++ ":" ++ show (length ys)) gs
+                                                  return $ map (\ys -> show (length ys)) gs
           |  otherwise -> undefined
 
 
@@ -242,7 +249,7 @@ showFile conf opt = showFileName conf opt . outFilePath
 showLineCol :: Options -> Output -> String
 showLineCol Options{no_numbers = True } _ = ""
 showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
-showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n 
+showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n
 showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . fst . head $ ts)
 
 
