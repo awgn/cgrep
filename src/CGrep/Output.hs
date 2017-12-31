@@ -149,7 +149,7 @@ defaultOutput xs = do
                                                                        return $ map (\ys@(y:_) -> showFile conf opt y ++ ":" ++ show (length ys)) gs
 
           |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                                                  return $ map (\ys -> show (length ys)) gs
+                                                  return $ map (show . length) gs
           |  otherwise -> undefined
 
 

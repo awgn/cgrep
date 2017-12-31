@@ -64,7 +64,7 @@ getConfig = do
     home  <- getHomeDirectory
     confs <- filterM doesFileExist [cgreprc, "." ++ cgreprc, home </> "." ++ cgreprc, "/etc" </> cgreprc]
     if notNull confs
-        then liftM dropComments (readFile (head confs)) >>= \xs ->
+        then fmap dropComments (readFile (head confs)) >>= \xs ->
               return (prettyRead xs "Config error" :: Config, Just (head confs))
         else return (defaultConfig, Nothing)
 

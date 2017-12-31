@@ -119,7 +119,7 @@ withRecursiveContents opts dir langs prunedir visited action = do
 readPatternsFromFile :: FilePath -> IO [C.ByteString]
 readPatternsFromFile f =
     if null f then return []
-              else liftM (map trim8 . C.lines) $ C.readFile f
+              else map trim8 . C.lines <$> C.readFile f
 
 getFilePaths :: Bool        ->     -- pattern(s) from file
                 Bool        ->     -- is terminal (no from STDIN)
