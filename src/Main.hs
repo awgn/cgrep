@@ -122,13 +122,10 @@ readPatternsFromFile f =
               else map trim8 . C.lines <$> C.readFile f
 
 getFilePaths :: Bool        ->     -- pattern(s) from file
-                Bool        ->     -- is terminal (no from STDIN)
                 [String]    ->     -- list of patterns and files
                 [String]
-
-getFilePaths False True xs = if length xs == 1 then [ ] else tail xs
-getFilePaths True  True xs = xs
-getFilePaths _ False _ = [ ]
+getFilePaths False xs = if length xs == 1 then [] else tail xs
+getFilePaths True  xs = xs
 
 
 parallelSearch :: [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> OptionT IO ()
@@ -240,15 +237,17 @@ main = do
 
     -- display lang-map and exit...
 
-    when (language_map opts) $ dumpLangMap langMap >> exitSuccess
+    when (language_map opts) $
+        dumpLangMap langMap >> exitSuccess
 
-    -- check whether patterns list is empty, display help message if it's the case
+    -- check whether the pattern list is empty, display help message if it's the case
 
-    when (null (others opts) && (isTermIn && null (file opts))) $ withArgs ["--help"] $ void (cmdArgsRun options)
+    when (null (others opts) && isTermIn && null (file opts)) $
+        withArgs ["--help"] $ void (cmdArgsRun options)
 
     -- load patterns:
 
-    patterns <- if null (file opts) then return $ (if isTermIn then (:[]) . head else id) $ map (C.pack . UC.encodeString) (others opts)
+    patterns <- if null (file opts) then return $ map (C.pack . UC.encodeString) (((:[]).head.others) opts)
                                     else readPatternsFromFile $ file opts
 
     let patterns' = map (if ignore_case opts then ic else id) patterns
@@ -263,7 +262,7 @@ main = do
 
     -- load files to parse:
 
-    let paths = getFilePaths (not $ null (file opts)) isTermIn (others opts)
+    let paths = getFilePaths (not $ null (file opts)) (others opts)
 
     -- parse cmd line language list:
 
