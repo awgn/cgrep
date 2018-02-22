@@ -219,7 +219,7 @@ main = do
     -- read command-line options
 
     opts  <- (if isTermOut
-                then \o -> o { color = color o || configAutoColor conf }
+                then \o -> o { color = color o || configColors conf }
                 else id) <$> cmdArgsRun options
 
     -- check for multiple backends...
@@ -274,6 +274,7 @@ main = do
 
     runReaderT (do putStrLevel1 $ "Cgrep " ++ showVersion version ++ "!"
                    putStrLevel1 $ "options   : " ++ show opts
+                   putStrLevel1 $ "config    : " ++ show conf
                    putStrLevel1 $ "languages : " ++ show langs
                    putStrLevel1 $ "pattern   : " ++ show patterns'
                    putStrLevel1 $ "files     : " ++ show paths

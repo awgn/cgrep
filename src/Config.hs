@@ -37,7 +37,7 @@ cgreprc = "cgreprc"
 data Config = Config
   {   configLanguages  :: [Lang]
   ,   configPruneDirs  :: [String]
-  ,   configAutoColor  :: Bool
+  ,   configColors     :: Bool
   ,   configColorFile  :: [SGR]
   ,   configColorMatch :: [SGR]
   } deriving (Show, Read)
@@ -48,7 +48,7 @@ defaultConfig :: Config
 defaultConfig = Config
   {   configLanguages   = []
   ,   configPruneDirs   = []
-  ,   configAutoColor   = False
+  ,   configColors      = False
   ,   configColorFile   = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Blue]
   ,   configColorMatch  = [SetConsoleIntensity BoldIntensity]
   }

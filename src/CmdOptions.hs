@@ -58,7 +58,7 @@ options = cmdArgsMode $ Options
           ,     deference_recursive = False &= help "Recursive, follow symlinks" &= explicit &= name "deference-recursive" &= name "R"
           ,     show_match = False          &= groupname "\nOutput format" &= help "Show list of matching tokens" &= explicit &= name "show-match"
           ,     color = False               &= help "Use colors to highlight the matching strings" &= explicit &= name "color"
-          ,     no_color = False            &= help "Do not use colors (override configAutoColor)" &= explicit &= name "no-color"
+          ,     no_color = False            &= help "Do not use colors (override config file)" &= explicit &= name "no-color"
           ,     no_filename = False         &= help "Suppress the file name prefix on output"  &= explicit &= name "h" &= name "no-filename"
           ,     no_numbers = False          &= help "Suppress both line and column numbers on output" &= explicit &= name "no-numbers"
           ,     no_column = False           &= help "Suppress the column number on output" &= explicit &= name "no-column"

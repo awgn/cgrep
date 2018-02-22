@@ -70,7 +70,7 @@ Output format:
 
        --show-match            Show list of matching tokens
        --color                 Use colors to highlight the matching strings
-       --no-color              Do not use colors (override configAutoColor)
+       --no-color              Do not use colors (override config file)
     -h --no-filename           Suppress the file name prefix on output
        --no-numbers            Suppress both line and column numbers on output
        --no-column             Suppress the column number on output

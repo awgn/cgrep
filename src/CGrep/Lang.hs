@@ -32,6 +32,7 @@ import Data.Maybe
 import Options
 import Util
 
+
 data Lang = Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
             D | Dart | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Kotlin |
             Latex | Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Swift | Tcl |
