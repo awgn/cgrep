@@ -16,14 +16,15 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Common (Text8,
-                     getTargetName,
-                     getTargetContents,
-                     shallowSearch,
-                     runSearch,
-                     expandMultiline,
-                     ignoreCase,
-                     trim, trim8) where
+module CGrep.Common ( Text8
+                    , getTargetName
+                    , getTargetContents
+                    , shallowSearch
+                    , runSearch
+                    , expandMultiline
+                    , ignoreCase
+                    , trim
+                    , trim8) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
@@ -81,4 +82,3 @@ ignoreCase :: Options -> Text8 -> Text8
 ignoreCase opt
     | ignore_case opt =  C.map toLowercase
     | otherwise = id
-

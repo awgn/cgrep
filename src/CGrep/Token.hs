@@ -18,8 +18,10 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-
-module CGrep.Token (Token, MatchLine, tokens, tokenizer) where
+module CGrep.Token ( Token
+                   , MatchLine
+                   , tokens
+                   , tokenizer) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -90,8 +92,10 @@ tokens = map snd . tokenizer
 
 
 tokenizer :: Text8 -> [Token]
-tokenizer xs = (\(TokenAccum _ off acc out) -> DL.toList (if null (DL.toList acc) then out
-                                                                                  else out `DL.snoc` mkToken off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 DL.empty DL.empty) xs
+tokenizer xs = (\(TokenAccum _ off acc out) ->
+      DL.toList (if null (DL.toList acc) then out
+                                         else out `DL.snoc` mkToken off acc)) $
+                                            C.foldl' tokens' (TokenAccum StateSpace 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ out) x =
               case () of
@@ -133,4 +137,3 @@ tokenizer xs = (\(TokenAccum _ off acc out) -> DL.toList (if null (DL.toList acc
                                             else TokenAccum StateDigit (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
                    | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
                    | otherwise          ->  TokenAccum StateOther      (off+1) (acc `DL.snoc` x)  out
-

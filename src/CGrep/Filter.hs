@@ -16,9 +16,15 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE ViewPatterns, MagicHash, BangPatterns #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE MagicHash #-}
 
-module CGrep.Filter (Context(..), ContextFilter(..), contextFilter, mkContextFilter)  where
+module CGrep.Filter ( Context(..)
+                    , ContextFilter(..)
+                    , contextFilter
+                    , mkContextFilter)  where
 
 import CGrep.Common (Text8)
 
@@ -39,8 +45,6 @@ import GHC.Exts
 
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
-
-
 type StringBoundary = (String, String)
 
 
@@ -72,10 +76,10 @@ data ContextState = CodeState | CommState {-# UNPACK #-} !Int | LitrState {-# UN
 --
 
 mkContextFilter :: Options -> ContextFilter
-mkContextFilter opt =
-    if not (code opt || comment opt || literal opt)
+mkContextFilter Options{..} =
+    if not (code || comment || literal)
         then ContextFilter { getFilterCode = True, getFilterComment = True,  getFilterLiteral = True }
-        else ContextFilter { getFilterCode = code opt, getFilterComment = comment opt, getFilterLiteral = literal opt }
+        else ContextFilter { getFilterCode = code , getFilterComment = comment , getFilterLiteral = literal }
 
 
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
@@ -92,7 +96,8 @@ contextFilter (Just language) filt txt
 --
 
 contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
-contextFilterFun conf filt txt =  fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
+contextFilterFun conf filt txt =
+  fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
 
 
 type ParData = (Text8, ContextFilter, ParState)
@@ -105,9 +110,7 @@ contextFilterImpl c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs, f, s'))
           !c' = if display s' || isSpace x then x else ' '
 contextFilterImpl _ _ = undefined
 
-
 {-# INLINE displayContext #-}
-
 displayContext :: ContextState -> ContextFilter -> Bool
 displayContext  CodeState     (ContextFilter b _ _ ) = b
 displayContext  (CommState _) (ContextFilter _ b _ ) = b
@@ -177,10 +180,11 @@ findIndex' p =
 filterFunctionMap :: Map.Map Lang FilterFunction
 
 
-mkContextFilterFun :: [StringBoundary] -> [StringBoundary] -> FilterFunction
-mkContextFilterFun cs ls = contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
-                                                    (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
-                                                    (mkBloom (cs ++ ls)))
+mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction
+mkFilterFunction cs ls =
+  contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
+                            (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
+                            (mkBloom (cs ++ ls)))
 
 
 mkBloom :: [StringBoundary] -> UArray Char Bool

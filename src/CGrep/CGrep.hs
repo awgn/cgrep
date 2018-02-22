@@ -16,7 +16,11 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.CGrep (sanitizeOptions, runCgrep, isRegexp) where
+{-# LANGUAGE RecordWildCards #-}
+
+module CGrep.CGrep ( sanitizeOptions
+                   , runCgrep
+                   , isRegexp) where
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
@@ -55,16 +59,15 @@ sanitizeOptions path opt =
 
 
 hasTokenizerOpt :: Options -> Bool
-hasTokenizerOpt Options
-  { identifier = i
-  , keyword    = k
-  , directive  = d
-  , header     = h
-  , number     = n
-  , string     = s
-  , char       = c
-  , oper       = o
-  } = i || k || d || h || n || s || c || o
+hasTokenizerOpt Options{..} =
+  identifier ||
+  keyword    ||
+  directive  ||
+  header     ||
+  number     ||
+  string     ||
+  char       ||
+  oper
 
 
 isRegexp :: Options -> Bool
@@ -81,5 +84,3 @@ runCgrep filename patterns = do
           | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
           | isRegexp opt                                                                             -> Regex.search filename patterns
           | otherwise                                                                                -> undefined
-
-

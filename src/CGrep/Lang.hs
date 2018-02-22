@@ -16,8 +16,12 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Lang (Lang(..), langMap, getFileLang, splitLangList,
-                   dumpLangMap, dumpLangRevMap) where
+module CGrep.Lang ( Lang(..)
+                  , langMap
+                  , getFileLang
+                  , splitLangList
+                  , dumpLangMap
+                  , dumpLangRevMap) where
 
 import qualified Data.Map as Map
 import System.FilePath(takeExtension, takeFileName)
@@ -133,4 +137,3 @@ splitLangList  = foldl run ([],[],[])
             | '+':xs <- l = (l1, prettyRead xs "Lang" : l2, l3)
             | '-':xs <- l = (l1, l2, prettyRead xs "Lang" : l3)
             | otherwise   = (prettyRead l  "Lang" : l1, l2, l3)
-

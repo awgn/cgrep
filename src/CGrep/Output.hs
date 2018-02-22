@@ -17,14 +17,14 @@
 
 {-# LANGUAGE CPP #-}
 
-module CGrep.Output (Output(..),
-                     mkOutput,
-                     putPrettyHeader,
-                     putPrettyFooter,
-                     prettyOutput,
-                     showFileName,
-                     showFile,
-                     showBold) where
+module CGrep.Output ( Output(..)
+                    , mkOutput
+                    , putPrettyHeader
+                    , putPrettyFooter
+                    , prettyOutput
+                    , showFileName
+                    , showFile
+                    , showBold) where
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
@@ -76,6 +76,7 @@ getOffset2d idx off =
   let prc = filter (< off) idx
       (len_prc, last_prc) = foldl' (\(len,_) cur -> (len + 1, cur)) (0,off) prc
   in (len_prc, off - last_prc - 1)
+
 
 mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> OptionT m [Output]
 mkOutput f text multi ts = do
@@ -304,4 +305,3 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
 
 hilightIndicies :: [Token] -> [(Int, Int)]
 hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) [] . filter (notNull . snd)
-
