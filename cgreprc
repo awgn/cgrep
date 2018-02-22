@@ -1,17 +1,16 @@
 #
-# cgrep config file...
+# cgrep YAML config file...
 # 
 
+languages        : [ Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csharp , Css ,
+                     D , Dart , Elixir , Erlang , Fortran , Fsharp , Go , Haskell , Html , Idris , Java , Javascript , Kotlin ,
+                     Latex , Lua , Make , OCaml , ObjectiveC , PHP , Perl , Python , Ruby , Scala , Shell , Swift , Tcl ,
+                     Text , VHDL , Verilog , Vim , Yaml ]
 
-Config 
-{
-    configLanguages  = [ Assembly, Awk, C, Cpp, Cabal, Csharp, Chapel, Coffee, Conf, Css, CMake, D, Erlang, 
-                         Fortran, Fsharp, Go, Haskell, Html, Java, Javascript, Latex, Lua, Make, OCaml, ObjectiveC , 
-                         Perl, PHP, Python, Ruby, Scala, Tcl, Text, Shell, Verilog, VHDL, Vim, Yaml ]
-  , configPruneDirs  = [".svn", ".git", "CMakeFiles" ]
-  , configAutoColor  = True
-  , configColorFile  = [SetColor Foreground Dull Blue]
-  , configColorMatch = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
-} 
+prune_dirs       : [".svn", ".git", "CMakeFiles" ]
+
+colors           : True
+color_filename   : "Blue" 
+color_match      : "Red"
 
 

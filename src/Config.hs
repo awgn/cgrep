@@ -16,6 +16,10 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Config where
 
 import Data.List
@@ -25,10 +29,15 @@ import Control.Monad
 import System.Directory
 import System.FilePath ((</>))
 import System.Console.ANSI
+import Data.Semigroup ((<>), Semigroup(..))
 
-import Util
+import qualified Data.Yaml  as Y
+import Data.Aeson
+import Data.Maybe
+
+import GHC.Generics
 import CGrep.Lang
-
+import Util
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"
@@ -44,7 +53,6 @@ data Config = Config
 
 
 defaultConfig :: Config
-
 defaultConfig = Config
   {   configLanguages   = []
   ,   configPruneDirs   = []
@@ -54,9 +62,32 @@ defaultConfig = Config
   }
 
 
-dropComments :: String -> String
-dropComments =  unlines . filter notComment . lines
-    where notComment = (not . ("#" `isPrefixOf`)) . dropWhile isSpace
+mkConfig :: YamlConfig -> Config
+mkConfig YamlConfig{..} =
+   let configLanguages  = mapMaybe readMaybe yamlLanguages
+       configPruneDirs  = yamlPruneDirs
+       configColors     = yamlColors
+       configColorFile  = fromMaybe [] (yamlColorFileName >>= readColor)
+       configColorMatch = fromMaybe [] (yamlColorMatch >>= readColor)
+    in Config {..}
+
+
+data YamlConfig = YamlConfig
+  {   yamlLanguages     :: [String]
+  ,   yamlPruneDirs     :: [String]
+  ,   yamlColors        :: Bool
+  ,   yamlColorFileName :: Maybe String
+  ,   yamlColorMatch    :: Maybe String
+  } deriving (Show, Generic)
+
+
+instance Y.FromJSON YamlConfig where
+ parseJSON (Y.Object v) =
+    YamlConfig <$> v .:? "languages"        .!= []
+               <*> v .:? "prune_dirs"       .!= []
+               <*> v .:? "colors"           .!= False
+               <*> v .:? "color_filename"   .!= Nothing
+               <*> v .:? "color_match"      .!= Nothing
 
 
 getConfig :: IO (Config, Maybe FilePath)
@@ -64,8 +95,26 @@ getConfig = do
     home  <- getHomeDirectory
     confs <- filterM doesFileExist [cgreprc, "." ++ cgreprc, home </> "." ++ cgreprc, "/etc" </> cgreprc]
     if notNull confs
-        then fmap dropComments (readFile (head confs)) >>= \xs ->
-              return (prettyRead xs "Config error" :: Config, Just (head confs))
+        then do
+            conf <- Y.decodeFileEither (head confs)
+            print conf
+            case conf of
+                Left  e -> errorWithoutStackTrace $ Y.prettyPrintParseException e
+                Right yconf -> return (mkConfig yconf, Just (head confs))
         else return (defaultConfig, Nothing)
+
+
+readColor :: String -> Maybe [SGR]
+readColor "Bold"      =  Just [SetConsoleIntensity BoldIntensity]
+readColor "Red"       =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
+readColor "Green"     =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Green]
+readColor "Yellow"    =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Yellow]
+readColor "Blue"      =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Blue]
+readColor "Magenta"   =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Magenta]
+readColor "Cyan"      =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Cyan]
+readColor "White"     =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid White]
+readColor _           =  Nothing
+
+
 
 

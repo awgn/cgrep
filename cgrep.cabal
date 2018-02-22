@@ -76,6 +76,8 @@ Executable cgrep
                        utf8-string,
                        unicode-show,
                        transformers,
-                       process
+                       process,
+                       aeson,
+                       yaml
   Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
   Default-language:    Haskell2010
