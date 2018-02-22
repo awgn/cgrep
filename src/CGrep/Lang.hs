@@ -33,8 +33,8 @@ import Options
 import Util
 
 data Lang = Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
-            D | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Latex |
-            Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Tcl |
+            D | Dart | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Kotlin |
+            Latex | Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Swift | Tcl |
             Text | VHDL | Verilog | Vim | Yaml
                 deriving (Read, Show, Eq, Ord, Bounded)
 
@@ -68,6 +68,7 @@ langMap = Map.fromList
     ,  (Csharp,    [Ext "cs", Ext "CS"])
     ,  (Css,       [Ext "css"])
     ,  (D,         [Ext "d", Ext "D"])
+    ,  (Dart,      [Ext "dart"])
     ,  (Elixir,    [Ext "ex", Ext "exs"])
     ,  (Erlang,    [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"])
     ,  (Fortran,   [Ext "f", Ext "for", Ext "ftn",
@@ -81,6 +82,7 @@ langMap = Map.fromList
     ,  (Idris,     [Ext "idr", Ext "lidr"])
     ,  (Java,      [Ext "java"])
     ,  (Javascript,[Ext "js"])
+    ,  (Kotlin,    [Ext "kt", Ext "kts", Ext "ktm"])
     ,  (Latex,     [Ext "latex", Ext "tex"])
     ,  (Lua,       [Ext "lua"])
     ,  (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"])
@@ -92,6 +94,7 @@ langMap = Map.fromList
     ,  (Ruby,      [Ext "rb", Ext "ruby"])
     ,  (Scala,     [Ext "scala"])
     ,  (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"])
+    ,  (Swift,     [Ext "swift"])
     ,  (Tcl,       [Ext "tcl", Ext "tk"])
     ,  (Text,      [Ext "txt", Ext "md", Ext "markdown", Ext "mdown", Ext "mkdn", Ext "mkd", Ext "mdwn", Ext "mdtxt", Ext "mdtext", Ext "text", Name "README", Name "INSTALL", Name "VERSION", Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"])
     ,  (VHDL,      [Ext "vhd", Ext "vhdl"])
