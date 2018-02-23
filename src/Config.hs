@@ -22,14 +22,10 @@
 
 module Config where
 
-import Data.List
-import Data.Char
-
 import Control.Monad
 import System.Directory
 import System.FilePath ((</>))
 import System.Console.ANSI
-import Data.Semigroup ((<>), Semigroup(..))
 
 import qualified Data.Yaml  as Y
 import Data.Aeson
@@ -88,6 +84,7 @@ instance Y.FromJSON YamlConfig where
                <*> v .:? "colors"           .!= False
                <*> v .:? "color_filename"   .!= Nothing
                <*> v .:? "color_match"      .!= Nothing
+ parseJSON _ = mzero
 
 
 getConfig :: IO (Config, Maybe FilePath)
@@ -97,7 +94,6 @@ getConfig = do
     if notNull confs
         then do
             conf <- Y.decodeFileEither (head confs)
-            print conf
             case conf of
                 Left  e -> errorWithoutStackTrace $ Y.prettyPrintParseException e
                 Right yconf -> return (mkConfig yconf, Just (head confs))
