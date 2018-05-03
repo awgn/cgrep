@@ -138,22 +138,23 @@ parallelSearch paths patterns langs (isTermIn, _) = do
     in_chan  <- liftIO newTChanIO
     out_chan <- liftIO newTChanIO
 
+
     -- launch worker threads...
 
     forM_ [1 .. jobs opts] $ \_ -> liftIO . forkIO $
         void $ runExceptT . forever $ do
             fs <- lift $ atomically $ readTChan in_chan
-            lift $ E.catch (case fs of
-                    [] -> atomically $ writeTChan out_chan []
-                    xs -> void $ (if asynch opts then flip mapConcurrently
-                                                 else forM) xs $ \x -> do
-                            out <- fmap (take (max_count opts)) (runReaderT (runCgrep x patterns) (conf,sanitizeOptions x opts))
-                            unless (null out) $ atomically $ writeTChan out_chan out)
-                   (\e -> let msg = show (e :: SomeException) in
-                        hPutStrLn stderr (showFileName conf opts (getTargetName (head fs))
-                            ++ ": exception: " ++ if length msg > 80
-                                                    then take 80 msg ++ "..."
-                                                    else msg))
+            lift $
+                E.catch (
+                    case fs of
+                        [] -> atomically $ writeTChan out_chan []
+                        xs -> void $ (if asynch opts then flip mapConcurrently
+                                                     else forM) xs $ \x -> do
+                                out <- fmap (take (max_count opts)) (runReaderT (runCgrep conf opts x patterns) (conf, sanitizeOptions x opts))
+                                unless (null out) $ atomically $ writeTChan out_chan out)
+                       (\e -> let msg = show (e :: SomeException) in
+                            hPutStrLn stderr (showFileName conf opts (getTargetName (head fs))
+                                ++ ": exception: " ++ takeN 80 msg))
             when (null fs) $ throwE ()
 
 
