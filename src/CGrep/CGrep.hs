@@ -30,6 +30,10 @@ import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
 import qualified CGrep.Strategy.Generic.Semantic as Semantic
 
 import Control.Monad.Trans.Reader
+import Control.Monad.Catch
+import Control.Monad.IO.Class
+
+import System.IO
 
 import CGrep.Lang
 import CGrep.Common
@@ -39,6 +43,7 @@ import Data.List
 import Data.Maybe
 import Options
 import Reader
+import Config
 
 hasLanguage :: FilePath -> Options -> [Lang] -> Bool
 hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
@@ -73,14 +78,22 @@ hasTokenizerOpt Options{..} =
 isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
 
-runCgrep :: FilePath -> [Text8] -> OptionT IO [Output]
-runCgrep filename patterns = do
-    opt <- reader snd
-    case () of
-        _ | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
-          | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
-          | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
-          | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
-          | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
-          | isRegexp opt                                                                             -> Regex.search filename patterns
-          | otherwise                                                                                -> undefined
+runCgrep :: Config -> Options -> FilePath -> [Text8] -> OptionT IO [Output]
+runCgrep conf opts filename patterns =
+    catch ( do
+        opt <- reader snd
+        case () of
+            _ | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
+              | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
+              | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
+              | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
+              | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
+              | isRegexp opt                                                                             -> Regex.search filename patterns
+              | otherwise                                                                                -> undefined
+    )
+    (\e -> let msg = show (e :: SomeException) in
+        liftIO $ do
+            hPutStrLn stderr $ showFileName conf opts filename ++ ": exception: " ++ takeN 80 msg
+            return [ ]
+    )
+

@@ -24,7 +24,8 @@ module CGrep.Common ( Text8
                     , expandMultiline
                     , ignoreCase
                     , trim
-                    , trim8) where
+                    , trim8
+                    , takeN) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
@@ -37,6 +38,11 @@ import CGrep.Output
 import Options
 import Reader
 import Util
+
+
+takeN :: Int -> String -> String
+takeN n xs | length xs > n = take n xs ++ "..."
+          | otherwise     = xs
 
 
 trim :: String -> String
