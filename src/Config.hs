@@ -45,6 +45,7 @@ data Config = Config
   ,   configColors     :: Bool
   ,   configColorFile  :: [SGR]
   ,   configColorMatch :: [SGR]
+  ,   configFileLine   :: Bool
   } deriving (Show, Read)
 
 
@@ -55,6 +56,7 @@ defaultConfig = Config
   ,   configColors      = False
   ,   configColorFile   = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Blue]
   ,   configColorMatch  = [SetConsoleIntensity BoldIntensity]
+  ,   configFileLine    = False
   }
 
 
@@ -65,6 +67,7 @@ mkConfig YamlConfig{..} =
        configColors     = yamlColors
        configColorFile  = fromMaybe [] (yamlColorFileName >>= readColor)
        configColorMatch = fromMaybe [] (yamlColorMatch >>= readColor)
+       configFileLine   = yamlFileLine
     in Config {..}
 
 
@@ -74,6 +77,7 @@ data YamlConfig = YamlConfig
   ,   yamlColors        :: Bool
   ,   yamlColorFileName :: Maybe String
   ,   yamlColorMatch    :: Maybe String
+  ,   yamlFileLine      :: Bool
   } deriving (Show, Generic)
 
 
@@ -84,6 +88,7 @@ instance Y.FromJSON YamlConfig where
                <*> v .:? "colors"           .!= False
                <*> v .:? "color_filename"   .!= Nothing
                <*> v .:? "color_match"      .!= Nothing
+               <*> v .:? "file_line"        .!= False
  parseJSON _ = mzero
 
 

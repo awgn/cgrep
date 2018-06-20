@@ -69,6 +69,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
+import Data.Tuple.Extra
 
 fileFilter :: Options -> [Lang] -> FilePath -> Bool
 fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
@@ -201,20 +202,35 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                               | otherwise -> return ()
                           let out' = map (\p -> p {outTokens = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off $ outLine p, UC.decodeString s)) $ outTokens p}) out
                           prettyOutput out' >>= mapM_ (liftIO . putStrLn)
-                          liftIO $ when (vim opts || editor opts) $ mapM_ (modifyIORef matchingFiles . Set.insert . outFilePath) out
+                          liftIO $ when (vim opts || editor opts) $
+                                    mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNo)) out
                           action n True
         )  0 False
+
 
     putPrettyFooter
 
     -- run editor...
 
-    liftIO $ when (vim opts || editor opts) $ do
+    when (vim opts || editor opts) $ liftIO $ do
+
         editor' <- if vim opts
                     then return (Just "vim")
                     else lookupEnv "EDITOR"
-        files   <- readIORef matchingFiles
-        void (runProcess (fromJust $ editor' <|> Just "vi") (Set.toList files) Nothing Nothing (Just stdin) (Just stdout) (Just stderr) >>= waitForProcess)
+
+        files   <- Set.toList <$> readIORef matchingFiles
+
+        let files' = if fileline opts
+                        then fmap (\(a,b) -> a ++ ":" ++ show b) files
+                        else (nub . sort . fmap fst) files
+
+        void $ runProcess (fromJust $ editor' <|> Just "vi")
+                          files'
+                          Nothing
+                          Nothing
+                          (Just stdin)
+                          (Just stdout)
+                          (Just stderr) >>= waitForProcess
 
 
 main :: IO ()
@@ -275,7 +291,7 @@ main = do
 
     -- load files to parse:
 
-    let paths = getFilePaths (not $ null (file opts)) (others opts)
+    let paths = getFilePaths (notNull (file opts)) (others opts)
 
     -- parse cmd line language list:
 
