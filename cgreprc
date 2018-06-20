@@ -7,7 +7,7 @@ languages        : [ Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , Co
                      Latex , Lua , Make , OCaml , ObjectiveC , PHP , Perl , Python , Ruby , Scala , Shell , Swift , Tcl ,
                      Text , VHDL , Verilog , Vim , Yaml ]
 
-prune_dirs       : [".svn", ".git", "CMakeFiles" ]
+prune_dirs       : [".svn", ".git", "CMakeFiles", ".stack-work" ]
 
 colors           : True
 color_filename   : "Blue" 

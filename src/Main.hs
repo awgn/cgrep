@@ -45,7 +45,7 @@ import Control.Applicative
 
 import System.Console.CmdArgs
 import System.Directory
-import System.FilePath ((</>), takeFileName)
+import System.FilePath ((</>))
 import System.Environment
 import System.PosixCompat.Files as PosixCompat
 import System.IO
@@ -81,7 +81,7 @@ getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filename
 -- push file names in Chan...
 
 withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
-withRecursiveContents opts dir langs prunedir visited action = do
+withRecursiveContents opts dir langs pdirs visited action = do
     isDir <-  doesDirectoryExist dir
     if isDir then do
                xs <- getDirectoryContents dir
@@ -105,14 +105,23 @@ withRecursiveContents opts dir langs prunedir visited action = do
                -- process dirs
                --
                forM_ dirs $ \path -> do
-                    let dirname = takeFileName path
                     lstatus <- getSymbolicLinkStatus path
                     when ( deference_recursive opts || not (PosixCompat.isSymbolicLink lstatus)) $
-                        unless (dirname `elem` prunedir) $ do -- this is a good directory (unless already visited)!
+                        unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
                             cpath <- canonicalizePath path
-                            unless (cpath `Set.member` visited) $ withRecursiveContents opts path langs prunedir (Set.insert cpath visited) action
+                            unless (cpath `Set.member` visited) $
+                                withRecursiveContents opts path langs pdirs (Set.insert cpath visited) action
              else action [dir]
 
+
+isPruneableDir:: FilePath -> [FilePath] -> Bool
+isPruneableDir dir = any (`isInfixOf` dir)
+
+mkPrunableDirName :: FilePath -> FilePath
+mkPrunableDirName xs | "/" `isPrefixOf` xs && "/" `isSuffixOf` xs = xs
+                     | "/" `isPrefixOf` xs = xs ++ "/"
+                     | "/" `isSuffixOf` xs = "/" ++ xs
+                     | otherwise = "/" ++ xs ++ "/"
 
 -- read patterns from file
 
@@ -163,7 +172,10 @@ parallelSearch paths patterns langs (isTermIn, _) = do
     _ <- liftIO . forkIO $ do
 
         if recursive opts || deference_recursive opts
-            then forM_ (if null paths then ["."] else paths) $ \p -> withRecursiveContents opts p langs (configPruneDirs conf ++ prune_dir opts) (Set.singleton p) (atomically . writeTChan in_chan)
+            then forM_ (if null paths then ["."] else paths) $ \p ->
+                    withRecursiveContents opts p langs
+                        (mkPrunableDirName <$> configPruneDirs conf ++ prune_dir opts) (Set.singleton p) (atomically . writeTChan in_chan)
+
             else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . (:[]))
 
         -- enqueue EOF messages:
