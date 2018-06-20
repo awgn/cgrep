@@ -16,10 +16,12 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE RecordWildCards #-}
+
 module Main where
 
 import Data.List
-import Data.List.Split
+import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe
 import Data.Char
@@ -141,7 +143,7 @@ getFilePaths True  xs = xs
 parallelSearch :: [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> OptionT IO ()
 parallelSearch paths patterns langs (isTermIn, _) = do
 
-    (conf,opts) <- ask
+    (conf@Config{..}, opts@Options{..}) <- ask
 
     -- create Transactional Chan and Vars...
 
@@ -151,16 +153,16 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
     -- launch worker threads...
 
-    forM_ [1 .. jobs opts] $ \_ -> liftIO . forkIO $
+    forM_ [1 .. jobs] $ \_ -> liftIO . forkIO $
         void $ runExceptT . forever $ do
             fs <- lift $ atomically $ readTChan in_chan
             lift $
                 E.catch (
                     case fs of
                         [] -> atomically $ writeTChan out_chan []
-                        xs -> void $ (if asynch opts then flip mapConcurrently
-                                                     else forM) xs $ \x -> do
-                                out <- fmap (take (max_count opts)) (runReaderT (runCgrep conf opts x patterns) (conf, sanitizeOptions x opts))
+                        xs -> void $ (if asynch then flip mapConcurrently
+                                                else forM) xs $ \x -> do
+                                out <- fmap (take max_count ) (runReaderT (runCgrep conf opts x patterns) (conf, sanitizeOptions x opts))
                                 unless (null out) $ atomically $ writeTChan out_chan out)
                        (\e -> let msg = show (e :: SomeException) in
                             hPutStrLn stderr (showFileName conf opts (getTargetName (head fs))
@@ -172,22 +174,22 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
     _ <- liftIO . forkIO $ do
 
-        if recursive opts || deference_recursive opts
+        if recursive || deference_recursive
             then forM_ (if null paths then ["."] else paths) $ \p ->
                     withRecursiveContents opts p langs
-                        (mkPrunableDirName <$> configPruneDirs conf ++ prune_dir opts) (Set.singleton p) (atomically . writeTChan in_chan)
+                        (mkPrunableDirName <$> configPruneDirs ++ prune_dir) (Set.singleton p) (atomically . writeTChan in_chan)
 
             else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . (:[]))
 
         -- enqueue EOF messages:
 
-        replicateM_ (jobs opts) ((atomically . writeTChan in_chan) [])
+        replicateM_ jobs ((atomically . writeTChan in_chan) [])
 
     -- dump output until workers are done
 
     putPrettyHeader
 
-    let stop = jobs opts
+    let stop = jobs
 
     matchingFiles <- liftIO $ newIORef Set.empty
 
@@ -198,11 +200,11 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                       [] -> action (n+1) m
                       _  -> do
                           case () of
-                            _ | json opts -> when m $ liftIO $ putStrLn ","
+                            _ | json -> when m $ liftIO $ putStrLn ","
                               | otherwise -> return ()
                           let out' = map (\p -> p {outTokens = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off $ outLine p, UC.decodeString s)) $ outTokens p}) out
                           prettyOutput out' >>= mapM_ (liftIO . putStrLn)
-                          liftIO $ when (vim opts || editor opts) $
+                          liftIO $ when (vim || editor) $
                                     mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNo)) out
                           action n True
         )  0 False
@@ -212,15 +214,15 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
     -- run editor...
 
-    when (vim opts || editor opts) $ liftIO $ do
+    when (vim || editor ) $ liftIO $ do
 
-        editor' <- if vim opts
+        editor' <- if vim
                     then return (Just "vim")
                     else lookupEnv "EDITOR"
 
         files   <- Set.toList <$> readIORef matchingFiles
 
-        let files' = if fileline opts
+        let files' = if fileline || configFileLine
                         then fmap (\(a,b) -> a ++ ":" ++ show b) files
                         else (nub . sort . fmap fst) files
 

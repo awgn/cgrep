@@ -117,5 +117,3 @@ readColor "White"     =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreg
 readColor _           =  Nothing
 
 
-
-
