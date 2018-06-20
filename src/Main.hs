@@ -222,12 +222,13 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
         files   <- Set.toList <$> readIORef matchingFiles
 
-        let files' = if fileline || configFileLine
-                        then fmap (\(a,b) -> a ++ ":" ++ show b) files
-                        else (nub . sort . fmap fst) files
+        let editFiles = (if fileline || configFileLine
+                            then fmap (\(a,b) -> a ++ ":" ++ show b)
+                            else nub . sort . fmap fst) files
 
+        putStrLn $ "cgrep: open files " ++ unwords editFiles ++ "..."
         void $ runProcess (fromJust $ editor' <|> Just "vi")
-                          files'
+                          editFiles
                           Nothing
                           Nothing
                           (Just stdin)
