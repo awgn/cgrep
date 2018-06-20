@@ -13,4 +13,10 @@ colors           : True
 color_filename   : "Blue" 
 color_match      : "Red"
 
-
+#
+# file_line option: enable edit for file:line 
+# vim: see 'file-line' plugin
+#
+#
+# file_line : True
+# 
