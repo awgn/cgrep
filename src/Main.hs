@@ -118,13 +118,12 @@ withRecursiveContents opts dir langs pdirs visited action = do
 
 
 isPruneableDir:: FilePath -> [FilePath] -> Bool
-isPruneableDir dir = any (`isInfixOf` dir)
+isPruneableDir dir = any (`isSuffixOf` pdir)
+    where pdir = mkPrunableDirName dir
 
 mkPrunableDirName :: FilePath -> FilePath
-mkPrunableDirName xs | "/" `isPrefixOf` xs && "/" `isSuffixOf` xs = xs
-                     | "/" `isPrefixOf` xs = xs ++ "/"
-                     | "/" `isSuffixOf` xs = "/" ++ xs
-                     | otherwise = "/" ++ xs ++ "/"
+mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
+                     | otherwise           = xs ++ "/"
 
 -- read patterns from file
 
