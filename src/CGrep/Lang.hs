@@ -65,7 +65,8 @@ langMap = Map.fromList
     ,  (Coffee,    [Ext "coffee"])
     ,  (Conf,      [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"])
     ,  (Cpp,       [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "c++", Ext "tcc",
-                    Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp", Ext "h++"])
+                    Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx", Ext "hh", Ext "hp", Ext "h++",
+                    Ext "cu", Ext "cuh"])
     ,  (Csharp,    [Ext "cs", Ext "CS"])
     ,  (Css,       [Ext "css"])
     ,  (D,         [Ext "d", Ext "D"])
