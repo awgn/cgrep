@@ -16,6 +16,8 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE TupleSections #-}
+
 module CGrep.Lang ( Lang(..)
                   , langMap
                   , getFileLang
@@ -107,7 +109,7 @@ langMap = Map.fromList
 
 
 langRevMap :: LangRevMapType
-langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (\x -> (x,l)) xs ) $ Map.toList langMap
+langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (,l) xs ) $ Map.toList langMap
 
 -- utility functions
 
