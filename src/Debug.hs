@@ -1,5 +1,5 @@
 --
--- copyright (c) 2013 bonelli nicola <bonelli@antifork.org>
+-- copyright (c) 2013-2019 Nicola Bonelli <nicola@pfq.io>
 --
 -- this program is free software; you can redistribute it and/or modify
 -- it under the terms of the gnu general public license as published by
