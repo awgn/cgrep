@@ -37,7 +37,7 @@ import Util
 
 data Lang = Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
             D | Dart | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Kotlin |
-            Latex | Lua | Make | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Swift | Tcl |
+            Latex | Lua | Make | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Swift | Tcl |
             Text | VHDL | Verilog | Vim | Yaml
                 deriving (Read, Show, Eq, Ord, Bounded)
 
@@ -90,6 +90,7 @@ langMap = Map.fromList
     ,  (Latex,     [Ext "latex", Ext "tex"])
     ,  (Lua,       [Ext "lua"])
     ,  (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"])
+    ,  (Nmap,      [Ext "nse"])
     ,  (OCaml ,    [Ext "ml", Ext "mli"])
     ,  (ObjectiveC,[Ext "m", Ext "mi"])
     ,  (PHP,       [Ext "php", Ext "php3", Ext "php4", Ext "php5",Ext "phtml"])

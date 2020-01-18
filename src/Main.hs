@@ -237,7 +237,6 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
 main :: IO ()
 main = do
-
     -- check whether this is a terminal device
 
     isTermIn  <- hIsTerminalDevice stdin
@@ -245,7 +244,7 @@ main = do
 
     -- read Cgrep config options
 
-    (conf, confpath)  <- getConfig
+    (conf, _)  <- getConfig
 
     -- read command-line options
 
@@ -288,8 +287,8 @@ main = do
 
     -- display the configuration in use
 
-    when (isJust confpath) $
-      hPutStrLn stderr $ showBold opts ("Using '" ++ fromJust confpath ++ "' configuration file...")
+    -- when (isJust confpath) $
+    --    hPutStrLn stderr $ showBold opts ("Using '" ++ fromJust confpath ++ "' configuration file...")
 
     -- load files to parse:
 

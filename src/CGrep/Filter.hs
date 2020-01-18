@@ -219,6 +219,7 @@ filterFunctionMap = Map.fromList
     ,   (Latex,      mkFilterFunction [("%", "\n")]  [("\"", "\"")] )
     ,   (Lua,        mkFilterFunction [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] )
     ,   (Make,       mkFilterFunction [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
+    ,   (Nmap,       mkFilterFunction [("--", "\n"), ("[[","]]")] [("'", "'"), ("\"", "\"")])
     ,   (OCaml,      mkFilterFunction [("(*", "*)")] [("\"", "\"")] )
     ,   (ObjectiveC, mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
     ,   (PHP,        mkFilterFunction [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
