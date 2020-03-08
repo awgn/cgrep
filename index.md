@@ -18,9 +18,7 @@
 
 * **Code Tokenizer**. Searches patterns in tokens, as prefix, infix, or suffix sub-strings and by means of the edit distance (Levenshtein).
 
-* **Context-aware filters**. Content filters distinguish between code, comments and literals in different programming languages.
-
-* **Languages support** for Assembly, Awk, C, CMake, Cabal, Chapel, Clojure, Coffee, Conf, Cpp, Csharp, Css, D, Dart, Elixir, Erlang, Fortran, Fsharp, Go, Haskell, Html, Idris, Java, Javascript, Kotlin, Latex, Lua, Make, Nmap, OCaml, ObjectiveC, PHP, Perl, Python, Ruby, Scala, Shell, Swif, Tcl, Text, VHDL, Verilog, Vim, Yaml.
+* **Context-aware distinction between code, comments and literals** for Assembly, Awk, C, CMake, Cabal, Chapel, Clojure, Coffee, Conf, Cpp, Csharp, Css, D, Dart, Elixir, Erlang, Fortran, Fsharp, Go, Haskell, Html, Idris, Java, Javascript, Kotlin, Latex, Lua, Make, Nmap, OCaml, ObjectiveC, PHP, Perl, Python, Ruby, Scala, Shell, Swif, Tcl, Text, VHDL, Verilog, Vim, Yaml.
 
 * **Semantic searches** through wildcards and combinators. _, _1, _2..., $, $1, $2..., ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. E.g. "_1(_1 && $)" search for C++ move constructors, "struct OR class _ { OR : OR <" search for class declarations.
 
