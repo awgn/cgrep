@@ -135,13 +135,13 @@ defaultOutput xs = do
     (conf,opt) <- ask
     case () of
         _ |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> concat $ [showFile conf, showSep ":", showLineCol, showSep ":", showTokens, showLine conf] <*> [opt] <*> [out]) xs
+                -> return $ map (\out -> concat $ [showFile conf, showSep ":", showLineCol, showSep " ", showTokens, showLine conf] <*> [opt] <*> [out]) xs
 
           |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
                 -> return $ map (\out -> concat $ [showFile conf, showSep ":", showTokens,  showLine conf] <*> [opt] <*> [out] ) xs
 
           |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> concat $ [showLineCol, showSep ":",  showTokens, showLine conf] <*> [opt] <*> [out] ) xs
+                -> return $ map (\out -> concat $ [showLineCol, showSep " ",  showTokens, showLine conf] <*> [opt] <*> [out] ) xs
 
           |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
                 -> return $ map (\out -> concat $ [showTokens, showLine conf] <*> [opt] <*>  [out]) xs
