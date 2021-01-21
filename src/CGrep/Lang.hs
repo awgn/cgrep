@@ -35,9 +35,9 @@ import Options
 import Util
 
 
-data Lang = Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
-            D | Dart | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Kotlin |
-            Latex | Lua | Make | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | Ruby | Scala | Shell | Swift | Tcl |
+data Lang = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
+            D | Dart | Elm | Elixir | Erlang | Eta | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Json | Kotlin |
+            Latex | Lisp | Lua | Make | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Tcl |
             Text | VHDL | Verilog | Vim | Yaml
                 deriving (Read, Show, Eq, Ord, Bounded)
 
@@ -57,7 +57,8 @@ type LangRevMapType = Map.Map FileType Lang
 
 langMap :: LangMapType
 langMap = Map.fromList
-    [  (Assembly,  [Ext "s", Ext "S"])
+    [  (Agda,      [Ext "agda", Ext "lagda"])
+    ,  (Assembly,  [Ext "s", Ext "S"])
     ,  (Awk,       [Ext "awk", Ext "mawk", Ext "gawk"])
     ,  (C,         [Ext "c", Ext "C", Ext "inc"])
     ,  (CMake,     [Name "CMakeLists.txt", Ext "cmake"])
@@ -74,6 +75,8 @@ langMap = Map.fromList
     ,  (D,         [Ext "d", Ext "D"])
     ,  (Dart,      [Ext "dart"])
     ,  (Elixir,    [Ext "ex", Ext "exs"])
+    ,  (Elm,       [Ext "elm"])
+    ,  (Eta,       [Ext "eta"])
     ,  (Erlang,    [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"])
     ,  (Fortran,   [Ext "f", Ext "for", Ext "ftn",
                     Ext "F", Ext "FOR", Ext "FTN", Ext "fpp", Ext "FPP",
@@ -86,8 +89,10 @@ langMap = Map.fromList
     ,  (Idris,     [Ext "idr", Ext "lidr"])
     ,  (Java,      [Ext "java"])
     ,  (Javascript,[Ext "js"])
+    ,  (Json      ,[Ext "json", Ext "ndjson"])
     ,  (Kotlin,    [Ext "kt", Ext "kts", Ext "ktm"])
     ,  (Latex,     [Ext "latex", Ext "tex"])
+    ,  (Lisp,      [Ext "lisp", Ext "cl"])
     ,  (Lua,       [Ext "lua"])
     ,  (Make,      [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"])
     ,  (Nmap,      [Ext "nse"])
@@ -97,7 +102,10 @@ langMap = Map.fromList
     ,  (Perl,      [Ext "pl", Ext "pm", Ext "pm6", Ext "plx", Ext "perl"])
     ,  (Python,    [Ext "py", Ext "pyx", Ext "pxd", Ext "pxi", Ext "scons"])
     ,  (Ruby,      [Ext "rb", Ext "ruby"])
+    ,  (R,         [Ext "r", Ext "rdata", Ext "rds", Ext "rda"])
+    ,  (Rust,      [Ext "rs", Ext "rlib"])
     ,  (Scala,     [Ext "scala"])
+    ,  (SmallTalk, [Ext "st", Ext "gst"])
     ,  (Shell,     [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"])
     ,  (Swift,     [Ext "swift"])
     ,  (Tcl,       [Ext "tcl", Ext "tk"])

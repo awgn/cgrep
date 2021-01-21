@@ -2,10 +2,10 @@
 # cgrep YAML config file...
 # 
 
-languages        : [ Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csharp , Css ,
-                     D , Dart , Elixir , Erlang , Fortran , Fsharp , Go , Haskell , Html , Idris , Java , Javascript , Kotlin ,
-                     Latex , Lua , Make , Nmap, OCaml , ObjectiveC , PHP , Perl , Python , Ruby , Scala , Shell , Swift , Tcl ,
-                     Text , VHDL , Verilog , Vim , Yaml ]
+languages:   [ Agda , Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csharp , Css ,
+                D , Dart , Elm , Elixir , Erlang , Eta , Fortran , Fsharp , Go , Haskell , Html , Idris , Java , Javascript , Json , Kotlin ,
+                Latex , Lisp , Lua , Make , Nmap , OCaml , ObjectiveC , PHP , Perl , Python , R , Ruby , Rust , Scala , SmallTalk , Shell , Swift , Tcl 
+                    Text , VHDL , Verilog , Vim , Yaml ]
 
 prune_dirs       : [".svn", ".git", "CMakeFiles", ".stack-work" ]
 
