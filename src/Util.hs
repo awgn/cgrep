@@ -28,7 +28,6 @@ import Data.Char
 
 -- from hlint :-)
 
-
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a], [a])
 partitionM _ [] = return ([], [])
 partitionM f (x:xs) = do
@@ -78,4 +77,3 @@ rmQuote y@(x:xs)
     | x == '"' || x == '\'' =  if x == last xs then init xs
                                                else y
     | otherwise = y
-

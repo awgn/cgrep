@@ -80,11 +80,11 @@ isBracketLT =
         (map (`elem` "{[()]}") ['\0'..'\255'])
 
 
-{-# INLINE mkToken #-}
-
 mkToken :: Offset -> DString -> Token
 mkToken off ds =  (off - length str, str)
     where str = DL.toList ds
+
+{-# INLINE mkToken #-}
 
 
 tokens :: Text8 -> [String]
