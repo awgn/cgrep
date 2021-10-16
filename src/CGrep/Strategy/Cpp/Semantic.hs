@@ -65,7 +65,7 @@ search f patterns = do
         patterns''  = map (map mkWildCardFromToken) patterns'                         -- [ [w1,w2,..], [w1,w2,..] ]
         patterns''' = map (combineMultiCard . map (:[])) patterns''                   -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
-        identif = mapMaybe (\x -> case x of
+        identif = mapMaybe (\case
                               TokenCard (Cpp.TokenChar   xs _) -> Just (rmQuote $ trim xs)
                               TokenCard (Cpp.TokenString xs _) -> Just (rmQuote $ trim xs)
                               TokenCard (Cpp.TokenIdentifier "OR" _) -> Nothing

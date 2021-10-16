@@ -1,6 +1,6 @@
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             6.6.33 
+Version:             6.6.33
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2
@@ -8,7 +8,7 @@ License-file:        LICENSE
 Author:              Nicola Bonelli
 Maintainer:          Nicola Bonelli <nicola@pfq.io>
 Category:            Utils
-Build-type:          Simple 
+Build-type:          Simple
 Stability:           Experimental
 Extra-source-files:  README.md
 Cabal-version:       >=1.10
@@ -16,54 +16,56 @@ Cabal-version:       >=1.10
 Executable cgrep
   Main-Is:             Main.hs
   Hs-Source-Dirs:      src
-  Default-Extensions:  CPP
-  Other-Extensions:    DeriveDataTypeable, 
-                       ViewPatterns, 
-                       MagicHash, 
-                       BangPatterns, 
-                       FlexibleInstances, 
+  Default-Extensions:  CPP,
+                       LambdaCase,
+                       UnboxedTuples,
+                       DeriveDataTypeable,
+                       ViewPatterns,
+                       MagicHash,
+                       BangPatterns,
+                       FlexibleInstances,
                        FlexibleContexts
-  Other-Modules:       Debug 
-                       Options 
-                       CmdOptions 
-                       Util 
-                       Config 
-                       Reader 
-                       CGrep.Lang 
-                       CGrep.Filter 
-                       CGrep.Token 
-                       CGrep.Types 
-                       CGrep.CGrep 
-                       CGrep.Output 
-                       CGrep.Distance 
-                       CGrep.Common 
-                       CGrep.Context 
-                       CGrep.Parser.WildCard 
-                       CGrep.Parser.Generic.Token 
-                       CGrep.Parser.Token 
-                       CGrep.Parser.Cpp.Token 
-                       CGrep.Strategy.Generic.Semantic 
-                       CGrep.Strategy.Levenshtein 
-                       CGrep.Strategy.BoyerMoore 
-                       CGrep.Strategy.Cpp.Tokenizer 
-                       CGrep.Strategy.Cpp.Semantic 
+  Other-Modules:       Debug
+                       Options
+                       CmdOptions
+                       Util
+                       Config
+                       Reader
+                       CGrep.Lang
+                       CGrep.Filter
+                       CGrep.Token
+                       CGrep.Types
+                       CGrep.CGrep
+                       CGrep.Output
+                       CGrep.Distance
+                       CGrep.Common
+                       CGrep.Context
+                       CGrep.Parser.WildCard
+                       CGrep.Parser.Generic.Token
+                       CGrep.Parser.Token
+                       CGrep.Parser.Cpp.Token
+                       CGrep.Strategy.Generic.Semantic
+                       CGrep.Strategy.Levenshtein
+                       CGrep.Strategy.BoyerMoore
+                       CGrep.Strategy.Cpp.Tokenizer
+                       CGrep.Strategy.Cpp.Semantic
                        CGrep.Strategy.Regex
                        Paths_cgrep
-  Build-Depends:       base < 5.0, 
-                       cmdargs, 
-                       bytestring, 
-                       directory, 
-                       filepath, 
-                       stm, 
-                       containers, 
-                       array, 
-                       ghc-prim, 
-                       dlist, 
-                       ansi-terminal, 
-                       split, 
-                       safe, 
-                       stringsearch, 
-                       unordered-containers, 
+  Build-Depends:       base < 5.0,
+                       cmdargs,
+                       bytestring,
+                       directory,
+                       filepath,
+                       stm,
+                       containers,
+                       array,
+                       ghc-prim,
+                       dlist,
+                       ansi-terminal,
+                       split,
+                       safe,
+                       stringsearch,
+                       unordered-containers,
                        regex-base,
                        regex-posix,
                        regex-pcre,

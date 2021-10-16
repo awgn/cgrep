@@ -106,9 +106,9 @@ spanOptionalCards :: [MultiCard a] -> [[MultiCard a]]
 spanOptionalCards wc = map (`filterCardIndices` wc') idx
     where wc' = zip [0..] wc
           idx = subsequences $
-                findIndices (\w -> case w of
-                                    [IdentifCard ('$':_)] -> True
-                                    _ -> False) wc
+                findIndices (\case
+                                [IdentifCard ('$':_)] -> True
+                                _ -> False) wc
 
 
 filterCardIndices :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]

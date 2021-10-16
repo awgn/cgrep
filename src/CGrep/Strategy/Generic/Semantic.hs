@@ -78,7 +78,7 @@ search f ps = do
         patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
-        identif = mapMaybe (\x -> case x of
+        identif = mapMaybe (\case
                             TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
                             TokenCard (Generic.TokenAlpha "OR" _) -> Nothing
                             TokenCard t                           -> Just (tkToString t)
