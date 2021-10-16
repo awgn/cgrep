@@ -44,28 +44,34 @@ import Util ( spanGroup, toLowercase )
 takeN :: Int -> String -> String
 takeN n xs | length xs > n = take n xs ++ "..."
           | otherwise     = xs
+{-# INLINE takeN #-}
 
 
 trim :: String -> String
 trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
+{-# INLINE trim #-}
 
 
 trim8 :: Text8 -> Text8
 trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
+{-# INLINE trim8 #-}
 
 
 getTargetName :: FilePath -> String
 getTargetName [] = "<STDIN>"
 getTargetName name = name
+{-# INLINE getTargetName #-}
 
 
 getTargetContents :: FilePath -> IO Text8
 getTargetContents [] = C.getContents
 getTargetContents xs = C.readFile xs
+{-# INLINE getTargetContents #-}
 
 
 shallowSearch :: [Text8] -> Text8 -> [[Int]]
 shallowSearch ps text = ps >>= (\p -> [p `SC.nonOverlappingIndices` text])
+{-# INLINE shallowSearch #-}
 
 
 runSearch :: Options
@@ -83,9 +89,11 @@ expandMultiline :: Options -> Text8 -> Text8
 expandMultiline Options { multiline = n } xs
     | n == 1 = xs
     | otherwise = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
+{-# INLINE expandMultiline #-}
 
 
 ignoreCase :: Options -> Text8 -> Text8
 ignoreCase opt
     | ignore_case opt =  C.map toLowercase
     | otherwise = id
+{-# INLINE ignoreCase #-}

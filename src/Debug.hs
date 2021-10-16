@@ -31,13 +31,16 @@ putStrLevel1 :: String -> OptionT IO ()
 putStrLevel1 xs = do
     n <- reader $ debug . snd
     when (n > 0) $ liftIO $ putStrLn xs
+{-# INLINE putStrLevel1 #-}
 
 putStrLevel2 :: String -> OptionT IO ()
 putStrLevel2 xs = do
     n <- reader $ debug . snd
     when (n > 1) $ liftIO $ putStrLn xs
+{-# INLINE putStrLevel2 #-}
 
 putStrLevel3 :: String -> OptionT IO ()
 putStrLevel3 xs = do
     n <- reader $ debug . snd
     when (n > 2) $ liftIO $ putStrLn xs
+{-# INLINE putStrLevel3 #-}

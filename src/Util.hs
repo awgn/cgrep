@@ -31,15 +31,16 @@ partitionM f (x:xs) = do
     res <- f x
     (as,bs) <- partitionM f xs
     return ([x | res]++as, [x | not res]++bs)
+{-# INLINE partitionM #-}
 
 
 notNull :: [a] -> Bool
 notNull = not . null
-
+{-# INLINE notNull #-}
 
 xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
-
+{-# INLINE xor #-}
 
 prettyRead :: Read a => String -> String -> a
 prettyRead xs err =
@@ -50,21 +51,19 @@ prettyRead xs err =
 
 readMaybe :: Read a => String -> Maybe a
 readMaybe = fmap fst . listToMaybe . reads
-
+{-# INLINE readMaybe #-}
 
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []
 spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
-
-
-toStrict :: LC.ByteString -> C.ByteString
-toStrict = C.concat . LC.toChunks
+{-# INLINE spanGroup #-}
 
 
 toLowercase :: Char -> Char
 toLowercase x = ctypeLowercase ! x
     where ctypeLowercase = listArray ('\0','\255') (map toLower ['\0'..'\255']) :: UArray Char Char
+{-# INLINE  toLowercase #-}
 
 
 rmQuote :: String -> String
@@ -74,3 +73,4 @@ rmQuote y@(x:xs)
     | x == '"' || x == '\'' =  if x == last xs then init xs
                                                else y
     | otherwise = y
+{-# INLINE  rmQuote #-}

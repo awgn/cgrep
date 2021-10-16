@@ -48,6 +48,7 @@ import Config ( Config )
 
 hasLanguage :: FilePath -> Options -> [Lang] -> Bool
 hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
+{-# INLINE hasLanguage #-}
 
 
 sanitizeOptions  :: FilePath -> Options -> Options
@@ -78,6 +79,7 @@ hasTokenizerOpt Options{..} =
 
 isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
+{-# INLINE isRegexp #-}
 
 runCgrep :: Config -> Options -> FilePath -> [Text8] -> OptionT IO [Output]
 runCgrep conf opts filename patterns =

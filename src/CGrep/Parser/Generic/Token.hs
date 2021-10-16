@@ -70,18 +70,23 @@ isTokenAlpha, isTokenDigit, _isTokenBracket, _isTokenOther, isTokenLiteral :: To
 
 isTokenAlpha (TokenAlpha _ _) = True
 isTokenAlpha _  = False
+{-# INLINE isTokenAlpha #-}
 
 isTokenDigit (TokenDigit _ _) = True
 isTokenDigit _  = False
+{-# INLINE isTokenDigit #-}
 
 _isTokenBracket (TokenBracket _ _) = True
 _isTokenBracket _  = False
+{-# INLINE _isTokenBracket #-}
 
 isTokenLiteral (TokenLiteral _ _) = True
 isTokenLiteral _  = False
+{-# INLINE isTokenLiteral #-}
 
 _isTokenOther (TokenOther _ _) = True
 _isTokenOther _  = False
+{-# INLINE _isTokenOther #-}
 
 
 tokenCompare :: Token -> Token -> Bool
@@ -100,38 +105,44 @@ isCharNumberLT :: UArray Char Bool
 isCharNumberLT =
     listArray ('\0', '\255')
         (map (\c -> isHexDigit c || c `elem` ".xX") ['\0'..'\255'])
+{-# INLINE isCharNumberLT #-}
 
 
 isSpaceLT :: UArray Char Bool
 isSpaceLT =
     listArray ('\0', '\255')
         (map isSpace ['\0'..'\255'])
+{-# INLINE isSpaceLT #-}
 
 isAlphaLT :: UArray Char Bool
 isAlphaLT =
     listArray ('\0', '\255')
         (map (\c -> isAlpha c || c == '_') ['\0'..'\255'])
+{-# INLINE isAlphaLT #-}
 
 isAlphaNumLT :: UArray Char Bool
 isAlphaNumLT =
     listArray ('\0', '\255')
         (map (\c -> isAlphaNum c || c == '_' || c == '\'') ['\0'..'\255'])
+{-# INLINE isAlphaNumLT #-}
 
 isDigitLT :: UArray Char Bool
 isDigitLT =
     listArray ('\0', '\255')
         (map isDigit ['\0'..'\255'])
+{-# INLINE isDigitLT #-}
 
 isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
         (map (`elem` "{[()]}") ['\0'..'\255'])
-{-# INLINE mkToken #-}
+{-# INLINE isBracketLT #-}
 
 
 mkToken :: (String -> Offset -> Token) -> Offset -> DString -> Token
 mkToken ctor off ds =  ctor str (off - length str)
     where str = DL.toList ds
+{-# INLINE mkToken #-}
 
 
 mkTokenCtor :: TokenState -> String -> Offset -> Token

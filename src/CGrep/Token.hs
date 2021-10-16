@@ -53,43 +53,48 @@ isCharNumberLT :: UArray Char Bool
 isCharNumberLT =
     listArray ('\0', '\255')
         (map (\c -> isHexDigit c || c `elem` ".xX") ['\0'..'\255'])
-
+{-# INLINE isCharNumberLT #-}
 
 isSpaceLT :: UArray Char Bool
 isSpaceLT =
     listArray ('\0', '\255')
         (map isSpace ['\0'..'\255'])
+{-# INLINE isSpaceLT #-}
 
 isAlphaLT :: UArray Char Bool
 isAlphaLT =
     listArray ('\0', '\255')
         (map (\c -> isAlpha c || c == '_') ['\0'..'\255'])
+{-# INLINE isAlphaLT #-}
 
 isAlphaNumLT :: UArray Char Bool
 isAlphaNumLT =
     listArray ('\0', '\255')
         (map (\c -> isAlphaNum c || c == '_' || c == '\'') ['\0'..'\255'])
+{-# INLINE isAlphaNumLT #-}
 
 isDigitLT :: UArray Char Bool
 isDigitLT =
     listArray ('\0', '\255')
         (map isDigit ['\0'..'\255'])
+{-# INLINE isDigitLT #-}
 
 isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
         (map (`elem` "{[()]}") ['\0'..'\255'])
+{-# INLINE isBracketLT #-}
 
 
 mkToken :: Offset -> DString -> Token
 mkToken off ds =  (off - length str, str)
     where str = DL.toList ds
-
 {-# INLINE mkToken #-}
 
 
 tokens :: Text8 -> [String]
 tokens = map snd . tokenizer
+{-# INLINE tokens #-}
 
 
 tokenizer :: Text8 -> [Token]

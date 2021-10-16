@@ -91,6 +91,7 @@ combineMultiCard []      =  []
 
 filterTokensWithMultiCards :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [a]
 filterTokensWithMultiCards opt ws = filterTokensWithMultiCards' opt (spanOptionalCards ws)
+{-# INLINE filterTokensWithMultiCards #-}
 
 
 filterTokensWithMultiCards' :: (SemanticToken a) => Options -> [[MultiCard a]] -> [a] -> [a]
@@ -113,12 +114,14 @@ spanOptionalCards wc = map (`filterCardIndices` wc') idx
 
 filterCardIndices :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]
 filterCardIndices ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
+{-# INLINE filterCardIndices #-}
 
 
 multiCardCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> Bool
 multiCardCompare opt l r =
     multiCardCompareAll ts && multiCardCheckOccurences ts
         where ts = multiCardGroupCompare opt l r
+{-# INLINE multiCardCompare #-}
 
 
 isWildCardIdentif :: String -> Bool
@@ -134,6 +137,7 @@ rmWildCardEscape :: String -> String
 rmWildCardEscape ('$':xs) = xs
 rmWildCardEscape ('_':xs) = xs
 rmWildCardEscape xs = xs
+{-# INLINE rmWildCardEscape #-}
 
 
 multiCardCompareAll :: [(Bool, (MultiCard a, [String]))] -> Bool
@@ -169,22 +173,27 @@ multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True 
                     [IdentifCard "$9"]  -> xs
                     _                   -> []
                 ) $ M.fromListWith (++) (map snd ts)
+{-# INLINE multiCardCheckOccurences #-}
+
 
 
 multiCardGroupCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [(Bool, (MultiCard a, [String]))]
 multiCardGroupCompare opt ls rs
     | length rs >= length ls = zipWith (tokensZip opt) ls rs
     | otherwise              = [ (False, ([AnyCard], [])) ]
+{-# INLINE multiCardGroupCompare #-}
 
 
 tokensZip :: (SemanticToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
 tokensZip opt l r
     |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
     |  otherwise              = (False, ([AnyCard],[] ))
+{-# INLINE tokensZip #-}
 
 
 multiCardMatch :: (SemanticToken t) => Options ->  MultiCard t -> t -> Bool
 multiCardMatch opt m t = any (\w -> wildCardMatch opt w t) m
+{-# INLINE multiCardMatch #-}
 
 wildCardMatch :: (SemanticToken t) => Options ->  WildCard t -> t -> Bool
 wildCardMatch _  AnyCard _          = True

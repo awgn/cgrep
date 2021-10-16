@@ -89,6 +89,7 @@ contextFilter (Just language) filt txt
     | Just fun <- parFunc = fun filt txt
     | otherwise = txt
         where parFunc = Map.lookup language filterFunctionMap
+{-# INLINE contextFilter #-}
 
 
 -- contextFilterFun:
@@ -97,6 +98,7 @@ contextFilter (Just language) filt txt
 contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
 contextFilterFun conf filt txt =
   fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
+{-# INLINE contextFilterFun #-}
 
 
 type ParData = (Text8, ContextFilter, ParState)
@@ -183,7 +185,7 @@ mkFilterFunction cs ls =
 
 mkBloom :: [StringBoundary] -> UArray Char Bool
 mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
-
+{-# INLINE mkBloom #-}
 
 filterFunctionMap = Map.fromList
     [

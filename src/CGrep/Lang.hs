@@ -119,11 +119,13 @@ langMap = Map.fromList
 
 langRevMap :: LangRevMapType
 langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (,l) xs ) $ Map.toList langMap
+{-# INLINE langRevMap #-}
 
 -- utility functions
 
 lookupFileLang :: FilePath -> Maybe Lang
 lookupFileLang f = Map.lookup (Name $ takeFileName f) langRevMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap
+{-# INLINE lookupFileLang #-}
 
 
 forcedLang :: Options -> Maybe Lang
@@ -134,6 +136,7 @@ forcedLang Options{ language_force = l }
 
 getFileLang :: Options -> FilePath -> Maybe Lang
 getFileLang opts f = forcedLang opts <|> lookupFileLang f
+{-# INLINE getFileLang #-}
 
 
 dumpLangMap :: LangMapType -> IO ()

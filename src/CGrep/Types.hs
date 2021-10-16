@@ -22,9 +22,8 @@ module CGrep.Types where
 import Data.ByteString.Char8 as C ( ByteString )
 
 type Offset     = Int
-type Offset2d   = (Int, Int)
+type Offset2d   = (# Int, Int #)
 type OffsetLine = Int
 
 type Text8     = C.ByteString
 type Line8     = C.ByteString
-

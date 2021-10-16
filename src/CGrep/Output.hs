@@ -63,23 +63,24 @@ import Safe ( atDef )
 
 
 data Output = Output
-    { outFilePath :: FilePath
-    , outLineNo   :: Int
-    , outLine     :: Text8
-    , outTokens   :: [Token]
+    { outFilePath :: !FilePath
+    , outLineNo   :: {-# UNPACK #-} !Int
+    , outLine     :: {-# UNPACK #-} !Text8
+    , outTokens   :: ![Token]
     }
     deriving (Show)
 
 
 getOffsetsLines :: Text8 -> [Int]
 getOffsetsLines txt = let l = C.length txt in filter (<(l-1)) $ C.elemIndices '\n' txt
-
+{-# INLINE getOffsetsLines #-}
 
 getOffset2d :: [OffsetLine] -> Offset -> Offset2d
 getOffset2d idx off =
   let prc = filter (< off) idx
-      (len_prc, last_prc) = foldl' (\(len,_) cur -> (len + 1, cur)) (0,off) prc
-  in (len_prc, off - last_prc - 1)
+      (!len_prc, !last_prc) = foldl' (\(len,_ ) cur -> let !l1 = len+1 in  (l1, cur)) (0, off) prc
+  in (# len_prc, off - last_prc - 1 #)
+{-# INLINE getOffset2d #-}
 
 
 mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> OptionT m [Output]
@@ -88,12 +89,13 @@ mkOutput f text multi ts = do
     return $ if invert then map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
                        else map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
     where ls = C.lines text
+{-# INLINE mkOutput #-}
 
 
 mkMatchLines :: Text8 -> [Token] -> [MatchLine]
 mkMatchLines _ [] = []
 mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
-    sortBy (compare `on` fst) $ map (\t -> let (r,c) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts
+    sortBy (compare `on` fst) $ map (\t -> let (# r, c #) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts
     where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)
           ols = getOffsetsLines text
 
@@ -101,6 +103,7 @@ mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
 invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
 invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]]
     where idx = map fst xs
+{-# INLINE invertMatchLines #-}
 
 
 putPrettyHeader :: OptionT IO ()
@@ -170,6 +173,7 @@ jsonOutput outs = return $
 
 filenameOutput :: (Monad m) => [Output] -> OptionT m [String]
 filenameOutput outs = return $ nub $ map (\(Output fname _ _ _) -> fname) outs
+{-# INLINE filenameOutput #-}
 
 
 xmlOutput :: (Monad m) => [Output] -> OptionT m [String]
@@ -238,17 +242,20 @@ hintOputput outs = do
 bold, resetTerm :: String
 bold      = setSGRCode [SetConsoleIntensity BoldIntensity]
 resetTerm = setSGRCode []
-
+{-# INLINE bold #-}
+{-# INLINE resetTerm #-}
 
 type ColorString = String
 
 
 showSep  :: String -> Options -> Output -> String
 showSep xs _ _ = xs
+{-# INLINE showSep #-}
 
 
 showFile :: Config -> Options -> Output -> String
 showFile conf opt = showFileName conf opt . outFilePath
+{-# INLINE showFile #-}
 
 
 showLineCol :: Options -> Output -> String
@@ -256,12 +263,14 @@ showLineCol Options{no_numbers = True } _ = ""
 showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
 showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n
 showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . fst . head $ ts)
+{-# INLINE showLineCol #-}
 
 
 showTokens :: Options -> Output -> String
 showTokens Options { show_match = st } out
     | st        = ushow (map snd (outTokens out))
     | otherwise = ""
+{-# INLINE showTokens #-}
 
 
 showLine :: Config -> Options -> Output -> String
@@ -269,20 +278,24 @@ showLine conf Options { color = c, no_color = c' } out
     | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . snd )) (outTokens out)) line
     | otherwise  = line
     where line = UC.decode $ B.unpack $ outLine out
+{-# INLINE showLine #-}
 
 
 showFileName :: Config -> Options -> String -> String
 showFileName conf opt = showColoredAs opt $ setSGRCode (configColorFile conf)
+{-# INLINE showFileName #-}
 
 
 showBold :: Options -> String -> String
 showBold opt = showColoredAs opt bold
+{-# INLINE showBold #-}
 
 
 showColoredAs :: Options -> ColorString -> String -> String
 showColoredAs Options { color = c, no_color = c'} colorCode str
     | c && not c'= colorCode ++ str ++ resetTerm
     | otherwise  = str
+{-# INLINE showColoredAs #-}
 
 
 hilightLine :: Config -> [Token] -> String -> String
@@ -309,3 +322,4 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
 
 hilightIndicies :: [Token] -> [(Int, Int)]
 hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) [] . filter (notNull . snd)
+{-# INLINE hilightIndicies #-}

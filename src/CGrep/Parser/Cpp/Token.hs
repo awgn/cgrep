@@ -111,59 +111,65 @@ tokenCompare _ _ = False
 isIdentifier :: Token -> Bool
 isIdentifier TokenIdentifier{}  = True
 isIdentifier _ = False
-
+{-# INLINE isIdentifier #-}
 
 isKeyword :: Token -> Bool
 isKeyword TokenKeyword{}  = True
 isKeyword _ = False
+{-# INLINE isKeyword #-}
 
 
 isDirective :: Token -> Bool
 isDirective TokenDirective {}  = True
 isDirective _ = False
+{-# INLINE isDirective #-}
 
 
 isLiteralNumber :: Token -> Bool
 isLiteralNumber TokenNumber {} = True
 isLiteralNumber _ = False
+{-# INLINE isLiteralNumber #-}
 
 
 isHeaderName :: Token -> Bool
 isHeaderName TokenHeaderName {}  = True
 isHeaderName _ = False
-
+{-# INLINE isHeaderName #-}
 
 isString :: Token -> Bool
 isString TokenString {} = True
 isString _ = False
-
+{-# INLINE isString #-}
 
 isChar :: Token -> Bool
 isChar TokenChar{} = True
 isChar _ = False
+{-# INLINE isChar #-}
 
 
 isOperOrPunct :: Token -> Bool
 isOperOrPunct TokenOperOrPunct {}  = True
 isOperOrPunct _ = False
+{-# INLINE isOperOrPunct #-}
 
 
 isIdentifierChar' :: Char -> Bool
 isIdentifierChar' = ((listArray ('\0', '\255') (map (\c -> isAlphaNum c || c == '_' || c == '$') ['\0'..'\255']) :: UArray Char Bool) !)  -- GNU allows $ in identifier
-
+{-# INLINE isIdentifierChar' #-}
 
 isChar' :: Char -> Bool
 isChar'= ((listArray ('\0', '\255') (map (\c -> isSpace c || c == '\\') ['\0'..'\255']) :: UArray Char Bool) !)
+{-# INLINE isChar' #-}
 
 -- Drop leading whitespace and count them
 --
-
-{-# INLINE dropWhite #-}
 
 dropWhite :: Source -> (Source, Offset)
 dropWhite xs = (xs', doff)
     where xs'  = C.dropWhile isChar' xs
           doff = fromIntegral $ C.length xs - C.length xs'
+{-# INLINE dropWhite #-}
+
 
 
 data CppState = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif |
@@ -192,17 +198,17 @@ nextCppState :: String -> CppState -> CppState
 nextCppState str pps
     | Hash <- pps = fromMaybe Null (HM.lookup str directiveKeys)
     | otherwise   = if str == "#" then Hash else Null
-
+{-# INLINE nextCppState #-}
 
 runGetToken :: TokenizerState -> [Token]
 
 runGetToken (TokenizerState (C.uncons  -> Nothing) _ _) = []
 runGetToken tstate = token : runGetToken ns
     where (token, ns) = getToken tstate
+{-# INLINE runGetToken #-}
 
 
 getToken :: TokenizerState -> (Token, TokenizerState)
-
 getToken (TokenizerState (C.uncons -> Nothing) _ _) = error "getToken: internal error"
 getToken (TokenizerState xs off state) =
     let token = fromJust $
@@ -250,11 +256,9 @@ getTokenNumber ys@(C.uncons -> Just (x,_)) _
                                     _      -> Just $ TokenNumber ts 0
     | otherwise = Nothing
 getTokenNumber (C.uncons -> Nothing) _ = Nothing
-getTokenNumber _ _ = undefined
 
 
 validHexSet, validOctSet, validDecSet :: HS.HashSet Char
-
 validHexSet   = HS.fromList "0123456789abcdefABCDEFxX"
 validOctSet   = HS.fromList "01234567"
 validDecSet   = HS.fromList "0123456789"
@@ -263,8 +267,6 @@ data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex
                     deriving (Show,Eq,Enum)
 
 getNumber :: C.ByteString -> NumberState -> String
--- getNumber xs s | trace ("state = " ++ show s) False = undefined
-
 getNumber (C.uncons -> Nothing) _ = ""
 getNumber (C.uncons -> Just (x,xs)) state
     |  state == NumberNothing = case () of _
@@ -313,14 +315,12 @@ getTokenString xs@(C.uncons -> Just (x,_)) _
     | x == '"' = Just $ TokenString (getLiteral '"'  '"'  False xs) 0
     | otherwise = Nothing
 getTokenString (C.uncons -> Nothing) _ = Nothing
-getTokenString _ _ = Nothing
 
 
 getTokenChar xs@(C.uncons -> Just (x,_)) _
     | x == '\'' = Just $ TokenChar (getLiteral '\'' '\'' False xs) 0
     | otherwise = Nothing
 getTokenChar (C.uncons -> Nothing) _ = Nothing
-getTokenChar _ _ = Nothing
 
 
 getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
@@ -329,8 +329,6 @@ getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | otherwise                 = Just $ TokenIdentifier name 0
                                     where name = C.unpack $ C.takeWhile isIdentifierChar' xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
-getTokenIdOrKeyword _ _ = Nothing
-
 
 getTokenOpOrPunct source _ = go source (min 4 (C.length source))
     where go _ 0
@@ -378,4 +376,3 @@ keywords = HS.fromList ["alignas", "continue", "friend", "alignof", "decltype", 
                        "volatile", "template", "wchar_t", "this", "while", "thread_local", "throw",
                        "and", "and_eq", "bitand", "bitor", "compl", "not", "not_eq", "or", "or_eq",
                        "xor", "xor_eq"]
-
