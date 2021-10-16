@@ -19,12 +19,12 @@
 
 module Debug where
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
-import Control.Monad
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Control.Monad ( when )
 
-import Options
-import Reader
+import Options ( Options(debug) )
+import Reader ( OptionT )
 
 
 putStrLevel1 :: String -> OptionT IO ()

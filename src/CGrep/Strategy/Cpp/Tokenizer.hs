@@ -22,21 +22,22 @@ import qualified Data.ByteString.Char8 as C
 
 import qualified CGrep.Parser.Cpp.Token as Cpp
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.Filter
-import CGrep.Lang
+    ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
+import CGrep.Lang ( getFileLang )
 import CGrep.Common
-import CGrep.Output
-import CGrep.Distance
+import CGrep.Output ( Output, mkOutput )
+import CGrep.Distance ( (~==) )
 
-import Data.List
+import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
-import Reader
+import Reader ( OptionT )
 import Options
-import Debug
-import Util
+import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Util ( notNull )
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -102,5 +103,3 @@ cppTokenFilter opt patterns tokens
     | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . Cpp.toString) tokens
     | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Cpp.toString) tokens
     | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
-
-

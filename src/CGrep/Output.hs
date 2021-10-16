@@ -30,32 +30,36 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
-import Text.Show.Unicode
+import Text.Show.Unicode ( ushow )
 import System.Console.ANSI
+    ( setSGRCode,
+      ConsoleIntensity(BoldIntensity),
+      SGR(SetConsoleIntensity) )
 
 #ifdef ENABLE_HINT
 import Language.Haskell.Interpreter
 #endif
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader ( ask, reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative
 #endif
 
-import Data.Maybe
+import Data.Maybe ( fromJust, isJust )
 import Data.List
-import Data.Function
+    ( foldl', sortBy, groupBy, intercalate, isPrefixOf, nub, sort )
+import Data.Function ( on )
 
-import CGrep.Types
-import CGrep.Token
+import CGrep.Types ( Text8, OffsetLine, Offset2d, Offset )
+import CGrep.Token ( MatchLine, Token )
 
 import Options
-import Util
-import Config
-import Reader
-import Safe
+import Util ( notNull )
+import Config ( Config(configColorFile, configColorMatch) )
+import Reader ( OptionT )
+import Safe ( atDef )
 
 
 data Output = Output

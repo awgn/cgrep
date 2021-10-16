@@ -30,14 +30,15 @@ module CGrep.Common ( Text8
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
 
-import Data.Char
+import Data.Char ( isSpace )
 
-import CGrep.Types
-import CGrep.Output
+import CGrep.Types ( Text8 )
+import CGrep.Output ( Output, mkOutput )
 
 import Options
-import Reader
-import Util
+    ( Options(Options, no_shallow, multiline, ignore_case) )
+import Reader ( OptionT )
+import Util ( spanGroup, toLowercase )
 
 
 takeN :: Int -> String -> String

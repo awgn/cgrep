@@ -18,9 +18,9 @@
 
 module Reader where
 
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Reader ( ReaderT )
 
-import Config
-import Options
+import Config ( Config )
+import Options ( Options )
 
 type OptionT = ReaderT (Config, Options)

@@ -29,21 +29,22 @@ import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
 import qualified CGrep.Strategy.Generic.Semantic as Semantic
 
-import Control.Monad.Trans.Reader
-import Control.Monad.Catch
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Catch ( SomeException, MonadCatch(catch) )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import System.IO
+import System.IO ( stderr, hPutStrLn )
 
-import CGrep.Lang
-import CGrep.Common
-import CGrep.Output
+import CGrep.Lang ( Lang(Cpp, C), getFileLang )
+import CGrep.Common ( Text8, takeN )
+import CGrep.Output ( Output, showFileName )
 
-import Data.List
-import Data.Maybe
-import Options
-import Reader
-import Config
+import Data.List ( elemIndex )
+import Data.Maybe ( isJust )
+import Options ( Options(..) )
+import Reader ( OptionT )
+import Config ( Config )
+
 
 hasLanguage :: FilePath -> Options -> [Lang] -> Bool
 hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
@@ -96,4 +97,3 @@ runCgrep conf opts filename patterns =
             hPutStrLn stderr $ showFileName conf opts filename ++ ": exception: " ++ takeN 80 msg
             return [ ]
     )
-

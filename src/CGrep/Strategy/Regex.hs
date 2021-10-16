@@ -22,23 +22,28 @@ module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import Text.Regex.Base
 import Text.Regex.Posix
 import Text.Regex.PCRE
 
-import Data.Array
+import Data.Array ( Array, elems )
 
 import CGrep.Common
-import CGrep.Output
-import CGrep.Filter
-import CGrep.Lang
+    ( Text8,
+      getTargetName,
+      getTargetContents,
+      expandMultiline,
+      ignoreCase )
+import CGrep.Output ( Output, mkOutput )
+import CGrep.Filter ( mkContextFilter, contextFilter )
+import CGrep.Lang ( getFileLang )
 
-import Reader
-import Options
-import Debug
+import Reader ( OptionT )
+import Options ( Options(regex_pcre) )
+import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
 
 
 
@@ -69,4 +74,3 @@ search f patterns = do
     putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     mkOutput filename text text''' tokens
-

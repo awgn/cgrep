@@ -22,22 +22,23 @@ import qualified Data.ByteString.Char8 as C
 
 import qualified CGrep.Parser.Cpp.Token  as Cpp
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
-import Data.List
-import Data.Function
-import Data.Maybe
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Data.List ( sortBy, nub )
+import Data.Function ( on )
+import Data.Maybe ( mapMaybe )
 
 import CGrep.Filter
-import CGrep.Lang
+    ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
+import CGrep.Lang ( Lang(Cpp), getFileLang )
 import CGrep.Common
-import CGrep.Output
+import CGrep.Output ( Output, mkOutput )
 
 import CGrep.Parser.WildCard
 
-import Reader
-import Debug
-import Util
+import Reader ( OptionT )
+import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Util ( notNull, rmQuote )
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -100,4 +101,3 @@ search f patterns = do
         putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' matches
-

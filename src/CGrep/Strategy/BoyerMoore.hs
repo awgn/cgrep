@@ -22,22 +22,22 @@ module CGrep.Strategy.BoyerMoore (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
-import Data.List
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Data.List ( isSuffixOf, isPrefixOf )
 
 import CGrep.Common
-import CGrep.Output
-import CGrep.Filter
-import CGrep.Lang
-import CGrep.Types
+import CGrep.Output ( Output, mkOutput )
+import CGrep.Filter ( mkContextFilter, contextFilter )
+import CGrep.Lang ( getFileLang )
+import CGrep.Types ( Offset )
 
 import qualified CGrep.Token as T
 
-import Reader
-import Options
-import Debug
-import Util
+import Reader ( OptionT )
+import Options ( Options(word_match, prefix_match, suffix_match) )
+import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Util ( notNull )
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]

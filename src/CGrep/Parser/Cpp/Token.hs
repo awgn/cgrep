@@ -24,16 +24,16 @@ module CGrep.Parser.Cpp.Token(Token(..), TokenFilter(..),
                        isHeaderName, isString, isChar, isOperOrPunct
                        )  where
 
-import Data.Char
-import Data.Maybe
-import Control.Monad
-import Data.Array.Unboxed
+import Data.Char ( isSpace, isAlphaNum, isDigit )
+import Data.Maybe ( fromJust, fromMaybe )
+import Control.Monad ( MonadPlus(mplus) )
+import Data.Array.Unboxed ( (!), listArray, UArray )
 
 import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.Parser.Token
+import CGrep.Parser.Token ( SemanticToken(..) )
 
 data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
 type Source         = C.ByteString

@@ -20,18 +20,23 @@ module CGrep.Strategy.Levenshtein (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import CGrep.Filter
-import CGrep.Lang
+import CGrep.Filter ( mkContextFilter, contextFilter )
+import CGrep.Lang ( getFileLang )
 import CGrep.Common
-import CGrep.Output
-import CGrep.Distance
-import CGrep.Token
+    ( Text8,
+      getTargetName,
+      getTargetContents,
+      expandMultiline,
+      ignoreCase )
+import CGrep.Output ( Output, mkOutput )
+import CGrep.Distance ( (~==) )
+import CGrep.Token ( tokenizer )
 
-import Reader
-import Debug
+import Reader ( OptionT )
+import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -64,4 +69,3 @@ search f patterns = do
     putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     mkOutput filename text text''' matches
-

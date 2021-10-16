@@ -27,12 +27,12 @@ module CGrep.Lang ( Lang(..)
 
 import qualified Data.Map as Map
 import System.FilePath(takeExtension, takeFileName)
-import Control.Monad
-import Control.Applicative
-import Data.Maybe
+import Control.Monad ( forM_ )
+import Control.Applicative ( Alternative((<|>)) )
+import Data.Maybe ( fromJust )
 
-import Options
-import Util
+import Options ( Options(Options, language_force) )
+import Util ( prettyRead )
 
 
 data Lang = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |

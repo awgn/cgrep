@@ -27,8 +27,9 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
 
 import Data.Char
-import Data.Array.Unboxed
-import CGrep.Types
+    ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
+import Data.Array.Unboxed ( (!), listArray, UArray )
+import CGrep.Types ( Text8, OffsetLine, Offset )
 
 
 type Token      = (Offset, String)

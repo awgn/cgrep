@@ -20,7 +20,7 @@
 
 module Options where
 
-import Data.Data
+import Data.Data ( Data, Typeable )
 
 data Options = Options
     -- Pattern:
@@ -86,4 +86,3 @@ data Options = Options
     ,   no_shallow          :: Bool
     ,   others              :: [String]
     } deriving (Data, Typeable, Show)
-

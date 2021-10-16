@@ -20,66 +20,81 @@
 
 module Main where
 
-import Data.List
+import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union )
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
-import Data.Maybe
-import Data.Char
+import Data.Maybe ( catMaybes, fromJust )
+import Data.Char ( toLower )
 import Data.Data()
 
-import Data.IORef
+import Data.IORef ( modifyIORef, newIORef, readIORef )
 import Data.Version(showVersion)
-import Data.Function
+import Data.Function ( fix )
 import qualified Data.Set as Set
-import Paths_cgrep
+import Paths_cgrep ( version )
 
-import Control.Exception as E
-import Control.Concurrent
-import Control.Concurrent.Async
-import Control.Monad.STM
+import Control.Exception as E ( catch, SomeException )
+import Control.Concurrent ( forkIO, setNumCapabilities )
+import Control.Concurrent.Async ( mapConcurrently )
+import Control.Monad.STM ( atomically )
 import Control.Concurrent.STM.TChan
+    ( newTChanIO, readTChan, writeTChan )
 
 import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader
+    ( when, forM_, forever, replicateM_, unless, void, forM )
+import Control.Monad.Trans ( MonadIO(liftIO), MonadTrans(lift) )
+import Control.Monad.Trans.Except ( runExceptT, throwE )
+import Control.Monad.Trans.Reader ( ReaderT(runReaderT), ask )
 import Control.Applicative
+    ( Applicative(liftA2), Alternative((<|>)) )
 
-import System.Console.CmdArgs
+import System.Console.CmdArgs ( cmdArgsRun )
 import System.Directory
+    ( canonicalizePath, doesDirectoryExist, getDirectoryContents )
 import System.FilePath ((</>))
-import System.Environment
+import System.Environment ( lookupEnv, withArgs )
 import System.PosixCompat.Files as PosixCompat
+    ( getSymbolicLinkStatus, isSymbolicLink )
 import System.IO
-import System.Exit
+    ( stdout, stdin, hIsTerminalDevice, stderr, hPutStrLn )
+import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
-import CGrep.CGrep
+import CGrep.CGrep ( sanitizeOptions, isRegexp, runCgrep )
 import CGrep.Lang
+    ( Lang, langMap, getFileLang, dumpLangMap, splitLangList )
 import CGrep.Output
-import CGrep.Common
-import CGrep.Parser.WildCard
+    ( Output(outLine, outTokens, outFilePath, outLineNo),
+      putPrettyHeader,
+      putPrettyFooter,
+      prettyOutput,
+      showFileName )
+import CGrep.Common ( takeN, trim8, getTargetName )
+import CGrep.Parser.WildCard ( wildCardMap )
 
-import CmdOptions
-import Options
-import Util
-import Debug
+import CmdOptions ( options )
+import Options ( Options(..) )
+import Util ( partitionM, notNull )
+import Debug ( putStrLevel1 )
 import Config
-import Reader
+    ( Config(Config, configFileLine, configColorMatch, configColorFile,
+             configPruneDirs, configColors, configLanguages),
+      getConfig )
+import Reader ( OptionT )
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
-import Data.Tuple.Extra
+import Data.Tuple.Extra ( (&&&) )
 
 fileFilter :: Options -> [Lang] -> FilePath -> Bool
 fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
-
+{-# INLINE fileFilter #-}
 
 getFilesMagic :: [FilePath] -> IO [String]
 getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filenames) []
-
+{-# INLINE getFilesMagic #-}
 
 -- push file names in Chan...
 
@@ -120,10 +135,12 @@ withRecursiveContents opts dir langs pdirs visited action = do
 isPruneableDir:: FilePath -> [FilePath] -> Bool
 isPruneableDir dir = any (`isSuffixOf` pdir)
     where pdir = mkPrunableDirName dir
+{-# INLINE isPruneableDir #-}
 
 mkPrunableDirName :: FilePath -> FilePath
 mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
                      | otherwise           = xs ++ "/"
+{-# INLINE mkPrunableDirName #-}
 
 -- read patterns from file
 
@@ -319,5 +336,3 @@ main = do
     -- run search
 
     runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (conf, opts)
-
-

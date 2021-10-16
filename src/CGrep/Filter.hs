@@ -26,14 +26,14 @@ module CGrep.Filter ( Context(..)
                     , contextFilter
                     , mkContextFilter)  where
 
-import CGrep.Common (Text8)
+import CGrep.Types ( Text8 )
 
-import CGrep.Context
+import CGrep.Context ( ContextFilter(..), Context(..) )
 import CGrep.Lang
-import Options
+import Options ( Options(..) )
 
-import Data.Char
-import Data.Array.Unboxed
+import Data.Char ( isSpace )
+import Data.Array.Unboxed ( (!), listArray, UArray )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
@@ -83,7 +83,6 @@ mkContextFilter Options{..} =
 
 
 contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
-
 contextFilter _ (ContextFilter True True True) txt = txt
 contextFilter Nothing _ txt = txt
 contextFilter (Just language) filt txt
@@ -143,17 +142,12 @@ nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
                                      then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
                                      else s{ display = litrfilt, skip = 0 }
 
-nextContextState _ _ (_,_) ContextFilter {} = undefined
-
-
-{-# INLINE findBoundary #-}
-
 findBoundary :: (Char, Text8) -> [Boundary] -> Int
 findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
+{-# INLINE findBoundary #-}
 
 
 {-# INLINE findIndex' #-}
-
 #ifdef __GLASGOW_HASKELL__
 
 findIndex' :: (a -> Bool) -> [a] -> Int

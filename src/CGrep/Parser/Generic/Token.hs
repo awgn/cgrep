@@ -25,10 +25,11 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
 
 import Data.Char
-import Data.Array.Unboxed
+    ( isSpace, isAlpha, isAlphaNum, isDigit, isHexDigit )
+import Data.Array.Unboxed ( (!), listArray, UArray )
 
-import CGrep.Parser.Token
-import CGrep.Types
+import CGrep.Parser.Token ( SemanticToken(..) )
+import CGrep.Types ( Text8, Offset )
 
 type DString = DL.DList Char
 
@@ -54,10 +55,10 @@ data Token =
 
 
 instance SemanticToken Token where
-    tkIsIdentifier  = _isTokenAlpha
-    tkIsString      = _isTokenLiteral
-    tkIsChar        = _isTokenLiteral
-    tkIsNumber      = _isTokenDigit
+    tkIsIdentifier  = isTokenAlpha
+    tkIsString      = isTokenLiteral
+    tkIsChar        = isTokenLiteral
+    tkIsNumber      = isTokenDigit
     tkIsKeyword     = const False
     tkEquivalent    = tokenCompare
     tkToString      = toString
@@ -65,19 +66,19 @@ instance SemanticToken Token where
     tkToIdentif     = TokenAlpha
 
 
-_isTokenAlpha, _isTokenDigit, _isTokenBracket, _isTokenOther, _isTokenLiteral :: Token -> Bool
+isTokenAlpha, isTokenDigit, _isTokenBracket, _isTokenOther, isTokenLiteral :: Token -> Bool
 
-_isTokenAlpha (TokenAlpha _ _) = True
-_isTokenAlpha _  = False
+isTokenAlpha (TokenAlpha _ _) = True
+isTokenAlpha _  = False
 
-_isTokenDigit (TokenDigit _ _) = True
-_isTokenDigit _  = False
+isTokenDigit (TokenDigit _ _) = True
+isTokenDigit _  = False
 
 _isTokenBracket (TokenBracket _ _) = True
 _isTokenBracket _  = False
 
-_isTokenLiteral (TokenLiteral _ _) = True
-_isTokenLiteral _  = False
+isTokenLiteral (TokenLiteral _ _) = True
+isTokenLiteral _  = False
 
 _isTokenOther (TokenOther _ _) = True
 _isTokenOther _  = False
@@ -125,8 +126,6 @@ isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
         (map (`elem` "{[()]}") ['\0'..'\255'])
-
-
 {-# INLINE mkToken #-}
 
 
@@ -210,4 +209,3 @@ tokenizer xs = (\(TokenAccum ss  off _ acc out) ->
                    | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (DL.singleton  x) (out `DL.snoc` mkToken TokenBracket off acc)
                    | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (DL.singleton  x) (out `DL.snoc` mkToken TokenBracket off acc)
                    | otherwise          ->  TokenAccum StateOther      (off+1) 0 (acc `DL.snoc` x)  out
-

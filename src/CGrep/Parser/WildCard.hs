@@ -26,14 +26,15 @@ module CGrep.Parser.WildCard (WildCard(..), MultiCard,
 
 import qualified Data.Map as M
 
-import CGrep.Common
-import CGrep.Distance
-import CGrep.Parser.Token
+import CGrep.Common ( trim )
+import CGrep.Distance ( (~==) )
+import CGrep.Parser.Token ( SemanticToken(..) )
 
-import Data.Char
+import Data.Char ( isNumber, isDigit )
 import Data.List
+    ( isSuffixOf, findIndices, isInfixOf, isPrefixOf, subsequences )
 import Options
-import Util
+import Util ( spanGroup, rmQuote )
 
 
 data WildCard a =
@@ -102,7 +103,7 @@ filterTokensWithMultiCards' opt (g:gs) ts =
 
 
 spanOptionalCards :: [MultiCard a] -> [[MultiCard a]]
-spanOptionalCards wc = map (`filterCardIndicies` wc') idx
+spanOptionalCards wc = map (`filterCardIndices` wc') idx
     where wc' = zip [0..] wc
           idx = subsequences $
                 findIndices (\w -> case w of
@@ -110,8 +111,8 @@ spanOptionalCards wc = map (`filterCardIndicies` wc') idx
                                     _ -> False) wc
 
 
-filterCardIndicies :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]
-filterCardIndicies ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
+filterCardIndices :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]
+filterCardIndices ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 
 multiCardCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> Bool
@@ -135,17 +136,12 @@ rmWildCardEscape ('_':xs) = xs
 rmWildCardEscape xs = xs
 
 
-{-# INLINE multiCardCompareAll #-}
-
 multiCardCompareAll :: [(Bool, (MultiCard a, [String]))] -> Bool
 multiCardCompareAll = all fst
-
-
-{-# INLINE multiCardCheckOccurences #-}
+{-# INLINE multiCardCompareAll #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
 --       that must compare equal in the respective occurrences
---
 
 multiCardCheckOccurences :: (SemanticToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
 multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
@@ -184,7 +180,7 @@ multiCardGroupCompare opt ls rs
 tokensZip :: (SemanticToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
 tokensZip opt l r
     |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
-    |  otherwise              =  (False, ([AnyCard],[] ))
+    |  otherwise              = (False, ([AnyCard],[] ))
 
 
 multiCardMatch :: (SemanticToken t) => Options ->  MultiCard t -> t -> Bool
@@ -218,4 +214,3 @@ wildCardMatch opt (TokenCard l) r
             where ls = rmQuote $ trim (tkToString l)
                   rs = rmQuote $ trim (tkToString r)
     | otherwise  = l `tkEquivalent` r
-

@@ -18,13 +18,10 @@
 
 module Util where
 
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as LC
+import Data.Array.Unboxed ( (!), listArray, UArray )
 
-import Data.Array.Unboxed
-
-import Data.Maybe
-import Data.Char
+import Data.Maybe ( listToMaybe )
+import Data.Char ( toLower )
 
 -- from hlint :-)
 

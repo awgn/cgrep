@@ -23,23 +23,36 @@ import qualified Data.ByteString.Char8 as C
 import qualified CGrep.Parser.Generic.Token as Generic
 
 import CGrep.Filter
-import CGrep.Lang
+    ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
+import CGrep.Lang ( getFileLang )
 import CGrep.Common
-import CGrep.Output
+    ( Text8,
+      trim,
+      getTargetName,
+      getTargetContents,
+      shallowSearch,
+      runSearch,
+      expandMultiline,
+      ignoreCase )
+import CGrep.Output ( Output, mkOutput )
 
-import CGrep.Parser.Token
+import CGrep.Parser.Token ( SemanticToken(tkToString) )
 import CGrep.Parser.WildCard
+    ( WildCard(TokenCard),
+      mkWildCardFromToken,
+      combineMultiCard,
+      filterTokensWithMultiCards )
 
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import Data.List
-import Data.Function
-import Data.Maybe
+import Data.List ( sortBy, nub )
+import Data.Function ( on )
+import Data.Maybe ( mapMaybe )
 
-import Reader
-import Debug
-import Util
+import Reader ( OptionT )
+import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Util ( notNull, rmQuote )
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -99,4 +112,3 @@ search f ps = do
         putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' matches
-

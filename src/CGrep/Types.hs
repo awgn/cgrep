@@ -19,7 +19,7 @@
 
 module CGrep.Types where
 
-import Data.ByteString.Char8 as C
+import Data.ByteString.Char8 as C ( ByteString )
 
 type Offset     = Int
 type Offset2d   = (Int, Int)
