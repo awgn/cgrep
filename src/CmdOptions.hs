@@ -54,6 +54,7 @@ options = cmdArgsMode $ Options
           ,     invert_match = False        &= help "Select non-matching lines" &= explicit &= name "invert-match" &= name "v"
           ,     multiline = 1               &= help "Enable multi-line matching"
           ,     recursive = False           &= help "Enable recursive search (don't follow symlinks)" &= explicit &= name "recursive" &= name "r"
+          ,     skip_test = False           &= help "Skip files that have 'test' in the name" &= explicit &= name "skip-test" &= name "T"
           ,     prune_dir = []              &= help "Do not descend into dir" &= explicit &= name "prune-dir"
           ,     deference_recursive = False &= help "Recursive, follow symlinks" &= explicit &= name "deference-recursive" &= name "R"
           ,     show_match = False          &= groupname "\nOutput format" &= help "Show list of matching tokens" &= explicit &= name "show-match"

@@ -20,7 +20,7 @@
 
 module Main where
 
-import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union )
+import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union, isPrefixOf )
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe ( catMaybes, fromJust )
@@ -51,7 +51,6 @@ import Control.Applicative
 import System.Console.CmdArgs ( cmdArgsRun )
 import System.Directory
     ( canonicalizePath, doesDirectoryExist, getDirectoryContents )
-import System.FilePath ((</>))
 import System.Environment ( lookupEnv, withArgs )
 import System.PosixCompat.Files as PosixCompat
     ( getSymbolicLinkStatus, isSymbolicLink )
@@ -87,6 +86,7 @@ import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
 import Data.Tuple.Extra ( (&&&) )
+import System.FilePath.Posix
 
 fileFilter :: Options -> [Lang] -> FilePath -> Bool
 fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
@@ -96,17 +96,23 @@ getFilesMagic :: [FilePath] -> IO [String]
 getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filenames) []
 {-# INLINE getFilesMagic #-}
 
+isNotTestFile :: FilePath -> Bool
+isNotTestFile  f =
+    let fs = [("_test" `isSuffixOf`), ("-test" `isSuffixOf`), ("test-" `isPrefixOf`), ("test_" `isPrefixOf`), ("test" == )]
+        in not $ any ($ takeBaseName f) fs
+{-# INLINE isNotTestFile #-}
+
 -- push file names in Chan...
 
 withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
-withRecursiveContents opts dir langs pdirs visited action = do
+withRecursiveContents opts@Options{..} dir langs pdirs visited action = do
     isDir <-  doesDirectoryExist dir
     if isDir then do
                xs <- getDirectoryContents dir
 
                (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs, x `notElem` [".", ".."]]
 
-               magics <- if null (magic_filter opts) || null files
+               magics <- if null magic_filter || null files
                           then return []
                           else getFilesMagic files
 
@@ -114,17 +120,19 @@ withRecursiveContents opts dir langs pdirs visited action = do
                --
                let files' = if null magics
                               then  filter (fileFilter opts langs) files
-                              else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) (magic_filter opts) then Just f else Nothing ) files magics
+                              else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) magic_filter then Just f else Nothing ) files magics
 
-               unless (null files') $
-                    let chunks = chunksOf (Options.chunk opts) files' in
+                   files'' = filter (\f -> not skip_test || isNotTestFile f) files'
+
+               unless (null files'') $
+                    let chunks = chunksOf chunk files'' in
                     forM_ chunks $ \b -> action b
 
                -- process dirs
                --
                forM_ dirs $ \path -> do
                     lstatus <- getSymbolicLinkStatus path
-                    when ( deference_recursive opts || not (PosixCompat.isSymbolicLink lstatus)) $
+                    when ( deference_recursive || not (PosixCompat.isSymbolicLink lstatus)) $
                         unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
                             cpath <- canonicalizePath path
                             unless (cpath `Set.member` visited) $

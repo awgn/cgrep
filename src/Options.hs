@@ -56,6 +56,7 @@ data Options = Options
     ,   invert_match        :: Bool
     ,   multiline           :: Int
     ,   recursive           :: Bool
+    ,   skip_test           :: Bool
     ,   prune_dir           :: [FilePath]
     ,   deference_recursive :: Bool
     -- Output format:
