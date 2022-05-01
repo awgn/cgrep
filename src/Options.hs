@@ -79,8 +79,6 @@ data Options = Options
     ,   fileline            :: Bool
     -- Parallel:
     ,   jobs                :: Int
-    ,   cores               :: Int
-    ,   chunk               :: Int
     ,   asynch              :: Bool
     -- Misc:
     ,   verbosity           :: Int

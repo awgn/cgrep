@@ -16,12 +16,13 @@
 --
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutput
-                    , putPrettyHeader
-                    , putPrettyFooter
-                    , prettyOutput
+                    , putOutputHeader
+                    , putOutputFooter
+                    , putOutput
                     , showFileName
                     , showFile
                     , showBold) where
@@ -56,9 +57,13 @@ import CGrep.Types ( Text8, OffsetLine, Offset2d, Offset )
 import CGrep.Token ( MatchLine, Token )
 
 import Options
+    ( Options(Options, invert_match, filename_only, json, xml,
+              no_filename, count, format, no_numbers, no_column, show_match,
+              color, no_color) )
+
 import Util ( notNull )
 import Config ( Config(configColorFile, configColorMatch) )
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Safe ( atDef )
 
 
@@ -83,7 +88,7 @@ getOffset2d idx off =
 {-# INLINE getOffset2d #-}
 
 
-mkOutput :: (Monad m) => FilePath -> Text8 -> Text8 -> [Token] -> OptionT m [Output]
+mkOutput :: FilePath -> Text8 -> Text8 -> [Token] -> OptionIO [Output]
 mkOutput f text multi ts = do
     invert <- reader (invert_match . snd)
     return $ if invert then map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
@@ -106,38 +111,34 @@ invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, [])
 {-# INLINE invertMatchLines #-}
 
 
-putPrettyHeader :: OptionT IO ()
-putPrettyHeader = do
+putOutputHeader :: OptionIO ()
+putOutputHeader = do
+   (_,opt) <- ask
+   if  | xml  opt  -> liftIO $ putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
+       | otherwise -> return ()
+
+
+putOutputFooter :: OptionIO ()
+putOutputFooter = do
     (_,opt) <- ask
-    case () of
-      _  | json opt  -> liftIO $ putStrLn "["
-         | xml  opt  -> liftIO $ putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
-         | otherwise -> return ()
+    if | xml  opt  -> liftIO $ putStrLn "</cgrep>"
+       | otherwise -> return ()
 
 
-putPrettyFooter :: OptionT IO ()
-putPrettyFooter = do
+putOutput :: [Output] -> OptionIO [String]
+putOutput out = do
     (_,opt) <- ask
-    case () of
-      _  | json opt  -> liftIO $ putStrLn "]"
-         | xml  opt  -> liftIO $ putStrLn "</cgrep>"
-         | otherwise -> return ()
-
-
-prettyOutput :: (Monad m) => [Output] -> OptionT m [String]
-prettyOutput out = do
-    (_,opt) <- ask
-    case () of
-        _ | isJust $ format opt -> mapM formatOutput out
-          | filename_only opt   -> filenameOutput out
-          | json opt            -> jsonOutput out
-          | xml opt             -> xmlOutput  out
+    if  | isJust $ format opt -> mapM formatOutput out
+        | filename_only opt   -> filenameOutput out
+        | json opt            -> jsonOutput out
+        | xml opt             -> xmlOutput  out
 #ifdef ENABLE_HINT
-          | isJust $ hint opt   -> hintOputput out
+        | isJust $ hint opt   -> hintOputput out
 #endif
-          | otherwise           -> defaultOutput out
+        | otherwise           -> defaultOutput out
 
-defaultOutput :: (Monad m) => [Output] -> OptionT m [String]
+
+defaultOutput :: [Output] -> OptionIO [String]
 defaultOutput xs = do
     (conf,opt) <- ask
     case () of
@@ -158,10 +159,8 @@ defaultOutput xs = do
 
           |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
                                                   return $ map (show . length) gs
-          |  otherwise -> undefined
 
-
-jsonOutput :: (Monad m) => [Output] -> OptionT m [String]
+jsonOutput :: [Output] -> OptionIO [String]
 jsonOutput outs = return $
     [" { \"file\": " ++ show fname ++ ", \"matches\": ["] ++
     [ intercalate "," (foldl mkMatch [] outs) ] ++
@@ -171,12 +170,12 @@ jsonOutput outs = return $
               mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
 
 
-filenameOutput :: (Monad m) => [Output] -> OptionT m [String]
+filenameOutput :: [Output] -> OptionIO [String]
 filenameOutput outs = return $ nub $ map (\(Output fname _ _ _) -> fname) outs
 {-# INLINE filenameOutput #-}
 
 
-xmlOutput :: (Monad m) => [Output] -> OptionT m [String]
+xmlOutput :: [Output] -> OptionIO [String]
 xmlOutput outs = return $
     ["<file name=" ++ show fname ++ ">" ] ++
     ["<matches>" ] ++
@@ -189,8 +188,7 @@ xmlOutput outs = return $
                                                     unwords (map mkToken ts) ++
                                                     "</match>"
 
-
-formatOutput :: (Monad m) => Output -> OptionT m String
+formatOutput :: Output -> OptionIO String
 formatOutput out = do
     (conf,opt) <- ask
     return $ replace (fromJust $ format opt)

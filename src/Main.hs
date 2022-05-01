@@ -34,15 +34,15 @@ import qualified Data.Set as Set
 import Paths_cgrep ( version )
 
 import Control.Exception as E ( catch, SomeException )
-import Control.Concurrent ( forkIO, setNumCapabilities )
-import Control.Concurrent.Async ( mapConcurrently )
+import Control.Concurrent ( forkIO )
+import Control.Concurrent.Async ( forConcurrently_ )
 import Control.Monad.STM ( atomically )
-import Control.Concurrent.STM.TChan
-    ( newTChanIO, readTChan, writeTChan )
+import Control.Concurrent.STM.TQueue
+    ( newTQueueIO, readTQueue, writeTQueue )
 
 import Control.Monad
-    ( when, forM_, forever, replicateM_, unless, void, forM )
-import Control.Monad.Trans ( MonadIO(liftIO), MonadTrans(lift) )
+    ( when, forM_, forever, replicateM_, unless, void )
+import Control.Monad.Trans ( MonadIO(liftIO) )
 import Control.Monad.Trans.Except ( runExceptT, throwE )
 import Control.Monad.Trans.Reader ( ReaderT(runReaderT), ask )
 import Control.Applicative
@@ -50,7 +50,7 @@ import Control.Applicative
 
 import System.Console.CmdArgs ( cmdArgsRun )
 import System.Directory
-    ( canonicalizePath, doesDirectoryExist, getDirectoryContents )
+    ( canonicalizePath, doesDirectoryExist, listDirectory )
 import System.Environment ( lookupEnv, withArgs )
 import System.PosixCompat.Files as PosixCompat
     ( getSymbolicLinkStatus, isSymbolicLink )
@@ -59,14 +59,14 @@ import System.IO
 import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
-import CGrep.CGrep ( sanitizeOptions, isRegexp, runCgrep )
+import CGrep.CGrep ( sanitizeOptions, isRegexp, runSearch )
 import CGrep.Lang
     ( Lang, langMap, getFileLang, dumpLangMap, splitLangList )
 import CGrep.Output
     ( Output(outLine, outTokens, outFilePath, outLineNo),
-      putPrettyHeader,
-      putPrettyFooter,
-      prettyOutput,
+      putOutputHeader,
+      putOutputFooter,
+      putOutput,
       showFileName )
 import CGrep.Common ( takeN, trim8, getTargetName )
 import CGrep.Parser.WildCard ( wildCardMap )
@@ -79,76 +79,51 @@ import Config
     ( Config(Config, configFileLine, configColorMatch, configColorFile,
              configPruneDirs, configColors, configLanguages),
       getConfig )
-import Reader ( OptionT )
+import Reader ( OptionIO )
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
 import Data.Tuple.Extra ( (&&&) )
-import System.FilePath.Posix
-
-fileFilter :: Options -> [Lang] -> FilePath -> Bool
-fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
-{-# INLINE fileFilter #-}
-
-getFilesMagic :: [FilePath] -> IO [String]
-getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filenames) []
-{-# INLINE getFilesMagic #-}
-
-isNotTestFile :: FilePath -> Bool
-isNotTestFile  f =
-    let fs = [("_test" `isSuffixOf`), ("-test" `isSuffixOf`), ("test-" `isPrefixOf`), ("test_" `isPrefixOf`), ("test" == )]
-        in not $ any ($ takeBaseName f) fs
-{-# INLINE isNotTestFile #-}
+import System.FilePath.Posix ( (</>), takeBaseName )
+import GHC.Conc ( getNumCapabilities )
 
 -- push file names in Chan...
 
 withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
 withRecursiveContents opts@Options{..} dir langs pdirs visited action = do
-    isDir <-  doesDirectoryExist dir
-    if isDir then do
-               xs <- getDirectoryContents dir
+    xs <- listDirectory dir
 
-               (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs, x `notElem` [".", ".."]]
+    (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs]
 
-               magics <- if null magic_filter || null files
-                          then return []
-                          else getFilesMagic files
+    magics <- if null magic_filter || null files
+               then return []
+               else getFilesMagic files
 
-               -- filter the list of files
-               --
-               let files' = if null magics
-                              then  filter (fileFilter opts langs) files
-                              else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) magic_filter then Just f else Nothing ) files magics
+    -- filter the list of files
 
-                   files'' = filter (\f -> not skip_test || isNotTestFile f) files'
+    let files' = if null magics
+                   then  filter (fileFilter opts langs) files
+                   else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) magic_filter then Just f else Nothing) files magics
 
-               unless (null files'') $
-                    let chunks = chunksOf chunk files'' in
-                    forM_ chunks $ \b -> action b
+        files'' = filter (\f -> not skip_test || isNotTestFile f) files'
 
-               -- process dirs
-               --
-               forM_ dirs $ \path -> do
-                    lstatus <- getSymbolicLinkStatus path
-                    when ( deference_recursive || not (PosixCompat.isSymbolicLink lstatus)) $
-                        unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
-                            cpath <- canonicalizePath path
-                            unless (cpath `Set.member` visited) $
-                                withRecursiveContents opts path langs pdirs (Set.insert cpath visited) action
-             else action [dir]
+    -- run action
 
+    unless (null files'') $ do
+        let bl = length files'' `div` jobs
+            batches = chunksOf (if bl == 0 then 1 else bl) files''
+        mapM_ action batches
 
-isPruneableDir:: FilePath -> [FilePath] -> Bool
-isPruneableDir dir = any (`isSuffixOf` pdir)
-    where pdir = mkPrunableDirName dir
-{-# INLINE isPruneableDir #-}
+    -- process dirs recursively
 
-mkPrunableDirName :: FilePath -> FilePath
-mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
-                     | otherwise           = xs ++ "/"
-{-# INLINE mkPrunableDirName #-}
+    forConcurrently_ dirs $ \path -> do
+         lstatus <- getSymbolicLinkStatus path
+         when (deference_recursive || not (PosixCompat.isSymbolicLink lstatus)) $
+             unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
+                 canonicalizePath path >>= \cpath -> unless (cpath `Set.member` visited) $
+                    withRecursiveContents opts path langs pdirs (Set.insert cpath visited) action
 
 -- read patterns from file
 
@@ -164,77 +139,82 @@ getFilePaths False xs = if length xs == 1 then [] else tail xs
 getFilePaths True  xs = xs
 
 
-parallelSearch :: [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> OptionT IO ()
+parallelSearch :: [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> OptionIO ()
 parallelSearch paths patterns langs (isTermIn, _) = do
 
     (conf@Config{..}, opts@Options{..}) <- ask
 
     -- create Transactional Chan and Vars...
 
-    in_chan  <- liftIO newTChanIO
-    out_chan <- liftIO newTChanIO
+    in_chan  <- liftIO newTQueueIO
+    out_chan <- liftIO newTQueueIO
+
+    -- push the files to for...
+
+    _ <- liftIO . forkIO $ do
+        if recursive || deference_recursive
+            then forM_ (if null paths then ["."] else paths) $ \p -> do
+                    isDir <- doesDirectoryExist p
+                    if isDir
+                        then withRecursiveContents opts p langs
+                                (mkPrunableDirName <$> configPruneDirs ++ prune_dir) (Set.singleton p) (atomically . writeTQueue in_chan)
+                        else atomically . writeTQueue in_chan $ [p]
+
+            else forM_ (if null paths && not isTermIn
+                        then [""]
+                        else paths) (\p -> atomically . writeTQueue in_chan $ [p] )
+
+        -- enqueue EOF messages:
+        replicateM_ jobs ((atomically . writeTQueue in_chan) [])
 
 
     -- launch worker threads...
 
     forM_ [1 .. jobs] $ \_ -> liftIO . forkIO $
         void $ runExceptT . forever $ do
-            fs <- lift $ atomically $ readTChan in_chan
-            lift $
-                E.catch (
+            fs <- liftIO . atomically $ readTQueue in_chan
+            liftIO $ E.catch (
                     case fs of
-                        [] -> atomically $ writeTChan out_chan []
-                        xs -> void $ (if asynch then flip mapConcurrently
-                                                else forM) xs $ \x -> do
-                                out <- fmap (take max_count ) (runReaderT (runCgrep conf opts x patterns) (conf, sanitizeOptions x opts))
-                                unless (null out) $ atomically $ writeTChan out_chan out)
+                        [] -> atomically $ writeTQueue out_chan []
+                        xs -> (if asynch then forConcurrently_
+                                         else forM_) xs $ \x -> do
+
+                                out <- fmap (take max_count)
+                                    (runReaderT (runSearch x patterns) (conf, sanitizeOptions x opts))
+
+                                -- let out = []
+                                unless (null out) $ atomically $ writeTQueue out_chan out )
+
                        (\e -> let msg = show (e :: SomeException) in
-                            hPutStrLn stderr (showFileName conf opts (getTargetName (head fs))
-                                ++ ": exception: " ++ takeN 80 msg))
+                            hPutStrLn stderr (showFileName conf opts (getTargetName (head fs)) ++ ": error: " ++ takeN 80 msg))
+
             when (null fs) $ throwE ()
 
 
-    -- push the files to grep for...
-
-    _ <- liftIO . forkIO $ do
-
-        if recursive || deference_recursive
-            then forM_ (if null paths then ["."] else paths) $ \p ->
-                    withRecursiveContents opts p langs
-                        (mkPrunableDirName <$> configPruneDirs ++ prune_dir) (Set.singleton p) (atomically . writeTChan in_chan)
-
-            else forM_ (if null paths && not isTermIn then [""] else paths) (atomically . writeTChan in_chan . (:[]))
-
-        -- enqueue EOF messages:
-
-        replicateM_ jobs ((atomically . writeTChan in_chan) [])
-
     -- dump output until workers are done
 
-    putPrettyHeader
+    putOutputHeader
 
     let stop = jobs
 
     matchingFiles <- liftIO $ newIORef Set.empty
 
-    fix (\action n m ->
+    fix (\action (!n) m ->
          unless (n == stop) $ do
-                 out <- liftIO $ atomically $ readTChan out_chan
+                 out <- liftIO $ atomically $ readTQueue out_chan
                  case out of
                       [] -> action (n+1) m
                       _  -> do
-                          case () of
-                            _ | json -> when m $ liftIO $ putStrLn ","
-                              | otherwise -> return ()
+
                           let out' = map (\p -> p {outTokens = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off $ outLine p, UC.decodeString s)) $ outTokens p}) out
-                          prettyOutput out' >>= mapM_ (liftIO . putStrLn)
+                          putOutput out' >>= mapM_ (liftIO . putStrLn)
                           liftIO $ when (vim || editor) $
                                     mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNo)) out
                           action n True
         )  0 False
 
 
-    putPrettyFooter
+    putOutputFooter
 
     -- run editor...
 
@@ -251,6 +231,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                             else nub . sort . fmap fst) files
 
         putStrLn $ "cgrep: open files " ++ unwords editFiles ++ "..."
+
         void $ runProcess (fromJust $ editor' <|> Just "vi")
                           editFiles
                           Nothing
@@ -339,8 +320,37 @@ main = do
 
     -- specify number of cores
 
-    when (cores opts /= 0) $ setNumCapabilities (cores opts)
+    njobs <- if jobs opts /= 0
+                then return (jobs opts)
+                else getNumCapabilities
 
     -- run search
 
-    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (conf, opts)
+    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (conf, opts { jobs = njobs })
+
+
+fileFilter :: Options -> [Lang] -> FilePath -> Bool
+fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
+{-# INLINE fileFilter #-}
+
+getFilesMagic :: [FilePath] -> IO [String]
+getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filenames) []
+{-# INLINE getFilesMagic #-}
+
+isNotTestFile :: FilePath -> Bool
+isNotTestFile  f =
+    let fs = [("_test" `isSuffixOf`), ("-test" `isSuffixOf`), ("test-" `isPrefixOf`), ("test_" `isPrefixOf`), ("test" == )]
+        in not $ any ($ takeBaseName f) fs
+{-# INLINE isNotTestFile #-}
+
+
+isPruneableDir:: FilePath -> [FilePath] -> Bool
+isPruneableDir dir = any (`isSuffixOf` pdir)
+    where pdir = mkPrunableDirName dir
+{-# INLINE isPruneableDir #-}
+
+
+mkPrunableDirName :: FilePath -> FilePath
+mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
+                     | otherwise           = xs ++ "/"
+{-# INLINE mkPrunableDirName #-}

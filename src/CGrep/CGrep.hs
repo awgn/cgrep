@@ -17,9 +17,10 @@
 --
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module CGrep.CGrep ( sanitizeOptions
-                   , runCgrep
+                   , runSearch
                    , isRegexp) where
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
@@ -29,7 +30,7 @@ import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
 import qualified CGrep.Strategy.Generic.Semantic as Semantic
 
-import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.Catch ( SomeException, MonadCatch(catch) )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
@@ -81,21 +82,19 @@ isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
 {-# INLINE isRegexp #-}
 
-runCgrep :: Config -> Options -> FilePath -> [Text8] -> OptionT IO [Output]
-runCgrep conf opts filename patterns =
+runSearch :: FilePath -> [Text8] -> OptionIO [Output]
+runSearch filename patterns = do
+    (conf, opts) <- ask
     catch ( do
         opt <- reader snd
-        case () of
-            _ | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
-              | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
-              | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
-              | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
-              | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
-              | isRegexp opt                                                                             -> Regex.search filename patterns
-              | otherwise                                                                                -> undefined
-    )
-    (\e -> let msg = show (e :: SomeException) in
-        liftIO $ do
-            hPutStrLn stderr $ showFileName conf opts filename ++ ": exception: " ++ takeN 80 msg
-            return [ ]
-    )
+        if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
+           | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
+           | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
+           | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
+           | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
+           | isRegexp opt                                                                             -> Regex.search filename patterns
+           | otherwise                                                                                -> undefined
+     )
+     (\e -> let msg = show (e :: SomeException) in
+         liftIO $ hPutStrLn stderr (showFileName conf opts filename ++ ": exception: " ++ takeN 80 msg) $> [ ]
+     )

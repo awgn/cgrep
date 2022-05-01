@@ -20,6 +20,18 @@ module CmdOptions where
 
 import Data.Version(showVersion)
 import System.Console.CmdArgs
+    ( (&=),
+      cmdArgsMode,
+      args,
+      explicit,
+      groupname,
+      help,
+      name,
+      program,
+      summary,
+      typ,
+      Mode,
+      CmdArgs )
 
 import Paths_cgrep ( version )
 import Options ( Options(..) )
@@ -74,9 +86,7 @@ options = cmdArgsMode $ Options
           ,     format = Nothing &= typ "STRING" &= help "Format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format"
           ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
           ,     xml = False                 &= help "Format output as xml document" &= explicit &= name "xml"
-          ,     jobs   = 1                  &= groupname "\nConcurrency" &= help "Number of jobs"
-          ,     cores  = 0                  &= help "Number of physical processors utilized"
-          ,     chunk  = 16                 &= help "Specify the length of chunks"
+          ,     jobs = 0                    &= groupname "\nConcurrency" &= help "Number of jobs to run in parallel"
           ,     asynch = False              &= help "Process chunks asynchronously"
           ,     verbosity = 0               &= groupname "\nMiscellaneous" &= help "Verbosity level: 1, 2 or 3"
           ,     no_shallow = False          &= help "Disable shallow-search"  &= explicit &= name "no-shallow"
