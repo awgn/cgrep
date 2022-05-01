@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module CGrep.Token ( Token(..)
-                   , Line
+                   , Line(..)
                    , tokens
                    , tokenizer) where
 
@@ -38,9 +38,13 @@ data Token   = Token {
     tStr    :: String
 } deriving (Eq, Show)
 
-type Line    = (LineOffset, [Token])
-type DString = DL.DList Char
+data Line = Line {
+    lOffset :: {-# UNPACK #-} !LineOffset,
+    lTokens :: ![Token]
+} deriving (Eq, Show)
 
+
+type DString = DL.DList Char
 
 data TokenState =
     StateSpace   |
@@ -51,7 +55,7 @@ data TokenState =
         deriving (Eq, Enum, Show)
 
 
-data TokenAccum = TokenAccum !TokenState !Offset DString (DL.DList Token)
+data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset DString (DL.DList Token)
 
 
 isCharNumberLT :: UArray Char Bool

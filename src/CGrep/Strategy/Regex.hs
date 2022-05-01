@@ -45,8 +45,7 @@ import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )
 import Verbose
 
-import Data.Bifunctor ( Bifunctor(first) )
-import CGrep.Token
+import CGrep.Token ( Token(Token) )
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do

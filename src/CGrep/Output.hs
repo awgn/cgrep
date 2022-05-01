@@ -18,6 +18,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutput
@@ -55,7 +56,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
-import CGrep.Token ( Line, Token(..) )
+import CGrep.Token ( Line(..), Token(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,
@@ -96,23 +97,24 @@ getOffset2d idx off =
 mkOutput :: FilePath -> Text8 -> Text8 -> [Token] -> OptionIO [Output]
 mkOutput f text multi ts = do
     invert <- reader (invert_match . snd)
-    return $ if invert then map (\(n, xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkLines multi ts
-                       else map (\(n, xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkLines multi ts
+    return $ if invert then map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkLines multi ts
+                       else map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkLines multi ts
     where ls = C.lines text
 {-# INLINE mkOutput #-}
 
 
 mkLines :: Text8 -> [Token] -> [Line]
 mkLines _ [] = []
-mkLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
-    sortBy (compare `on` fst) $ (\Token{..} -> let (# r, c #) = getOffset2d ols tOffset in (1 + r, [Token c tStr])) <$> ts
-    where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)
+mkLines text ts = map mergeGroup $ groupBy ((==) `on` lOffset) $
+    sortBy (compare `on` lOffset) $ (\Token{..} -> let (# r, c #) = getOffset2d ols tOffset in Line (1 + r) [Token c tStr]) <$> ts
+    where mergeGroup :: [Line] -> Line
+          mergeGroup ls = Line ((lOffset . head) ls) (foldl (\l m -> l ++ lTokens m) [] ls)
           ols = getOffsetsLines text
 
 
 invertLines :: Int -> [Line] -> [Line]
-invertLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]]
-    where idx = map fst xs
+invertLines n xs =  filter (\(Line i _) ->  i `notElem` idx ) $ take n [ Line i [] | i <- [1..]]
+    where idx = lOffset <$> xs
 {-# INLINE invertLines #-}
 
 
