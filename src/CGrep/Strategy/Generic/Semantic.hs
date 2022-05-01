@@ -50,12 +50,12 @@ import Data.List ( sortBy, nub )
 import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Verbose
 import Util ( notNull, rmQuote )
 
 
-search :: FilePath -> [Text8] -> OptionT IO [Output]
+search :: FilePath -> [Text8] -> OptionIO [Output]
 search f ps = do
 
     opt  <- reader snd

@@ -23,4 +23,4 @@ import Control.Monad.Trans.Reader ( ReaderT )
 import Config ( Config )
 import Options ( Options )
 
-type OptionT = ReaderT (Config, Options)
+type OptionIO = ReaderT (Config, Options) IO

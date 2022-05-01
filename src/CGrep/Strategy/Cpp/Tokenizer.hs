@@ -29,18 +29,27 @@ import CGrep.Filter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
 import CGrep.Lang ( getFileLang )
 import CGrep.Common
+    ( Text8,
+      expandMultiline,
+      getTargetContents,
+      getTargetName,
+      ignoreCase,
+      runSearch,
+      shallowSearch )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
 
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Options
+    ( Options(identifier, directive, keyword, header, string, number,
+              char, oper, edit_dist, word_match, prefix_match, suffix_match) )
 import Verbose
 import Util ( notNull )
 
 
-search :: FilePath -> [Text8] -> OptionT IO [Output]
+search :: FilePath -> [Text8] -> OptionIO [Output]
 search f ps = do
 
     opt  <- reader snd

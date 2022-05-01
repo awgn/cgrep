@@ -34,13 +34,13 @@ import CGrep.Types ( Offset )
 
 import qualified CGrep.Token as T
 
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose
 import Util ( notNull )
 
 
-search :: FilePath -> [Text8] -> OptionT IO [Output]
+search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     opt  <- reader snd

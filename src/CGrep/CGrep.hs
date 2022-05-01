@@ -42,8 +42,8 @@ import CGrep.Output ( Output, showFileName )
 import Data.List ( elemIndex )
 import Data.Maybe ( isJust )
 import Options ( Options(..) )
-import Reader ( OptionT )
-import Config ( Config )
+import Reader ( OptionIO )
+import Data.Functor (($>))
 
 
 hasLanguage :: FilePath -> Options -> [Lang] -> Bool

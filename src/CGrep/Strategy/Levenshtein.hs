@@ -35,11 +35,10 @@ import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
 import CGrep.Token ( tokenizer )
 
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Verbose
 
-
-search :: FilePath -> [Text8] -> OptionT IO [Output]
+search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     opt  <- reader snd

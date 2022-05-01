@@ -41,13 +41,11 @@ import CGrep.Output ( Output, mkOutput )
 import CGrep.Filter ( mkContextFilter, contextFilter )
 import CGrep.Lang ( getFileLang )
 
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )
 import Verbose
 
-
-
-search :: FilePath -> [Text8] -> OptionT IO [Output]
+search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     opt  <- reader snd

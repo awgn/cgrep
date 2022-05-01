@@ -37,7 +37,7 @@ import CGrep.Output ( Output, mkOutput )
 
 import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Util ( spanGroup, toLowercase )
 
 
@@ -77,8 +77,8 @@ shallowSearch ps text = ps >>= (\p -> [p `SC.nonOverlappingIndices` text])
 runSearch :: Options
           -> FilePath
           -> Bool
-          -> OptionT IO [Output]
-          -> OptionT IO [Output]
+          -> OptionIO [Output]
+          -> OptionIO [Output]
 runSearch opt filename shallowTest doSearch =
     if shallowTest || no_shallow opt
         then doSearch

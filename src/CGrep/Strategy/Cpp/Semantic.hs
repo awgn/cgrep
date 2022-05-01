@@ -32,16 +32,28 @@ import CGrep.Filter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
 import CGrep.Lang ( Lang(Cpp), getFileLang )
 import CGrep.Common
+    ( Text8,
+      expandMultiline,
+      getTargetContents,
+      getTargetName,
+      ignoreCase,
+      runSearch,
+      shallowSearch,
+      trim )
 import CGrep.Output ( Output, mkOutput )
 
 import CGrep.Parser.WildCard
+    ( combineMultiCard,
+      filterTokensWithMultiCards,
+      mkWildCardFromToken,
+      WildCard(TokenCard) )
 
-import Reader ( OptionT )
+import Reader ( OptionIO )
 import Verbose
 import Util ( notNull, rmQuote )
 
 
-search :: FilePath -> [Text8] -> OptionT IO [Output]
+search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     opt  <- reader snd
