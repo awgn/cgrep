@@ -36,7 +36,7 @@ import CGrep.Distance ( (~==) )
 import CGrep.Token ( tokenizer )
 
 import Reader ( OptionT )
-import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Verbose
 
 
 search :: FilePath -> [Text8] -> OptionT IO [Output]
@@ -63,9 +63,9 @@ search f patterns = do
         patterns' = map C.unpack patterns
         matches  = filter (\t -> any (\p -> p ~== snd t) patterns') tokens'
 
-    putStrLevel1 $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
-    putStrLevel2 $ "tokens    : " ++ show tokens'
-    putStrLevel2 $ "matches   : " ++ show matches
-    putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+    putStrLn1 $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
+    putStrLn2 $ "tokens    : " ++ show tokens'
+    putStrLn2 $ "matches   : " ++ show matches
+    putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     mkOutput filename text text''' matches

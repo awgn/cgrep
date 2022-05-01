@@ -17,30 +17,30 @@
 --
 
 
-module Debug where
+module Verbose where
 
 import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Control.Monad ( when )
 
-import Options ( Options(debug) )
-import Reader ( OptionT )
+import Options ( Options(verbosity) )
+import Reader ( OptionIO )
 
 
-putStrLevel1 :: String -> OptionT IO ()
-putStrLevel1 xs = do
-    n <- reader $ debug . snd
+putStrLn1 :: String -> OptionIO ()
+putStrLn1 xs = do
+    n <- reader $ verbosity . snd
     when (n > 0) $ liftIO $ putStrLn xs
-{-# INLINE putStrLevel1 #-}
+{-# INLINE putStrLn1 #-}
 
-putStrLevel2 :: String -> OptionT IO ()
-putStrLevel2 xs = do
-    n <- reader $ debug . snd
+putStrLn2 :: String -> OptionIO ()
+putStrLn2 xs = do
+    n <- reader $ verbosity . snd
     when (n > 1) $ liftIO $ putStrLn xs
-{-# INLINE putStrLevel2 #-}
+{-# INLINE putStrLn2 #-}
 
-putStrLevel3 :: String -> OptionT IO ()
-putStrLevel3 xs = do
-    n <- reader $ debug . snd
+putStrLn3 :: String -> OptionIO ()
+putStrLn3 xs = do
+    n <- reader $ verbosity . snd
     when (n > 2) $ liftIO $ putStrLn xs
-{-# INLINE putStrLevel3 #-}
+{-# INLINE putStrLn3 #-}

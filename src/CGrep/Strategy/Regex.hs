@@ -43,7 +43,7 @@ import CGrep.Lang ( getFileLang )
 
 import Reader ( OptionT )
 import Options ( Options(regex_pcre) )
-import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Verbose
 
 
 
@@ -69,8 +69,8 @@ search f patterns = do
         tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putStrLevel1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."
-    putStrLevel2 $ "tokens    : " ++ show tokens
-    putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+    putStrLn1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."
+    putStrLn2 $ "tokens    : " ++ show tokens
+    putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     mkOutput filename text text''' tokens

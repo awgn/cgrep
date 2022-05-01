@@ -83,7 +83,7 @@ data Options = Options
     ,   chunk               :: Int
     ,   asynch              :: Bool
     -- Misc:
-    ,   debug               :: Int
+    ,   verbosity           :: Int
     ,   no_shallow          :: Bool
     ,   others              :: [String]
     } deriving (Data, Typeable, Show)

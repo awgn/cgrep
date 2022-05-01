@@ -51,7 +51,7 @@ import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
 import Reader ( OptionT )
-import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Verbose
 import Util ( notNull, rmQuote )
 
 
@@ -87,10 +87,10 @@ search f ps = do
 
     -- put banners...
 
-    putStrLevel1 $ "strategy  : running generic semantic search on " ++ filename ++ "..."
-    putStrLevel2 $ "wildcards : " ++ show patterns'
-    putStrLevel2 $ "multicards: " ++ show patterns''
-    putStrLevel2 $ "identif   : " ++ show identif
+    putStrLn1 $ "strategy  : running generic semantic search on " ++ filename ++ "..."
+    putStrLn2 $ "wildcards : " ++ show patterns'
+    putStrLn2 $ "multicards: " ++ show patterns''
+    putStrLn2 $ "identif   : " ++ show identif
 
     let idpack = map C.pack identif
         quick1 = all notNull $ shallowSearch idpack text'
@@ -107,8 +107,8 @@ search f ps = do
         let tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
         let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
 
-        putStrLevel2 $ "tokens    : " ++ show tokens'
-        putStrLevel2 $ "matches   : " ++ show matches
-        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " ++ show tokens'
+        putStrLn2 $ "matches   : " ++ show matches
+        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' matches

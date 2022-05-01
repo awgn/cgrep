@@ -78,7 +78,7 @@ options = cmdArgsMode $ Options
           ,     cores  = 0                  &= help "Number of physical processors utilized"
           ,     chunk  = 16                 &= help "Specify the length of chunks"
           ,     asynch = False              &= help "Process chunks asynchronously"
-          ,     debug = 0                   &= groupname "\nMiscellaneous" &= help "Debug level: 1, 2 or 3"
+          ,     verbosity = 0               &= groupname "\nMiscellaneous" &= help "Verbosity level: 1, 2 or 3"
           ,     no_shallow = False          &= help "Disable shallow-search"  &= explicit &= name "no-shallow"
           ,     others = []                 &= args
           } &= summary ("Cgrep " ++ showVersion version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"

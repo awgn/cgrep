@@ -74,7 +74,7 @@ import CGrep.Parser.WildCard ( wildCardMap )
 import CmdOptions ( options )
 import Options ( Options(..) )
 import Util ( partitionM, notNull )
-import Debug ( putStrLevel1 )
+import Verbose ( putStrLn1 )
 import Config
     ( Config(Config, configFileLine, configColorMatch, configColorFile,
              configPruneDirs, configColors, configLanguages),
@@ -327,14 +327,14 @@ main = do
 
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
-    runReaderT (do putStrLevel1 $ "Cgrep " ++ showVersion version ++ "!"
-                   putStrLevel1 $ "options   : " ++ show opts
-                   putStrLevel1 $ "config    : " ++ show conf
-                   putStrLevel1 $ "languages : " ++ show langs
-                   putStrLevel1 $ "pattern   : " ++ show patterns'
-                   putStrLevel1 $ "files     : " ++ show paths
-                   putStrLevel1 $ "isTermIn  : " ++ show isTermIn
-                   putStrLevel1 $ "isTermOut : " ++ show isTermOut
+    runReaderT (do putStrLn1 $ "Cgrep " ++ showVersion version ++ "!"
+                   putStrLn1 $ "options   : " ++ show opts
+                   putStrLn1 $ "config    : " ++ show conf
+                   putStrLn1 $ "languages : " ++ show langs
+                   putStrLn1 $ "pattern   : " ++ show patterns'
+                   putStrLn1 $ "files     : " ++ show paths
+                   putStrLn1 $ "isTermIn  : " ++ show isTermIn
+                   putStrLn1 $ "isTermOut : " ++ show isTermOut
         ) (conf, opts)
 
     -- specify number of cores

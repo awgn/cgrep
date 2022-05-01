@@ -53,6 +53,7 @@ readMaybe :: Read a => String -> Maybe a
 readMaybe = fmap fst . listToMaybe . reads
 {-# INLINE readMaybe #-}
 
+
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []
 spanGroup 1 xs = map (: []) xs

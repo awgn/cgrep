@@ -37,7 +37,7 @@ import CGrep.Output ( Output, mkOutput )
 import CGrep.Parser.WildCard
 
 import Reader ( OptionT )
-import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Verbose
 import Util ( notNull, rmQuote )
 
 
@@ -75,10 +75,10 @@ search f patterns = do
 
     -- put banners...
 
-    putStrLevel1 $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
-    putStrLevel2 $ "wildcards : " ++ show patterns''
-    putStrLevel2 $ "multicards: " ++ show patterns'''
-    putStrLevel2 $ "identif   : " ++ show identif
+    putStrLn1 $ "strategy  : running C/C++ semantic search on " ++ filename ++ "..."
+    putStrLn2 $ "wildcards : " ++ show patterns''
+    putStrLn2 $ "multicards: " ++ show patterns'''
+    putStrLn2 $ "identif   : " ++ show identif
 
     let idpack = map C.pack identif
         quick1 = all notNull $ shallowSearch idpack text'
@@ -96,8 +96,8 @@ search f patterns = do
 
         let matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
 
-        putStrLevel2 $ "tokens    : " ++ show tokens'
-        putStrLevel2 $ "matches   : " ++ show matches
-        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " ++ show tokens'
+        putStrLn2 $ "matches   : " ++ show matches
+        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' matches

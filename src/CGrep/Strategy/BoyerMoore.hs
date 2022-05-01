@@ -36,7 +36,7 @@ import qualified CGrep.Token as T
 
 import Reader ( OptionT )
 import Options ( Options(word_match, prefix_match, suffix_match) )
-import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Verbose
 import Util ( notNull )
 
 
@@ -69,15 +69,15 @@ search f patterns = do
                     then filter (checkToken opt text''') tokens
                     else tokens
 
-    putStrLevel1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
+    putStrLn1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
 
     runSearch opt filename (any notNull shallow) $ do
 
         -- print banners...
 
-        putStrLevel2 $ "tokens    : " ++ show tokens
-        putStrLevel2 $ "tokens'   : " ++ show tokens'
-        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " ++ show tokens
+        putStrLn2 $ "tokens'   : " ++ show tokens'
+        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' tokens'
 

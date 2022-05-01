@@ -36,7 +36,7 @@ import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
 import Reader ( OptionT )
 import Options
-import Debug ( putStrLevel1, putStrLevel2, putStrLevel3 )
+import Verbose
 import Util ( notNull )
 
 
@@ -58,7 +58,7 @@ search f ps = do
                                                  ]
 
 
-    putStrLevel1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
+    putStrLn1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
     let quick = all notNull $ shallowSearch ps text'
 
@@ -87,11 +87,11 @@ search f ps = do
 
             matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
 
-        putStrLevel2 $ "tokens    : " ++ show tokens
-        putStrLevel2 $ "tokens'   : " ++ show tokens'
-        putStrLevel2 $ "tokens''  : " ++ show tokens''
-        putStrLevel2 $ "matches   : " ++ show matches
-        putStrLevel3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " ++ show tokens
+        putStrLn2 $ "tokens'   : " ++ show tokens'
+        putStrLn2 $ "tokens''  : " ++ show tokens''
+        putStrLn2 $ "matches   : " ++ show matches
+        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' matches
 
