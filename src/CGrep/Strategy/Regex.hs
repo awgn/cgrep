@@ -46,6 +46,7 @@ import Options ( Options(regex_pcre) )
 import Verbose
 
 import Data.Bifunctor ( Bifunctor(first) )
+import CGrep.Token
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
@@ -66,11 +67,11 @@ search f patterns = do
 
         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
 
-        tokens = map (\(str, (off,_)) -> (off, C.unpack str) ) $
+        tokens = map (\(str, (off,_)) -> Token (fromIntegral off) (C.unpack str)) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putStrLn1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."
     putStrLn2 $ "tokens    : " ++ show tokens
     putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-    mkOutput filename text text''' $ first fromIntegral <$> tokens
+    mkOutput filename text text''' tokens

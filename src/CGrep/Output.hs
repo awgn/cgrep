@@ -17,6 +17,7 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutput
@@ -54,7 +55,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
-import CGrep.Token ( Line, Token )
+import CGrep.Token ( Line, Token(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,
@@ -104,7 +105,7 @@ mkOutput f text multi ts = do
 mkLines :: Text8 -> [Token] -> [Line]
 mkLines _ [] = []
 mkLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
-    sortBy (compare `on` fst) $ map (\t -> let (# r, c #) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts
+    sortBy (compare `on` fst) $ (\Token{..} -> let (# r, c #) = getOffset2d ols tOffset in (1 + r, [Token c tStr])) <$> ts
     where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)
           ols = getOffsetsLines text
 
@@ -170,8 +171,8 @@ jsonOutput outs = return $
     [ intercalate "," (foldl mkMatch [] outs) ] ++
     ["] }"]
         where fname | (Output f _ _ _) <- head outs = f
-              mkToken (n, xs) = "{ \"col\": " ++ show n ++ ", \"token\": " ++ show xs ++ " }"
-              mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
+              mkJToken (Token n xs) = "{ \"col\": " ++ show n ++ ", \"token\": " ++ show xs ++ " }"
+              mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkJToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
 
 
 filenameOutput :: [Output] -> OptionIO [String]
@@ -187,7 +188,7 @@ xmlOutput outs = return $
     ["</matches>"] ++
     ["</file>"]
         where fname | (Output f _ _ _) <- head outs = f
-              mkToken (n, xs) = "<token col=\"" ++ show n ++ "\" >" ++ xs ++ "</token>"
+              mkToken (Token n xs) = "<token col=\"" ++ show n ++ "\" >" ++ xs ++ "</token>"
               mkMatch xs (Output _ n l ts) = xs ++  "<match line=" ++ show l ++ " row=\"" ++ show n ++ "\">" ++
                                                     unwords (map mkToken ts) ++
                                                     "</match>"
@@ -215,7 +216,7 @@ formatOutput out = do
             ("#8", atDef "" ts' 8),
             ("#9", atDef "" ts' 9)
         ]
-    where ts' = map snd (outTokens out)
+    where ts' = map tStr (outTokens out)
 
 
 replace :: String -> [(String, String)] -> String
@@ -264,20 +265,20 @@ showLineCol :: Options -> Output -> String
 showLineCol Options{no_numbers = True } _ = ""
 showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
 showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n
-showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . fst . head $ ts)
+showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . tOffset . head $ ts)
 {-# INLINE showLineCol #-}
 
 
 showTokens :: Options -> Output -> String
 showTokens Options { show_match = st } out
-    | st        = ushow (map snd (outTokens out))
+    | st        = ushow (map tStr (outTokens out))
     | otherwise = ""
 {-# INLINE showTokens #-}
 
 
 showLine :: Config -> Options -> Output -> String
 showLine conf Options { color = c, no_color = c' } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . snd )) (outTokens out)) line
+    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . tStr)) (outTokens out)) line
     | otherwise  = line
     where line = UC.decode $ B.unpack $ outLine out
 {-# INLINE showLine #-}
@@ -323,5 +324,5 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
 
 
 hilightIndicies :: [Token] -> [(Int64, Int64)]
-hilightIndicies = foldr (\t a -> let b = fst t in (fromIntegral b, b + genericLength (snd t) - 1) : a) [] . filter (notNull . snd)
+hilightIndicies = foldr (\Token{..} a -> let b = tOffset in (fromIntegral b, b + genericLength tStr - 1) : a) [] . filter (notNull . tStr)
 {-# INLINE hilightIndicies #-}

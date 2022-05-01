@@ -18,7 +18,7 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module CGrep.Token ( Token
+module CGrep.Token ( Token(..)
                    , Line
                    , tokens
                    , tokenizer) where
@@ -33,7 +33,11 @@ import CGrep.Types ( Text8, LineOffset, Offset )
 import Data.List (genericLength)
 
 
-type Token   = (Offset, String)
+data Token   = Token {
+    tOffset :: {-# UNPACK #-} !Offset,
+    tStr    :: String
+} deriving (Eq, Show)
+
 type Line    = (LineOffset, [Token])
 type DString = DL.DList Char
 
@@ -88,13 +92,13 @@ isBracketLT =
 
 
 mkToken :: Offset -> DString -> Token
-mkToken off ds =  (off - genericLength str, str)
+mkToken off ds =  Token (off - genericLength str) str
     where str = DL.toList ds
 {-# INLINE mkToken #-}
 
 
 tokens :: Text8 -> [String]
-tokens = map snd . tokenizer
+tokens = map tStr . tokenizer
 {-# INLINE tokens #-}
 
 

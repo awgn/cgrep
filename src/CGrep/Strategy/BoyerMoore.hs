@@ -17,6 +17,7 @@
 --
 
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Strategy.BoyerMoore (search) where
 
@@ -38,6 +39,7 @@ import Reader ( OptionIO )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose
 import Util ( notNull )
+import CGrep.Token (Token(..))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -61,7 +63,7 @@ search f patterns = do
 
     -- search for matching tokens
 
-    let tokens = concatMap (\(p, xs) -> let p' = C.unpack p in map (,p') xs ) $ zip patterns shallow
+    let tokens = concatMap (\(p, xs) -> (\o -> Token o (C.unpack p)) <$> xs ) $ zip patterns shallow
 
     -- filter exact/partial matching tokens
 
@@ -82,13 +84,13 @@ search f patterns = do
         mkOutput filename text text''' tokens'
 
 
-checkToken :: Options -> Text8 -> (Offset, String) -> Bool
-checkToken opt text (off, str)
-     | word_match    opt = (off - off', str) `elem` ts
-     | prefix_match  opt = any (\(o,s) -> str `isPrefixOf` s && o + off' == off) ts
-     | suffix_match  opt = any (\(o,s) -> str `isSuffixOf` s && o + off' + (genericLength s - genericLength str) == off) ts
+checkToken :: Options -> Text8 -> Token -> Bool
+checkToken opt text Token{..}
+     | word_match    opt = Token (tOffset - off') tStr `elem` ts
+     | prefix_match  opt = any (\(Token o s) -> tStr `isPrefixOf` s && o + off' == tOffset) ts
+     | suffix_match  opt = any (\(Token o s) -> tStr `isSuffixOf` s && o + off' + (genericLength s - genericLength tStr) == tOffset) ts
      | otherwise         = undefined
-     where (text',off') = getLineByOffset off text
+     where (text',off') = getLineByOffset tOffset text
            ts           = T.tokenizer text'
 
 

@@ -89,6 +89,8 @@ import Data.Tuple.Extra ( (&&&) )
 import System.FilePath.Posix ( (</>), takeBaseName )
 import GHC.Conc ( getNumCapabilities )
 
+import CGrep.Token
+
 -- push file names in Chan...
 
 withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
@@ -206,7 +208,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                       [] -> action (n+1) m
                       _  -> do
 
-                          let out' = map (\p -> p {outTokens = map (\(off, s) -> (genericLength $ UC.decode $ B.unpack $ C.take (fromIntegral off) $ outLine p, UC.decodeString s)) $ outTokens p}) out
+                          let out' = map (\p -> p {outTokens = map (\(Token off s) -> Token (genericLength $ UC.decode $ B.unpack $ C.take (fromIntegral off) $ outLine p) (UC.decodeString s)) $ outTokens p}) out
                           putOutput out' >>= mapM_ (liftIO . putStrLn)
                           liftIO $ when (vim || editor) $
                                     mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out

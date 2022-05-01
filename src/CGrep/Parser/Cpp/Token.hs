@@ -18,11 +18,13 @@
 
 {-# LANGUAGE ViewPatterns #-}
 
-module CGrep.Parser.Cpp.Token(Token(..), TokenFilter(..),
-                       Offset, tokenizer, tokenFilter, tokenCompare,
-                       isIdentifier, isKeyword, isDirective, isLiteralNumber,
-                       isHeaderName, isString, isChar, isOperOrPunct
-                       )  where
+module CGrep.Parser.Cpp.Token(
+    Token(..),
+    TokenFilter(..),
+    Offset, tokenizer, tokenFilter, tokenCompare,
+    isIdentifier, isKeyword, isDirective, isLiteralNumber,
+    isHeaderName, isString, isChar, isOperOrPunct
+    )  where
 
 import Data.Char ( isSpace, isAlphaNum, isDigit )
 import Data.Maybe ( fromJust, fromMaybe )
@@ -173,8 +175,7 @@ dropWhite xs = (xs', doff)
 
 
 
-data CppState = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif |
-                Line | Error | Pragma
+data CppState = Null | Hash | Include | Define | Undef | If | Ifdef | Ifndef | Elif | Else | Endif | Line | Error | Pragma
                 deriving (Show, Eq)
 
 

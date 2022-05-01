@@ -33,7 +33,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
-import CGrep.Token ( tokenizer )
+import CGrep.Token ( tokenizer, Token (tStr) )
 
 import Reader ( OptionIO )
 import Verbose
@@ -60,7 +60,7 @@ search f patterns = do
     -- filter tokens...
 
         patterns' = map C.unpack patterns
-        matches  = filter (\t -> any (\p -> p ~== snd t) patterns') tokens'
+        matches  = filter (\t -> any (\p -> p ~== tStr t) patterns') tokens'
 
     putStrLn1 $ "strategy  : running edit-distance (Levenshtein) search on " ++ filename ++ "..."
     putStrLn2 $ "tokens    : " ++ show tokens'
