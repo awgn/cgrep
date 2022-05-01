@@ -31,7 +31,6 @@ module CGrep.Output ( Output(..)
                     , showBold) where
 
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as LB
 
 import qualified Data.ByteString.Builder as B
 
@@ -39,7 +38,6 @@ import qualified Data.ByteString.Char8 as C
 
 import qualified Codec.Binary.UTF8.String as UC
 
-import Text.Show.Unicode ( ushow )
 import System.Console.ANSI
     ( setSGRCode,
       ConsoleIntensity(BoldIntensity),
@@ -52,9 +50,8 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Control.Applicative
 #endif
 
-import Data.Maybe ( fromJust, isJust )
 import Data.List
-    ( foldl', sortBy, groupBy, intercalate, isPrefixOf, nub, sort, genericLength, intersperse )
+    ( foldl', sortBy, groupBy, isPrefixOf, nub, sort, genericLength, intersperse )
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
@@ -65,10 +62,8 @@ import Options
               no_filename, count, no_numbers, no_column, show_match,
               color, no_color) )
 
-import Util ( notNull )
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( OptionIO )
-import Safe ( atDef )
 import Data.Int ( Int64 )
 
 
@@ -266,6 +261,7 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 --     | st        = ushow (map tStr (outTokens out))
 --     | otherwise = ""
 -- {-# INLINE showTokens #-}
+
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
