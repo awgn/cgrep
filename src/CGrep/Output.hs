@@ -19,6 +19,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutput
@@ -30,7 +31,12 @@ module CGrep.Output ( Output(..)
                     , showBold) where
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as LB
+
+import qualified Data.ByteString.Builder as B
+
 import qualified Data.ByteString.Char8 as C
+
 import qualified Codec.Binary.UTF8.String as UC
 
 import Text.Show.Unicode ( ushow )
@@ -38,10 +44,6 @@ import System.Console.ANSI
     ( setSGRCode,
       ConsoleIntensity(BoldIntensity),
       SGR(SetConsoleIntensity) )
-
-#ifdef ENABLE_HINT
-import Language.Haskell.Interpreter
-#endif
 
 import Control.Monad.Trans.Reader ( ask, reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
@@ -52,7 +54,7 @@ import Control.Applicative
 
 import Data.Maybe ( fromJust, isJust )
 import Data.List
-    ( foldl', sortBy, groupBy, intercalate, isPrefixOf, nub, sort, genericLength )
+    ( foldl', sortBy, groupBy, intercalate, isPrefixOf, nub, sort, genericLength, intersperse )
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
@@ -60,7 +62,7 @@ import CGrep.Token ( Line(..), Token(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,
-              no_filename, count, format, no_numbers, no_column, show_match,
+              no_filename, count, no_numbers, no_column, show_match,
               color, no_color) )
 
 import Util ( notNull )
@@ -85,6 +87,7 @@ getOffsetsLines txt =
         ret = filter (<(l-1)) $ C.elemIndices '\n' txt
     in  fromIntegral <$> ret
 {-# INLINE getOffsetsLines #-}
+
 
 getOffset2d :: [LineOffset] -> Offset -> Offset2d
 getOffset2d idx off =
@@ -132,93 +135,72 @@ putOutputFooter = do
        | otherwise -> return ()
 
 
-putOutput :: [Output] -> OptionIO [String]
+putOutput :: [Output] -> OptionIO [B.Builder]
 putOutput out = do
     (_,opt) <- ask
-    if  | isJust $ format opt -> mapM formatOutput out
-        | filename_only opt   -> filenameOutput out
-        | json opt            -> jsonOutput out
-        | xml opt             -> xmlOutput  out
-#ifdef ENABLE_HINT
-        | isJust $ hint opt   -> hintOputput out
-#endif
-        | otherwise           -> defaultOutput out
+    if  | xml opt           -> xmlOutput  out
+        | json opt          -> jsonOutput out
+        | filename_only opt -> filenameOutput out
+        | otherwise         -> defaultOutput out
 
 
-defaultOutput :: [Output] -> OptionIO [String]
+defaultOutput :: [Output] -> OptionIO [B.Builder]
 defaultOutput xs = do
     (conf,opt) <- ask
-    case () of
-        _ |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> concat $ [showFile conf, showSep ":", showLineCol, showSep " ", showTokens, showLine conf] <*> [opt] <*> [out]) xs
+    if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
+                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ' ' <> buildTokens opt out <> buildLine conf opt out) xs
 
-          |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
-                -> return $ map (\out -> concat $ [showFile conf, showSep ":", showTokens,  showLine conf] <*> [opt] <*> [out] ) xs
+        |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
+                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
-          |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> concat $ [showLineCol, showSep " ",  showTokens, showLine conf] <*> [opt] <*> [out] ) xs
+        |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
+              -> return $ map (\out -> buildTokens opt out <> B.char8 ' ' <> buildLine conf opt out) xs
 
-          |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
-                -> return $ map (\out -> concat $ [showTokens, showLine conf] <*> [opt] <*>  [out]) xs
+        |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
+              -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
 
-          |  Options{ no_filename = False, count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                                                                       return $ map (\ys@(y:_) -> showFile conf opt y ++ ":" ++ show (length ys)) gs
+        |  Options{ no_filename = False, count = True } <- opt
+            -> do
+                let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+                return $ (\ys@(y:_) -> buildFile conf opt y <> B.char8 ':' <> B.intDec (length ys)) <$> gs
 
-          |  Options{ count = True } <- opt -> do let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                                                  return $ map (show . length) gs
+        |  Options{ count = True } <- opt
+            -> do
+                let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+                return $ (\ys@(y:_) ->  B.intDec (length ys)) <$> gs
 
-jsonOutput :: [Output] -> OptionIO [String]
+
+jsonOutput :: [Output] -> OptionIO [B.Builder]
+jsonOutput [] = return []
 jsonOutput outs = return $
-    [" { \"file\": " ++ show fname ++ ", \"matches\": ["] ++
-    [ intercalate "," (foldl mkMatch [] outs) ] ++
-    ["] }"]
-        where fname | (Output f _ _ _) <- head outs = f
-              mkJToken (Token n xs) = "{ \"col\": " ++ show n ++ ", \"token\": " ++ show xs ++ " }"
-              mkMatch xs (Output _ n l ts) = xs ++ [ "{ \"row\": " ++ show n ++ ", \"tokens\": [" ++ intercalate "," (map mkJToken ts) ++ "], \"line\":" ++ show l ++ "}" ]
+    [B.byteString "{ \"file\":\"" <> B.stringUtf8 fname <> B.byteString "\", \"matches\":["] <>
+    [ mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs) ] <> [B.byteString "]}"]
+     where fname | (Output f _ _ _) <- head outs = f
+           mkJToken (Token n xs) = B.byteString "{ \"col\":" <> B.int64Dec n <> B.byteString ", \"token\":\"" <> B.byteString xs <> B.byteString "\" }"
+           mkMatch xs (Output _ n _ ts) =
+               xs <> [B.byteString "{ \"row\": " <> B.int64Dec n <> B.byteString ", \"tokens\":[" <>
+                        mconcat (intersperse (B.byteString ",") (map mkJToken ts)) <> B.byteString "] }" ]
 
 
-filenameOutput :: [Output] -> OptionIO [String]
-filenameOutput outs = return $ nub $ map (\(Output fname _ _ _) -> fname) outs
+filenameOutput :: [Output] -> OptionIO [B.Builder]
+filenameOutput outs = return $ B.stringUtf8 <$> nub ((\(Output fname _ _ _) -> fname) <$> outs)
 {-# INLINE filenameOutput #-}
 
 
-xmlOutput :: [Output] -> OptionIO [String]
+xmlOutput :: [Output] -> OptionIO [B.Builder]
+xmlOutput [] = return []
 xmlOutput outs = return $
-    ["<file name=" ++ show fname ++ ">" ] ++
-    ["<matches>" ] ++
-    [foldl mkMatch "" outs] ++
-    ["</matches>"] ++
-    ["</file>"]
-        where fname | (Output f _ _ _) <- head outs = f
-              mkToken (Token n xs) = "<token col=\"" ++ show n ++ "\" >" ++ xs ++ "</token>"
-              mkMatch xs (Output _ n l ts) = xs ++  "<match line=" ++ show l ++ " row=\"" ++ show n ++ "\">" ++
-                                                    unwords (map mkToken ts) ++
-                                                    "</match>"
-
-formatOutput :: Output -> OptionIO String
-formatOutput out = do
-    (conf,opt) <- ask
-    return $ replace (fromJust $ format opt)
-        [
-            ("#f", showFile conf opt out),
-            ("#n", showLineCol opt out),
-            ("#l", showLine conf opt out),
-            ("#t", ushow ts'),
-            ("##", unwords ts'),
-            ("#,", intercalate "," ts'),
-            ("#;", intercalate ";" ts'),
-            ("#0", atDef "" ts' 0),
-            ("#1", atDef "" ts' 1),
-            ("#2", atDef "" ts' 2),
-            ("#3", atDef "" ts' 3),
-            ("#4", atDef "" ts' 4),
-            ("#5", atDef "" ts' 5),
-            ("#6", atDef "" ts' 6),
-            ("#7", atDef "" ts' 7),
-            ("#8", atDef "" ts' 8),
-            ("#9", atDef "" ts' 9)
-        ]
-    where ts' = map tStr (outTokens out)
+    [B.byteString "<file name='" <> B.stringUtf8  fname <> B.byteString "'>" ] ++
+    [B.byteString "<matches>" ] ++
+    [foldl mkMatch mempty outs] ++
+    [B.byteString "</matches>"] ++
+    [B.byteString "</file>"]
+        where fname = case outs of
+                        [] -> ""
+                        (Output f _ _ _) : _ -> f
+              mkToken (Token n xs) = B.byteString "<token col='" <> B.int64Dec n <> B.byteString "'>" <> B.byteString xs <> B.byteString "</token>"
+              mkMatch xs (Output _ n _ ts) =
+                  xs <> B.byteString "<match line='" <> B.int64Dec n <> B.byteString "'>" <> mconcat (map mkToken ts) <> B.byteString "</match>"
 
 
 replace :: String -> [(String, String)] -> String
@@ -229,21 +211,6 @@ replace ys@(x:xs) pats =
 replace [] _ = []
 
 
-#ifdef ENABLE_HINT
-hintOputput :: [Output] -> OptionT IO [String]
-hintOputput outs = do
-    (_,opt) <- ask
-    let cmds = map mkCmd outs
-    out <- runInterpreter $ setImports ["Prelude", "Data.List"] >> mapM (`interpret` (as :: String)) cmds
-    return $ either ((:[]) . show) id out
-        where mkCmd out@(Output f n l ts) = "let a # b = a !! b " ++
-                                             "; file   = " ++ show (showFile opt out) ++
-                                             "; row    = " ++ show n ++
-                                             "; line   = " ++ show (showLine conf opt ts l) ++
-                                             "; tokens = " ++ ushow (map snd ts) ++ " in " ++
-                                            (fromJust $ hint opt)
-#endif
-
 bold, resetTerm :: String
 bold      = setSGRCode [SetConsoleIntensity BoldIntensity]
 resetTerm = setSGRCode []
@@ -252,15 +219,30 @@ resetTerm = setSGRCode []
 
 type ColorString = String
 
-
 showSep  :: String -> Options -> Output -> String
 showSep xs _ _ = xs
 {-# INLINE showSep #-}
 
-
 showFile :: Config -> Options -> Output -> String
 showFile conf opt = showFileName conf opt . outFilePath
 {-# INLINE showFile #-}
+
+
+buildFile :: Config -> Options -> Output -> B.Builder
+buildFile conf opt = buildFileName conf opt . outFilePath
+{-# INLINE buildFile #-}
+
+
+buildFileName :: Config -> Options -> String -> B.Builder
+buildFileName conf opt = buildColoredAs opt $ setSGRCode (configColorFile conf)
+{-# INLINE buildFileName #-}
+
+
+buildColoredAs :: Options -> ColorString -> String -> B.Builder
+buildColoredAs Options { color = c, no_color = c'} colorCode str
+    | c && not c'= B.string8 colorCode <> B.string8 str <> B.string8 resetTerm
+    | otherwise  = B.string8 str
+{-# INLINE buildColoredAs #-}
 
 
 showLineCol :: Options -> Output -> String
@@ -271,19 +253,41 @@ showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = 
 {-# INLINE showLineCol #-}
 
 
-showTokens :: Options -> Output -> String
-showTokens Options { show_match = st } out
-    | st        = ushow (map tStr (outTokens out))
-    | otherwise = ""
-{-# INLINE showTokens #-}
+buildLineCol :: Options -> Output -> B.Builder
+buildLineCol Options{no_numbers = True } _ = mempty
+buildLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = B.int64Dec n
+buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = B.int64Dec n
+buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = B.int64Dec n <> B.char8 ':' <> B.int64Dec ((+1) . tOffset . head $ ts)
+{-# INLINE buildLineCol #-}
+
+
+-- showTokens :: Options -> Output -> String
+-- showTokens Options { show_match = st } out
+--     | st        = ushow (map tStr (outTokens out))
+--     | otherwise = ""
+-- {-# INLINE showTokens #-}
+
+buildTokens :: Options -> Output -> B.Builder
+buildTokens Options { show_match = st } out
+    | st        = mconcat $ B.byteString . tStr <$> outTokens out
+    | otherwise = mempty
+{-# INLINE buildTokens #-}
 
 
 showLine :: Config -> Options -> Output -> String
 showLine conf Options { color = c, no_color = c' } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . tStr)) (outTokens out)) line
+    | c && not c'= hilightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outTokens out)) line
     | otherwise  = line
     where line = UC.decode $ B.unpack $ outLine out
 {-# INLINE showLine #-}
+
+
+buildLine :: Config -> Options -> Output -> B.Builder
+buildLine conf Options { color = c, no_color = c' } out
+    -- | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . tStr)) (outTokens out)) line
+    | otherwise  = line
+    where line = B.byteString $ outLine out
+{-# INLINE buildLine #-}
 
 
 showFileName :: Config -> Options -> String -> String
@@ -326,5 +330,5 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
 
 
 hilightIndicies :: [Token] -> [(Int64, Int64)]
-hilightIndicies = foldr (\Token{..} a -> let b = tOffset in (fromIntegral b, b + genericLength tStr - 1) : a) [] . filter (notNull . tStr)
+hilightIndicies = foldr (\Token{..} a -> let b = tOffset in (fromIntegral b, b + fromIntegral (C.length tStr) - 1) : a) [] . filter (not. B.null.tStr)
 {-# INLINE hilightIndicies #-}

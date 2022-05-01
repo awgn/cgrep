@@ -35,7 +35,7 @@ import Paths_cgrep ( version )
 
 import Control.Exception as E ( catch, SomeException )
 import Control.Concurrent ( forkIO )
-import Control.Concurrent.Async ( forConcurrently_ )
+import Control.Concurrent.Async ( forConcurrently_, forConcurrently )
 import Control.Monad.STM ( atomically )
 import Control.Concurrent.STM.TQueue
     ( newTQueueIO, readTQueue, writeTQueue )
@@ -82,6 +82,8 @@ import Config
 import Reader ( OptionIO )
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
@@ -90,6 +92,7 @@ import System.FilePath.Posix ( (</>), takeBaseName )
 import GHC.Conc ( getNumCapabilities )
 
 import CGrep.Token
+import Control.Monad.Cont (forM)
 
 -- push file names in Chan...
 
@@ -172,22 +175,29 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
     -- launch worker threads...
 
-    forM_ [1 .. jobs] $ \_ -> liftIO . forkIO $
+    matchingFiles <- liftIO $ newIORef Set.empty
+
+    forM_ [1 .. jobs] $ \_ -> liftIO . forkIO $ do
         void $ runExceptT . forever $ do
             fs <- liftIO . atomically $ readTQueue in_chan
             liftIO $ E.catch (
-                    case fs of
-                        [] -> atomically $ writeTQueue out_chan []
-                        xs -> (if asynch then forConcurrently_
-                                         else forM_) xs $ \x -> do
+                case fs of
+                    [] -> atomically $ writeTQueue out_chan []
+                    xs -> (if asynch then forConcurrently_
+                                     else forM_) xs $ \x -> do
 
-                                out <- fmap (take max_count)
-                                    (runReaderT (runSearch x patterns) (conf, sanitizeOptions x opts))
+                            out <- fmap (take max_count)
+                                (runReaderT (do
+                                    out' <- runSearch x patterns
+                                    liftIO $ when (vim || editor) $
+                                        mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
+                                    putOutput out'
+                                ) (conf, sanitizeOptions x opts))
 
-                                -- let out = []
-                                unless (null out) $ atomically $ writeTQueue out_chan out )
+                            unless (null out) $
+                                atomically $ writeTQueue out_chan out
 
-                       (\e -> let msg = show (e :: SomeException) in
+                )  (\e -> let msg = show (e :: SomeException) in
                             hPutStrLn stderr (showFileName conf opts (getTargetName (head fs)) ++ ": error: " ++ takeN 80 msg))
 
             when (null fs) $ throwE ()
@@ -199,20 +209,14 @@ parallelSearch paths patterns langs (isTermIn, _) = do
 
     let stop = jobs
 
-    matchingFiles <- liftIO $ newIORef Set.empty
-
     fix (\action (!n) m ->
          unless (n == stop) $ do
                  out <- liftIO $ atomically $ readTQueue out_chan
                  case out of
                       [] -> action (n+1) m
                       _  -> do
-
-                          let out' = map (\p -> p {outTokens = map (\(Token off s) -> Token (genericLength $ UC.decode $ B.unpack $ C.take (fromIntegral off) $ outLine p) (UC.decodeString s)) $ outTokens p}) out
-                          putOutput out' >>= mapM_ (liftIO . putStrLn)
-                          liftIO $ when (vim || editor) $
-                                    mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out
-                          action n True
+                        mapM_ (liftIO . LB.putStrLn . B.toLazyByteString) out
+                        action n True
         )  0 False
 
 
@@ -263,10 +267,6 @@ main = do
     -- check for multiple backends...
 
     when (length (catMaybes [
-#ifdef ENABLE_HINT
-                hint opts,
-#endif
-                format opts,
                 if xml opts  then Just "" else Nothing,
                 if json opts then Just "" else Nothing
                ]) > 1)

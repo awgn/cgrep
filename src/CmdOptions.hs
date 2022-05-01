@@ -80,10 +80,6 @@ options = cmdArgsMode $ Options
           ,     vim = False                 &= help "Run vim editor passing the files that match" &= explicit &=name "vim"
           ,     editor = False              &= help "Run the editor specified by EDITOR var., passing the files that match" &= explicit &=name "editor"
           ,     fileline = False            &= help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" &= explicit &=name "fileline"
-#ifdef ENABLE_HINT
-          ,     hint = Nothing  &= typ "STRING" &= help "Haskell interpreter output. Var: file, row, line, tokens.\ne.g. \"file ++ show (tokens)\"" &= explicit &= name "hint"
-#endif
-          ,     format = Nothing &= typ "STRING" &= help "Format output. Var: #f #n #l #t ## #, #; #0 #1...\ne.g. \"#f:#n #0 #1\"" &= explicit &= name "format"
           ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
           ,     xml = False                 &= help "Format output as xml document" &= explicit &= name "xml"
           ,     jobs = 0                    &= groupname "\nConcurrency" &= help "Number of jobs to run in parallel"

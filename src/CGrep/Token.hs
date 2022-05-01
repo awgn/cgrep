@@ -35,7 +35,7 @@ import Data.List (genericLength)
 
 data Token   = Token {
     tOffset :: {-# UNPACK #-} !Offset,
-    tStr    :: String
+    tStr    :: C.ByteString
 } deriving (Eq, Show)
 
 data Line = Line {
@@ -96,12 +96,12 @@ isBracketLT =
 
 
 mkToken :: Offset -> DString -> Token
-mkToken off ds =  Token (off - genericLength str) str
+mkToken off ds =  Token (off - genericLength str) (C.pack str)
     where str = DL.toList ds
 {-# INLINE mkToken #-}
 
 
-tokens :: Text8 -> [String]
+tokens :: Text8 -> [C.ByteString]
 tokens = map tStr . tokenizer
 {-# INLINE tokens #-}
 

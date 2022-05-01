@@ -107,7 +107,7 @@ search f patterns = do
 
         let tokens' = sortBy (compare `on` Cpp.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns'''
 
-        let matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in Token n (Cpp.toString t)) tokens' :: [Token]
+        let matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in Token n (C.pack (Cpp.toString t))) tokens' :: [Token]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches

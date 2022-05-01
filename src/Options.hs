@@ -68,10 +68,6 @@ data Options = Options
     ,   no_column           :: Bool
     ,   count               :: Bool
     ,   filename_only       :: Bool
-#ifdef ENABLE_HINT
-    ,   hint                :: Maybe String
-#endif
-    ,   format              :: Maybe String
     ,   json                :: Bool
     ,   xml                 :: Bool
     ,   vim                 :: Bool

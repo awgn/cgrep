@@ -26,8 +26,8 @@ import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import Text.Regex.Base
-import Text.Regex.Posix
-import Text.Regex.PCRE
+import Text.Regex.Posix ( (=~) )
+import Text.Regex.PCRE ( (=~) )
 
 import Data.Array ( Array, elems )
 
@@ -66,7 +66,7 @@ search f patterns = do
 
         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
 
-        tokens = map (\(str, (off,_)) -> Token (fromIntegral off) (C.unpack str)) $
+        tokens = map (\(str, (off,_)) -> Token (fromIntegral off) str) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putStrLn1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."

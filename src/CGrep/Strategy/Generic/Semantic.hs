@@ -106,7 +106,7 @@ search f ps = do
         -- get matching tokens ...
 
         let tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
-        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in Token n (Generic.toString t)) tokens' :: [Token]
+        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in Token n (C.pack (Generic.toString t))) tokens' :: [Token]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches
