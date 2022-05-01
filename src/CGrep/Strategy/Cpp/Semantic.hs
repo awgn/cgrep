@@ -51,6 +51,7 @@ import CGrep.Parser.WildCard
 import Reader ( OptionIO )
 import Verbose
 import Util ( notNull, rmQuote )
+import Data.Int (Int64)
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -106,7 +107,7 @@ search f patterns = do
 
         let tokens' = sortBy (compare `on` Cpp.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns'''
 
-        let matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int, String)]
+        let matches = map (\t -> let n = fromIntegral (Cpp.toOffset t) in (n, Cpp.toString t)) tokens' :: [(Int64, String)]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches

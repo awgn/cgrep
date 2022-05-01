@@ -17,6 +17,7 @@
 --
 
 module CGrep.Parser.Token (SemanticToken(..)) where
+import Data.Int (Int64)
 
 
 class (Show t, Ord t) => SemanticToken t where
@@ -27,6 +28,5 @@ class (Show t, Ord t) => SemanticToken t where
     tkIsKeyword    :: t -> Bool
     tkEquivalent   :: t -> t -> Bool
     tkToString     :: t -> String
-    tkToOffset     :: t -> Int
-    tkToIdentif    :: String -> Int -> t
-
+    tkToOffset     :: t -> Int64
+    tkToIdentif    :: String -> Int64 -> t

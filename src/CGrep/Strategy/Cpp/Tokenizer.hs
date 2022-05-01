@@ -47,6 +47,7 @@ import Options
               char, oper, edit_dist, word_match, prefix_match, suffix_match) )
 import Verbose
 import Util ( notNull )
+import Data.Int (Int64)
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -94,7 +95,7 @@ search f ps = do
 
         -- convert Cpp.Tokens to CGrep.Tokens
 
-            matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int, String)]
+            matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in (off, Cpp.toString t)) tokens'' :: [(Int64, String)]
 
         putStrLn2 $ "tokens    : " ++ show tokens
         putStrLn2 $ "tokens'   : " ++ show tokens'

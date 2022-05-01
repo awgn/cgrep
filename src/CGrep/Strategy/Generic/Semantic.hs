@@ -53,6 +53,7 @@ import Data.Maybe ( mapMaybe )
 import Reader ( OptionIO )
 import Verbose
 import Util ( notNull, rmQuote )
+import Data.Int (Int64)
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -105,7 +106,7 @@ search f ps = do
         -- get matching tokens ...
 
         let tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
-        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int, String)]
+        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in (n, Generic.toString t)) tokens' :: [(Int64, String)]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches

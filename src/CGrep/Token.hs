@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module CGrep.Token ( Token
-                   , MatchLine
+                   , Line
                    , tokens
                    , tokenizer) where
 
@@ -29,12 +29,13 @@ import qualified Data.DList as DL
 import Data.Char
     ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
 import Data.Array.Unboxed ( (!), listArray, UArray )
-import CGrep.Types ( Text8, OffsetLine, Offset )
+import CGrep.Types ( Text8, LineOffset, Offset )
+import Data.List (genericLength)
 
 
-type Token      = (Offset, String)
-type MatchLine  = (OffsetLine, [Token])
-type DString    = DL.DList Char
+type Token   = (Offset, String)
+type Line    = (LineOffset, [Token])
+type DString = DL.DList Char
 
 
 data TokenState =
@@ -87,7 +88,7 @@ isBracketLT =
 
 
 mkToken :: Offset -> DString -> Token
-mkToken off ds =  (off - length str, str)
+mkToken off ds =  (off - genericLength str, str)
     where str = DL.toList ds
 {-# INLINE mkToken #-}
 

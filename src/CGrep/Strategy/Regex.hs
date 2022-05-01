@@ -45,6 +45,8 @@ import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )
 import Verbose
 
+import Data.Bifunctor ( Bifunctor(first) )
+
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
@@ -71,4 +73,4 @@ search f patterns = do
     putStrLn2 $ "tokens    : " ++ show tokens
     putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-    mkOutput filename text text''' tokens
+    mkOutput filename text text''' $ first fromIntegral <$> tokens

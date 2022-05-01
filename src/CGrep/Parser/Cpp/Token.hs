@@ -34,21 +34,22 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
 import CGrep.Parser.Token ( SemanticToken(..) )
+import Data.Int (Int64)
 
 data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
 type Source         = C.ByteString
-type Offset         = Int
+type Offset         = Int64
 
 
 data Token =
-    TokenIdentifier  { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenDirective   { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenKeyword     { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenNumber      { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenHeaderName  { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenString      { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenChar        { toString :: !String, toOffset :: {-# UNPACK #-} !Int  } |
-    TokenOperOrPunct { toString :: !String, toOffset :: {-# UNPACK #-} !Int  }
+    TokenIdentifier  { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenDirective   { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenKeyword     { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenNumber      { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenHeaderName  { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenString      { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenChar        { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  } |
+    TokenOperOrPunct { toString :: !String, toOffset :: {-# UNPACK #-} !Int64  }
        deriving (Show, Eq, Ord)
 
 

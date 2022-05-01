@@ -20,7 +20,7 @@
 
 module Main where
 
-import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union, isPrefixOf )
+import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union, isPrefixOf, genericLength )
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe ( catMaybes, fromJust )
@@ -63,7 +63,7 @@ import CGrep.CGrep ( sanitizeOptions, isRegexp, runSearch )
 import CGrep.Lang
     ( Lang, langMap, getFileLang, dumpLangMap, splitLangList )
 import CGrep.Output
-    ( Output(outLine, outTokens, outFilePath, outLineNo),
+    ( Output(..),
       putOutputHeader,
       putOutputFooter,
       putOutput,
@@ -206,10 +206,10 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                       [] -> action (n+1) m
                       _  -> do
 
-                          let out' = map (\p -> p {outTokens = map (\(off, s) -> (length $ UC.decode $ B.unpack $ C.take off $ outLine p, UC.decodeString s)) $ outTokens p}) out
+                          let out' = map (\p -> p {outTokens = map (\(off, s) -> (genericLength $ UC.decode $ B.unpack $ C.take (fromIntegral off) $ outLine p, UC.decodeString s)) $ outTokens p}) out
                           putOutput out' >>= mapM_ (liftIO . putStrLn)
                           liftIO $ when (vim || editor) $
-                                    mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNo)) out
+                                    mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out
                           action n True
         )  0 False
 

@@ -39,6 +39,7 @@ import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
 import Reader ( OptionIO )
 import Util ( spanGroup, toLowercase )
+import Data.Int (Int64)
 
 
 takeN :: Int -> String -> String
@@ -69,8 +70,8 @@ getTargetContents xs = C.readFile xs
 {-# INLINE getTargetContents #-}
 
 
-shallowSearch :: [Text8] -> Text8 -> [[Int]]
-shallowSearch ps text = ps >>= (\p -> [p `SC.nonOverlappingIndices` text])
+shallowSearch :: [Text8] -> Text8 -> [[Int64]]
+shallowSearch ps text = ps >>= (\p -> [fromIntegral <$>p `SC.nonOverlappingIndices` text])
 {-# INLINE shallowSearch #-}
 
 

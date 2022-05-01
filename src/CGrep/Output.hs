@@ -50,11 +50,11 @@ import Control.Applicative
 
 import Data.Maybe ( fromJust, isJust )
 import Data.List
-    ( foldl', sortBy, groupBy, intercalate, isPrefixOf, nub, sort )
+    ( foldl', sortBy, groupBy, intercalate, isPrefixOf, nub, sort, genericLength )
 import Data.Function ( on )
 
-import CGrep.Types ( Text8, OffsetLine, Offset2d, Offset )
-import CGrep.Token ( MatchLine, Token )
+import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
+import CGrep.Token ( Line, Token )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,
@@ -65,22 +65,26 @@ import Util ( notNull )
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( OptionIO )
 import Safe ( atDef )
+import Data.Int ( Int64 )
 
 
 data Output = Output
     { outFilePath :: !FilePath
-    , outLineNo   :: {-# UNPACK #-} !Int
+    , outLineNumb :: {-# UNPACK #-} !Int64
     , outLine     :: {-# UNPACK #-} !Text8
     , outTokens   :: ![Token]
     }
     deriving (Show)
 
 
-getOffsetsLines :: Text8 -> [Int]
-getOffsetsLines txt = let l = C.length txt in filter (<(l-1)) $ C.elemIndices '\n' txt
+getOffsetsLines :: Text8 -> [Int64]
+getOffsetsLines txt =
+    let l = C.length txt
+        ret = filter (<(l-1)) $ C.elemIndices '\n' txt
+    in  fromIntegral <$> ret
 {-# INLINE getOffsetsLines #-}
 
-getOffset2d :: [OffsetLine] -> Offset -> Offset2d
+getOffset2d :: [LineOffset] -> Offset -> Offset2d
 getOffset2d idx off =
   let prc = filter (< off) idx
       (!len_prc, !last_prc) = foldl' (\(len,_ ) cur -> let !l1 = len+1 in  (l1, cur)) (0, off) prc
@@ -91,24 +95,24 @@ getOffset2d idx off =
 mkOutput :: FilePath -> Text8 -> Text8 -> [Token] -> OptionIO [Output]
 mkOutput f text multi ts = do
     invert <- reader (invert_match . snd)
-    return $ if invert then map (\(n, xs) -> Output f n (ls !! (n-1)) xs) . invertMatchLines (length ls) $ mkMatchLines multi ts
-                       else map (\(n, xs) -> Output f n (ls !! (n-1)) xs) $ mkMatchLines multi ts
+    return $ if invert then map (\(n, xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkLines multi ts
+                       else map (\(n, xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkLines multi ts
     where ls = C.lines text
 {-# INLINE mkOutput #-}
 
 
-mkMatchLines :: Text8 -> [Token] -> [MatchLine]
-mkMatchLines _ [] = []
-mkMatchLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
+mkLines :: Text8 -> [Token] -> [Line]
+mkLines _ [] = []
+mkLines text ts = map mergeGroup $ groupBy ((==) `on` fst) $
     sortBy (compare `on` fst) $ map (\t -> let (# r, c #) = getOffset2d ols (fst t) in (1 + r, [(c, snd t)])) ts
     where mergeGroup ls = (fst $ head ls, foldl (\l m -> l ++ snd m) [] ls)
           ols = getOffsetsLines text
 
 
-invertMatchLines :: Int -> [MatchLine] -> [MatchLine]
-invertMatchLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]]
+invertLines :: Int -> [Line] -> [Line]
+invertLines n xs =  filter (\(i,_) ->  i `notElem` idx ) $ take n [ (i, []) | i <- [1..]]
     where idx = map fst xs
-{-# INLINE invertMatchLines #-}
+{-# INLINE invertLines #-}
 
 
 putOutputHeader :: OptionIO ()
@@ -298,7 +302,7 @@ showColoredAs Options { color = c, no_color = c'} colorCode str
 
 hilightLine :: Config -> [Token] -> String -> String
 hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
-    where hilightLine' :: ([(Int, Int)], Int, Int) -> String -> String
+    where hilightLine' :: ([(Int64, Int64)], Int64, Int) -> String -> String
           hilightLine'  _ [] = []
           hilightLine' (ns, n, bs) s@(x:_) = (case () of
                                                   _ | check && bs' == 0 -> if fst stack > 0 then colorMatch ++ [x] ++ resetTerm
@@ -312,12 +316,12 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
                   bs' = bs + fst stack - snd stack
                   plain = nub . sort $ foldr (\(a, b) acc -> a : b : acc) [] ns
                   nn | check = 1
-                     | null plain' = length s
+                     | null plain' = genericLength s
                      | otherwise = head plain' - n
                          where plain' = dropWhile (<=n) plain
-                  (next, rest) = splitAt nn s
+                  (next, rest) = splitAt (fromIntegral nn) s
 
 
-hilightIndicies :: [Token] -> [(Int, Int)]
-hilightIndicies = foldr (\t a -> let b = fst t in (b, b + length (snd t) - 1) : a) [] . filter (notNull . snd)
+hilightIndicies :: [Token] -> [(Int64, Int64)]
+hilightIndicies = foldr (\t a -> let b = fst t in (fromIntegral b, b + genericLength (snd t) - 1) : a) [] . filter (notNull . snd)
 {-# INLINE hilightIndicies #-}

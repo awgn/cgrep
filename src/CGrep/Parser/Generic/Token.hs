@@ -30,6 +30,7 @@ import Data.Array.Unboxed ( (!), listArray, UArray )
 
 import CGrep.Parser.Token ( SemanticToken(..) )
 import CGrep.Types ( Text8, Offset )
+import Data.List (genericLength)
 
 type DString = DL.DList Char
 
@@ -140,7 +141,7 @@ isBracketLT =
 
 
 mkToken :: (String -> Offset -> Token) -> Offset -> DString -> Token
-mkToken ctor off ds =  ctor str (off - length str)
+mkToken ctor off ds =  ctor str (off - genericLength str)
     where str = DL.toList ds
 {-# INLINE mkToken #-}
 

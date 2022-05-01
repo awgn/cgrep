@@ -24,7 +24,7 @@ import qualified Data.ByteString.Char8 as C
 
 import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import Data.List ( isSuffixOf, isPrefixOf )
+import Data.List ( isSuffixOf, isPrefixOf, genericLength )
 
 import CGrep.Common
 import CGrep.Output ( Output, mkOutput )
@@ -86,16 +86,16 @@ checkToken :: Options -> Text8 -> (Offset, String) -> Bool
 checkToken opt text (off, str)
      | word_match    opt = (off - off', str) `elem` ts
      | prefix_match  opt = any (\(o,s) -> str `isPrefixOf` s && o + off' == off) ts
-     | suffix_match  opt = any (\(o,s) -> str `isSuffixOf` s && o + off' + (length s - length str) == off) ts
+     | suffix_match  opt = any (\(o,s) -> str `isSuffixOf` s && o + off' + (genericLength s - genericLength str) == off) ts
      | otherwise         = undefined
      where (text',off') = getLineByOffset off text
            ts           = T.tokenizer text'
 
 
-splitLines :: Text8 -> [(Text8,Offset)]
+splitLines :: Text8 -> [(Text8, Offset)]
 splitLines xs = zip ls off
     where ls  = C.lines xs
-          off = scanl (\o l -> 1 + o + C.length l) 0 ls
+          off = fromIntegral<$> scanl (\o l -> 1 + o + C.length l) 0 ls
 {-# INLINE splitLines #-}
 
 getLineByOffset :: Offset -> Text8 -> (Text8, Offset)
