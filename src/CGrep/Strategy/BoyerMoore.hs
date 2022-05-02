@@ -100,6 +100,7 @@ splitLines xs = zip ls off
           off = fromIntegral<$> scanl (\o l -> 1 + o + C.length l) 0 ls
 {-# INLINE splitLines #-}
 
+
 getLineByOffset :: Offset -> Text8 -> (Text8, Offset)
 getLineByOffset off xs = last $ takeWhile (\(_,o) -> o <= off) sl
         where sl = splitLines xs

@@ -215,10 +215,9 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                  case out of
                       [] -> action (n+1) m
                       _  -> do
-                        mapM_ (liftIO . LB.putStrLn . B.toLazyByteString) out
+                        liftIO $ mapM_ (B.hPutBuilder stdout . (<> B.char8 '\n')) out
                         action n True
         )  0 False
-
 
     putOutputFooter
 
