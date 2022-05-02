@@ -10,8 +10,8 @@ languages:   [ Agda , Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , C
 prune_dirs       : [".svn", ".git", "CMakeFiles", ".stack-work" ]
 
 colors           : True
-color_filename   : "Blue" 
-color_match      : "Red"
+color_filename   : "Green" 
+color_match      : "Magenta"
 
 #
 # file_line option: enable edit for file:line 
