@@ -1,9 +1,10 @@
+Cabal-version:       2.2
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             6.7.1
+Version:             7.0.0
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
-License:             GPL-2
+License:             GPL-2.0-or-later
 License-file:        LICENSE
 Author:              Nicola Bonelli
 Maintainer:          Nicola Bonelli <nicola@pfq.io>
@@ -11,7 +12,26 @@ Category:            Utils
 Build-type:          Simple
 Stability:           Experimental
 Extra-source-files:  README.md
-Cabal-version:       >=1.10
+
+Common common-options
+  build-depends:       base ^>= 4.15.0.0
+
+  ghc-options:         -Wall
+                       -Wcompat
+                       -Widentities
+                       -Wincomplete-uni-patterns
+                       -Wincomplete-record-updates
+  if impl(ghc >= 8.0)
+    ghc-options:       -Wredundant-constraints
+  if impl(ghc >= 8.2)
+    ghc-options:       -fhide-source-paths
+  if impl(ghc >= 8.4)
+    ghc-options:       -Wmissing-export-lists
+                       -Wpartial-fields
+  if impl(ghc >= 8.8)
+    ghc-options:       -Wmissing-deriving-strategies
+
+  default-language:    Haskell2010
 
 Executable cgrep
   Main-Is:             Main.hs
@@ -81,5 +101,11 @@ Executable cgrep
                        yaml,
                        exceptions,
                        extra
-  Ghc-options:         -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
+
+  Ghc-options:  -O2 -j -funbox-strict-fields
+                -fwrite-ide-info
+                -hiedir=.hie
+                -threaded
+                -rtsopts "-with-rtsopts=-N"
+
   Default-language:    Haskell2010
