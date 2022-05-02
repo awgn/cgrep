@@ -20,6 +20,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutput
@@ -35,6 +36,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as B
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Lazy.Char8 as LC
 
 import qualified Codec.Binary.UTF8.String as UC
 
@@ -65,6 +67,7 @@ import Options
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( OptionIO )
 import Data.Int ( Int64 )
+import Data.Containers.ListUtils
 
 
 data Output = Output
@@ -270,19 +273,10 @@ buildTokens Options { show_match = st } out
 {-# INLINE buildTokens #-}
 
 
-showLine :: Config -> Options -> Output -> String
-showLine conf Options { color = c, no_color = c' } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outTokens out)) line
-    | otherwise  = line
-    where line = UC.decode $ B.unpack $ outLine out
-{-# INLINE showLine #-}
-
-
 buildLine :: Config -> Options -> Output -> B.Builder
 buildLine conf Options { color = c, no_color = c' } out
-    -- | c && not c'= hilightLine conf (sortBy (flip compare `on` (length . tStr)) (outTokens out)) line
-    | otherwise  = line
-    where line = B.byteString $ outLine out
+    | c && not c'= hilightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outTokens out)) (outLine out)
+    | otherwise  = B.byteString $ outLine out
 {-# INLINE buildLine #-}
 
 
@@ -303,26 +297,25 @@ showColoredAs Options { color = c, no_color = c'} colorCode str
 {-# INLINE showColoredAs #-}
 
 
-hilightLine :: Config -> [Token] -> String -> String
+hilightLine :: Config -> [Token] -> Text8 -> B.Builder
 hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
-    where hilightLine' :: ([(Int64, Int64)], Int64, Int) -> String -> String
-          hilightLine'  _ [] = []
-          hilightLine' (ns, n, bs) s@(x:_) = (case () of
-                                                  _ | check && bs' == 0 -> if fst stack > 0 then colorMatch ++ [x] ++ resetTerm
-                                                                                            else x : resetTerm
-                                                    | check && bs' > 0 -> colorMatch ++ [x]
-                                                    | otherwise -> next
-                                             ) ++ hilightLine' (ns, n + nn, bs') rest
+    where hilightLine' :: ([(Int64, Int64)], Int64, Int) -> C.ByteString -> B.Builder
+          hilightLine'  _ (C.uncons -> Nothing) = mempty
+          hilightLine' (ns, !n, !bs) s@(C.uncons -> Just (x,_)) =
+                (if | check && bs' == 0 -> if fst stack > 0 then B.string8 colorMatch <> B.char8 x <> B.string8 resetTerm else B.char8 x <> B.string8 resetTerm
+                    | check && bs' > 0 -> B.string8 colorMatch <> B.char8 x
+                    | otherwise -> B.byteString next) <> hilightLine' (ns, n + nn, bs') rest
             where stack = foldr (\(a, b) (c, d) -> (c + fromEnum (a == n), d + fromEnum (b == n))) (0, 0) ns
                   check = fst stack > 0 || snd stack > 0
                   colorMatch = setSGRCode (configColorMatch conf)
                   bs' = bs + fst stack - snd stack
                   plain = nub . sort $ foldr (\(a, b) acc -> a : b : acc) [] ns
                   nn | check = 1
-                     | null plain' = genericLength s
+                     | null plain' = fromIntegral (C.length s)
                      | otherwise = head plain' - n
                          where plain' = dropWhile (<=n) plain
-                  (next, rest) = splitAt (fromIntegral nn) s
+                  (next, rest) = C.splitAt (fromIntegral nn) s
+          hilightLine'  _ _ = undefined
 
 
 hilightIndicies :: [Token] -> [(Int64, Int64)]
