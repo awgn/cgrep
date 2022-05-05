@@ -39,6 +39,7 @@ import CGrep.Common
       ignoreCase,
       runSearch,
       shallowSearch,
+      quickMatch,
       trim )
 import CGrep.Output ( Output, mkOutput )
 
@@ -94,8 +95,8 @@ search f patterns = do
     putStrLn2 $ "identif   : " ++ show identif
 
     let idpack = map C.pack identif
-        quick1 = all notNull $ shallowSearch idpack text'
-        quick2 = all notNull $ shallowSearch idpack text''
+        quick1 = quickMatch patterns $ shallowSearch idpack text'
+        quick2 = quickMatch patterns $ shallowSearch idpack text''
 
     runSearch opt filename (quick1 && quick2) $ do
 

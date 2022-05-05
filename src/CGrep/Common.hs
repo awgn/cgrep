@@ -23,6 +23,7 @@ module CGrep.Common ( Text8
                     , runSearch
                     , expandMultiline
                     , ignoreCase
+                    , quickMatch
                     , trim
                     , trim8
                     , takeN) where
@@ -38,9 +39,8 @@ import CGrep.Output ( Output, mkOutput )
 import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
 import Reader ( OptionIO )
-import Util ( spanGroup, toLowercase )
+import Util ( spanGroup, toLowercase, notNull )
 import Data.Int (Int64)
-
 
 takeN :: Int -> String -> String
 takeN n xs | length xs > n = take n xs ++ "..."
@@ -71,9 +71,13 @@ getTargetContents xs = C.readFile xs
 
 
 shallowSearch :: [Text8] -> Text8 -> [[Int64]]
-shallowSearch ps text = ps >>= (\p -> [fromIntegral <$>p `SC.nonOverlappingIndices` text])
+shallowSearch ps text = ps >>= (\p -> [fromIntegral <$> p `SC.nonOverlappingIndices` text])
 {-# INLINE shallowSearch #-}
 
+quickMatch :: [a] -> [[Int64]] -> Bool
+quickMatch [_] = all notNull
+quickMatch _   = any notNull
+{-# INLINE quickMatch #-}
 
 runSearch :: Options
           -> FilePath

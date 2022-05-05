@@ -35,7 +35,8 @@ import CGrep.Common
       getTargetName,
       ignoreCase,
       runSearch,
-      shallowSearch )
+      shallowSearch,
+      quickMatch)
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
 
@@ -45,7 +46,7 @@ import Reader ( OptionIO )
 import Options
     ( Options(identifier, directive, keyword, header, string, number,
               char, oper, edit_dist, word_match, prefix_match, suffix_match) )
-import Verbose
+import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
 import CGrep.Token (Token (Token))
 
@@ -70,7 +71,7 @@ search f ps = do
 
     putStrLn1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
 
-    let quick = all notNull $ shallowSearch ps text'
+    let quick = quickMatch ps $ shallowSearch ps text'
 
     runSearch opt filename quick $ do
 

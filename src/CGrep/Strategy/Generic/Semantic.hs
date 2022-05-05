@@ -31,6 +31,7 @@ import CGrep.Common
       getTargetName,
       getTargetContents,
       shallowSearch,
+      quickMatch,
       runSearch,
       expandMultiline,
       ignoreCase )
@@ -94,8 +95,8 @@ search f ps = do
     putStrLn2 $ "identif   : " ++ show identif
 
     let idpack = map C.pack identif
-        quick1 = all notNull $ shallowSearch idpack text'
-        quick2 = all notNull $ shallowSearch idpack text''
+        quick1 = quickMatch ps $ shallowSearch idpack text'
+        quick2 = quickMatch ps $ shallowSearch idpack text''
 
     runSearch opt filename (quick1 && quick2) $ do
 
