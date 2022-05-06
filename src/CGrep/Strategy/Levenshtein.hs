@@ -23,7 +23,7 @@ import qualified Data.ByteString.Char8 as C
 import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import CGrep.Filter ( mkContextFilter, contextFilter )
+import CGrep.ContextFilter ( mkContextFilter, contextFilter )
 import CGrep.Lang ( getFileLang )
 import CGrep.Common
     ( Text8,
@@ -36,7 +36,7 @@ import CGrep.Distance ( (~==) )
 import CGrep.Token ( tokenizer, Token (tStr) )
 
 import Reader ( OptionIO )
-import Verbose
+import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do

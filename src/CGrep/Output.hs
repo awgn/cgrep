@@ -141,21 +141,23 @@ putOutput out = do
         | filename_only opt -> filenameOutput out
         | otherwise         -> defaultOutput out
 
+space :: B.Builder
+space = B.char8 ' '
 
 defaultOutput :: [Output] -> OptionIO [B.Builder]
 defaultOutput xs = do
     (conf,opt) <- ask
     if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ' ' <> buildTokens opt out <> buildLine conf opt out) xs
+                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> space <> buildTokens opt out <> space <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
-                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+                -> return $ map (\out -> buildFile conf opt out <> space <> buildTokens opt out <> space <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
-              -> return $ map (\out -> buildTokens opt out <> B.char8 ' ' <> buildLine conf opt out) xs
+              -> return $ map (\out -> buildTokens opt out <> space <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
-              -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
+              -> return $ map (\out -> buildTokens opt out <> space <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, count = True } <- opt
             -> do
@@ -259,16 +261,9 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 {-# INLINE buildLineCol #-}
 
 
--- showTokens :: Options -> Output -> String
--- showTokens Options { show_match = st } out
---     | st        = ushow (map tStr (outTokens out))
---     | otherwise = ""
--- {-# INLINE showTokens #-}
-
-
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = mconcat $ B.byteString . tStr <$> outTokens out
+    | st        = B.stringUtf8 bold <> mconcat (B.byteString . tStr <$> outTokens out) <> B.stringUtf8 resetTerm
     | otherwise = mempty
 {-# INLINE buildTokens #-}
 

@@ -16,13 +16,13 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Strategy.Generic.Semantic (search) where
+module CGrep.Strategy.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
 
 import qualified CGrep.Parser.Generic.Token as Generic
 
-import CGrep.Filter
+import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
 import CGrep.Lang ( getFileLang )
 import CGrep.Common
@@ -37,7 +37,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 
-import CGrep.Parser.Token ( SemanticToken(tkToString) )
+import CGrep.Parser.SemanticToken ( SemanticToken(tkToString) )
 import CGrep.Parser.WildCard
     ( WildCard(TokenCard),
       mkWildCardFromToken,
@@ -52,7 +52,7 @@ import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
 import Reader ( OptionIO )
-import Verbose
+import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull, rmQuote )
 import CGrep.Token (Token (Token))
 

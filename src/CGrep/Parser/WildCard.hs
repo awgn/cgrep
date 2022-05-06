@@ -28,12 +28,13 @@ import qualified Data.Map as M
 
 import CGrep.Common ( trim )
 import CGrep.Distance ( (~==) )
-import CGrep.Parser.Token ( SemanticToken(..) )
+import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 
 import Data.Char ( isNumber, isDigit )
 import Data.List
     ( isSuffixOf, findIndices, isInfixOf, isPrefixOf, subsequences )
 import Options
+    ( Options(edit_dist, word_match, prefix_match, suffix_match) )
 import Util ( spanGroup, rmQuote )
 
 
@@ -222,4 +223,4 @@ wildCardMatch opt (TokenCard l) r
           | otherwise        -> ls `isInfixOf`  rs
             where ls = rmQuote $ trim (tkToString l)
                   rs = rmQuote $ trim (tkToString r)
-    | otherwise  = l `tkEquivalent` r
+    | otherwise  = l `tkEqual` r

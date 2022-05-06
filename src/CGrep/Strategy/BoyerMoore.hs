@@ -28,8 +28,15 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Data.List ( isSuffixOf, isPrefixOf, genericLength )
 
 import CGrep.Common
+    ( Text8,
+      expandMultiline,
+      getTargetContents,
+      getTargetName,
+      ignoreCase,
+      runSearch,
+      shallowSearch )
 import CGrep.Output ( Output, mkOutput )
-import CGrep.Filter ( mkContextFilter, contextFilter )
+import CGrep.ContextFilter ( mkContextFilter, contextFilter )
 import CGrep.Lang ( getFileLang )
 import CGrep.Types ( Offset )
 
@@ -37,7 +44,7 @@ import qualified CGrep.Token as T
 
 import Reader ( OptionIO )
 import Options ( Options(word_match, prefix_match, suffix_match) )
-import Verbose
+import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
 import CGrep.Token (Token(..))
 

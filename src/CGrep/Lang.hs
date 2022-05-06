@@ -18,7 +18,7 @@
 
 {-# LANGUAGE TupleSections #-}
 
-module CGrep.Lang ( Lang(..)
+module CGrep.Lang ( Language(..)
                   , langMap
                   , getFileLang
                   , splitLangList
@@ -35,10 +35,10 @@ import Options ( Options(Options, language_force) )
 import Util ( prettyRead )
 
 
-data Lang = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
-            D | Dart | Elm | Elixir | Erlang | Eta | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Json | Kotlin |
-            Latex | Lisp | Lua | Make | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Tcl |
-            Text | VHDL | Verilog | Vim | Yaml
+data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
+                D | Dart | Elm | Elixir | Erlang | Eta | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Json | Kotlin |
+                Latex | Lisp | Lua | Make | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Tcl |
+                Text | VHDL | Verilog | Vim | Yaml
                 deriving (Read, Show, Eq, Ord, Bounded)
 
 
@@ -51,8 +51,8 @@ instance Show FileType where
     show (Ext  e) = "*." ++ e
 
 
-type LangMapType    = Map.Map Lang [FileType]
-type LangRevMapType = Map.Map FileType Lang
+type LangMapType    = Map.Map Language [FileType]
+type LangRevMapType = Map.Map FileType Language
 
 
 langMap :: LangMapType
@@ -123,18 +123,18 @@ langRevMap = Map.fromList $ concatMap (\(l, xs) -> map (,l) xs ) $ Map.toList la
 
 -- utility functions
 
-lookupFileLang :: FilePath -> Maybe Lang
+lookupFileLang :: FilePath -> Maybe Language
 lookupFileLang f = Map.lookup (Name $ takeFileName f) langRevMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) langRevMap
 {-# INLINE lookupFileLang #-}
 
 
-forcedLang :: Options -> Maybe Lang
+forcedLang :: Options -> Maybe Language
 forcedLang Options{ language_force = l }
     | Nothing <- l = Nothing
     | otherwise    = Map.lookup (Ext $ fromJust l) langRevMap <|> Map.lookup (Name $ fromJust l) langRevMap
 
 
-getFileLang :: Options -> FilePath -> Maybe Lang
+getFileLang :: Options -> FilePath -> Maybe Language
 getFileLang opts f = forcedLang opts <|> lookupFileLang f
 {-# INLINE getFileLang #-}
 
@@ -149,9 +149,9 @@ dumpLangRevMap m = forM_ (Map.toList m) $ \(ext, l) ->
                     putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show l
 
 
-splitLangList :: [String] -> ([Lang], [Lang], [Lang])
+splitLangList :: [String] -> ([Language], [Language], [Language])
 splitLangList  = foldl run ([],[],[])
-    where run :: ([Lang], [Lang], [Lang]) -> String -> ([Lang], [Lang], [Lang])
+    where run :: ([Language], [Language], [Language]) -> String -> ([Language], [Language], [Language])
           run (l1, l2, l3) l
             | '+':xs <- l = (l1, prettyRead xs "Lang" : l2, l3)
             | '-':xs <- l = (l1, l2, prettyRead xs "Lang" : l3)

@@ -28,9 +28,9 @@ import Data.List ( sortBy, nub )
 import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
-import CGrep.Filter
+import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.Lang ( Lang(Cpp), getFileLang )
+import CGrep.Lang ( Language(Cpp), getFileLang )
 import CGrep.Common
     ( Text8,
       expandMultiline,

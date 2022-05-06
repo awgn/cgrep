@@ -28,7 +28,7 @@ import Data.Char
     ( isSpace, isAlpha, isAlphaNum, isDigit, isHexDigit )
 import Data.Array.Unboxed ( (!), listArray, UArray )
 
-import CGrep.Parser.Token ( SemanticToken(..) )
+import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import CGrep.Types ( Text8, Offset )
 import Data.List (genericLength)
 
@@ -45,7 +45,6 @@ data TokenState =
     StateOther
       deriving (Eq, Enum, Show)
 
-
 data Token =
     TokenAlpha       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
     TokenDigit       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
@@ -61,7 +60,7 @@ instance SemanticToken Token where
     tkIsChar        = isTokenLiteral
     tkIsNumber      = isTokenDigit
     tkIsKeyword     = const False
-    tkEquivalent    = tokenCompare
+    tkEqual         = tokenCompare
     tkToString      = toString
     tkToOffset      = toOffset
     tkToIdentif     = TokenAlpha

@@ -26,6 +26,7 @@ import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import Text.Regex.Base
+    ( AllTextMatches(getAllTextMatches), MatchText )
 import Text.Regex.Posix ( (=~) )
 import Text.Regex.PCRE ( (=~) )
 
@@ -38,12 +39,12 @@ import CGrep.Common
       expandMultiline,
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
-import CGrep.Filter ( mkContextFilter, contextFilter )
+import CGrep.ContextFilter ( mkContextFilter, contextFilter )
 import CGrep.Lang ( getFileLang )
 
 import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )
-import Verbose
+import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 
 import CGrep.Token ( Token(Token) )
 

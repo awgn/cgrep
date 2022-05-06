@@ -22,25 +22,30 @@
 
 module Config where
 
-import Control.Monad
-import System.Directory
+import Control.Monad ( MonadPlus(mzero), filterM )
+import System.Directory ( doesFileExist, getHomeDirectory )
 import System.FilePath ((</>))
 import System.Console.ANSI
+    ( Color(White, Red, Green, Yellow, Blue, Magenta, Cyan),
+      ColorIntensity(Vivid),
+      ConsoleIntensity(BoldIntensity),
+      ConsoleLayer(Foreground),
+      SGR(SetColor, SetConsoleIntensity) )
 
 import qualified Data.Yaml  as Y
-import Data.Aeson
-import Data.Maybe
+import Data.Aeson ( (.!=), (.:?), FromJSON(parseJSON) )
+import Data.Maybe ( fromMaybe, mapMaybe )
 
-import GHC.Generics
-import CGrep.Lang
-import Util
+import GHC.Generics ( Generic )
+import CGrep.Lang ( Language )
+import Util ( notNull, readMaybe )
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"
 
 
 data Config = Config
-  {   configLanguages  :: [Lang]
+  {   configLanguages  :: [Language]
   ,   configPruneDirs  :: [String]
   ,   configColors     :: Bool
   ,   configColorFile  :: [SGR]
@@ -115,5 +120,3 @@ readColor "Magenta"   =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreg
 readColor "Cyan"      =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Cyan]
 readColor "White"     =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid White]
 readColor _           =  Nothing
-
-

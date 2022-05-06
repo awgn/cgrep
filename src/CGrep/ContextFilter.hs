@@ -21,10 +21,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MagicHash #-}
 
-module CGrep.Filter ( Context(..)
-                    , ContextFilter(..)
-                    , contextFilter
-                    , mkContextFilter)  where
+module CGrep.ContextFilter ( Context(..)
+                          , ContextFilter(..)
+                          , contextFilter
+                          , mkContextFilter)  where
 
 import CGrep.Types ( Text8 )
 
@@ -82,7 +82,7 @@ mkContextFilter Options{..} =
         else ContextFilter { getFilterCode = code , getFilterComment = comment , getFilterLiteral = literal }
 
 
-contextFilter :: Maybe Lang -> ContextFilter -> Text8 -> Text8
+contextFilter :: Maybe Language -> ContextFilter -> Text8 -> Text8
 contextFilter _ (ContextFilter True True True) txt = txt
 contextFilter Nothing _ txt = txt
 contextFilter (Just language) filt txt
@@ -173,7 +173,7 @@ findIndex' p =
 -- filter language map:
 --
 
-filterFunctionMap :: Map.Map Lang FilterFunction
+filterFunctionMap :: Map.Map Language FilterFunction
 
 
 mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction

@@ -36,9 +36,7 @@ data Options = Options
     ,   code                :: Bool
     ,   comment             :: Bool
     ,   literal             :: Bool
-    -- Semantic:
-    ,   semantic            :: Bool
-    -- C/C++ Token:
+    -- Tokenizer:
     ,   identifier          :: Bool
     ,   keyword             :: Bool
     ,   directive           :: Bool
@@ -47,6 +45,8 @@ data Options = Options
     ,   string              :: Bool
     ,   char                :: Bool
     ,   oper                :: Bool
+    -- Semantic:
+    ,   semantic            :: Bool
     -- Output control:
     ,   max_count           :: Int
     ,   language_filter     :: [String]

@@ -19,8 +19,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 
-module CGrep.CGrep ( sanitizeOptions
-                   , runSearch
+module CGrep.CGrep ( runSearch
                    , isRegexp) where
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
@@ -28,7 +27,8 @@ import qualified CGrep.Strategy.Levenshtein      as Levenshtein
 import qualified CGrep.Strategy.Regex            as Regex
 import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
-import qualified CGrep.Strategy.Generic.Semantic as Semantic
+import qualified CGrep.Strategy.Tokenizer        as Tokenizer
+import qualified CGrep.Strategy.Semantic         as Semantic
 
 import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.Catch ( SomeException, MonadCatch(catch) )
@@ -36,7 +36,7 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import System.IO ( stderr, hPutStrLn )
 
-import CGrep.Lang ( Lang(Cpp, C), getFileLang )
+import CGrep.Lang ( Language(Cpp, C), getFileLang )
 import CGrep.Common ( Text8, takeN )
 import CGrep.Output ( Output, showFileName )
 
@@ -47,23 +47,9 @@ import Reader ( OptionIO )
 import Data.Functor (($>))
 
 
-hasLanguage :: FilePath -> Options -> [Lang] -> Bool
+hasLanguage :: FilePath -> Options -> [Language] -> Bool
 hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
 {-# INLINE hasLanguage #-}
-
-
-sanitizeOptions  :: FilePath -> Options -> Options
-sanitizeOptions path opt =
-    if hasLanguage path opt [C, Cpp]
-        then opt
-        else opt { identifier = False
-                 , keyword    = False
-                 , directive  = False
-                 , header     = False
-                 , string     = False
-                 , char       = False
-                 , oper       = False
-                 }
 
 
 hasTokenizerOpt :: Options -> Bool
@@ -91,7 +77,8 @@ runSearch filename patterns = do
            | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
            | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
            | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
-           | (not . isRegexp) opt                                                                     -> CppTokenizer.search filename patterns
+           | (not . isRegexp) opt && hasLanguage filename opt [C,Cpp]                                 -> CppTokenizer.search filename patterns
+           | (not . isRegexp) opt                                                                     -> Tokenizer.search filename patterns
            | isRegexp opt                                                                             -> Regex.search filename patterns
            | otherwise                                                                                -> undefined
      )

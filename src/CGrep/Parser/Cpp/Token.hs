@@ -35,7 +35,7 @@ import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.Parser.Token ( SemanticToken(..) )
+import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import Data.Int (Int64)
 
 data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
@@ -73,7 +73,7 @@ instance SemanticToken Token where
     tkIsChar        = isChar
     tkIsNumber      = isLiteralNumber
     tkIsKeyword     = isKeyword
-    tkEquivalent    = tokenCompare
+    tkEqual         = tokenCompare
     tkToString      = toString
     tkToOffset      = toOffset
     tkToIdentif     = TokenIdentifier

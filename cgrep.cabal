@@ -52,7 +52,7 @@ Executable cgrep
                        Config
                        Reader
                        CGrep.Lang
-                       CGrep.Filter
+                       CGrep.ContextFilter
                        CGrep.Token
                        CGrep.Types
                        CGrep.CGrep
@@ -62,9 +62,10 @@ Executable cgrep
                        CGrep.Context
                        CGrep.Parser.WildCard
                        CGrep.Parser.Generic.Token
-                       CGrep.Parser.Token
                        CGrep.Parser.Cpp.Token
-                       CGrep.Strategy.Generic.Semantic
+                       CGrep.Parser.SemanticToken
+                       CGrep.Strategy.Semantic
+                       CGrep.Strategy.Tokenizer
                        CGrep.Strategy.Levenshtein
                        CGrep.Strategy.BoyerMoore
                        CGrep.Strategy.Cpp.Tokenizer

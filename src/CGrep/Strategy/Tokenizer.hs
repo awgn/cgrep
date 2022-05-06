@@ -16,11 +16,11 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Strategy.Cpp.Tokenizer (search) where
+module CGrep.Strategy.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import qualified CGrep.Parser.Cpp.Token as Cpp
+import qualified CGrep.Parser.Generic.Token as Generic
 
 import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
@@ -36,7 +36,7 @@ import CGrep.Common
       ignoreCase,
       runSearch,
       shallowSearch,
-      quickMatch)
+      quickMatch )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
 
@@ -69,7 +69,7 @@ search f ps = do
                                                  ]
 
 
-    putStrLn1 $ "strategy  : running C/C++ token search on " ++ filename ++ "..."
+    putStrLn1 $ "strategy: running token search on " ++ filename ++ "..."
 
     let quick = quickMatch ps $ shallowSearch ps text'
 
@@ -77,26 +77,28 @@ search f ps = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Cpp.tokenizer text'''
+        let tokens = Generic.tokenizer text'''
 
-        -- context-filterting...
+        -- token-filterting...
 
-            tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
-                                                               Cpp.filtDirective  = directive opt,
-                                                               Cpp.filtKeyword    = keyword opt,
-                                                               Cpp.filtHeader     = header opt,
-                                                               Cpp.filtString     = string opt,
-                                                               Cpp.filtNumber     = number opt,
-                                                               Cpp.filtChar       = char opt,
-                                                               Cpp.filtOper       = oper opt}) tokens
+            --tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
+            --                                                   Cpp.filtDirective  = directive opt,
+            --                                                   Cpp.filtKeyword    = keyword opt,
+            --                                                   Cpp.filtHeader     = header opt,
+            --                                                   Cpp.filtString     = string opt,
+            --                                                   Cpp.filtNumber     = number opt,
+            --                                                   Cpp.filtChar       = char opt,
+            --                                                   Cpp.filtOper       = oper opt}) tokens
+
+            tokens' = tokens
 
         -- filter tokens...
 
-            tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
+            tokens'' = genericTokenFilter opt (map C.unpack ps) tokens'
 
         -- convert Cpp.Tokens to CGrep.Tokens
 
-            matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in Token off (C.pack (Cpp.toString t))) tokens'' :: [Token]
+            matches = map (\t -> let off = fromIntegral (Generic.toOffset t) in Token off (C.pack (Generic.toString t))) tokens'' :: [Token]
 
         putStrLn2 $ "tokens    : " ++ show tokens
         putStrLn2 $ "tokens'   : " ++ show tokens'
@@ -107,10 +109,10 @@ search f ps = do
         mkOutput filename text text''' matches
 
 
-cppTokenFilter :: Options -> [String] -> [Cpp.Token] -> [Cpp.Token]
-cppTokenFilter opt patterns tokens
-    | edit_dist    opt = filter (\t -> any (\p -> p ~== Cpp.toString t) patterns) tokens
-    | word_match   opt = filter ((`elem` patterns) . Cpp.toString) tokens
-    | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . Cpp.toString) tokens
-    | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Cpp.toString) tokens
-    | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Cpp.toString) tokens
+genericTokenFilter :: Options -> [String] -> [Generic.Token] -> [Generic.Token]
+genericTokenFilter opt patterns tokens
+    | edit_dist    opt = filter (\t -> any (\p -> p ~== Generic.toString t) patterns) tokens
+    | word_match   opt = filter ((`elem` patterns) . Generic.toString) tokens
+    | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . Generic.toString) tokens
+    | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Generic.toString) tokens
+    | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Generic.toString) tokens

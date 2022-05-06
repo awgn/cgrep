@@ -59,9 +59,9 @@ import System.IO
 import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
-import CGrep.CGrep ( sanitizeOptions, isRegexp, runSearch )
+import CGrep.CGrep ( isRegexp, runSearch )
 import CGrep.Lang
-    ( Lang, langMap, getFileLang, dumpLangMap, splitLangList )
+    ( Language, langMap, getFileLang, dumpLangMap, splitLangList )
 import CGrep.Output
     ( Output(..),
       putOutputHeader,
@@ -96,7 +96,7 @@ import Control.Monad.Cont (forM)
 
 -- push file names in Chan...
 
-withRecursiveContents :: Options -> FilePath -> [Lang] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
+withRecursiveContents :: Options -> FilePath -> [Language] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
 withRecursiveContents opts@Options{..} dir langs pdirs visited action = do
     xs <- listDirectory dir
 
@@ -144,7 +144,7 @@ getFilePaths False xs = if length xs == 1 then [] else tail xs
 getFilePaths True  xs = xs
 
 
-parallelSearch :: [FilePath] -> [C.ByteString] -> [Lang] -> (Bool, Bool) -> OptionIO ()
+parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> (Bool, Bool) -> OptionIO ()
 parallelSearch paths patterns langs (isTermIn, _) = do
 
     (conf@Config{..}, opts@Options{..}) <- ask
@@ -192,7 +192,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                                     liftIO $ when (vim || editor) $
                                         mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
                                     putOutput out'
-                                ) (conf, sanitizeOptions x opts))
+                                ) (conf, opts))
 
                             unless (null out) $
                                 atomically $ writeTQueue out_chan out
@@ -330,7 +330,7 @@ main = do
     runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (conf, opts { jobs = njobs })
 
 
-fileFilter :: Options -> [Lang] -> FilePath -> Bool
+fileFilter :: Options -> [Language] -> FilePath -> Bool
 fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
 {-# INLINE fileFilter #-}
 
