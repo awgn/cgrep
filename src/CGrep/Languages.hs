@@ -28,7 +28,6 @@ import qualified Data.ByteString.Char8 as C
 import Options ( Options(Options, language_force) )
 import Util ( prettyRead )
 
-import CGrep.ContextFilter
 
 data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
                 D | Dart | Elm | Elixir | Erlang | Eta | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Json | Kotlin |
