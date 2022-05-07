@@ -48,9 +48,7 @@ import System.Console.ANSI
 import Control.Monad.Trans.Reader ( ask, reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-#if __GLASGOW_HASKELL__ < 710
 import Control.Applicative
-#endif
 
 import Data.List
     ( foldl', sortBy, groupBy, isPrefixOf, nub, sort, genericLength, intersperse )

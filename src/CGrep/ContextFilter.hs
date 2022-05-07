@@ -38,10 +38,8 @@ import Data.Array.Unboxed ( (!), listArray, UArray )
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
 
-#ifdef __GLASGOW_HASKELL__
-import GHC.Prim
-import GHC.Exts
-#endif
+import GHC.Prim ( (+#) )
+import GHC.Exts ( Int(I#), (+#) )
 
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
@@ -149,9 +147,6 @@ findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b
 {-# INLINE findBoundary #-}
 
 
-{-# INLINE findIndex' #-}
-#ifdef __GLASGOW_HASKELL__
-
 findIndex' :: (a -> Bool) -> [a] -> Int
 findIndex' p ls =
     loop 0# ls
@@ -159,16 +154,13 @@ findIndex' p ls =
               loop n (x:xs) | p x       = I# n
                             | otherwise = loop (n +# 1#) xs
 
-#else
-
-findIndex' :: (a -> Bool) -> [a] -> Int
-findIndex' p =
-    loop 0
-        where loop n [] = -1
-              loop n (x:xs) | p x       = n
-                            | otherwise = loop (n + 1) xs
-
-#endif
+-- findIndex' :: (a -> Bool) -> [a] -> Int
+-- findIndex' p =
+--     loop 0
+--         where loop n [] = -1
+--               loop n (x:xs) | p x       = n
+--                             | otherwise = loop (n + 1) xs
+--
 
 -- filter language map:
 --
