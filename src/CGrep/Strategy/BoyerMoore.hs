@@ -35,8 +35,8 @@ import CGrep.Common
       runSearch,
       shallowSearch )
 import CGrep.Output ( Output, mkOutput )
-import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.LanguagesMap ( languageLookup )
+import CGrep.ContextFilter ( mkContextFilter )
+import CGrep.LanguagesMap ( languageLookup, contextFilter )
 import CGrep.Types ( Offset )
 
 import qualified CGrep.Token as T

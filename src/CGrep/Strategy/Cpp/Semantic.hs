@@ -29,9 +29,10 @@ import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
 import CGrep.ContextFilter
-    ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
+    ( ContextFilter(getFilterComment), mkContextFilter)
 import CGrep.Languages ( Language(Cpp) )
-import CGrep.LanguagesMap ( languageLookup )
+import CGrep.LanguagesMap ( languageLookup, contextFilter)
+
 import CGrep.Common
     ( Text8,
       expandMultiline,

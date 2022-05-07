@@ -23,8 +23,8 @@ import qualified Data.ByteString.Char8 as C
 import qualified CGrep.Parser.Generic.Token as Generic
 
 import CGrep.ContextFilter
-    ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.LanguagesMap ( languageLookup )
+    ( ContextFilter(getFilterComment), mkContextFilter)
+import CGrep.LanguagesMap ( languageLookup, contextFilter )
 import CGrep.Common
     ( Text8,
       trim,

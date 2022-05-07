@@ -16,9 +16,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module CGrep.Languages ( Language(..), FileType(..), splitLanguagesList) where
 
 import qualified Data.Map as Map
@@ -31,7 +28,7 @@ import qualified Data.ByteString.Char8 as C
 import Options ( Options(Options, language_force) )
 import Util ( prettyRead )
 
-import CGrep.Context ( ContextFilter(..), Context(..) )
+import CGrep.ContextFilter
 
 data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
                 D | Dart | Elm | Elixir | Erlang | Eta | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Json | Kotlin |

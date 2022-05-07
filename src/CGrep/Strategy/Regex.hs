@@ -39,8 +39,8 @@ import CGrep.Common
       expandMultiline,
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
-import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.LanguagesMap ( languageLookup )
+import CGrep.ContextFilter ( mkContextFilter)
+import CGrep.LanguagesMap ( languageLookup, contextFilter )
 
 import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )

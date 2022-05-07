@@ -16,21 +16,14 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE RecordWildCards #-}
 
-module CGrep.ContextFilter ( Context(..)
-                          , ContextFilter(..)
-                          , contextFilter
-                          , mkContextFilter)  where
+module CGrep.ContextFilter where
 
 import CGrep.Types ( Text8 )
-
-import CGrep.Context ( ContextFilter(..), Context(..) )
-import CGrep.Languages
-import Options ( Options(..) )
 
 import Data.Char ( isSpace )
 import Data.Array.Unboxed ( (!), listArray, UArray )
@@ -41,9 +34,19 @@ import qualified Data.Map as Map
 import GHC.Prim ( (+#) )
 import GHC.Exts ( Int(I#), (+#) )
 
+import Options ( Options(..) )
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
-type StringBoundary = (String, String)
+
+data Context = Code | Comment | Literal
+    deriving (Eq, Show)
+
+
+data ContextFilter = ContextFilter
+    {   getFilterCode    :: !Bool
+    ,   getFilterComment :: !Bool
+    ,   getFilterLiteral :: !Bool
+    } deriving (Eq, Show)
 
 
 data Boundary = Boundary
@@ -69,43 +72,17 @@ data ParState =  ParState
 data ContextState = CodeState | CommState {-# UNPACK #-} !Int | LitrState {-# UNPACK #-} !Int
     deriving (Show, Eq, Ord)
 
--- filter Context:
---
 
-mkContextFilter :: Options -> ContextFilter
-mkContextFilter Options{..} =
-    if not (code || comment || literal)
-        then ContextFilter { getFilterCode = True, getFilterComment = True,  getFilterLiteral = True }
-        else ContextFilter { getFilterCode = code , getFilterComment = comment , getFilterLiteral = literal }
-
-
-contextFilter :: Maybe Language -> ContextFilter -> Text8 -> Text8
-contextFilter _ (ContextFilter True True True) txt = txt
-contextFilter Nothing _ txt = txt
-contextFilter (Just language) filt txt
-    | Just fun <- parFunc = fun filt txt
-    | otherwise = txt
-        where parFunc = Map.lookup language filterFunctionMap
-{-# INLINE contextFilter #-}
+type ParData = (Text8, ContextFilter, ParState)
 
 
 -- contextFilterFun:
 --
 
-mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction
-mkFilterFunction cs ls =
-  contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
-                            (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
-                            (mkBloom (cs ++ ls)))
-
-
 contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
 contextFilterFun conf filt txt =
   fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
 {-# INLINE contextFilterFun #-}
-
-
-type ParData = (Text8, ContextFilter, ParState)
 
 
 contextFilterImpl :: ParConf -> ParData ->  Maybe (Char, ParData)
@@ -114,6 +91,7 @@ contextFilterImpl c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs, f, s'))
     where !s' = nextContextState c s (x,xs) f
           !c' = if display s' || isSpace x then x else ' '
 contextFilterImpl _ _ = undefined
+
 
 {-# INLINE displayContext #-}
 displayContext :: ContextState -> ContextFilter -> Bool
@@ -153,6 +131,13 @@ findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b
 {-# INLINE findBoundary #-}
 
 
+mkContextFilter :: Options -> ContextFilter
+mkContextFilter Options{..} =
+    if not (code || comment || literal)
+        then ContextFilter { getFilterCode = True, getFilterComment = True,  getFilterLiteral = True }
+        else ContextFilter { getFilterCode = code , getFilterComment = comment , getFilterLiteral = literal }
+
+
 findIndex' :: (a -> Bool) -> [a] -> Int
 findIndex' p ls =
     loop 0# ls
@@ -170,61 +155,3 @@ findIndex' p ls =
 
 -- filter language map:
 --
-
-mkBloom :: [StringBoundary] -> UArray Char Bool
-mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
-{-# INLINE mkBloom #-}
-
-filterFunctionMap = Map.fromList
-    [
-        (Agda,       mkFilterFunction [("{-", "-}"), ("--", "\n")]  [("\"", "\"")] )
-    ,   (Assembly,   mkFilterFunction [("#", "\n"), (";", "\n"), ("|", "\n"), ("!", "\n"), ("/*", "*/")]  [("\"", "\"")] )
-    ,   (Awk,        mkFilterFunction [("#", "\n")]  [("\"", "\"")] )
-    ,   (C,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (CMake,      mkFilterFunction [("#", "\n")]  [("\"", "\"")] )
-    ,   (Cabal,      mkFilterFunction [("--", "\n")] [("\"", "\"")] )
-    ,   (Chapel,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Clojure,    mkFilterFunction [(";", "\n")] [("\"", "\"")] )
-    ,   (Coffee,     mkFilterFunction [("###", "###"), ("#", "\n")]  [("\"", "\"")] )
-    ,   (Conf,       mkFilterFunction [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
-    ,   (Cpp,        mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Csharp,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Css,        mkFilterFunction [("/*", "*/")] [("\"", "\"")] )
-    ,   (D,          mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Dart,       mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\""), ("'", "'")] )
-    ,   (Elixir,     mkFilterFunction [("#", "\n")]  [("\"", "\"")] )
-    ,   (Elm,        mkFilterFunction [("{-", "-}"), ("--", "\n")]  [("\"", "\""), ("\"\"\"", "\"\"\"")] )
-    ,   (Erlang,     mkFilterFunction [("%", "\n")]  [("\"", "\"")] )
-    ,   (Eta,        mkFilterFunction [("{-", "-}"), ("--", "\n")]  [("\"", "\"")] )
-    ,   (Fsharp,     mkFilterFunction [("(*", "*)"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Go,         mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\""), ("`", "`")] )
-    ,   (Haskell,    mkFilterFunction [("{-", "-}"), ("--", "\n")]  [("\"", "\""), ("[r|", "|]"), ("[q|", "|]"), ("[s|", "|]"), ("[here|","|]"), ("[i|", "|]")] )
-    ,   (Html,       mkFilterFunction [("<!--", "-->")]  [("\"", "\"")] )
-    ,   (Idris,      mkFilterFunction [("{-", "-}"), ("--", "\n"), ("|||", "\n")] [("\"", "\"")] )
-    ,   (Java,       mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Javascript, mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Json,       mkFilterFunction []  [("\"", "\"")])
-    ,   (Kotlin,     mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\""), ("'","'"), ("\"\"\"", "\"\"\"")] )
-    ,   (Latex,      mkFilterFunction [("%", "\n")]  [("\"", "\"")] )
-    ,   (Lua,        mkFilterFunction [("--[[","--]]"), ("--", "\n")]    [("'", "'"), ("\"", "\""), ("[===[", "]===]"), ("[==[", "]==]"), ("[=[", "]=]"), ("[[", "]]") ] )
-    ,   (Lisp,       mkFilterFunction [(";", "\n"), ("#|","|#")]  [("\"", "\"")] )
-    ,   (Make,       mkFilterFunction [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
-    ,   (Nmap,       mkFilterFunction [("--", "\n"), ("[[","]]")] [("'", "'"), ("\"", "\"")])
-    ,   (OCaml,      mkFilterFunction [("(*", "*)")] [("\"", "\"")] )
-    ,   (ObjectiveC, mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (PHP,        mkFilterFunction [("/*", "*/"), ("//", "\n"), ("#", "\n") ]  [("'", "'"), ("\"", "\"")] )
-    ,   (Perl,       mkFilterFunction [("=pod", "=cut"), ("#", "\n")]   [("'", "'"), ("\"", "\"")] )
-    ,   (Python,     mkFilterFunction [("#", "\n")]  [("\"\"\"", "\"\"\""), ("'''", "'''"), ("'", "'"), ("\"", "\"")] )
-    ,   (R,          mkFilterFunction [("#", "\n")]  [("\"", "\""), ("'", "'")] )
-    ,   (Ruby,       mkFilterFunction [("=begin", "=end"), ("#", "\n")] [("'", "'"), ("\"", "\""), ("%|", "|"), ("%q(", ")"), ("%Q(", ")") ])
-    ,   (Rust,       mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Scala,      mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (SmallTalk,  mkFilterFunction [("\"", "\"")] [("'", "'")] )
-    ,   (Shell,      mkFilterFunction [("#", "\n")]  [("'", "'"), ("\"", "\"")] )
-    ,   (Swift,      mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Tcl,        mkFilterFunction [("#", "\n")]  [("\"", "\"")] )
-    ,   (VHDL,       mkFilterFunction [("--", "\n")] [("\"", "\"")] )
-    ,   (Verilog,    mkFilterFunction [("/*", "*/"), ("//", "\n")]  [("\"", "\"")] )
-    ,   (Vim,        mkFilterFunction [("\"", "\n")] [("'", "'")] )
-    ,   (Yaml,       mkFilterFunction [("#", "\n")]  [("\"", "\"")] )
-    ]

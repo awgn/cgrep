@@ -23,8 +23,8 @@ import qualified Data.ByteString.Char8 as C
 import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.LanguagesMap ( languageLookup )
+import CGrep.ContextFilter ( mkContextFilter )
+import CGrep.LanguagesMap ( languageLookup, contextFilter )
 import CGrep.Common
     ( Text8,
       getTargetName,
