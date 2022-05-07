@@ -40,7 +40,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.Languages ( languageLookup )
+import CGrep.LanguagesMap ( languageLookup )
 
 import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )

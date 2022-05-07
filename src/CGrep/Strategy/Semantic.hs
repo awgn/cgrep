@@ -24,7 +24,7 @@ import qualified CGrep.Parser.Generic.Token as Generic
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.Languages ( languageLookup )
+import CGrep.LanguagesMap ( languageLookup )
 import CGrep.Common
     ( Text8,
       trim,

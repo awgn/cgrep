@@ -69,7 +69,6 @@ data ParState =  ParState
 data ContextState = CodeState | CommState {-# UNPACK #-} !Int | LitrState {-# UNPACK #-} !Int
     deriving (Show, Eq, Ord)
 
-
 -- filter Context:
 --
 
@@ -92,6 +91,13 @@ contextFilter (Just language) filt txt
 
 -- contextFilterFun:
 --
+
+mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction
+mkFilterFunction cs ls =
+  contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
+                            (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
+                            (mkBloom (cs ++ ls)))
+
 
 contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
 contextFilterFun conf filt txt =
@@ -164,16 +170,6 @@ findIndex' p ls =
 
 -- filter language map:
 --
-
-filterFunctionMap :: Map.Map Language FilterFunction
-
-
-mkFilterFunction :: [StringBoundary] -> [StringBoundary] -> FilterFunction
-mkFilterFunction cs ls =
-  contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
-                            (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
-                            (mkBloom (cs ++ ls)))
-
 
 mkBloom :: [StringBoundary] -> UArray Char Bool
 mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])

@@ -27,7 +27,7 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.Languages ( languageLookup )
+import CGrep.LanguagesMap ( languageLookup )
 import CGrep.Common
     ( Text8,
       expandMultiline,

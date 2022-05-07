@@ -53,6 +53,7 @@ Executable cgrep
                        Reader
                        CGrep.Languages
                        CGrep.ContextFilter
+                       CGrep.LanguagesMap
                        CGrep.Token
                        CGrep.Types
                        CGrep.CGrep

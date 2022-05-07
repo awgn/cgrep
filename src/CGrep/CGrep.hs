@@ -36,7 +36,8 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import System.IO ( stderr, hPutStrLn )
 
-import CGrep.Languages ( Language(Cpp, C), languageLookup )
+import CGrep.Languages ( Language(Cpp, C))
+import CGrep.LanguagesMap ( languageLookup )
 import CGrep.Common ( Text8, takeN )
 import CGrep.Output ( Output, showFileName )
 
