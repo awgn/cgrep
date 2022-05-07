@@ -40,7 +40,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.Lang ( getFileLang )
+import CGrep.Languages ( languageLookup )
 
 import Reader ( OptionIO )
 import Options ( Options(regex_pcre) )
@@ -59,7 +59,7 @@ search f patterns = do
     -- transform text
 
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                              , contextFilter (languageLookup opt filename) (mkContextFilter opt)
                                               , ignoreCase opt
                                               ]
 

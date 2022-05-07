@@ -24,7 +24,7 @@ import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.Lang ( getFileLang )
+import CGrep.Languages ( languageLookup )
 import CGrep.Common
     ( Text8,
       getTargetName,
@@ -49,7 +49,7 @@ search f patterns = do
     -- transform text
 
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                              , contextFilter (languageLookup opt filename) (mkContextFilter opt)
                                               , ignoreCase opt
                                               ]
 

@@ -29,7 +29,7 @@ module CGrep.ContextFilter ( Context(..)
 import CGrep.Types ( Text8 )
 
 import CGrep.Context ( ContextFilter(..), Context(..) )
-import CGrep.Lang
+import CGrep.Languages
 import Options ( Options(..) )
 
 import Data.Char ( isSpace )

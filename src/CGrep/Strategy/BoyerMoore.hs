@@ -16,7 +16,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Strategy.BoyerMoore (search) where
@@ -37,7 +36,7 @@ import CGrep.Common
       shallowSearch )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.ContextFilter ( mkContextFilter, contextFilter )
-import CGrep.Lang ( getFileLang )
+import CGrep.Languages ( languageLookup )
 import CGrep.Types ( Offset )
 
 import qualified CGrep.Token as T
@@ -60,7 +59,7 @@ search f patterns = do
     -- transform text
 
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (getFileLang opt filename) (mkContextFilter opt)
+                                              , contextFilter (languageLookup opt filename) (mkContextFilter opt)
                                               , ignoreCase opt
                                               ]
 

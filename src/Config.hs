@@ -37,7 +37,7 @@ import Data.Aeson ( (.!=), (.:?), FromJSON(parseJSON) )
 import Data.Maybe ( fromMaybe, mapMaybe )
 
 import GHC.Generics ( Generic )
-import CGrep.Lang ( Language )
+import CGrep.Languages ( Language )
 import Util ( notNull, readMaybe )
 
 cgreprc :: FilePath

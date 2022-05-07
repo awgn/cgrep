@@ -24,7 +24,7 @@ import qualified CGrep.Parser.Generic.Token as Generic
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.Lang ( getFileLang )
+import CGrep.Languages ( languageLookup )
 import CGrep.Common
     ( Text8,
       trim,
@@ -68,7 +68,7 @@ search f ps = do
     -- transform text
 
     let [text''', text'', text', _ ] = scanr ($) text [ expandMultiline opt
-                                                      , contextFilter (getFileLang opt filename) filt
+                                                      , contextFilter (languageLookup opt filename) filt
                                                       , ignoreCase opt
                                                       ]
 
@@ -76,7 +76,7 @@ search f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (Generic.tokenizer . contextFilter (getFileLang opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (Generic.tokenizer . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 

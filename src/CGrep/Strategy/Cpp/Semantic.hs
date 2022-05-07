@@ -30,7 +30,7 @@ import Data.Maybe ( mapMaybe )
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.Lang ( Language(Cpp), getFileLang )
+import CGrep.Languages ( Language(Cpp), languageLookup )
 import CGrep.Common
     ( Text8,
       expandMultiline,
@@ -69,7 +69,7 @@ search f patterns = do
 
 
     let [text''', text'' , text', _] = scanr ($) text [ expandMultiline opt
-                                                      , contextFilter (getFileLang opt filename) filt
+                                                      , contextFilter (languageLookup opt filename) filt
                                                       , ignoreCase opt
                                                       ]
 

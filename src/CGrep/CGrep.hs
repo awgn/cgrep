@@ -36,7 +36,7 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import System.IO ( stderr, hPutStrLn )
 
-import CGrep.Lang ( Language(Cpp, C), getFileLang )
+import CGrep.Languages ( Language(Cpp, C), languageLookup )
 import CGrep.Common ( Text8, takeN )
 import CGrep.Output ( Output, showFileName )
 
@@ -48,7 +48,7 @@ import Data.Functor (($>))
 
 
 hasLanguage :: FilePath -> Options -> [Language] -> Bool
-hasLanguage path opt xs = isJust $ getFileLang opt path >>= (`elemIndex` xs)
+hasLanguage path opt xs = isJust $ languageLookup opt path >>= (`elemIndex` xs)
 {-# INLINE hasLanguage #-}
 
 

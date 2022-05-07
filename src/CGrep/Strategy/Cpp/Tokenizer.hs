@@ -27,7 +27,7 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter, contextFilter )
-import CGrep.Lang ( getFileLang )
+import CGrep.Languages ( languageLookup )
 import CGrep.Common
     ( Text8,
       expandMultiline,
@@ -64,7 +64,7 @@ search f ps = do
     let filt = (mkContextFilter opt) { getFilterComment = False }
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (getFileLang opt filename) filt
+                                                 , contextFilter (languageLookup opt filename) filt
                                                  , ignoreCase opt
                                                  ]
 

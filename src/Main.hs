@@ -60,8 +60,8 @@ import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
 import CGrep.CGrep ( isRegexp, runSearch )
-import CGrep.Lang
-    ( Language, langMap, getFileLang, dumpLangMap, splitLangList )
+import CGrep.Languages
+    ( Language, languagesMap, languageLookup, dumpLanguagesMap, splitLanguagesList )
 import CGrep.Output
     ( Output(..),
       putOutputHeader,
@@ -275,7 +275,7 @@ main = do
     -- display lang-map and exit...
 
     when (language_map opts) $
-        dumpLangMap langMap >> exitSuccess
+        dumpLanguagesMap languagesMap >> exitSuccess
 
     -- check whether the pattern list is empty, display help message if it's the case
 
@@ -303,7 +303,7 @@ main = do
 
     -- parse cmd line language list:
 
-    let (l0, l1, l2) = splitLangList (language_filter opts)
+    let (l0, l1, l2) = splitLanguagesList (language_filter opts)
 
     -- language enabled:
 
@@ -331,7 +331,7 @@ main = do
 
 
 fileFilter :: Options -> [Language] -> FilePath -> Bool
-fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (getFileLang opts filename)
+fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opts filename)
 {-# INLINE fileFilter #-}
 
 getFilesMagic :: [FilePath] -> IO [String]
