@@ -50,10 +50,6 @@ data LanguageInfo = LanguageInfo {
 ,   langFilter     :: Maybe FilterFunction
 }
 
-(~~) :: a -> b -> (a, b)
-(~~) = (,)
-{-# INLINE (~~) #-}
-
 
 languagesMap :: LanguagesMapType
 languagesMap = Map.fromList
@@ -323,3 +319,7 @@ mkFilter cs ls =
   Just $ contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
                             (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
                             (mkBloom (cs ++ ls)))
+
+(~~) :: a -> b -> (a, b)
+(~~) = (,)
+{-# INLINE (~~) #-}
