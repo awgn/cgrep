@@ -15,12 +15,13 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Strategy.Levenshtein (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter ( mkContextFilter )
@@ -35,13 +36,14 @@ import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
 import CGrep.Token ( tokenizer, Token (tStr) )
 
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
-    opt  <- reader snd
+    Env{..} <- ask
+
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

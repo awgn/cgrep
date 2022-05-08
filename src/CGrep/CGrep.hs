@@ -37,14 +37,14 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import System.IO ( stderr, hPutStrLn )
 
 import CGrep.Language ( Language(Cpp, C))
-import CGrep.LanguagesMap ( languageLookup )
+import CGrep.LanguagesMap ( languageLookup, languageInfoLookup )
 import CGrep.Common ( Text8, takeN )
 import CGrep.Output ( Output, showFileName )
 
 import Data.List ( elemIndex )
 import Data.Maybe ( isJust )
 import Options ( Options(..) )
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env (..) )
 import Data.Functor (($>))
 
 
@@ -71,18 +71,18 @@ isRegexp opt = regex_posix opt || regex_pcre opt
 
 runSearch :: FilePath -> [Text8] -> OptionIO [Output]
 runSearch filename patterns = do
-    (conf, opts) <- ask
-    catch ( do
-        opt <- reader snd
-        if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
-           | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
-           | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
-           | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
-           | (not . isRegexp) opt && hasLanguage filename opt [C,Cpp]                                 -> CppTokenizer.search filename patterns
-           | (not . isRegexp) opt                                                                     -> Tokenizer.search filename patterns
-           | isRegexp opt                                                                             -> Regex.search filename patterns
-           | otherwise                                                                                -> undefined
-     )
-     (\e -> let msg = show (e :: SomeException) in
-         liftIO $ hPutStrLn stderr (showFileName conf opts filename ++ ": exception: " ++ takeN 80 msg) $> [ ]
-     )
+  Env{..} <- ask
+  let linfo = languageInfoLookup opt filename
+  catch ( do
+      if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
+         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
+         | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
+         | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
+         | (not . isRegexp) opt && hasLanguage filename opt [C,Cpp]                                 -> CppTokenizer.search filename patterns
+         | (not . isRegexp) opt                                                                     -> Tokenizer.search filename patterns
+         | isRegexp opt                                                                             -> Regex.search filename patterns
+         | otherwise                                                                                -> undefined
+   )
+   (\e -> let msg = show (e :: SomeException) in
+       liftIO $ hPutStrLn stderr (showFileName conf opt filename ++ ": exception: " ++ takeN 80 msg) $> [ ]
+   )

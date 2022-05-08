@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2019 Nicola Bonelli <nicola@pfq.io>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -17,12 +17,13 @@
 --
 
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import Text.Regex.Base
@@ -42,7 +43,7 @@ import CGrep.Output ( Output, mkOutput )
 import CGrep.ContextFilter ( mkContextFilter)
 import CGrep.LanguagesMap ( languageLookup, contextFilter )
 
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env (..) )
 import Options ( Options(regex_pcre) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 
@@ -51,7 +52,8 @@ import CGrep.Token ( Token(Token) )
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
-    opt  <- reader snd
+    Env{..} <- ask
+
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

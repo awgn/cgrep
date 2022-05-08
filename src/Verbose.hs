@@ -24,23 +24,23 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Control.Monad ( when )
 
 import Options ( Options(verbosity) )
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env(..) )
 
 
 putStrLn1 :: String -> OptionIO ()
 putStrLn1 xs = do
-    n <- reader $ verbosity . snd
+    n <- reader $ verbosity . opt
     when (n > 0) $ liftIO $ putStrLn xs
 {-# INLINE putStrLn1 #-}
 
 putStrLn2 :: String -> OptionIO ()
 putStrLn2 xs = do
-    n <- reader $ verbosity . snd
+    n <- reader $ verbosity . opt
     when (n > 1) $ liftIO $ putStrLn xs
 {-# INLINE putStrLn2 #-}
 
 putStrLn3 :: String -> OptionIO ()
 putStrLn3 xs = do
-    n <- reader $ verbosity . snd
+    n <- reader $ verbosity . opt
     when (n > 2) $ liftIO $ putStrLn xs
 {-# INLINE putStrLn3 #-}

@@ -16,13 +16,15 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE RecordWildCards #-}
+
 module CGrep.Strategy.Cpp.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
 
 import qualified CGrep.Parser.Cpp.Token  as Cpp
 
-import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Data.List ( sortBy, nub )
 import Data.Function ( on )
@@ -51,7 +53,7 @@ import CGrep.Parser.WildCard
       mkWildCardFromToken,
       WildCard(TokenCard) )
 
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env(..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull, rmQuote )
 import CGrep.Token (Token (Token))
@@ -60,7 +62,7 @@ import CGrep.Token (Token (Token))
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
-    opt  <- reader snd
+    Env{..} <- ask
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

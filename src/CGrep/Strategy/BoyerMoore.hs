@@ -22,7 +22,7 @@ module CGrep.Strategy.BoyerMoore (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Data.List ( isSuffixOf, isPrefixOf, genericLength )
 
@@ -41,7 +41,7 @@ import CGrep.Types ( Offset )
 
 import qualified CGrep.Token as T
 
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
@@ -51,7 +51,7 @@ import CGrep.Token (Token(..))
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
-    opt  <- reader snd
+    Env{..} <- ask
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

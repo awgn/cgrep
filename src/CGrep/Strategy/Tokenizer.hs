@@ -15,6 +15,7 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Strategy.Tokenizer (search) where
 
@@ -22,7 +23,7 @@ import qualified Data.ByteString.Char8 as C
 
 import qualified CGrep.Parser.Generic.Token as Generic
 
-import Control.Monad.Trans.Reader ( reader )
+import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter
@@ -43,7 +44,7 @@ import CGrep.Distance ( (~==) )
 
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env (..) )
 import Options
     ( Options(identifier, directive, keyword, header, string, number,
               char, oper, edit_dist, word_match, prefix_match, suffix_match) )
@@ -55,7 +56,8 @@ import CGrep.Token (Token (Token))
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f ps = do
 
-    opt  <- reader snd
+    Env{..} <- ask
+
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f

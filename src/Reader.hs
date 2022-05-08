@@ -23,4 +23,12 @@ import Control.Monad.Trans.Reader ( ReaderT )
 import Config ( Config )
 import Options ( Options )
 
-type OptionIO = ReaderT (Config, Options) IO
+import CGrep.LanguagesMap ( LanguageInfo )
+
+data Env = Env {
+    conf  :: Config
+ ,  opt   :: Options
+ ,  lang  :: Maybe LanguageInfo
+}
+
+type OptionIO = ReaderT Env IO

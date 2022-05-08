@@ -80,7 +80,7 @@ import Config
     ( Config(Config, configFileLine, configColorMatch, configColorFile,
              configPruneDirs, configColors, configLanguages),
       getConfig )
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env (..) )
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as B
@@ -98,7 +98,7 @@ import Control.Monad.Cont (forM)
 -- push file names in Chan...
 
 withRecursiveContents :: Options -> FilePath -> [Language] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
-withRecursiveContents opts@Options{..} dir langs pdirs visited action = do
+withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
     xs <- listDirectory dir
 
     (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs]
@@ -110,7 +110,7 @@ withRecursiveContents opts@Options{..} dir langs pdirs visited action = do
     -- filter the list of files
 
     let files' = if null magics
-                   then  filter (fileFilter opts langs) files
+                   then  filter (fileFilter opt langs) files
                    else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) magic_filter then Just f else Nothing) files magics
 
         files'' = filter (\f -> not skip_test || isNotTestFile f) files'
@@ -129,7 +129,7 @@ withRecursiveContents opts@Options{..} dir langs pdirs visited action = do
          when (deference_recursive || not (PosixCompat.isSymbolicLink lstatus)) $
              unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
                  canonicalizePath path >>= \cpath -> unless (cpath `Set.member` visited) $
-                    withRecursiveContents opts path langs pdirs (Set.insert cpath visited) action
+                    withRecursiveContents opt path langs pdirs (Set.insert cpath visited) action
 
 -- read patterns from file
 
@@ -148,7 +148,10 @@ getFilePaths True  xs = xs
 parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> (Bool, Bool) -> OptionIO ()
 parallelSearch paths patterns langs (isTermIn, _) = do
 
-    (conf@Config{..}, opts@Options{..}) <- ask
+    Env{..} <- ask
+
+    let Config{..} = conf
+        Options{..} = opt
 
     -- create Transactional Chan and Vars...
 
@@ -162,7 +165,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
             then forM_ (if null paths then ["."] else paths) $ \p -> do
                     isDir <- doesDirectoryExist p
                     if isDir
-                        then withRecursiveContents opts p langs
+                        then withRecursiveContents opt p langs
                                 (mkPrunableDirName <$> configPruneDirs ++ prune_dir) (Set.singleton p) (atomically . writeTQueue in_chan)
                         else atomically . writeTQueue in_chan $ [p]
 
@@ -193,13 +196,13 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                                     liftIO $ when (vim || editor) $
                                         mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
                                     putOutput out'
-                                ) (conf, opts))
+                                ) (Env conf opt Nothing))
 
                             unless (null out) $
                                 atomically $ writeTQueue out_chan out
 
                 )  (\e -> let msg = show (e :: SomeException) in
-                            hPutStrLn stderr (showFileName conf opts (getTargetName (head fs)) ++ ": error: " ++ takeN 80 msg))
+                            hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) ++ ": error: " ++ takeN 80 msg))
 
             when (null fs) $ throwE ()
 
@@ -260,79 +263,79 @@ main = do
 
     -- read command-line options
 
-    opts  <- (if isTermOut
+    opt  <- (if isTermOut
                 then \o -> o { color = color o || configColors conf }
                 else id) <$> cmdArgsRun options
 
     -- check for multiple backends...
 
     when (length (catMaybes [
-                if xml opts  then Just "" else Nothing,
-                if json opts then Just "" else Nothing
+                if xml opt  then Just "" else Nothing,
+                if json opt then Just "" else Nothing
                ]) > 1)
         $ error "you can use one back-end at time!"
 
 
     -- display lang-map and exit...
 
-    when (language_map opts) $
+    when (language_map opt) $
         dumpLanguagesMap languagesMap >> exitSuccess
 
     -- check whether the pattern list is empty, display help message if it's the case
 
-    when (null (others opts) && isTermIn && null (file opts)) $
+    when (null (others opt) && isTermIn && null (file opt)) $
         withArgs ["--help"] $ void (cmdArgsRun options)
 
     -- load patterns:
 
-    patterns <- if null (file opts) then return $ map (C.pack . UC.encodeString) (((:[]).head.others) opts)
-                                    else readPatternsFromFile $ file opts
+    patterns <- if null (file opt) then return $ map (C.pack . UC.encodeString) (((:[]).head.others) opt)
+                                    else readPatternsFromFile $ file opt
 
-    let patterns' = map (if ignore_case opts then ic else id) patterns
-            where ic | (not . isRegexp) opts && semantic opts = C.unwords . map (\p -> if C.unpack p `elem` wildCardTokens then p else C.map toLower p) . C.words
+    let patterns' = map (if ignore_case opt then ic else id) patterns
+            where ic | (not . isRegexp) opt && semantic opt = C.unwords . map (\p -> if C.unpack p `elem` wildCardTokens then p else C.map toLower p) . C.words
                      | otherwise = C.map toLower
                         where wildCardTokens = "OR" : M.keys wildCardMap   -- "OR" is not included in wildCardMap
 
     -- display the configuration in use
 
     -- when (isJust confpath) $
-    --    hPutStrLn stderr $ showBold opts ("Using '" ++ fromJust confpath ++ "' configuration file...")
+    --    hPutStrLn stderr $ showBold opt ("Using '" ++ fromJust confpath ++ "' configuration file...")
 
     -- load files to parse:
 
-    let paths = getFilePaths (notNull (file opts)) (others opts)
+    let paths = getFilePaths (notNull (file opt)) (others opt)
 
     -- parse cmd line language list:
 
-    let (l0, l1, l2) = splitLanguagesList (language_filter opts)
+    let (l0, l1, l2) = splitLanguagesList (language_filter opt)
 
     -- language enabled:
 
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
     runReaderT (do putStrLn1 $ "Cgrep " ++ showVersion version ++ "!"
-                   putStrLn1 $ "options   : " ++ show opts
+                   putStrLn1 $ "options   : " ++ show opt
                    putStrLn1 $ "config    : " ++ show conf
                    putStrLn1 $ "languages : " ++ show langs
                    putStrLn1 $ "pattern   : " ++ show patterns'
                    putStrLn1 $ "files     : " ++ show paths
                    putStrLn1 $ "isTermIn  : " ++ show isTermIn
                    putStrLn1 $ "isTermOut : " ++ show isTermOut
-        ) (conf, opts)
+        ) (Env conf opt Nothing)
 
     -- specify number of cores
 
-    njobs <- if jobs opts /= 0
-                then return (jobs opts)
+    njobs <- if jobs opt /= 0
+                then return (jobs opt)
                 else getNumCapabilities
 
     -- run search
 
-    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (conf, opts { jobs = njobs })
+    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (Env conf opt { jobs = njobs} Nothing)
 
 
 fileFilter :: Options -> [Language] -> FilePath -> Bool
-fileFilter opts langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opts filename)
+fileFilter opt langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opt filename)
 {-# INLINE fileFilter #-}
 
 getFilesMagic :: [FilePath] -> IO [String]

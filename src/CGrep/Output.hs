@@ -63,7 +63,7 @@ import Options
               color, no_color) )
 
 import Config ( Config(configColorFile, configColorMatch) )
-import Reader ( OptionIO )
+import Reader ( OptionIO, Env(..) )
 import Data.Int ( Int64 )
 import Data.Containers.ListUtils
 
@@ -95,7 +95,7 @@ getOffset2d idx off =
 
 mkOutput :: FilePath -> Text8 -> Text8 -> [Token] -> OptionIO [Output]
 mkOutput f text multi ts = do
-    invert <- reader (invert_match . snd)
+    invert <- invert_match <$> reader opt
     return $ if invert then map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkLines multi ts
                        else map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkLines multi ts
     where ls = C.lines text
@@ -119,21 +119,21 @@ invertLines n xs =  filter (\(Line i _) ->  i `notElem` idx ) $ take n [ Line i 
 
 putOutputHeader :: OptionIO ()
 putOutputHeader = do
-   (_,opt) <- ask
+   Env{..} <- ask
    if  | xml  opt  -> liftIO $ putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
        | otherwise -> return ()
 
 
 putOutputFooter :: OptionIO ()
 putOutputFooter = do
-    (_,opt) <- ask
+    Env{..} <- ask
     if | xml  opt  -> liftIO $ putStrLn "</cgrep>"
        | otherwise -> return ()
 
 
 putOutput :: [Output] -> OptionIO [B.Builder]
 putOutput out = do
-    (_,opt) <- ask
+    Env{..} <- ask
     if  | xml opt           -> xmlOutput  out
         | json opt          -> jsonOutput out
         | filename_only opt -> filenameOutput out
@@ -144,7 +144,7 @@ space = B.char8 ' '
 
 defaultOutput :: [Output] -> OptionIO [B.Builder]
 defaultOutput xs = do
-    (conf,opt) <- ask
+    Env{..} <- ask
     if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
                 -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> space <> buildTokens opt out <> space <> buildLine conf opt out) xs
 
