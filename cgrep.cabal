@@ -54,12 +54,12 @@ Executable cgrep
                        CGrep.Language
                        CGrep.LanguagesMap
                        CGrep.ContextFilter
-                       CGrep.Token
                        CGrep.Types
                        CGrep.CGrep
                        CGrep.Output
                        CGrep.Distance
                        CGrep.Common
+                       CGrep.Parser.Token
                        CGrep.Parser.WildCard
                        CGrep.Parser.Generic.Token
                        CGrep.Parser.Cpp.Token

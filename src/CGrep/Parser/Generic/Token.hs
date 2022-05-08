@@ -32,7 +32,8 @@ import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import CGrep.Types ( Text8, Offset )
 import Data.List (genericLength)
 
-import CGrep.LanguagesMap
+import CGrep.LanguagesMap ( LanguageInfo (langResKeywords) )
+import qualified Data.Set as S
 
 type DString = DL.DList Char
 
@@ -49,6 +50,7 @@ data TokenState =
 
 data Token =
     TokenAlpha       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
+    TokenKeyword     { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
     TokenDigit       { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
     TokenBracket     { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
     TokenLiteral     { toString :: !String, toOffset :: {-# UNPACK #-} !Offset  } |
@@ -61,7 +63,7 @@ instance SemanticToken Token where
     tkIsString      = isTokenLiteral
     tkIsChar        = isTokenLiteral
     tkIsNumber      = isTokenDigit
-    tkIsKeyword     = const False
+    tkIsKeyword     = isTokenKeyword
     tkEqual         = tokenCompare
     tkToString      = toString
     tkToOffset      = toOffset
@@ -73,6 +75,10 @@ isTokenAlpha, isTokenDigit, _isTokenBracket, _isTokenOther, isTokenLiteral :: To
 isTokenAlpha (TokenAlpha _ _) = True
 isTokenAlpha _  = False
 {-# INLINE isTokenAlpha #-}
+
+isTokenKeyword (TokenKeyword _ _) = True
+isTokenKeyword _  = False
+{-# INLINE isTokenKeyword #-}
 
 isTokenDigit (TokenDigit _ _) = True
 isTokenDigit _  = False
@@ -93,6 +99,7 @@ _isTokenOther _  = False
 
 tokenCompare :: Token -> Token -> Bool
 tokenCompare TokenAlpha  { toString = l } TokenAlpha  { toString = r } = l == r
+tokenCompare TokenKeyword{ toString = l } TokenKeyword{ toString = r } = l == r
 tokenCompare TokenDigit  { toString = l } TokenDigit  { toString = r } = l == r
 tokenCompare TokenLiteral{ toString = l } TokenLiteral{ toString = r } = l == r
 tokenCompare TokenBracket{ toString = l } TokenBracket{ toString = r } = l == r
@@ -158,9 +165,9 @@ mkTokenCtor StateOther   = TokenOther
 
 
 tokenizer :: Maybe LanguageInfo -> Text8 -> [Token]
-tokenizer _ xs = (\(TokenAccum ss  off _ acc out) ->
+tokenizer linfo xs = fixKeyword linfo <$> (\(TokenAccum ss  off _ acc out) ->
     DL.toList (if null (DL.toList acc) then out
-                                       else out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs
+                                       else out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) (C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs)
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ _ out) x =
               case () of
@@ -222,3 +229,11 @@ tokenizer _ xs = (\(TokenAccum ss  off _ acc out) ->
                    | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (DL.singleton  x) (out `DL.snoc` mkToken TokenBracket off acc)
                    | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (DL.singleton  x) (out `DL.snoc` mkToken TokenBracket off acc)
                    | otherwise          ->  TokenAccum StateOther      (off+1) 0 (acc `DL.snoc` x)  out
+
+
+fixKeyword :: Maybe LanguageInfo -> Token -> Token
+fixKeyword (Just linfo) t@(TokenAlpha s o) =
+    if S.member s (langResKeywords linfo)
+        then  TokenKeyword s o
+         else t
+fixKeyword _  t = t

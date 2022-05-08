@@ -55,7 +55,7 @@ import Data.Maybe ( mapMaybe )
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull, rmQuote )
-import CGrep.Token (Token (Token))
+import CGrep.Parser.Token (Token (Token))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -78,7 +78,7 @@ search f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (Generic.tokenizer Nothing . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (Generic.tokenizer lang . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
@@ -104,7 +104,7 @@ search f ps = do
 
         -- parse source code, get the Generic.Token list...
 
-        let tokens = Generic.tokenizer Nothing text'''
+        let tokens = Generic.tokenizer lang text'''
 
         -- get matching tokens ...
 

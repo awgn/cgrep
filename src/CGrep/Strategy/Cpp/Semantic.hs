@@ -61,7 +61,7 @@ import CGrep.Parser.WildCard
 import Reader ( OptionIO, Env(..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull, rmQuote )
-import CGrep.Token (Token (Token))
+import CGrep.Parser.Token (Token (Token))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -84,9 +84,9 @@ search f patterns = do
 
     -- pre-process patterns
 
-        patterns'   = map (Cpp.tokenizer Nothing . contextFilter (Just Cpp) filt) patterns    -- [ [t1,t2,..], [t1,t2...] ]
-        patterns''  = map (map mkWildCardFromToken) patterns'                               -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns''' = map (combineMultiCard . map (:[])) patterns''                         -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
+        patterns'   = map (Cpp.tokenizer lang . contextFilter (Just Cpp) filt) patterns    -- [ [t1,t2,..], [t1,t2...] ]
+        patterns''  = map (map mkWildCardFromToken) patterns'                              -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns''' = map (combineMultiCard . map (:[])) patterns''                        -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
         identif = mapMaybe (\case
                               TokenCard (Cpp.TokenChar   xs _) -> Just (rmQuote $ trim xs)
@@ -111,7 +111,7 @@ search f patterns = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Cpp.tokenizer Nothing text'''
+        let tokens = Cpp.tokenizer lang text'''
 
         -- get matching tokens ...
 

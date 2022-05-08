@@ -36,16 +36,16 @@ import CGrep.Common
       shallowSearch )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.ContextFilter ( mkContextFilter )
-import CGrep.LanguagesMap ( languageLookup, contextFilter )
+import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
 import CGrep.Types ( Offset )
 
-import qualified CGrep.Token as T
+import qualified CGrep.Parser.Token as T
 
 import Reader ( OptionIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
-import CGrep.Token (Token(..))
+import CGrep.Parser.Token (Token(..))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -74,7 +74,7 @@ search f patterns = do
     -- filter exact/partial matching tokens
 
     let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkToken opt text''') tokens
+                    then filter (checkToken opt lang text''') tokens
                     else tokens
 
     putStrLn1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
@@ -90,14 +90,14 @@ search f patterns = do
         mkOutput filename text text''' tokens'
 
 
-checkToken :: Options -> Text8 -> Token -> Bool
-checkToken opt text Token{..}
+checkToken :: Options -> Maybe LanguageInfo -> Text8 -> Token -> Bool
+checkToken opt linfo text Token{..}
      | word_match    opt = Token (tOffset - off') tStr `elem` ts
      | prefix_match  opt = any (\(Token o s) -> tStr `C.isPrefixOf` s && o + off' == tOffset) ts
      | suffix_match  opt = any (\(Token o s) -> tStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length tStr) == tOffset) ts
      | otherwise         = undefined
      where (text',off') = getLineByOffset tOffset text
-           ts           = T.tokenizer text'
+           ts           = T.tokenizer linfo text'
 
 
 splitLines :: Text8 -> [(Text8, Offset)]

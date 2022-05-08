@@ -55,7 +55,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
-import CGrep.Token ( Line(..), Token(..) )
+import CGrep.Parser.Token ( Line(..), Token(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,

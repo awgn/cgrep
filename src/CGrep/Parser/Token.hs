@@ -18,10 +18,11 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module CGrep.Token ( Token(..)
-                   , Line(..)
-                   , tokens
-                   , tokenizer) where
+module CGrep.Parser.Token ( Token(..)
+                          , Line(..)
+                          , tokens
+                          , tokenizer
+                          ) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -31,6 +32,7 @@ import Data.Char
 import Data.Array.Unboxed ( (!), listArray, UArray )
 import CGrep.Types ( Text8, LineOffset, Offset )
 import Data.List (genericLength)
+import CGrep.LanguagesMap ( LanguageInfo )
 
 
 data Token   = Token {
@@ -101,13 +103,13 @@ mkToken off ds =  Token (off - genericLength str) (C.pack str)
 {-# INLINE mkToken #-}
 
 
-tokens :: Text8 -> [C.ByteString]
-tokens = map tStr . tokenizer
+tokens :: Maybe LanguageInfo -> Text8 -> [C.ByteString]
+tokens linfo = map tStr . tokenizer linfo
 {-# INLINE tokens #-}
 
 
-tokenizer :: Text8 -> [Token]
-tokenizer xs = (\(TokenAccum _ off acc out) ->
+tokenizer :: Maybe LanguageInfo -> Text8 -> [Token]
+tokenizer _ xs = (\(TokenAccum _ off acc out) ->
       DL.toList (if null (DL.toList acc) then out
                                          else out `DL.snoc` mkToken off acc)) $
                                             C.foldl' tokens' (TokenAccum StateSpace 0 DL.empty DL.empty) xs

@@ -37,8 +37,9 @@ import qualified Data.ByteString.Char8 as C
 
 import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import Data.Int (Int64)
+import qualified Data.Set as S
 
-import CGrep.LanguagesMap ( LanguageInfo )
+import CGrep.LanguagesMap ( LanguageInfo (langResKeywords) )
 
 data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
 type Source         = C.ByteString
@@ -86,8 +87,15 @@ instance SemanticToken Token where
 --
 
 tokenizer :: Maybe LanguageInfo -> Source -> [Token]
-tokenizer _ xs = runGetToken (TokenizerState ys n Null)
+tokenizer linfo xs = fixKeyword linfo <$> runGetToken (TokenizerState ys n Null)
             where (ys, n) = dropWhite xs
+
+fixKeyword :: Maybe LanguageInfo -> Token -> Token
+fixKeyword (Just linfo) t@(TokenIdentifier s o) =
+    if S.member s (langResKeywords linfo)
+        then  TokenKeyword s o
+         else t
+fixKeyword _  t = t
 
 
 tokenFilter :: TokenFilter -> Token -> Bool
@@ -221,7 +229,7 @@ getToken (TokenizerState xs off state) =
                     getTokenNumber xs state          `mplus`
                     getTokenString xs state          `mplus`
                     getTokenChar xs state            `mplus`
-                    getTokenIdOrKeyword xs state     `mplus`
+                    getTokenIdentifier xs state      `mplus`
                     getTokenOpOrPunct xs state
         tstring  = toString token
         len      = fromIntegral $ length tstring
@@ -230,7 +238,7 @@ getToken (TokenizerState xs off state) =
         (token { toOffset = off }, TokenizerState xs' (off + len + w) (nextCppState tstring state))
 
 
-getTokenIdOrKeyword, getTokenNumber,
+getTokenIdentifier, getTokenNumber,
     getTokenHeaderName, getTokenString,
     getTokenChar, getTokenOpOrPunct,
     getTokenDirective :: Source -> CppState -> Maybe Token
@@ -327,12 +335,12 @@ getTokenChar xs@(C.uncons -> Just (x,_)) _
 getTokenChar (C.uncons -> Nothing) _ = Nothing
 
 
-getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
-    | not $ isIdentifierChar' x  = Nothing
-    | name `HS.member` keywords = Just $ TokenKeyword name 0
+getTokenIdentifier xs@(C.uncons -> Just (x,_)) _
+    | not $ isIdentifierChar' x = Nothing
     | otherwise                 = Just $ TokenIdentifier name 0
         where name = C.unpack $ C.takeWhile isIdentifierChar' xs
-getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
+getTokenIdentifier (C.uncons -> Nothing) _ = Nothing
+
 
 getTokenOpOrPunct source _ = go source (min 4 (C.length source))
     where go _ 0
@@ -366,17 +374,3 @@ operOrPunct =  HS.fromList [ "{","}","[","]","#","(",")",";",":","?",".","+","-"
                              "&&", "||", "==", "!=", "++", "--", "->", "//", "/*", "*/",
                              "...", "<<=", ">>=", "->*",
                              "%:%:" ]
-
-keywords :: HS.HashSet String
-keywords = HS.fromList ["alignas", "continue", "friend", "alignof", "decltype", "goto", "asm",
-                       "default", "if", "auto", "delete", "inline", "bool", "do", "int", "break",
-                       "double", "long", "case", "dynamic_cast", "mutable", "catch", "else",
-                       "namespace", "char", "enum", "new", "char16_t", "explicit", "noexcept",
-                       "char32_t", "export", "nullptr", "class", "extern", "operator", "const",
-                       "false", "private", "constexpr", "float", "protected", "const_cast", "for",
-                       "public", "register", "true", "reinterpret_cast", "try", "return", "typedef",
-                       "short", "typeid", "signed", "typename", "sizeof", "union", "static", "unsigned",
-                       "static_assert", "using", "static_cast", "virtual", "struct", "void", "switch",
-                       "volatile", "template", "wchar_t", "this", "while", "thread_local", "throw",
-                       "and", "and_eq", "bitand", "bitor", "compl", "not", "not_eq", "or", "or_eq",
-                       "xor", "xor_eq"]

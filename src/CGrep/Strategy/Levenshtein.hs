@@ -34,7 +34,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
-import CGrep.Token ( tokenizer, Token (tStr) )
+import CGrep.Parser.Token ( tokenizer, Token (tStr) )
 
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
@@ -57,7 +57,7 @@ search f patterns = do
 
     -- parse source code, get the Cpp.Token list...
 
-        tokens' = tokenizer text'''
+        tokens' = tokenizer lang text'''
 
     -- filter tokens...
 

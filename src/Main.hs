@@ -92,7 +92,6 @@ import Data.Tuple.Extra ( (&&&) )
 import System.FilePath.Posix ( (</>), takeBaseName )
 import GHC.Conc ( getNumCapabilities )
 
-import CGrep.Token
 import Control.Monad.Cont (forM)
 
 -- push file names in Chan...

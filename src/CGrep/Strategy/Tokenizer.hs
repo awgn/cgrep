@@ -50,7 +50,7 @@ import Options
               char, oper, edit_dist, word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
-import CGrep.Token (Token (Token))
+import CGrep.Parser.Token (Token (Token))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -80,7 +80,7 @@ search f ps = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Generic.tokenizer Nothing text'''
+        let tokens = Generic.tokenizer lang text'''
 
         -- token-filterting...
 
