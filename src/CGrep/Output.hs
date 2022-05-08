@@ -1,4 +1,4 @@
--- Copyright (c) 2013-2019 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
