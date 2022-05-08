@@ -33,7 +33,12 @@ import Data.Maybe ( mapMaybe )
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter)
 import CGrep.Language ( Language(Cpp) )
-import CGrep.LanguagesMap ( languageLookup, contextFilter)
+import CGrep.LanguagesMap
+    ( languageLookup,
+      contextFilter,
+      LanguageInfo,
+      contextFilter,
+      languageLookup )
 
 import CGrep.Common
     ( Text8,
@@ -79,9 +84,9 @@ search f patterns = do
 
     -- pre-process patterns
 
-        patterns'   = map (Cpp.tokenizer . contextFilter (Just Cpp) filt) patterns    -- [ [t1,t2,..], [t1,t2...] ]
-        patterns''  = map (map mkWildCardFromToken) patterns'                         -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns''' = map (combineMultiCard . map (:[])) patterns''                   -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
+        patterns'   = map (Cpp.tokenizer Nothing . contextFilter (Just Cpp) filt) patterns    -- [ [t1,t2,..], [t1,t2...] ]
+        patterns''  = map (map mkWildCardFromToken) patterns'                               -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns''' = map (combineMultiCard . map (:[])) patterns''                         -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
         identif = mapMaybe (\case
                               TokenCard (Cpp.TokenChar   xs _) -> Just (rmQuote $ trim xs)
@@ -106,7 +111,7 @@ search f patterns = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Cpp.tokenizer text'''
+        let tokens = Cpp.tokenizer Nothing text'''
 
         -- get matching tokens ...
 

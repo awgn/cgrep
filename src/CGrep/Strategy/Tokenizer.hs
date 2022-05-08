@@ -80,7 +80,7 @@ search f ps = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Generic.tokenizer text'''
+        let tokens = Generic.tokenizer Nothing text'''
 
         -- token-filterting...
 

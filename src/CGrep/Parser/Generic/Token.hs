@@ -32,6 +32,8 @@ import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import CGrep.Types ( Text8, Offset )
 import Data.List (genericLength)
 
+import CGrep.LanguagesMap
+
 type DString = DL.DList Char
 
 
@@ -155,8 +157,8 @@ mkTokenCtor StateLit2    = TokenLiteral
 mkTokenCtor StateOther   = TokenOther
 
 
-tokenizer :: Text8 -> [Token]
-tokenizer xs = (\(TokenAccum ss  off _ acc out) ->
+tokenizer :: Maybe LanguageInfo -> Text8 -> [Token]
+tokenizer _ xs = (\(TokenAccum ss  off _ acc out) ->
     DL.toList (if null (DL.toList acc) then out
                                        else out `DL.snoc` mkToken (mkTokenCtor ss) off acc)) $ C.foldl' tokens' (TokenAccum StateSpace 0 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum

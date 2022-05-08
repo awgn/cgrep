@@ -38,6 +38,8 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import Data.Int (Int64)
 
+import CGrep.LanguagesMap ( LanguageInfo )
+
 data TokenizerState = TokenizerState Source {-# UNPACK #-} !Offset !CppState
 type Source         = C.ByteString
 type Offset         = Int64
@@ -83,8 +85,8 @@ instance SemanticToken Token where
 -- Precondition: the C++ source code must be well-formed
 --
 
-tokenizer :: Source -> [Token]
-tokenizer xs = runGetToken (TokenizerState ys n Null)
+tokenizer :: Maybe LanguageInfo -> Source -> [Token]
+tokenizer _ xs = runGetToken (TokenizerState ys n Null)
             where (ys, n) = dropWhite xs
 
 
