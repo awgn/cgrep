@@ -53,7 +53,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
-import CGrep.Token ( Line(..), Token(..) )
+import CGrep.Chunk ( Line(..), Chunk(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,
@@ -69,7 +69,7 @@ data Output = Output
     { outFilePath :: !FilePath
     , outLineNumb :: {-# UNPACK #-} !Int64
     , outLine     :: {-# UNPACK #-} !Text8
-    , outTokens   :: ![Token]
+    , outChunks   :: ![Chunk]
     }
     deriving (Show)
 
@@ -90,7 +90,7 @@ getOffset2d idx off =
 {-# INLINE getOffset2d #-}
 
 
-mkOutput :: FilePath -> Text8 -> Text8 -> [Token] -> OptionIO [Output]
+mkOutput :: FilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
 mkOutput f text multi ts = do
     invert <- invert_match <$> reader opt
     return $ if invert then map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkLines multi ts
@@ -99,12 +99,12 @@ mkOutput f text multi ts = do
 {-# INLINE mkOutput #-}
 
 
-mkLines :: Text8 -> [Token] -> [Line]
+mkLines :: Text8 -> [Chunk] -> [Line]
 mkLines _ [] = []
 mkLines text ts = map mergeGroup $ groupBy ((==) `on` lOffset) $
-    sortBy (compare `on` lOffset) $ (\Token{..} -> let (# r, c #) = getOffset2d ols tOffset in Line (1 + r) [Token c tStr]) <$> ts
+    sortBy (compare `on` lOffset) $ (\Chunk{..} -> let (# r, c #) = getOffset2d ols tOffset in Line (1 + r) [Chunk c tStr]) <$> ts
     where mergeGroup :: [Line] -> Line
-          mergeGroup ls = Line ((lOffset . head) ls) (foldl (\l m -> l ++ lTokens m) [] ls)
+          mergeGroup ls = Line ((lOffset . head) ls) (foldl (\l m -> l <> lChunks m) [] ls)
           ols = getOffsetsLines text
 
 
@@ -171,7 +171,7 @@ jsonOutput outs = return $
     [B.byteString "{ \"file\":\"" <> B.stringUtf8 fname <> B.byteString "\", \"matches\":["] <>
     [ mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs) ] <> [B.byteString "]}"]
      where fname | (Output f _ _ _) <- head outs = f
-           mkJToken (Token n xs) = B.byteString "{ \"col\":" <> B.int64Dec n <> B.byteString ", \"token\":\"" <> B.byteString xs <> B.byteString "\" }"
+           mkJToken (Chunk n xs) = B.byteString "{ \"col\":" <> B.int64Dec n <> B.byteString ", \"token\":\"" <> B.byteString xs <> B.byteString "\" }"
            mkMatch xs (Output _ n _ ts) =
                xs <> [B.byteString "{ \"row\": " <> B.int64Dec n <> B.byteString ", \"tokens\":[" <>
                         mconcat (intersperse (B.byteString ",") (map mkJToken ts)) <> B.byteString "] }" ]
@@ -193,7 +193,7 @@ xmlOutput outs = return $
         where fname = case outs of
                         [] -> ""
                         (Output f _ _ _) : _ -> f
-              mkToken (Token n xs) = B.byteString "<token col='" <> B.int64Dec n <> B.byteString "'>" <> B.byteString xs <> B.byteString "</token>"
+              mkToken (Chunk n xs) = B.byteString "<token col='" <> B.int64Dec n <> B.byteString "'>" <> B.byteString xs <> B.byteString "</token>"
               mkMatch xs (Output _ n _ ts) =
                   xs <> B.byteString "<match line='" <> B.int64Dec n <> B.byteString "'>" <> mconcat (map mkToken ts) <> B.byteString "</match>"
 
@@ -258,14 +258,12 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = B.stringUtf8 bold <> mconcat (B.byteString . tStr <$> outTokens out) <> B.stringUtf8 resetTerm
+    | st        = B.stringUtf8 bold <> mconcat (B.byteString . tStr <$> outChunks out) <> B.stringUtf8 resetTerm
     | otherwise = mempty
-{-# INLINE buildTokens #-}
-
 
 buildLine :: Config -> Options -> Output -> B.Builder
 buildLine conf Options { color = c, no_color = c' } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outTokens out)) (outLine out)
+    | c && not c'= hilightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outChunks out)) (outLine out)
     | otherwise  = B.byteString $ outLine out
 {-# INLINE buildLine #-}
 
@@ -287,7 +285,7 @@ showColoredAs Options { color = c, no_color = c'} colorCode str
 {-# INLINE showColoredAs #-}
 
 
-hilightLine :: Config -> [Token] -> Text8 -> B.Builder
+hilightLine :: Config -> [Chunk] -> Text8 -> B.Builder
 hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
     where hilightLine' :: ([(Int64, Int64)], Int64, Int) -> C.ByteString -> B.Builder
           hilightLine'  _ (C.uncons -> Nothing) = mempty
@@ -308,6 +306,6 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
           hilightLine'  _ _ = undefined
 
 
-hilightIndicies :: [Token] -> [(Int64, Int64)]
-hilightIndicies = foldr (\Token{..} a -> let b = tOffset in (fromIntegral b, b + fromIntegral (C.length tStr) - 1) : a) [] . filter (not. B.null.tStr)
+hilightIndicies :: [Chunk] -> [(Int64, Int64)]
+hilightIndicies = foldr (\Chunk{..} a -> let b = tOffset in (fromIntegral b, b + fromIntegral (C.length tStr) - 1) : a) [] . filter (not. B.null.tStr)
 {-# INLINE hilightIndicies #-}

@@ -47,7 +47,7 @@ import Reader ( OptionIO, Env (..) )
 import Options ( Options(regex_pcre) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 
-import CGrep.Token ( Token(..) )
+import CGrep.Chunk ( Chunk(..) )
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
@@ -69,7 +69,7 @@ search f patterns = do
 
         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
 
-        tokens = map (\(str, (off,_)) -> Token (fromIntegral off) str) $
+        tokens = map (\(str, (off,_)) -> Chunk (fromIntegral off) str) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putStrLn1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."

@@ -50,7 +50,7 @@ import Options
               char, oper, edit_dist, word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
-import CGrep.Token (Token (Token))
+import CGrep.Chunk (Chunk (..))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -98,7 +98,7 @@ search f ps = do
 
         -- convert Cpp.Tokens to CGrep.Tokens
 
-            matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in Token off (C.pack (Cpp.toString t))) tokens'' :: [Token]
+            matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in Chunk off (C.pack (Cpp.toString t))) tokens'' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens
         putStrLn2 $ "tokens'   : " ++ show tokens'

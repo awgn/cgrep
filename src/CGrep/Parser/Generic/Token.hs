@@ -35,6 +35,8 @@ import Data.List (genericLength)
 import CGrep.LanguagesMap ( LanguageInfo (langResKeywords) )
 import qualified Data.Set as S
 
+import qualified CGrep.Chunk as T
+
 type DString = DL.DList Char
 
 

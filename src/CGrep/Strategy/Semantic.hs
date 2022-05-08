@@ -55,7 +55,7 @@ import Data.Maybe ( mapMaybe )
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull, rmQuote )
-import CGrep.Token (Token (..))
+import CGrep.Chunk (Chunk (..))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -102,14 +102,14 @@ search f ps = do
 
     runSearch opt filename (quick1 && quick2) $ do
 
-        -- parse source code, get the Generic.Token list...
+        -- parse source code, get the Generic.Chunk list...
 
         let tokens = Generic.tokenizer lang text'''
 
         -- get matching tokens ...
 
         let tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
-        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in Token n (C.pack (Generic.toString t))) tokens' :: [Token]
+        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in Chunk n (C.pack (Generic.toString t))) tokens' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches

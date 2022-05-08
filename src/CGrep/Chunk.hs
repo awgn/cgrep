@@ -16,17 +16,33 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Parser.Token (SemanticToken(..)) where
-import Data.Int (Int64)
+{-# LANGUAGE FlexibleInstances #-}
+
+module CGrep.Chunk ( Chunk(..)
+                   , Line(..)
+                   ) where
+
+import qualified Data.ByteString.Char8 as C
+import qualified Data.DList as DL
+
+import Data.Char
+    ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
+import Data.Array.Unboxed ( (!), listArray, UArray )
+import CGrep.Types ( Text8, LineOffset, Offset )
+import Data.List (genericLength)
+import CGrep.LanguagesMap ( LanguageInfo )
 
 
-class (Show t, Ord t) => SemanticToken t where
-    tkIsIdentifier :: t -> Bool
-    tkIsString     :: t -> Bool
-    tkIsChar       :: t -> Bool
-    tkIsNumber     :: t -> Bool
-    tkIsKeyword    :: t -> Bool
-    tkEquivalent   :: t -> t -> Bool
-    tkToString     :: t -> String
-    tkToOffset     :: t -> Int64
-    tkToIdentif    :: String -> Int64 -> t
+data Chunk = Chunk {
+    tOffset :: {-# UNPACK #-} !Offset,
+    tStr    :: C.ByteString
+} deriving (Eq, Show)
+
+
+data Line = Line {
+    lOffset :: {-# UNPACK #-} !LineOffset,
+    lChunks :: ![Chunk]
+} deriving (Eq, Show)
+
+
+type DString = DL.DList Char

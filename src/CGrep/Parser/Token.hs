@@ -30,7 +30,7 @@ import CGrep.Types ( Text8, LineOffset, Offset )
 import Data.List (genericLength)
 import CGrep.LanguagesMap ( LanguageInfo )
 
-import CGrep.Token ( Token(..), Line(..) )
+import CGrep.Chunk ( Chunk(..), Line(..) )
 
 type DString = DL.DList Char
 
@@ -43,7 +43,7 @@ data TokenState =
         deriving (Eq, Enum, Show)
 
 
-data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset DString (DL.DList Token)
+data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset DString (DL.DList Chunk)
 
 
 isCharNumberLT :: UArray Char Bool
@@ -83,16 +83,16 @@ isBracketLT =
 {-# INLINE isBracketLT #-}
 
 
-mkToken :: Offset -> DString -> Token
-mkToken off ds =  Token (off - genericLength str) (C.pack str)
+mkChunk :: Offset -> DString -> Chunk
+mkChunk off ds =  Chunk (off - genericLength str) (C.pack str)
     where str = DL.toList ds
-{-# INLINE mkToken #-}
+{-# INLINE mkChunk #-}
 
 
-tokenizer :: Maybe LanguageInfo -> Text8 -> [Token]
+tokenizer :: Maybe LanguageInfo -> Text8 -> [Chunk]
 tokenizer _ xs = (\(TokenAccum _ off acc out) ->
       DL.toList (if null (DL.toList acc) then out
-                                         else out `DL.snoc` mkToken off acc)) $
+                                         else out `DL.snoc` mkChunk off acc)) $
                                             C.foldl' tokens' (TokenAccum StateSpace 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ out) x =
@@ -106,32 +106,32 @@ tokenizer _ xs = (\(TokenAccum _ off acc out) ->
           tokens' (TokenAccum StateAlpha off acc out) x =
               case () of
                 _  | isAlphaNumLT ! x   ->  TokenAccum StateAlpha   (off+1) (acc `DL.snoc` x)  out
-                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
+                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (TokenAccum StateDigit off acc out) x =
               case () of
                 _  | isCharNumberLT ! x ->  TokenAccum StateDigit   (off+1) (acc `DL.snoc` x)  out
-                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
+                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
+                   | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (TokenAccum StateBracket off acc out) x =
               case () of
-                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
+                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
+                   | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (TokenAccum StateOther off acc out) x =
               case () of
-                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkToken off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton x)  (out `DL.snoc` mkToken off acc)
+                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
+                   | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton x)  (out `DL.snoc` mkChunk off acc)
                    | isDigitLT ! x      ->  if DL.toList acc == "."
                                             then TokenAccum StateDigit (off+1) (acc `DL.snoc` x)  out
-                                            else TokenAccum StateDigit (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) (DL.singleton  x) (out `DL.snoc` mkToken off acc)
+                                            else TokenAccum StateDigit (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | otherwise          ->  TokenAccum StateOther      (off+1) (acc `DL.snoc` x)  out

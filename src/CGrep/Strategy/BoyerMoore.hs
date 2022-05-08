@@ -45,7 +45,7 @@ import Reader ( OptionIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
-import CGrep.Token (Token(..))
+import CGrep.Chunk (Chunk(..))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
@@ -69,12 +69,12 @@ search f patterns = do
 
     -- search for matching tokens
 
-    let tokens = concatMap (\(p, xs) -> (`Token` p) <$> xs ) $ zip patterns shallow
+    let tokens = concatMap (\(p, xs) -> (`Chunk` p) <$> xs ) $ zip patterns shallow
 
     -- filter exact/partial matching tokens
 
     let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkToken opt lang text''') tokens
+                    then filter (checkChunk opt lang text''') tokens
                     else tokens
 
     putStrLn1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
@@ -90,11 +90,11 @@ search f patterns = do
         mkOutput filename text text''' tokens'
 
 
-checkToken :: Options -> Maybe LanguageInfo -> Text8 -> Token -> Bool
-checkToken opt linfo text Token{..}
-     | word_match    opt = Token (tOffset - off') tStr `elem` ts
-     | prefix_match  opt = any (\(Token o s) -> tStr `C.isPrefixOf` s && o + off' == tOffset) ts
-     | suffix_match  opt = any (\(Token o s) -> tStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length tStr) == tOffset) ts
+checkChunk :: Options -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool
+checkChunk opt linfo text Chunk{..}
+     | word_match    opt = Chunk (tOffset - off') tStr `elem` ts
+     | prefix_match  opt = any (\(Chunk o s) -> tStr `C.isPrefixOf` s && o + off' == tOffset) ts
+     | suffix_match  opt = any (\(Chunk o s) -> tStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length tStr) == tOffset) ts
      | otherwise         = undefined
      where (text',off') = getLineByOffset tOffset text
            ts           = T.tokenizer linfo text'

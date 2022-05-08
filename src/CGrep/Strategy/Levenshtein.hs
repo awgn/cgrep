@@ -33,7 +33,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
-import CGrep.Token ( Token (..) )
+import CGrep.Chunk ( Chunk(..) )
 import CGrep.Parser.Token ( tokenizer )
 
 import Reader ( OptionIO, Env (..) )
