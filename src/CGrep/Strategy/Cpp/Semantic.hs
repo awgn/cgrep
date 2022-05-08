@@ -30,7 +30,7 @@ import Data.Maybe ( mapMaybe )
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter)
-import CGrep.Languages ( Language(Cpp) )
+import CGrep.Language ( Language(Cpp) )
 import CGrep.LanguagesMap ( languageLookup, contextFilter)
 
 import CGrep.Common

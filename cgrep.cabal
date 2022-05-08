@@ -51,9 +51,9 @@ Executable cgrep
                        Util
                        Config
                        Reader
-                       CGrep.Languages
-                       CGrep.ContextFilter
+                       CGrep.Language
                        CGrep.LanguagesMap
+                       CGrep.ContextFilter
                        CGrep.Token
                        CGrep.Types
                        CGrep.CGrep

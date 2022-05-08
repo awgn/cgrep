@@ -329,7 +329,7 @@ getTokenIdOrKeyword xs@(C.uncons -> Just (x,_)) _
     | not $ isIdentifierChar' x  = Nothing
     | name `HS.member` keywords = Just $ TokenKeyword name 0
     | otherwise                 = Just $ TokenIdentifier name 0
-                                    where name = C.unpack $ C.takeWhile isIdentifierChar' xs
+        where name = C.unpack $ C.takeWhile isIdentifierChar' xs
 getTokenIdOrKeyword (C.uncons -> Nothing) _ = Nothing
 
 getTokenOpOrPunct source _ = go source (min 4 (C.length source))

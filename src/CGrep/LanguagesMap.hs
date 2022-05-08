@@ -20,7 +20,7 @@
 
 module CGrep.LanguagesMap where
 
-import CGrep.Languages ( Language(..), FileType(..) )
+import CGrep.Language ( Language(..), FileType(..) )
 import CGrep.ContextFilter
     ( ParConf(ParConf),
       Boundary(Boundary),
