@@ -18,7 +18,7 @@
 
 module CGrep.Parser.SemanticToken (SemanticToken(..)) where
 import Data.Int (Int64)
-
+import CGrep.Chunk ( Chunk )
 
 class (Show t, Ord t) => SemanticToken t where
     tkIsIdentifier :: t -> Bool
@@ -26,7 +26,8 @@ class (Show t, Ord t) => SemanticToken t where
     tkIsChar       :: t -> Bool
     tkIsNumber     :: t -> Bool
     tkIsKeyword    :: t -> Bool
+    tkEqual        :: t -> t -> Bool
+    tkToChunk      :: t -> Chunk
     tkToString     :: t -> String
     tkToOffset     :: t -> Int64
     tkToIdentif    :: String -> Int64 -> t
-    tkEqual        :: t -> t -> Bool

@@ -70,7 +70,7 @@ instance SemanticToken Token where
     tkToString      = toString
     tkToOffset      = toOffset
     tkToIdentif     = TokenAlpha
-
+    tkToChunk t     = T.Chunk (toOffset t) (C.pack $ toString t)
 
 isTokenAlpha, isTokenDigit, _isTokenBracket, _isTokenOther, isTokenLiteral :: Token -> Bool
 

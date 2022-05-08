@@ -38,6 +38,7 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 import Data.Int (Int64)
 import qualified Data.Set as S
+import qualified CGrep.Chunk as T
 
 import CGrep.LanguagesMap ( LanguageInfo (langResKeywords) )
 
@@ -80,6 +81,7 @@ instance SemanticToken Token where
     tkToString      = toString
     tkToOffset      = toOffset
     tkToIdentif     = TokenIdentifier
+    tkToChunk t     = T.Chunk (toOffset t) (C.pack $ toString t)
 
 
 -- Tokenize the source code in a list of Token
