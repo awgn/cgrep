@@ -1,4 +1,3 @@
---
 -- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
 --
 -- This program is free software; you can redistribute it and/or modify
@@ -34,7 +33,8 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.Distance ( (~==) )
-import CGrep.Parser.Token ( tokenizer, Token (tStr) )
+import CGrep.Token ( Token (..) )
+import CGrep.Parser.Token ( tokenizer )
 
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )

@@ -47,7 +47,7 @@ import Reader ( OptionIO, Env (..) )
 import Options ( Options(regex_pcre) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 
-import CGrep.Parser.Token ( Token(Token) )
+import CGrep.Token ( Token(..) )
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do

@@ -18,11 +18,7 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 
-module CGrep.Parser.Token ( Token(..)
-                          , Line(..)
-                          , tokens
-                          , tokenizer
-                          ) where
+module CGrep.Parser.Token ( tokenizer) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -34,17 +30,7 @@ import CGrep.Types ( Text8, LineOffset, Offset )
 import Data.List (genericLength)
 import CGrep.LanguagesMap ( LanguageInfo )
 
-
-data Token   = Token {
-    tOffset :: {-# UNPACK #-} !Offset,
-    tStr    :: C.ByteString
-} deriving (Eq, Show)
-
-data Line = Line {
-    lOffset :: {-# UNPACK #-} !LineOffset,
-    lTokens :: ![Token]
-} deriving (Eq, Show)
-
+import CGrep.Token ( Token(..), Line(..) )
 
 type DString = DL.DList Char
 
@@ -101,11 +87,6 @@ mkToken :: Offset -> DString -> Token
 mkToken off ds =  Token (off - genericLength str) (C.pack str)
     where str = DL.toList ds
 {-# INLINE mkToken #-}
-
-
-tokens :: Maybe LanguageInfo -> Text8 -> [C.ByteString]
-tokens linfo = map tStr . tokenizer linfo
-{-# INLINE tokens #-}
 
 
 tokenizer :: Maybe LanguageInfo -> Text8 -> [Token]

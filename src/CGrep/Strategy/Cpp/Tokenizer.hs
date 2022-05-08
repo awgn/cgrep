@@ -50,7 +50,7 @@ import Options
               char, oper, edit_dist, word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
-import CGrep.Parser.Token (Token (Token))
+import CGrep.Token (Token (Token))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]

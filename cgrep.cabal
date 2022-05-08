@@ -59,6 +59,7 @@ Executable cgrep
                        CGrep.Output
                        CGrep.Distance
                        CGrep.Common
+                       CGrep.Token
                        CGrep.Parser.Token
                        CGrep.Parser.WildCard
                        CGrep.Parser.Generic.Token

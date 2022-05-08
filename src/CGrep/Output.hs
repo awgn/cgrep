@@ -48,14 +48,12 @@ import System.Console.ANSI
 import Control.Monad.Trans.Reader ( ask, reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import Control.Applicative
-
 import Data.List
     ( foldl', sortBy, groupBy, isPrefixOf, nub, sort, genericLength, intersperse )
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
-import CGrep.Parser.Token ( Line(..), Token(..) )
+import CGrep.Token ( Line(..), Token(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json, xml,
@@ -65,7 +63,6 @@ import Options
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( OptionIO, Env(..) )
 import Data.Int ( Int64 )
-import Data.Containers.ListUtils
 
 
 data Output = Output

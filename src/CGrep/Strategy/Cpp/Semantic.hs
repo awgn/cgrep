@@ -61,7 +61,7 @@ import CGrep.Parser.WildCard
 import Reader ( OptionIO, Env(..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull, rmQuote )
-import CGrep.Parser.Token (Token (Token))
+import CGrep.Token (Token (Token))
 
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
