@@ -17,6 +17,7 @@
 --
 
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module CGrep.Parser.Cpp.Token(
     Token(..),
@@ -283,44 +284,44 @@ data NumberState = NumberNothing | NumberOHF | NumberDec | NumberOct | NumberHex
 getNumber :: C.ByteString -> NumberState -> String
 getNumber (C.uncons -> Nothing) _ = ""
 getNumber (C.uncons -> Just (x,xs)) state
-    |  state == NumberNothing = case () of _
-                                                | x == '0'  -> x : getNumber xs NumberOHF
-                                                | x == '.'  -> x : getNumber xs NumberMayBeFloat
-                                                | isDigit x -> x : getNumber xs NumberDec
-                                                | otherwise -> ""
-    |  state == NumberOHF = case () of _
-                                                | x `HS.member` validHexSet -> x : getNumber xs NumberHex
-                                                | x == '.'  -> x : getNumber xs NumberMayBeFloat
-                                                | isDigit x -> x : getNumber xs NumberOct
-                                                | otherwise -> ""
+    |  state == NumberNothing =
+        if | x == '0'  -> x : getNumber xs NumberOHF
+           | x == '.'  -> x : getNumber xs NumberMayBeFloat
+           | isDigit x -> x : getNumber xs NumberDec
+           | otherwise -> ""
+    |  state == NumberOHF =
+        if | x `HS.member` validHexSet  -> x : getNumber xs NumberHex
+           | x == '.'                   -> x : getNumber xs NumberMayBeFloat
+           | isDigit x                  -> x : getNumber xs NumberOct
+           | otherwise                  -> ""
 
-    |  state == NumberDec = case () of _
-                                                | x `HS.member` validDecSet -> x : getNumber xs NumberDec
-                                                | x == '.'  -> x : getNumber xs NumberMayBeFloat
-                                                | x == 'e' || x == 'E'  -> x : getNumber xs NumberExp
-                                                | otherwise -> ""
+    |  state == NumberDec =
+        if | x `HS.member` validDecSet  -> x : getNumber xs NumberDec
+           | x == '.'                   -> x : getNumber xs NumberMayBeFloat
+           | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
+           | otherwise -> ""
 
-    |  state == NumberOct = case () of _
-                                                | x `HS.member` validOctSet -> x : getNumber xs NumberOct
-                                                | otherwise -> ""
+    |  state == NumberOct =
+        if | x `HS.member` validOctSet -> x : getNumber xs NumberOct
+           | otherwise -> ""
 
-    |  state == NumberHex = case () of _
-                                                | x `HS.member` validHexSet -> x : getNumber xs NumberHex
-                                                | otherwise -> ""
+    |  state == NumberHex =
+        if | x `HS.member` validHexSet -> x : getNumber xs NumberHex
+           | otherwise -> ""
 
-    |  state == NumberMayBeFloat = case () of _
-                                                | x `HS.member` validDecSet   -> x : getNumber xs NumberFloat
-                                                | otherwise                  -> ""
+    |  state == NumberMayBeFloat =
+        if  | x `HS.member` validDecSet -> x : getNumber xs NumberFloat
+            | otherwise                 -> ""
 
-    |  state == NumberFloat = case () of _
-                                                | x `HS.member` validDecSet -> x : getNumber xs NumberFloat
-                                                | x == 'e' || x == 'E'       -> x : getNumber xs NumberExp
-                                                | otherwise                  -> ""
+    |  state == NumberFloat =
+        if  | x `HS.member` validDecSet -> x : getNumber xs NumberFloat
+            | x == 'e' || x == 'E'      -> x : getNumber xs NumberExp
+            | otherwise                 -> ""
 
-    |  state == NumberExp = case () of _
-                                                | x `HS.member` validDecSet   -> x : getNumber xs NumberExp
-                                                | x == '+' || x == '-'       -> x : getNumber xs NumberExp
-                                                | otherwise                  -> ""
+    |  state == NumberExp =
+        if | x `HS.member` validDecSet  -> x : getNumber xs NumberExp
+           | x == '+' || x == '-'       -> x : getNumber xs NumberExp
+           | otherwise                  -> ""
 
 getNumber  _ _ = undefined
 

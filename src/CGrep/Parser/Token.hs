@@ -17,8 +17,9 @@
 --
 
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiWayIf #-}
 
-module CGrep.Parser.Token ( tokenizer) where
+module CGrep.Parser.Token (tokenizer) where
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.DList as DL
@@ -96,39 +97,34 @@ tokenizer _ xs = (\(TokenAccum _ off acc out) ->
                                             C.foldl' tokens' (TokenAccum StateSpace 0 DL.empty DL.empty) xs
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ out) x =
-              case () of
-                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         out
+                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         out
                    | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) out
                    | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) (DL.singleton  x) out
                    | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) out
                    | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) out
 
           tokens' (TokenAccum StateAlpha off acc out) x =
-              case () of
-                _  | isAlphaNumLT ! x   ->  TokenAccum StateAlpha   (off+1) (acc `DL.snoc` x)  out
+                if | isAlphaNumLT ! x   ->  TokenAccum StateAlpha   (off+1) (acc `DL.snoc` x)  out
                    | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
                    | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (TokenAccum StateDigit off acc out) x =
-              case () of
-                _  | isCharNumberLT ! x ->  TokenAccum StateDigit   (off+1) (acc `DL.snoc` x)  out
+                if | isCharNumberLT ! x ->  TokenAccum StateDigit   (off+1) (acc `DL.snoc` x)  out
                    | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
                    | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (TokenAccum StateBracket off acc out) x =
-              case () of
-                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
+                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
                    | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
                    | otherwise          ->  TokenAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (TokenAccum StateOther off acc out) x =
-              case () of
-                _  | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
+                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
                    | isAlphaLT ! x      ->  TokenAccum StateAlpha   (off+1) (DL.singleton x)  (out `DL.snoc` mkChunk off acc)
                    | isDigitLT ! x      ->  if DL.toList acc == "."
                                             then TokenAccum StateDigit (off+1) (acc `DL.snoc` x)  out

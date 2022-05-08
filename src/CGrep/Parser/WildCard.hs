@@ -15,6 +15,7 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE MultiWayIf #-}
 
 module CGrep.Parser.WildCard (WildCard(..), MultiCard,
                                 mkWildCardFromToken,
@@ -77,7 +78,6 @@ mkWildCardFromToken t
           | isWildCardIdentif str               -> IdentifCard str
           | otherwise                           -> TokenCard $ tkToIdentif (rmWildCardEscape str) (tkToOffset t)
             where str = tkToString t
-
     | otherwise = TokenCard t
 
 
@@ -127,10 +127,9 @@ multiCardCompare opt l r =
 
 isWildCardIdentif :: String -> Bool
 isWildCardIdentif s =
-    case () of
-        _ | (x:y:_) <- s  -> wprefix x && isNumber y
-          | [x]     <- s  -> wprefix x
-          | otherwise     -> error "isWildCardIdentif"
+        if | (x:y:_) <- s  -> wprefix x && isNumber y
+           | [x]     <- s  -> wprefix x
+           | otherwise     -> error "isWildCardIdentif"
     where wprefix x = x == '$' || x == '_'
 
 
@@ -208,14 +207,12 @@ wildCardMatch _  OctCard         t  = tkIsNumber t && case tkToString t of ('0':
 wildCardMatch _  HexCard         t  = tkIsNumber t && case tkToString t of ('0':'x':_) -> True; _      -> False
 wildCardMatch opt (TokenCard l) r
     | tkIsIdentifier l && tkIsIdentifier r =
-        case () of
-        _ | edit_dist  opt   -> tkToString l ~== tkToString r
-          | word_match opt   -> tkToString l ==  tkToString r
-          | prefix_match opt -> tkToString l `isPrefixOf`  tkToString r
-          | suffix_match opt -> tkToString l `isSuffixOf`  tkToString r
-          | otherwise        -> tkToString l `isInfixOf` tkToString r
-    | tkIsString l && tkIsString r =
-        case () of
+        if | edit_dist  opt   -> tkToString l ~== tkToString r
+           | word_match opt   -> tkToString l ==  tkToString r
+           | prefix_match opt -> tkToString l `isPrefixOf`  tkToString r
+           | suffix_match opt -> tkToString l `isSuffixOf`  tkToString r
+           | otherwise        -> tkToString l `isInfixOf` tkToString r
+    | tkIsString l && tkIsString r = case () of
         _ | edit_dist  opt   -> ls ~== rs
           | word_match opt   -> ls ==  rs
           | prefix_match opt -> ls `isPrefixOf` rs

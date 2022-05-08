@@ -25,8 +25,8 @@ module CGrep.CGrep ( runSearch
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
 import qualified CGrep.Strategy.Regex            as Regex
-import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
+import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Tokenizer        as Tokenizer
 import qualified CGrep.Strategy.Semantic         as Semantic
 
