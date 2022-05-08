@@ -74,7 +74,7 @@ search f patterns = do
     -- filter exact/partial matching tokens
 
     let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkChunk opt lang text''') tokens
+                    then filter (checkChunk opt langInfo text''') tokens
                     else tokens
 
     putStrLn1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."

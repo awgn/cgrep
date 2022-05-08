@@ -195,7 +195,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                                     liftIO $ when (vim || editor) $
                                         mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
                                     putOutput out'
-                                ) (Env conf opt Nothing))
+                                ) (Env conf opt Nothing Nothing))
 
                             unless (null out) $
                                 atomically $ writeTQueue out_chan out
@@ -320,7 +320,7 @@ main = do
                    putStrLn1 $ "files     : " ++ show paths
                    putStrLn1 $ "isTermIn  : " ++ show isTermIn
                    putStrLn1 $ "isTermOut : " ++ show isTermOut
-        ) (Env conf opt Nothing)
+        ) (Env conf opt Nothing Nothing)
 
     -- specify number of cores
 
@@ -330,7 +330,7 @@ main = do
 
     -- run search
 
-    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (Env conf opt { jobs = njobs} Nothing)
+    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (Env conf opt { jobs = njobs} Nothing Nothing)
 
 
 fileFilter :: Options -> [Language] -> FilePath -> Bool

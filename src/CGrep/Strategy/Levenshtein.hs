@@ -57,7 +57,7 @@ search f patterns = do
 
     -- parse source code, get the Cpp.Token list...
 
-        tokens' = tokenizer lang text'''
+        tokens' = tokenizer langInfo text'''
 
     -- filter tokens...
 

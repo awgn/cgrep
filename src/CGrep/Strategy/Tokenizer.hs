@@ -80,7 +80,7 @@ search f ps = do
 
         -- parse source code, get the Cpp.Chunk list...
 
-        let tokens = Generic.tokenizer lang text'''
+        let tokens = Generic.tokenizer langInfo text'''
 
         -- token-filterting...
 

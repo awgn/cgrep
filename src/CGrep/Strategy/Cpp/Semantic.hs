@@ -84,7 +84,7 @@ search f patterns = do
 
     -- pre-process patterns
 
-        patterns'   = map (Cpp.tokenizer lang . contextFilter (Just Cpp) filt) patterns    -- [ [t1,t2,..], [t1,t2...] ]
+        patterns'   = map (Cpp.tokenizer langInfo . contextFilter (Just Cpp) filt) patterns    -- [ [t1,t2,..], [t1,t2...] ]
         patterns''  = map (map mkWildCardFromToken) patterns'                              -- [ [w1,w2,..], [w1,w2,..] ]
         patterns''' = map (combineMultiCard . map (:[])) patterns''                        -- [ [m1,m2,..], [m1,m2,..] ] == [ [ [w1], [w2],..], [[w1],[w2],..]]
 
@@ -111,7 +111,7 @@ search f patterns = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Cpp.tokenizer lang text'''
+        let tokens = Cpp.tokenizer langInfo text'''
 
         -- get matching tokens ...
 

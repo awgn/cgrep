@@ -79,7 +79,7 @@ search f ps = do
 
         -- parse source code, get the Cpp.Token list...
 
-        let tokens = Cpp.tokenizer lang text'''
+        let tokens = Cpp.tokenizer langInfo text'''
 
         -- context-filterting...
 

@@ -343,14 +343,14 @@ contextFilter (Just language) filt txt
 
 
 languageLookup :: Options -> FilePath -> Maybe Language
-languageLookup opt f = forcedLang opt <|> lookupFileLang f
+languageLookup opts f = forcedLang opts <|> lookupFileLang f
     where lookupFileLang :: FilePath -> Maybe Language
           lookupFileLang f = Map.lookup (Name $ takeFileName f) languagesFileMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) languagesFileMap
 {-# INLINE languageLookup #-}
 
 
-languageInfoLookup :: Options -> FilePath -> Maybe LanguageInfo
-languageInfoLookup opt f = languageLookup opt f >>= flip Map.lookup languagesMap
+languageInfoLookup :: Options -> FilePath -> Maybe (Language, LanguageInfo)
+languageInfoLookup opts f = languageLookup opts f >>= \l -> (l,) <$> Map.lookup l languagesMap
 {-# INLINE languageInfoLookup #-}
 
 

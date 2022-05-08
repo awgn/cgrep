@@ -78,7 +78,7 @@ search f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (Generic.tokenizer lang . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (Generic.tokenizer langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
@@ -104,7 +104,7 @@ search f ps = do
 
         -- parse source code, get the Generic.Chunk list...
 
-        let tokens = Generic.tokenizer lang text'''
+        let tokens = Generic.tokenizer langInfo text'''
 
         -- get matching tokens ...
 

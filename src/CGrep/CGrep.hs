@@ -72,9 +72,9 @@ isRegexp opt = regex_posix opt || regex_pcre opt
 runSearch :: FilePath -> [Text8] -> OptionIO [Output]
 runSearch filename patterns = do
   Env{..} <- ask
-  let linfo = languageInfoLookup opt filename
+  let info = languageInfoLookup opt filename
   catch ( do
-      local (\env -> env{lang = languageInfoLookup opt filename}) $
+      local (\env -> env{langType = fst <$> info, langInfo = snd <$> info}) $
         if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
            | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
            | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
