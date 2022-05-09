@@ -113,12 +113,22 @@ languagesMap = Map.fromList
     ,  (Clojure,   LanguageInfo {
         langExtensions = [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"]
     ,   langFilter = mkFilter [";" ~~ "\n"] ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "and", "let", "def", "defn", "if", "else", "do", "quote", "var", "fn", "loop", "recur", "throw", "try",
+            "monitor-enter", "monitor-exit"
+        ]
     })
     ,  (Coffee,    LanguageInfo {
         langExtensions = [Ext "coffee"]
     ,   langFilter = mkFilter ["#" ~~ "\n"]  ["'" ~~ "'", "\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "case", "default", "function", "var", "void", "with", "const", "let", "enum", "export", "import", "native",
+            "__hasProp", "__extends", "__slice", "__bind", "__indexOf", "implements", "interface", "package", "private",
+            "protected", "public", "static", "yield", "true", "false", "null", "this", "new", "delete", "typeof", "in",
+            "arguments", "eval", "instanceof", "return", "throw", "break", "continue", "debugger", "if", "else", "switch",
+            "for", "while", "do", "try", "catch", "finally", "class", "extends", "super", "undefined", "then", "unless",
+            "until", "loop", "of", "by", "when", "and", "or", "is", "isnt", "not", "yes", "no", "on", "off"
+        ]
     })
     ,  (Conf,      LanguageInfo {
         langExtensions = [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"]
@@ -151,7 +161,15 @@ languagesMap = Map.fromList
     ,  (Csharp,    LanguageInfo {
         langExtensions = [Ext "cs", Ext "CS"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
+            "continue", "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern",
+            "false", "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface",
+            "internal", "is", "lock", "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+            "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc",
+            "static", "string", "struct", "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked",
+            "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
+        ]
     })
     ,  (Css,       LanguageInfo {
         langExtensions = [Ext "css"]
@@ -161,27 +179,52 @@ languagesMap = Map.fromList
     ,  (D,         LanguageInfo {
         langExtensions = [Ext "d", Ext "D"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "abstract", "alias", "align", "asm", "assert", "auto", "body", "bool", "break", "byte", "case", "cast", "catch",
+            "cdouble", "cent", "cfloat", "char", "class", "const", "continue", "creal", "dchar", "debug", "default", "delegate",
+            "delete", "deprecated", "do", "double", "else", "enum", "export", "extern", "false", "final", "finally", "float",
+            "for", "foreach", "foreach_reverse", "function", "goto", "idouble", "if", "ifloat", "immutable", "import", "in",
+            "inout", "int", "interface", "invariant", "ireal", "is", "lazy", "long", "macro", "mixin", "module", "new", "nothrow",
+            "null", "out", "override", "package", "pragma", "private", "protected", "public", "pure", "real", "ref", "return",
+            "scope", "shared", "short", "static", "struct", "super", "switch", "synchronized", "template", "this", "throw", "true",
+            "try", "typeid", "typeof", "ubyte", "ucent", "uint", "ulong", "union", "unittest", "ushort", "version", "void", "wchar",
+            "while", "with", "__FILE__", "__FILE_FULL_PATH__", "__MODULE__", "__LINE__", "__FUNCTION__", "__PRETTY_FUNCTION__",
+            "__gshared", "__traits", "__vector", "__parameters"
+        ]
     })
     ,  (Dart,      LanguageInfo {
         langExtensions = [Ext "dart"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+         "assert", "break", "case", "catch", "class", "const", "continue", "default", "do", "else", "enum", "extends", "false",
+         "final", "finally", "for", "if", "in", "is", "new", "null", "rethrow", "return", "super", "switch", "this", "throw",
+         "true", "try", "var", "void", "while", "with", "async", "hide", "on", "show", "sync", "abstract", "as", "covariant",
+         "deferred", "dynamic", "export", "extension", "external", "factory", "function", "get", "implements", "import", "interface",
+         "library", "mixin", "operator", "part", "set", "static", "typedef",  "await", "yield"
+        ]
     })
     ,  (Elixir,    LanguageInfo {
         langExtensions = [Ext "ex", Ext "exs"]
     ,   langFilter = mkFilter ["#" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+        "true", "false", "nil", "when", "and", "or", "not", "in", "fn", "do", "end", "catch", "rescue", "after", "else"
+        ]
     })
     ,  (Elm,       LanguageInfo {
         langExtensions = [Ext "elm"]
     ,   langFilter =  mkFilter ["{-" ~~ "-}", "--" ~~ "\n"]  ["\"" ~~ "\"", "\"\"\"" ~~ "\"\"\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "type", "alias", "port", "if", "then", "else", "case", "of", "let", "in", "infix", "left", "right", "non",
+            "module", "import", "exposing", "as", "where", "effect", "command", "subscription", "true", "false", "null"
+        ]
     })
     ,  (Erlang,    LanguageInfo {
         langExtensions = [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"]
     ,   langFilter = mkFilter ["%" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "after", "and", "andalso", "band", "begin", "bnot", "bor", "bsl", "bsr", "bxor", "case", "catch", "cond",
+            "div", "end", "fun", "if", "let", "not", "of", "or", "orelse", "receive", "rem", "try", "when", "xor"
+        ]
     })
     ,  (Eta,       LanguageInfo {
         langExtensions = [Ext "eta"]
@@ -194,12 +237,39 @@ languagesMap = Map.fromList
                     Ext "f90", Ext "f95", Ext "f03", Ext "f08",
                     Ext "F90", Ext "F95", Ext "F03", Ext "F08"]
     ,   langFilter = Nothing
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            -- fortran77
+            "assign", "backspace", "block", "data", "call", "close", "common", "continue", "data", "dimension", "do",
+            "else", "else", "if", "end", "endfile", "endif", "entry", "equivalence", "external", "format", "function",
+            "goto", "if", "implicit", "inquire", "intrinsic", "open", "parameter", "pause", "print", "program", "read",
+            "return", "rewind", "rewrite", "save", "stop", "subroutine", "then", "write",
+            -- fortran 90
+            "allocatable", "allocate", "case", "contains", "cycle", "deallocate", "elsewhere", "exit?", "include",
+            "interface", "intent", "module", "namelist", "nullify", "only", "operator", "optional", "pointer", "private",
+            "procedure", "public", "recursive", "result", "select", "sequence", "target", "use", "while", "where",
+            -- fortran 95
+            "elemental", "forall", "pure",
+            -- fortran 03
+            "abstract", "associate", "asynchronous", "bind", "class", "deferred", "enum", "enumerator", "extends", "final",
+            "flush", "generic", "import", "non_overridable", "nopass", "pass", "protected", "value", "volatile", "wait",
+            -- fortran 08
+            "block", "codimension", "do", "concurrent", "contiguous", "critical", "error", "stop", "submodule", "sync",
+            "all", "sync", "images", "sync",  "memory", "lock", "unlock"
+        ]
     })
     ,  (Fsharp,    LanguageInfo {
         langExtensions = [Ext "fs", Ext "fsx", Ext "fsi"]
     ,   langFilter =  mkFilter ["(*" ~~ "*)", "//" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "abstract", "and", "as", "assert", "base", "begin", "class", "default", "delegate", "do", "done", "downcast",
+            "downto", "elif", "else", "end", "exception", "extern", "FALSE", "finally", "fixed", "for", "fun", "function",
+            "global", "if", "in", "inherit", "inline", "interface", "internal", "lazy", "let", "let!",  "match", "match!",
+            "member", "module", "mutable", "namespace", "new", "not", "null", "of", "open", "or", "override", "private",
+            "public", "rec", "return", "return!",  "select", "static", "struct", "then", "to", "TRUE", "try", "type",
+            "upcast", "use", "use!",  "val", "void", "when", "while", "with", "yield", "yield!",  "const", "asr", "land",
+            "lor", "lsl", "lsr", "lxor", "mod", "sig", "break", "checked", "component", "const", "constraint", "continue",
+            "event", "external", "include", "mixin", "parallel", "process", "protected", "pure", "sealed", "tailcall", "trait", "virtual"
+        ]
     })
     ,  (Go,        LanguageInfo {
         langExtensions = [Ext "go"]
@@ -238,12 +308,26 @@ languagesMap = Map.fromList
     ,  (Java,      LanguageInfo {
         langExtensions = [Ext "java"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "continue", "const",
+            "default", "do", "double", "else", "enum", "exports", "extends", "final", "finally", "float", "for", "goto",
+            "if", "implements", "import", "instanceof", "int", "interface", "long", "module", "native", "new", "package",
+            "private", "protected", "public", "requires", "return", "short", "static", "strictfp", "super", "switch",
+            "synchronized", "this", "throw", "throws", "transient", "try", "var", "void", "volatile", "while", "true",
+            "false", "null"
+        ]
     })
     ,  (Javascript,LanguageInfo {
         langExtensions = [Ext "js"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "abstract", "arguments", "await", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue",
+            "debugger", "default", "delete", "do", "double", "else", "enum", "eval", "export", "extends", "false", "final",
+            "finally", "float", "for", "function", "goto", "if", "implements", "import", "in", "instanceof", "int", "interface",
+            "let", "long", "native", "new", "null", "package", "private", "protected", "public", "return", "short", "static",
+            "super", "switch", "synchronized", "this", "throw", "throws", "transient", "true", "try", "typeof", "var", "void",
+            "volatile", "while", "with", "yield"
+        ]
     })
     ,  (Json,      LanguageInfo {
         langExtensions = [Ext "json", Ext "ndjson"]
@@ -253,7 +337,16 @@ languagesMap = Map.fromList
     ,  (Kotlin,    LanguageInfo {
         langExtensions = [Ext "kt", Ext "kts", Ext "ktm"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'", "\"\"\"" ~~ "\"\"\""]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+        "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null", "object", "package", "return", "super",
+        "this", "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",
+        "by", "catch", "constructor", "delegate", "dynamic", "field", "file", "finally", "get", "import", "init", "param", "property", "receiver",
+        "set", "setparam", "value", "where",
+        "abstract", "actual", "annotation", "companion", "const", "crossinline", "data", "enum", "expect", "external", "final", "infix", "inline",
+        "inner", "internal", "lateinit", "noinline", "open", "operator", "out", "override", "private", "protected", "public", "reified",
+        "sealed", "suspend", "tailrec", "vararg",
+        "field", "it"
+        ]
     })
     ,  (Latex,     LanguageInfo {
         langExtensions = [Ext "latex", Ext "tex"]
@@ -268,7 +361,10 @@ languagesMap = Map.fromList
     ,  (Lua,       LanguageInfo {
         langExtensions = [Ext "lua"]
     ,   langFilter = mkFilter ["--[[" ~~ "--]]", "--" ~~ "\n"] ["'" ~~ "'", "\"" ~~ "\"", "[===[" ~~ "]===]", "[==[" ~~ "]==]", "[=[" ~~ "]=]", "[[" ~~ "]]" ]
-    ,   langResKeywords = keywords []
+    ,   langResKeywords = keywords [
+            "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if",
+            "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"
+        ]
     })
     ,  (Make,      LanguageInfo {
         langExtensions = [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"]
