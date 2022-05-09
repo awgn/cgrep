@@ -203,7 +203,7 @@ languagesMap = Map.fromList
     })
     ,  (Go,        LanguageInfo {
         langExtensions = [Ext "go"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\"", "`" ~~ "`"]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "`" ~~ "`"]
     ,   langResKeywords = keywords [
             "break", "default", "func", "interface", "select", "case", "defer", "go", "map",
             "struct", "chan", "else", "goto", "package", "switch", "const", "fallthrough", "if",
@@ -237,12 +237,12 @@ languagesMap = Map.fromList
     })
     ,  (Java,      LanguageInfo {
         langExtensions = [Ext "java"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (Javascript,LanguageInfo {
         langExtensions = [Ext "js"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (Json,      LanguageInfo {
@@ -252,7 +252,7 @@ languagesMap = Map.fromList
     })
     ,  (Kotlin,    LanguageInfo {
         langExtensions = [Ext "kt", Ext "kts", Ext "ktm"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\"", "'" ~~ "'", "\"\"\"" ~~ "\"\"\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'", "\"\"\"" ~~ "\"\"\""]
     ,   langResKeywords = keywords []
     })
     ,  (Latex,     LanguageInfo {
@@ -287,12 +287,12 @@ languagesMap = Map.fromList
     })
     ,  (ObjectiveC,LanguageInfo {
         langExtensions = [Ext "m", Ext "mi"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (PHP,       LanguageInfo {
         langExtensions = [Ext "php", Ext "php3", Ext "php4", Ext "php5",Ext "phtml"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n", "#" ~~ "\n" ]  ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n", "#" ~~ "\n" ]  ["'" ~~ "'", "\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (Perl,      LanguageInfo {
@@ -317,12 +317,12 @@ languagesMap = Map.fromList
     })
     ,  (Rust,      LanguageInfo {
         langExtensions = [Ext "rs", Ext "rlib"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (Scala,     LanguageInfo {
         langExtensions = [Ext "scala"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (SmallTalk, LanguageInfo {
@@ -337,7 +337,7 @@ languagesMap = Map.fromList
     })
     ,  (Swift,     LanguageInfo {
         langExtensions = [Ext "swift"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (Tcl,       LanguageInfo {
@@ -361,7 +361,7 @@ languagesMap = Map.fromList
     })
     ,  (Verilog,   LanguageInfo {
         langExtensions = [Ext "v", Ext "vh", Ext "sv"]
-    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\""]
+    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords []
     })
     ,  (Vim,       LanguageInfo {
