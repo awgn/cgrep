@@ -57,10 +57,9 @@ languagesMap = Map.fromList
         langExtensions = [Ext "agda", Ext "lagda"]
     ,   langFilter = mkFilter ["{-" ~~ "-}", "--" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords [
-            "abstract", "codata", "constructor", "data",
-            "eta-equality", "field", "forall", "hiding", "import",
-            "in", "inductive", "infix", "infixl", "infixr", "instance", "let",
-            "module", "mutual", "no-eta-equality", "open",
+            "abstract", "codata", "constructor", "data", "eta-equality", "field",
+            "forall", "hiding", "import", "in", "inductive", "infix", "infixl",
+            "infixr", "instance", "let", "module", "mutual", "no-eta-equality", "open",
             "pattern", "postulate", "primitive", "private", "public", "quoteContext", "quoteGoal",
             "record", "renaming", "rewrite", "Set", "syntax", "tactic", "using", "where", "with"
         ]
@@ -103,18 +102,12 @@ languagesMap = Map.fromList
         langExtensions = [Ext "chpl"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords [
-            "atomic", "begin", "bool", "break", "by",
-            "class", "cobegin", "coforall", "complex", "config",
-            "const", "continue", "def", "distributed", "do",
-            "domain", "else", "enum", "false", "for",
-            "forall", "goto", "if", "imag", "in",
-            "int", "inout", "let", "locale", "module",
-            "nil", "of", "on", "ordered", "otherwise",
-            "out", "param", "pragma", "range", "real",
-            "record", "reduce", "return", "scan", "select",
-            "serial", "single", "sync", "then", "true",
-            "type", "uint", "union", "use", "var",
-            "when", "where", "while", "yield"
+            "atomic", "begin", "bool", "break", "by", "class", "cobegin", "coforall", "complex", "config",
+            "const", "continue", "def", "distributed", "do", "domain", "else", "enum", "false", "for",
+            "forall", "goto", "if", "imag", "in", "int", "inout", "let", "locale", "module",
+            "nil", "of", "on", "ordered", "otherwise", "out", "param", "pragma", "range", "real",
+            "record", "reduce", "return", "scan", "select", "serial", "single", "sync", "then", "true",
+            "type", "uint", "union", "use", "var", "when", "where", "while", "yield"
         ]
     })
     ,  (Clojure,   LanguageInfo {
@@ -140,13 +133,14 @@ languagesMap = Map.fromList
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\""]
     ,   langResKeywords = keywords [
             "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit", "atomic_noexcept",
-            "auto", "bitand", "bitor", "bool", "break", "case", "catch", "char", "char8_t", "char16_t", "char32_t", "class",
-            "compl", "concept", "const", "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await", "co_return",
-            "co_yield", "decltype", "default", "delete", "do", "double", "dynamic_cast", "else", "enum", "explicit", "export",
-            "extern", "false", "float", "for", "friend", "goto", "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept",
-            "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "reflexpr", "register",
-            "reinterpret_cast", "requires", "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast",
-            "struct", "switch", "synchronized", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid",
+            "auto", "bitand", "bitor", "bool", "break", "case", "catch", "char", "char8_t", "char16_t", "char32_t",
+            "class", "compl", "concept", "const", "consteval", "constexpr", "constinit", "const_cast", "continue",
+            "co_await", "co_return", "co_yield", "decltype", "default", "delete", "do", "double", "dynamic_cast",
+            "else", "enum", "explicit", "export", "extern", "false", "float", "for", "friend", "goto", "if", "inline",
+            "int", "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator",
+            "or", "or_eq", "private", "protected", "public", "reflexpr", "register", "reinterpret_cast", "requires",
+            "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast", "struct", "switch",
+            "synchronized", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid",
             "typename", "union", "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
             "final", "override", "transaction_safe", "transaction_safe_dynamic", "import", "module",
             "elif", "endif", "ifdef", "ifndef", "define", "undef", "include", "line", "error", "pragma", "defined",
@@ -211,22 +205,25 @@ languagesMap = Map.fromList
         langExtensions = [Ext "go"]
     ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "/n"]  ["\"" ~~ "\"", "`" ~~ "`"]
     ,   langResKeywords = keywords [
-            "break", "default", "func", "interface", "select", "case", "defer", "go", "map", "struct", "chan", "else", "goto", "package", "switch",
-            "const", "fallthrough", "if", "range", "type", "continue", "for", "import", "return", "var",
-            "append", "bool", "byte", "cap", "close", "complex", "complex64", "complex128", "uint16", "copy", "false", "float32", "float64", "imag", "int",
-            "int8", "int16", "uint32", "int32", "int64", "iota", "len", "make", "new", "nil", "panic", "uint64", "print", "println", "real", "recover", "string",
-            "true"," uint", "uint8", "uintptr"
+            "break", "default", "func", "interface", "select", "case", "defer", "go", "map",
+            "struct", "chan", "else", "goto", "package", "switch", "const", "fallthrough", "if",
+            "range", "type", "continue", "for", "import", "return", "var", "append", "bool", "byte",
+            "cap", "close", "complex", "complex64", "complex128", "uint16", "copy", "false",
+            "float32", "float64", "imag", "int", "int8", "int16", "uint32", "int32", "int64",
+            "iota", "len", "make", "new", "nil", "panic", "uint64", "print", "println", "real",
+            "recover", "string", "true"," uint", "uint8", "uintptr"
         ]
     })
     ,  (Haskell,   LanguageInfo {
         langExtensions = [Ext "hs", Ext "lhs", Ext "hsc"]
     ,   langFilter = mkFilter ["{-" ~~ "-}", "--" ~~ "\n"]  ["\"" ~~ "\"", "[r|" ~~ "|]", "[q|" ~~ "|]", "[s|" ~~ "|]", "[here|" ~~"|]",  "[i|" ~~ "|]"]
     ,   langResKeywords = keywords [
-            "as", "case", "class", "data", "default", "deriving", "do", "else", "hiding", "if", "import", "in", "infix", "infixl", "infixr", "instance",
-            "let", "module", "newtype", "of", "qualified", "then", "type", "where", "forall", "mdo", "family", "role", "pattern", "static", "group",
-            "by", "using", "foreign", "export", "label", "dynamic", "safe", "interruptible", "unsafe", "stdcall", "ccall", "capi", "prim", "javascript", "rec",
-            "proc"
-        ]
+            "as", "case", "class", "data", "default", "deriving", "do", "else", "hiding", "if", "import",
+            "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "qualified",
+            "then", "type", "where", "forall", "mdo", "family", "role", "pattern", "static", "group",
+            "by", "using", "foreign", "export", "label", "dynamic", "safe", "interruptible", "unsafe",
+            "stdcall", "ccall", "capi", "prim", "javascript", "rec", "proc"
+    ]
     })
     ,  (Html,      LanguageInfo {
         langExtensions = [Ext "htm", Ext "html"]
@@ -349,7 +346,11 @@ languagesMap = Map.fromList
     ,   langResKeywords = keywords []
     })
     ,  (Text,  LanguageInfo {
-        langExtensions = [Ext "txt", Ext "md", Ext "markdown", Ext "mdown", Ext "mkdn", Ext "mkd", Ext "mdwn", Ext "mdtxt", Ext "mdtext", Ext "text", Name "README", Name "INSTALL", Name "VERSION", Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"]
+        langExtensions = [
+            Ext "txt", Ext "md", Ext "markdown", Ext "mdown", Ext "mkdn", Ext "mkd", Ext "mdwn",
+            Ext "mdtxt", Ext "mdtext", Ext "text", Name "README", Name "INSTALL", Name "VERSION",
+            Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"
+        ]
     ,   langFilter = Nothing
     ,   langResKeywords = keywords []
     })

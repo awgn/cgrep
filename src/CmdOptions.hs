@@ -54,7 +54,7 @@ options = cmdArgsMode $ Options
           ,     number = False              &= help "Literal numbers" &= explicit &= name "number"
           ,     string = False              &= help "Literal strings" &= explicit &= name "string"
           ,     operator = False            &= help "Operators" &= explicit &= name "oper"
-          ,     semantic = False            &= groupname "\nSemantic" &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, CHR, LIT, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors, \"struct OR class _ { OR : OR <\" search for a class declaration" &= explicit &= name "S" &= name "semantic"
+          ,     semantic = False            &= groupname "\nSemantic" &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT, OR. -> e.g. \"_1(_1 && \\$)\" search for move constructors, \"struct OR class _ { OR : OR <\" search for a class declaration" &= explicit &= name "S" &= name "semantic"
           ,     max_count = maxBound        &= groupname "\nOutput control" &= help "Stop search in files after INT matches" &= explicit &= name "max-count"
           ,     language_filter = []        &= help "Specify languages. ie: Cpp, +Haskell, -Makefile"
           ,     language_force = Nothing    &= help "Force the language" &= explicit &= name "language-force"
