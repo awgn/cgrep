@@ -59,7 +59,7 @@ import System.IO
 import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
-import CGrep.CGrep ( isRegexp, runSearch )
+import CGrep.Search ( isRegexp, runSearch )
 import CGrep.Language ( Language, splitLanguagesList)
 import CGrep.LanguagesMap ( languagesMap, languageLookup, dumpLanguagesMap)
 

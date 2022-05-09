@@ -55,22 +55,18 @@ Executable cgrep
                        CGrep.LanguagesMap
                        CGrep.ContextFilter
                        CGrep.Types
-                       CGrep.CGrep
+                       CGrep.Search
                        CGrep.Output
                        CGrep.Distance
                        CGrep.Common
                        CGrep.Chunk
+                       CGrep.Parser.Chunk
                        CGrep.Parser.Token
                        CGrep.Parser.WildCard
-                       CGrep.Parser.Generic.Token
-                       CGrep.Parser.Cpp.Token
-                       CGrep.Parser.SemanticToken
                        CGrep.Strategy.Semantic
                        CGrep.Strategy.Tokenizer
                        CGrep.Strategy.Levenshtein
                        CGrep.Strategy.BoyerMoore
-                       CGrep.Strategy.Cpp.Tokenizer
-                       CGrep.Strategy.Cpp.Semantic
                        CGrep.Strategy.Regex
                        Paths_cgrep
   Build-Depends:       base < 5.0,

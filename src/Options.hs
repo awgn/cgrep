@@ -39,12 +39,9 @@ data Options = Options
     -- Tokenizer:
     ,   identifier          :: Bool
     ,   keyword             :: Bool
-    ,   directive           :: Bool
-    ,   header              :: Bool
     ,   number              :: Bool
     ,   string              :: Bool
-    ,   char                :: Bool
-    ,   oper                :: Bool
+    ,   operator            :: Bool
     -- Semantic:
     ,   semantic            :: Bool
     -- Output control:

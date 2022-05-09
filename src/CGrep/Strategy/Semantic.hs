@@ -21,7 +21,7 @@ module CGrep.Strategy.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import qualified CGrep.Parser.Generic.Token as Generic
+import CGrep.Parser.Token
 
 import CGrep.ContextFilter
     ( ContextFilter(getFilterComment), mkContextFilter)
@@ -38,7 +38,6 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutput )
 
-import CGrep.Parser.SemanticToken ( SemanticToken(tkToString) )
 import CGrep.Parser.WildCard
     ( WildCard(TokenCard),
       mkWildCardFromToken,
@@ -78,15 +77,15 @@ search f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (Generic.tokenizer langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
         identif = mapMaybe (\case
-                            TokenCard (Generic.TokenLiteral xs _) -> Just (rmQuote $ trim xs)
-                            TokenCard (Generic.TokenAlpha "OR" _) -> Nothing
-                            TokenCard t                           -> Just (tkToString t)
-                            _                                     -> Nothing
+                            TokenCard (TokenString xs _)       -> Just (rmQuote $ trim xs)
+                            TokenCard (TokenIdentifier "OR" _) -> Nothing
+                            TokenCard t                        -> Just (toString t)
+                            _                                  -> Nothing
                             ) . concat $ patterns'
 
     -- put banners...
@@ -104,12 +103,12 @@ search f ps = do
 
         -- parse source code, get the Generic.Chunk list...
 
-        let tokens = Generic.tokenizer langInfo text'''
+        let tokens = parseTokens langInfo text'''
 
         -- get matching tokens ...
 
-        let tokens' = sortBy (compare `on` Generic.toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
-        let matches = map (\t -> let n = fromIntegral (Generic.toOffset t) in Chunk n (C.pack (Generic.toString t))) tokens' :: [Chunk]
+        let tokens' = sortBy (compare `on` toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+        let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (C.pack (toString t))) tokens' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches

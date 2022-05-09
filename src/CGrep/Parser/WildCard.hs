@@ -29,7 +29,6 @@ import qualified Data.Map as M
 
 import CGrep.Common ( trim )
 import CGrep.Distance ( (~==) )
-import CGrep.Parser.SemanticToken ( SemanticToken(..) )
 
 import Data.Char ( isNumber, isDigit )
 import Data.List
@@ -38,9 +37,10 @@ import Options
     ( Options(edit_dist, word_match, prefix_match, suffix_match) )
 import Util ( spanGroup, rmQuote )
 
+import qualified CGrep.Parser.Token as T
 
-data WildCard a =
-    TokenCard a        |
+data WildCard =
+    TokenCard T.Token  |
     AnyCard            |
     KeyWordCard        |
     NumberCard         |
@@ -48,16 +48,14 @@ data WildCard a =
     HexCard            |
     StringCard         |
     LiteralCard        |
-    CharCard           |
     IdentifCard String
         deriving (Show, Eq, Ord)
 
 
+type MultiCard = [WildCard]
 
-type MultiCard a = [WildCard a]
 
-
-wildCardMap :: M.Map String (WildCard a)
+wildCardMap :: M.Map String WildCard
 wildCardMap = M.fromList
             [
                 ("ANY", AnyCard     ),
@@ -65,37 +63,36 @@ wildCardMap = M.fromList
                 ("OCT", OctCard     ),
                 ("HEX", HexCard     ),
                 ("NUM", NumberCard  ),
-                ("CHR", CharCard    ),
                 ("STR", StringCard  ),
                 ("LIT", StringCard  )
             ]
 
 
-mkWildCardFromToken :: (SemanticToken a) => a -> WildCard a
+mkWildCardFromToken :: T.Token -> WildCard
 mkWildCardFromToken t
-    | tkIsIdentifier t = case () of
+    | T.isIdentifier t = case () of
         _ | Just wc <- M.lookup str wildCardMap -> wc
           | isWildCardIdentif str               -> IdentifCard str
-          | otherwise                           -> TokenCard $ tkToIdentif (rmWildCardEscape str) (tkToOffset t)
-            where str = tkToString t
+          | otherwise                           -> TokenCard $ T.TokenIdentifier (rmWildCardEscape str) (T.toOffset t)
+            where str = T.toString t
     | otherwise = TokenCard t
 
 
-combineMultiCard :: (SemanticToken a) => [MultiCard a] -> [MultiCard a]
+combineMultiCard :: [MultiCard] -> [MultiCard]
 combineMultiCard (m1:r@(m2:m3:ms))
-    | [TokenCard b] <- m2, tkToString b == "OR" = combineMultiCard $ (m1++m3):ms
+    | [TokenCard b] <- m2, T.toString b == "OR" = combineMultiCard $ (m1++m3):ms
     | otherwise          =  m1 : combineMultiCard r
 combineMultiCard [m1,m2] =  [m1,m2]
 combineMultiCard [m1]    =  [m1]
 combineMultiCard []      =  []
 
 
-filterTokensWithMultiCards :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [a]
+filterTokensWithMultiCards :: Options -> [MultiCard] -> [T.Token] -> [T.Token]
 filterTokensWithMultiCards opt ws = filterTokensWithMultiCards' opt (spanOptionalCards ws)
 {-# INLINE filterTokensWithMultiCards #-}
 
 
-filterTokensWithMultiCards' :: (SemanticToken a) => Options -> [[MultiCard a]] -> [a] -> [a]
+filterTokensWithMultiCards' :: Options -> [[MultiCard]] -> [T.Token] -> [T.Token]
 filterTokensWithMultiCards' _ [] _ = []
 filterTokensWithMultiCards' opt (g:gs) ts =
     concatMap (take grpLen . (`drop` ts)) (findIndices (multiCardCompare opt g) grp) ++
@@ -104,7 +101,7 @@ filterTokensWithMultiCards' opt (g:gs) ts =
           grpLen = length g
 
 
-spanOptionalCards :: [MultiCard a] -> [[MultiCard a]]
+spanOptionalCards :: [MultiCard] -> [[MultiCard]]
 spanOptionalCards wc = map (`filterCardIndices` wc') idx
     where wc' = zip [0..] wc
           idx = subsequences $
@@ -113,12 +110,12 @@ spanOptionalCards wc = map (`filterCardIndices` wc') idx
                                 _ -> False) wc
 
 
-filterCardIndices :: [Int] -> [(Int, MultiCard a)] -> [MultiCard a]
+filterCardIndices :: [Int] -> [(Int, MultiCard)] -> [MultiCard]
 filterCardIndices ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 {-# INLINE filterCardIndices #-}
 
 
-multiCardCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> Bool
+multiCardCompare :: Options -> [MultiCard] -> [T.Token] -> Bool
 multiCardCompare opt l r =
     multiCardCompareAll ts && multiCardCheckOccurences ts
         where ts = multiCardGroupCompare opt l r
@@ -140,14 +137,14 @@ rmWildCardEscape xs = xs
 {-# INLINE rmWildCardEscape #-}
 
 
-multiCardCompareAll :: [(Bool, (MultiCard a, [String]))] -> Bool
+multiCardCompareAll :: [(Bool, (MultiCard, [String]))] -> Bool
 multiCardCompareAll = all fst
 {-# INLINE multiCardCompareAll #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
 --       that must compare equal in the respective occurrences
 
-multiCardCheckOccurences :: (SemanticToken a) => [(Bool, (MultiCard a, [String]))] -> Bool
+multiCardCheckOccurences :: [(Bool, (MultiCard, [String]))] -> Bool
 multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
     where m =  M.mapWithKey (\k xs ->
                 case k of
@@ -177,47 +174,46 @@ multiCardCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True 
 
 
 
-multiCardGroupCompare :: (SemanticToken a) => Options -> [MultiCard a] -> [a] -> [(Bool, (MultiCard a, [String]))]
+multiCardGroupCompare :: Options -> [MultiCard] -> [T.Token] -> [(Bool, (MultiCard, [String]))]
 multiCardGroupCompare opt ls rs
     | length rs >= length ls = zipWith (tokensZip opt) ls rs
     | otherwise              = [ (False, ([AnyCard], [])) ]
 {-# INLINE multiCardGroupCompare #-}
 
 
-tokensZip :: (SemanticToken a) => Options -> MultiCard a -> a -> (Bool, (MultiCard a, [String]))
+tokensZip :: Options -> MultiCard -> T.Token -> (Bool, (MultiCard, [String]))
 tokensZip opt l r
-    |  multiCardMatch opt l r = (True,  (l, [tkToString r]))
+    |  multiCardMatch opt l r = (True,  (l, [T.toString r]))
     |  otherwise              = (False, ([AnyCard],[] ))
 {-# INLINE tokensZip #-}
 
 
-multiCardMatch :: (SemanticToken t) => Options ->  MultiCard t -> t -> Bool
+multiCardMatch :: Options ->  MultiCard -> T.Token -> Bool
 multiCardMatch opt m t = any (\w -> wildCardMatch opt w t) m
 {-# INLINE multiCardMatch #-}
 
-wildCardMatch :: (SemanticToken t) => Options ->  WildCard t -> t -> Bool
+wildCardMatch :: Options -> WildCard -> T.Token -> Bool
 wildCardMatch _  AnyCard _          = True
-wildCardMatch _  (IdentifCard _) t  = tkIsIdentifier t
-wildCardMatch _  KeyWordCard     t  = tkIsKeyword t
-wildCardMatch _  StringCard      t  = tkIsString t
-wildCardMatch _  CharCard        t  = tkIsChar t
-wildCardMatch _  LiteralCard     t  = tkIsString t || tkIsChar t
-wildCardMatch _  NumberCard      t  = tkIsNumber t
-wildCardMatch _  OctCard         t  = tkIsNumber t && case tkToString t of ('0':d: _)  -> isDigit d; _ -> False
-wildCardMatch _  HexCard         t  = tkIsNumber t && case tkToString t of ('0':'x':_) -> True; _      -> False
+wildCardMatch _  (IdentifCard _) t  = T.isIdentifier t
+wildCardMatch _  KeyWordCard     t  = T.isKeyword t
+wildCardMatch _  StringCard      t  = T.isString t
+wildCardMatch _  LiteralCard     t  = T.isString t
+wildCardMatch _  NumberCard      t  = T.isNumber t
+wildCardMatch _  OctCard         t  = T.isNumber t && case T.toString t of ('0':d: _)  -> isDigit d; _ -> False
+wildCardMatch _  HexCard         t  = T.isNumber t && case T.toString t of ('0':'x':_) -> True; _      -> False
 wildCardMatch opt (TokenCard l) r
-    | tkIsIdentifier l && tkIsIdentifier r =
-        if | edit_dist  opt   -> tkToString l ~== tkToString r
-           | word_match opt   -> tkToString l ==  tkToString r
-           | prefix_match opt -> tkToString l `isPrefixOf`  tkToString r
-           | suffix_match opt -> tkToString l `isSuffixOf`  tkToString r
-           | otherwise        -> tkToString l `isInfixOf` tkToString r
-    | tkIsString l && tkIsString r = case () of
+    | T.isIdentifier l && T.isIdentifier r =
+        if | edit_dist  opt   -> T.toString l ~== T.toString r
+           | word_match opt   -> T.toString l ==  T.toString r
+           | prefix_match opt -> T.toString l `isPrefixOf`  T.toString r
+           | suffix_match opt -> T.toString l `isSuffixOf`  T.toString r
+           | otherwise        -> T.toString l `isInfixOf` T.toString r
+    | T.isString l && T.isString r = case () of
         _ | edit_dist  opt   -> ls ~== rs
           | word_match opt   -> ls ==  rs
           | prefix_match opt -> ls `isPrefixOf` rs
           | suffix_match opt -> ls `isSuffixOf` rs
           | otherwise        -> ls `isInfixOf`  rs
-            where ls = rmQuote $ trim (tkToString l)
-                  rs = rmQuote $ trim (tkToString r)
-    | otherwise  = l `tkEqual` r
+            where ls = rmQuote $ trim (T.toString l)
+                  rs = rmQuote $ trim (T.toString r)
+    | otherwise  = l `T.tokenEqual` r

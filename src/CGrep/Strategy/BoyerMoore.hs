@@ -39,7 +39,7 @@ import CGrep.ContextFilter ( mkContextFilter )
 import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
 import CGrep.Types ( Offset )
 
-import qualified CGrep.Parser.Token as T
+import CGrep.Parser.Chunk ( parseChunks )
 
 import Reader ( OptionIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
@@ -92,12 +92,12 @@ search f patterns = do
 
 checkChunk :: Options -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool
 checkChunk opt linfo text Chunk{..}
-     | word_match    opt = Chunk (tOffset - off') tStr `elem` ts
-     | prefix_match  opt = any (\(Chunk o s) -> tStr `C.isPrefixOf` s && o + off' == tOffset) ts
-     | suffix_match  opt = any (\(Chunk o s) -> tStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length tStr) == tOffset) ts
+     | word_match    opt = Chunk (tOffset - off') tStr `elem` cs
+     | prefix_match  opt = any (\(Chunk o s) -> tStr `C.isPrefixOf` s && o + off' == tOffset) cs
+     | suffix_match  opt = any (\(Chunk o s) -> tStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length tStr) == tOffset) cs
      | otherwise         = undefined
      where (text',off') = getLineByOffset tOffset text
-           ts           = T.tokenizer linfo text'
+           cs           = parseChunks linfo text'
 
 
 splitLines :: Text8 -> [(Text8, Offset)]

@@ -19,14 +19,11 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 
-module CGrep.CGrep ( runSearch
-                   , isRegexp) where
+module CGrep.Search ( runSearch , isRegexp) where
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
 import qualified CGrep.Strategy.Regex            as Regex
-import qualified CGrep.Strategy.Cpp.Semantic     as CppSemantic
-import qualified CGrep.Strategy.Cpp.Tokenizer    as CppTokenizer
 import qualified CGrep.Strategy.Tokenizer        as Tokenizer
 import qualified CGrep.Strategy.Semantic         as Semantic
 
@@ -57,17 +54,15 @@ hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options{..} =
   identifier ||
   keyword    ||
-  directive  ||
-  header     ||
   number     ||
   string     ||
-  char       ||
-  oper
+  operator
 
 
 isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
 {-# INLINE isRegexp #-}
+
 
 runSearch :: FilePath -> [Text8] -> OptionIO [Output]
 runSearch filename patterns = do
@@ -77,9 +72,7 @@ runSearch filename patterns = do
       local (\env -> env{langType = fst <$> info, langInfo = snd <$> info}) $
         if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search filename patterns
            | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search filename patterns
-           | (not . isRegexp) opt && semantic opt && hasLanguage filename opt [C,Cpp]                 -> CppSemantic.search filename patterns
            | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search filename patterns
-           | (not . isRegexp) opt && hasLanguage filename opt [C,Cpp]                                 -> CppTokenizer.search filename patterns
            | (not . isRegexp) opt                                                                     -> Tokenizer.search filename patterns
            | isRegexp opt                                                                             -> Regex.search filename patterns
            | otherwise                                                                                -> undefined

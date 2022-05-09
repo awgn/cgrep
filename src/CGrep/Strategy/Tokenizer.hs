@@ -21,7 +21,8 @@ module CGrep.Strategy.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import qualified CGrep.Parser.Generic.Token as Generic
+import CGrep.Parser.Token
+    ( Token(..), TokenFilter(..), parseTokens, filterToken )
 
 import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
@@ -46,8 +47,6 @@ import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
 import Reader ( OptionIO, Env (..) )
 import Options
-    ( Options(identifier, directive, keyword, header, string, number,
-              char, oper, edit_dist, word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
 import CGrep.Chunk (Chunk (..))
@@ -80,20 +79,16 @@ search f ps = do
 
         -- parse source code, get the Cpp.Chunk list...
 
-        let tokens = Generic.tokenizer langInfo text'''
+        let tokens = parseTokens langInfo text'''
 
         -- token-filterting...
 
-            --tokens'= filter (Cpp.tokenFilter Cpp.TokenFilter { Cpp.filtIdentifier = identifier opt,
-            --                                                   Cpp.filtDirective  = directive opt,
-            --                                                   Cpp.filtKeyword    = keyword opt,
-            --                                                   Cpp.filtHeader     = header opt,
-            --                                                   Cpp.filtString     = string opt,
-            --                                                   Cpp.filtNumber     = number opt,
-            --                                                   Cpp.filtChar       = char opt,
-            --                                                   Cpp.filtOper       = oper opt}) tokens
+            tokens'= filter (filterToken TokenFilter { filtIdentifier = identifier opt,
+                                                       filtKeyword    = keyword opt,
+                                                       filtString     = string opt,
+                                                       filtNumber     = number opt,
+                                                       filtOperator   = operator opt}) tokens
 
-            tokens' = tokens
 
         -- filter tokens...
 
@@ -101,7 +96,7 @@ search f ps = do
 
         -- convert Cpp.Tokens to CGrep.Tokens
 
-            matches = map (\t -> let off = fromIntegral (Generic.toOffset t) in Chunk off (C.pack (Generic.toString t))) tokens'' :: [Chunk]
+            matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (C.pack (toString t))) tokens'' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens
         putStrLn2 $ "tokens'   : " ++ show tokens'
@@ -112,10 +107,10 @@ search f ps = do
         mkOutput filename text text''' matches
 
 
-genericTokenFilter :: Options -> [String] -> [Generic.Token] -> [Generic.Token]
+genericTokenFilter :: Options -> [String] -> [Token] -> [Token]
 genericTokenFilter opt patterns tokens
-    | edit_dist    opt = filter (\t -> any (\p -> p ~== Generic.toString t) patterns) tokens
-    | word_match   opt = filter ((`elem` patterns) . Generic.toString) tokens
-    | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . Generic.toString) tokens
-    | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . Generic.toString) tokens
-    | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . Generic.toString) tokens
+    | edit_dist    opt = filter (\t -> any (\p -> p ~==  toString t) patterns) tokens
+    | word_match   opt = filter ((`elem` patterns) . toString) tokens
+    | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . toString) tokens
+    | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . toString) tokens
+    | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . toString) tokens
