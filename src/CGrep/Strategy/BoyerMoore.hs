@@ -33,7 +33,7 @@ import CGrep.Common
       getTargetName,
       ignoreCase,
       runSearch,
-      shallowSearch )
+      shallowSearch, quickMatch )
 import CGrep.Output ( Output, mkOutput )
 import CGrep.ContextFilter ( mkContextFilter )
 import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
@@ -79,7 +79,7 @@ search f patterns = do
 
     putStrLn1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
 
-    runSearch opt filename (any notNull shallow) $ do
+    runSearch opt filename (quickMatch patterns shallow) $ do
 
         -- print banners...
 
