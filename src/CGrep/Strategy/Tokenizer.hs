@@ -28,7 +28,7 @@ import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter
-    ( ContextFilter(getFilterComment), mkContextFilter)
+    ( ContextFilter(ctxComment), mkContextFilter)
 import CGrep.LanguagesMap
     ( contextFilter, languageLookup, languageLookup )
 import CGrep.Common
@@ -47,6 +47,8 @@ import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
 import Reader ( OptionIO, Env (..) )
 import Options
+    ( Options(identifier, keyword, string, number, operator, edit_dist,
+              word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
 import Util ( notNull )
 import CGrep.Chunk (Chunk (..))
@@ -63,7 +65,7 @@ search f ps = do
 
     -- transform text
 
-    let filt = (mkContextFilter opt) { getFilterComment = False }
+    let filt = (mkContextFilter opt) { ctxComment = False }
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
                                                  , contextFilter (languageLookup opt filename) filt
@@ -94,7 +96,7 @@ search f ps = do
 
             tokens'' = genericTokenFilter opt (map C.unpack ps) tokens'
 
-        -- convert Cpp.Tokens to CGrep.Tokens
+        -- convert Tokens to Chunks
 
             matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (C.pack (toString t))) tokens'' :: [Chunk]
 

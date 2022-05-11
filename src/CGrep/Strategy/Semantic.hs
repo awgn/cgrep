@@ -24,7 +24,7 @@ import qualified Data.ByteString.Char8 as C
 import CGrep.Parser.Token
 
 import CGrep.ContextFilter
-    ( ContextFilter(getFilterComment), mkContextFilter)
+    ( ContextFilter(ctxComment, ctxLiteral), mkContextFilter)
 import CGrep.LanguagesMap ( languageLookup, contextFilter )
 import CGrep.Common
     ( Text8,
@@ -73,13 +73,13 @@ search f ps = do
                                                       , ignoreCase opt
                                                       ]
 
-        filt  = (mkContextFilter opt) { getFilterComment = False }
+        filt  = (mkContextFilter opt) { ctxComment = False, ctxLiteral = False }
 
     -- pre-process patterns
 
         patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkWildCardFromToken) patterns                                      -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineMultiCard . map (:[])) patterns'                                -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+        patterns'  = map (map mkWildCardFromToken) patterns                                            -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineMultiCard . map (:[])) patterns'                                      -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
         identif = mapMaybe (\case
                             TokenCard (TokenString xs _)       -> Just (rmQuote $ trim xs)
@@ -108,6 +108,9 @@ search f ps = do
         -- get matching tokens ...
 
         let tokens' = sortBy (compare `on` toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+
+        -- convert Tokens to Chunks
+
         let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (C.pack (toString t))) tokens' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens'

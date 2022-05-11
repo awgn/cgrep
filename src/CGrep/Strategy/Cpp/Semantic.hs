@@ -74,7 +74,7 @@ search f patterns = do
 
     -- transform text
 
-    let filt = (mkContextFilter opt) { getFilterComment = False }
+    let filt = (mkContextFilter opt) { ctxComment = False, ctxLiteral = False }
 
 
     let [text''', text'' , text', _] = scanr ($) text [ expandMultiline opt

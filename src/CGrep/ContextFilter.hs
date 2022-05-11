@@ -43,9 +43,9 @@ data Context = Code | Comment | Literal
 
 
 data ContextFilter = ContextFilter
-    {   getFilterCode    :: !Bool
-    ,   getFilterComment :: !Bool
-    ,   getFilterLiteral :: !Bool
+    {   ctxCode    :: !Bool
+    ,   ctxComment :: !Bool
+    ,   ctxLiteral :: !Bool
     } deriving (Eq, Show)
 
 
@@ -134,8 +134,8 @@ findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b
 mkContextFilter :: Options -> ContextFilter
 mkContextFilter Options{..} =
     if not (code || comment || literal)
-        then ContextFilter { getFilterCode = True, getFilterComment = True,  getFilterLiteral = True }
-        else ContextFilter { getFilterCode = code , getFilterComment = comment , getFilterLiteral = literal }
+        then ContextFilter { ctxCode = True, ctxComment = True,  ctxLiteral = True }
+        else ContextFilter { ctxCode = code , ctxComment = comment , ctxLiteral = literal }
 
 
 findIndex' :: (a -> Bool) -> [a] -> Int

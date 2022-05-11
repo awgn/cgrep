@@ -63,7 +63,7 @@ search f ps = do
 
     -- transform text
 
-    let filt = (mkContextFilter opt) { getFilterComment = False }
+    let filt = (mkContextFilter opt) { ctxComment = False, ctxLiteral = False }
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
                                                  , contextFilter (languageLookup opt filename) filt
@@ -96,7 +96,7 @@ search f ps = do
 
             tokens'' = cppTokenFilter opt (map C.unpack ps) tokens'
 
-        -- convert Cpp.Tokens to CGrep.Tokens
+        -- convert Tokens to Chunks
 
             matches = map (\t -> let off = fromIntegral (Cpp.toOffset t) in Chunk off (C.pack (Cpp.toString t))) tokens'' :: [Chunk]
 
