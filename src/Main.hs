@@ -17,6 +17,7 @@
 --
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -291,7 +292,7 @@ main = do
                                     else readPatternsFromFile $ file opt
 
     let patterns' = map (if ignore_case opt then ic else id) patterns
-            where ic | (not . isRegexp) opt && semantic opt = C.unwords . map (\p -> if C.unpack p `elem` wildCardTokens then p else C.map toLower p) . C.words
+            where ic | (not . isRegexp) opt && semantic opt = C.unwords . map (\p -> if p `elem` wildCardTokens then p else C.map toLower p) . C.words
                      | otherwise = C.map toLower
                         where wildCardTokens = "OR" : M.keys wildCardMap   -- "OR" is not included in wildCardMap
 

@@ -52,7 +52,6 @@ trim :: String -> String
 trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
 {-# INLINE trim #-}
 
-
 trim8 :: Text8 -> Text8
 trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 {-# INLINE trim8 #-}

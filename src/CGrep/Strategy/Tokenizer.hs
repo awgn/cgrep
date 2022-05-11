@@ -94,11 +94,11 @@ search f ps = do
 
         -- filter tokens...
 
-            tokens'' = genericTokenFilter opt (map C.unpack ps) tokens'
+            tokens'' = genericTokenFilter opt ps tokens'
 
         -- convert Tokens to Chunks
 
-            matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (C.pack (toString t))) tokens'' :: [Chunk]
+            matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (toString t)) tokens'' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens
         putStrLn2 $ "tokens'   : " ++ show tokens'
@@ -109,10 +109,10 @@ search f ps = do
         mkOutput filename text text''' matches
 
 
-genericTokenFilter :: Options -> [String] -> [Token] -> [Token]
+genericTokenFilter :: Options -> [C.ByteString] -> [Token] -> [Token]
 genericTokenFilter opt patterns tokens
-    | edit_dist    opt = filter (\t -> any (\p -> p ~==  toString t) patterns) tokens
+    | edit_dist    opt = filter (\t -> any (\p -> C.unpack p ~==  (C.unpack .toString) t) patterns) tokens
     | word_match   opt = filter ((`elem` patterns) . toString) tokens
-    | prefix_match opt = filter ((\t -> any (`isPrefixOf`t) patterns) . toString) tokens
-    | suffix_match opt = filter ((\t -> any (`isSuffixOf`t) patterns) . toString) tokens
-    | otherwise        = filter ((\t -> any (`isInfixOf` t) patterns) . toString) tokens
+    | prefix_match opt = filter ((\t -> any (`C.isPrefixOf`t) patterns) . toString) tokens
+    | suffix_match opt = filter ((\t -> any (`C.isSuffixOf`t) patterns) . toString) tokens
+    | otherwise        = filter ((\t -> any (`C.isInfixOf` t) patterns) . toString) tokens

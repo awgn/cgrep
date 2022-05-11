@@ -17,6 +17,7 @@
 --
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.LanguagesMap where
 
@@ -48,7 +49,7 @@ type StringBoundary = (String, String)
 data LanguageInfo = LanguageInfo {
     langExtensions  :: [FileType]
 ,   langFilter      :: Maybe FilterFunction
-,   langResKeywords :: S.Set String
+,   langResKeywords :: S.Set C.ByteString
 }
 
 languagesMap :: LanguagesMapType

@@ -18,6 +18,7 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Parser.Chunk (parseChunks) where
 
@@ -32,8 +33,8 @@ import Data.List (genericLength)
 import CGrep.LanguagesMap ( LanguageInfo )
 
 import CGrep.Chunk ( Chunk(..), Line(..) )
+import qualified Data.ByteString.Builder.Extra as C
 
-type DString = DL.DList Char
 
 data ChunkState =
     StateSpace   |
@@ -44,55 +45,55 @@ data ChunkState =
         deriving (Eq, Enum, Show)
 
 
-data ChunkAccum = ChunkAccum !ChunkState {-# UNPACK #-} !Offset DString (DL.DList Chunk)
+data ChunkAccum = ChunkAccum !ChunkState {-# UNPACK #-} !Offset C.ByteString (DL.DList Chunk)
 
 parseChunks :: Maybe LanguageInfo -> Text8 -> [Chunk]
 parseChunks _ xs = (\(ChunkAccum _ off acc out) ->
-      DL.toList (if null (DL.toList acc) then out
-                                         else out `DL.snoc` mkChunk off acc)) $
-                                            C.foldl' tokens' (ChunkAccum StateSpace 0 DL.empty DL.empty) xs
+      DL.toList (if C.null acc
+                    then out
+                    else out `DL.snoc` mkChunk off acc)) $ C.foldl' tokens' (ChunkAccum StateSpace 0 C.empty DL.empty) xs
     where tokens' :: ChunkAccum -> Char -> ChunkAccum
           tokens' (ChunkAccum StateSpace off _ out) x =
-                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  DL.empty         out
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (DL.singleton  x) out
-                   | isDigitLT ! x      ->  ChunkAccum StateDigit   (off+1) (DL.singleton  x) out
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (DL.singleton  x) out
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (DL.singleton  x) out
+                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  C.empty         out
+                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (C.singleton  x) out
+                   | isDigitLT ! x      ->  ChunkAccum StateDigit   (off+1) (C.singleton  x) out
+                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (C.singleton  x) out
+                   | otherwise          ->  ChunkAccum StateOther   (off+1) (C.singleton  x) out
 
           tokens' (ChunkAccum StateAlpha off acc out) x =
-                if | isAlphaNumLT ! x   ->  ChunkAccum StateAlpha   (off+1) (acc `DL.snoc` x)  out
-                   | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                if | isAlphaNumLT ! x   ->  ChunkAccum StateAlpha   (off+1) (acc `C.snoc` x)  out
+                   | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  C.empty         (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  ChunkAccum StateOther   (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (ChunkAccum StateDigit off acc out) x =
-                if | isCharNumberLT ! x ->  ChunkAccum StateDigit   (off+1) (acc `DL.snoc` x)  out
-                   | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                if | isCharNumberLT ! x ->  ChunkAccum StateDigit   (off+1) (acc `C.snoc` x)  out
+                   | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  C.empty         (out `DL.snoc` mkChunk off acc)
+                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  ChunkAccum StateOther   (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (ChunkAccum StateBracket off acc out) x =
-                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | isDigitLT ! x      ->  ChunkAccum StateDigit   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
+                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  C.empty         (out `DL.snoc` mkChunk off acc)
+                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isDigitLT ! x      ->  ChunkAccum StateDigit   (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  ChunkAccum StateOther   (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
 
           tokens' (ChunkAccum StateOther off acc out) x =
-                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  DL.empty         (out `DL.snoc` mkChunk off acc)
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (DL.singleton x)  (out `DL.snoc` mkChunk off acc)
-                   | isDigitLT ! x      ->  if DL.toList acc == "."
-                                            then ChunkAccum StateDigit (off+1) (acc `DL.snoc` x)  out
-                                            else ChunkAccum StateDigit (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket    (off+1) (DL.singleton  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther      (off+1) (acc `DL.snoc` x)  out
+                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  C.empty         (out `DL.snoc` mkChunk off acc)
+                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (C.singleton x)  (out `DL.snoc` mkChunk off acc)
+                   | isDigitLT ! x      ->  if acc == "."
+                                            then ChunkAccum StateDigit (off+1) (acc `C.snoc` x)  out
+                                            else ChunkAccum StateDigit (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | isBracketLT ! x    ->  ChunkAccum StateBracket    (off+1) (C.singleton  x) (out `DL.snoc` mkChunk off acc)
+                   | otherwise          ->  ChunkAccum StateOther      (off+1) (acc `C.snoc` x)  out
 
 
 isCharNumberLT :: UArray Char Bool
 isCharNumberLT =
     listArray ('\0', '\255')
-        (map (\c -> isHexDigit c || c `elem` ".xX") ['\0'..'\255'])
+        (map (\c -> isHexDigit c || c `elem` (".xX" :: String)) ['\0'..'\255'])
 {-# INLINE isCharNumberLT #-}
 
 isSpaceLT :: UArray Char Bool
@@ -122,11 +123,10 @@ isDigitLT =
 isBracketLT :: UArray Char Bool
 isBracketLT =
     listArray ('\0', '\255')
-        (map (`elem` "{[()]}") ['\0'..'\255'])
+        (map (`elem` ("{[()]}" :: String)) ['\0'..'\255'])
 {-# INLINE isBracketLT #-}
 
 
-mkChunk :: Offset -> DString -> Chunk
-mkChunk off ds =  Chunk (off - genericLength str) (C.pack str)
-    where str = DL.toList ds
+mkChunk :: Offset -> C.ByteString -> Chunk
+mkChunk off str =  Chunk (off - fromIntegral (C.length str)) str
 {-# INLINE mkChunk #-}

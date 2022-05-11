@@ -43,6 +43,3 @@ data Line = Line {
     lOffset :: {-# UNPACK #-} !LineOffset,
     lChunks :: ![Chunk]
 } deriving (Eq, Show)
-
-
-type DString = DL.DList Char

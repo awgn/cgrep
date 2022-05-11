@@ -16,6 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Semantic (search) where
 
@@ -35,7 +36,7 @@ import CGrep.Common
       quickMatch,
       runSearch,
       expandMultiline,
-      ignoreCase )
+      ignoreCase, trim8 )
 import CGrep.Output ( Output, mkOutput )
 
 import CGrep.Parser.WildCard
@@ -53,7 +54,7 @@ import Data.Maybe ( mapMaybe )
 
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
-import Util ( notNull, rmQuote )
+import Util ( notNull, rmQuote, rmQuote8 )
 import CGrep.Chunk (Chunk (..))
 
 
@@ -82,7 +83,7 @@ search f ps = do
         patterns'' = map (combineMultiCard . map (:[])) patterns'                                      -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
         identif = mapMaybe (\case
-                            TokenCard (TokenString xs _)       -> Just (rmQuote $ trim xs)
+                            TokenCard (TokenString xs _)       -> Just (rmQuote8 $ trim8 xs)
                             TokenCard (TokenIdentifier "OR" _) -> Nothing
                             TokenCard t                        -> Just (toString t)
                             _                                  -> Nothing
@@ -95,9 +96,8 @@ search f ps = do
     putStrLn2 $ "multicards: " ++ show patterns''
     putStrLn2 $ "identif   : " ++ show identif
 
-    let idpack = map C.pack identif
-        quick1 = quickMatch ps $ shallowSearch idpack text'
-        quick2 = quickMatch ps $ shallowSearch idpack text''
+    let quick1 = quickMatch ps $ shallowSearch identif text'
+        quick2 = quickMatch ps $ shallowSearch identif text''
 
     runSearch opt filename (quick1 && quick2) $ do
 
@@ -111,7 +111,7 @@ search f ps = do
 
         -- convert Tokens to Chunks
 
-        let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (C.pack (toString t))) tokens' :: [Chunk]
+        let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (toString t)) tokens' :: [Chunk]
 
         putStrLn2 $ "tokens    : " ++ show tokens'
         putStrLn2 $ "matches   : " ++ show matches

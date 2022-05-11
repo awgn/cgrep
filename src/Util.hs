@@ -18,10 +18,12 @@
 
 module Util where
 
-import Data.Array.Unboxed ( (!), listArray, UArray )
+import Data.Array.Unboxed ( (!), listArray, UArray, IArray (bounds) )
 
 import Data.Maybe ( listToMaybe )
 import Data.Char ( toLower )
+
+import qualified Data.ByteString.Char8 as C
 
 -- from hlint :-)
 
@@ -75,3 +77,12 @@ rmQuote y@(x:xs)
                                                else y
     | otherwise = y
 {-# INLINE  rmQuote #-}
+
+
+rmQuote8 :: C.ByteString -> C.ByteString
+rmQuote8 b | C.length b < 2 = b
+           | otherwise =
+    case C.uncons b of
+        Just (x,xs) -> if (x == '"' || x == '\'') && (x == C.last b) then C.init xs else b
+        _ -> b
+{-# INLINE  rmQuote8 #-}
