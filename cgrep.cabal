@@ -104,6 +104,6 @@ Executable cgrep
                 -fwrite-ide-info
                 -hiedir=.hie
                 -threaded
-                -rtsopts "-with-rtsopts=-N"
+                -rtsopts "-with-rtsopts=-N -H128m"
 
   Default-language:    Haskell2010

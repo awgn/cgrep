@@ -24,6 +24,11 @@ module CGrep.Parser.Token (parseTokens, filterToken, Token(..), TokenFilter(..),
                             isIdentifier, isKeyword, isNumber, isBracket, isString, isOperator ) where
 
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Lazy as LB
+
+import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Builder.Extra as B
+
 import qualified Data.DList as DL
 
 import Data.Char
@@ -71,33 +76,40 @@ mkToken StateLit2       = TokenString
 mkToken StateOther      = TokenOperator
 
 
+isIdentifier :: Token -> Bool
 isIdentifier (TokenIdentifier _ _) = True
 isIdentifier _  = False
 {-# INLINE isIdentifier #-}
 
+isKeyword :: Token -> Bool
 isKeyword (TokenKeyword _ _) = True
 isKeyword _  = False
 {-# INLINE isKeyword #-}
 
+isNumber :: Token -> Bool
 isNumber (TokenDigit _ _) = True
 isNumber _  = False
 {-# INLINE isNumber #-}
 
+isBracket :: Token -> Bool
 isBracket (TokenBracket _ _) = True
 isBracket _  = False
 {-# INLINE isBracket #-}
 
+isString :: Token -> Bool
 isString (TokenString _ _) = True
 isString _  = False
 {-# INLINE isString #-}
 
+isOperator :: Token -> Bool
 isOperator (TokenOperator _ _) = True
 isOperator _  = False
 {-# INLINE isOperator #-}
 
 
-tokenBuilder :: (C.ByteString -> Offset -> Token) -> Offset -> C.ByteString -> Token
-tokenBuilder ctor off ds =  ctor ds (off - fromIntegral (C.length ds))
+tokenBuilder :: (C.ByteString -> Offset -> Token) -> Offset -> B.Builder -> Token
+tokenBuilder ctor off b =  ctor ds (off - fromIntegral (C.length ds))
+    where ds = LB.toStrict $ toLazySmallByteString b
 {-# INLINE tokenBuilder #-}
 
 
@@ -129,68 +141,76 @@ filterToken filt TokenOperator{}   = filtOperator   filt
 filterToken filt TokenBracket{}    = False
 
 
-data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset {-# UNPACK #-} !Int C.ByteString (DL.DList Token)
+data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset {-# UNPACK #-} !Int B.Builder (DL.DList Token)
 
 
 parseTokens :: Maybe LanguageInfo -> Text8 -> [Token]
 parseTokens linfo xs = fixKeyword linfo <$> (\(TokenAccum ss  off _ acc out) ->
-    DL.toList (if C.null acc
+    let accbs = toLazySmallByteString acc
+    in DL.toList (if LB.null accbs
                     then out
-                    else out `DL.snoc` tokenBuilder (mkToken ss) off acc)) (C.foldl' tokens' (TokenAccum StateSpace 0 0 C.empty DL.empty) xs)
+                    else out `DL.snoc` tokenBuilder (mkToken ss) off acc)) (C.foldl' tokens' (TokenAccum StateSpace 0 0 mempty DL.empty) xs)
     where tokens' :: TokenAccum -> Char -> TokenAccum
           tokens' (TokenAccum StateSpace off _ _ out) x =
-                if | isSpaceLT ! x      ->  TokenAccum StateSpace      (off+1) 0  C.empty         out
-                   | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (C.singleton  x) out
-                   | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (C.singleton  x) out
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier (off+1) 0 (C.singleton  x) out
-                   | isDigitLT ! x      ->  TokenAccum StateDigit      (off+1) 0 (C.singleton  x) out
-                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) 0 (C.singleton  x) out
-                   | otherwise          ->  TokenAccum StateOther      (off+1) 0 (C.singleton  x) out
+                if | isSpaceLT ! x      ->  TokenAccum StateSpace      (off+1) 0  mempty     out
+                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier (off+1) 0 (B.char8 x) out
+                   | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (B.char8 x) out
+                   | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (B.char8 x) out
+                   | isDigitLT ! x      ->  TokenAccum StateDigit      (off+1) 0 (B.char8 x) out
+                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) 0 (B.char8 x) out
+                   | otherwise          ->  TokenAccum StateOther      (off+1) 0 (B.char8 x) out
 
           tokens' (TokenAccum StateIdentifier off _ acc out) x =
-                if | isAlphaNumLT ! x   ->  TokenAccum StateIdentifier   (off+1) 0 (acc `C.snoc` x)  out
-                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  C.empty         (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
+                if | isAlphaNumLT ! x   ->  TokenAccum StateIdentifier   (off+1) 0 (acc <> B.char8 x)  out
+                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty      (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
+                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
 
           tokens' (TokenAccum StateDigit off _ acc out) x =
-                if | isCharNumberLT ! x ->  TokenAccum StateDigit   (off+1) 0 (acc `C.snoc` x)  out
-                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  C.empty         (out `DL.snoc` tokenBuilder TokenDigit off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
+                if | isCharNumberLT ! x ->  TokenAccum StateDigit   (off+1) 0 (acc <> B.char8 x)  out
+                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty         (out `DL.snoc` tokenBuilder TokenDigit off acc)
+                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
+                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
 
           tokens' (TokenAccum StateLit1 off skip acc out) x =
-                if | skip > 0           ->  TokenAccum StateLit1    (off+1) (skip-1) (acc `C.snoc` x)  out
-                   | x == '\\'          ->  TokenAccum StateLit1    (off+1) 1        (acc `C.snoc` x)  out
-                   | x == '\''          ->  TokenAccum StateSpace   (off+1) 0         C.empty         (out `DL.snoc` tokenBuilder TokenString (off+1) (acc `C.snoc` '\''))
-                   | otherwise          ->  TokenAccum StateLit1    (off+1) 0        (acc `C.snoc` x)  out
+                if | skip > 0           ->  TokenAccum StateLit1    (off+1) (skip-1) (acc <> B.char8 x)  out
+                   | x == '\\'          ->  TokenAccum StateLit1    (off+1) 1        (acc <> B.char8 x)  out
+                   | x == '\''          ->  TokenAccum StateSpace   (off+1) 0         mempty         (out `DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.char8 '\''))
+                   | otherwise          ->  TokenAccum StateLit1    (off+1) 0        (acc <> B.char8 x)  out
 
           tokens' (TokenAccum StateLit2 off skip acc out) x =
-                if | skip > 0           ->  TokenAccum StateLit2    (off+1) (skip-1) (acc `C.snoc` x)  out
-                   | x == '\\'          ->  TokenAccum StateLit2    (off+1) 1        (acc `C.snoc` x)  out
-                   | x == '"'           ->  TokenAccum StateSpace   (off+1) 0         C.empty         (out `DL.snoc` tokenBuilder TokenString (off+1) (acc `C.snoc` '"'))
-                   | otherwise          ->  TokenAccum StateLit2    (off+1) 0        (acc `C.snoc` x)  out
+                if | skip > 0           ->  TokenAccum StateLit2    (off+1) (skip-1) (acc <> B.char8 x)  out
+                   | x == '\\'          ->  TokenAccum StateLit2    (off+1) 1        (acc <> B.char8 x)  out
+                   | x == '"'           ->  TokenAccum StateSpace   (off+1) 0         mempty         (out `DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.char8 '"'))
+                   | otherwise          ->  TokenAccum StateLit2    (off+1) 0        (acc <> B.char8 x)  out
 
           tokens' (TokenAccum StateBracket off _ acc out) x =
-                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  C.empty         (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | x == '\''          ->  TokenAccum StateLit1    (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | x == '"'           ->  TokenAccum StateLit2    (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty         (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | x == '\''          ->  TokenAccum StateLit1    (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | x == '"'           ->  TokenAccum StateLit2    (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
 
           tokens' (TokenAccum StateOther off _ acc out) x =
-                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  C.empty         (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (C.singleton x)  (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | isDigitLT ! x      ->  if acc == "."
-                                            then TokenAccum StateDigit (off+1) 0 (acc `C.snoc` x)  out
-                                            else TokenAccum StateDigit (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (C.singleton  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | otherwise          ->  TokenAccum StateOther      (off+1) 0 (acc `C.snoc` x)  out
+                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty         (out `DL.snoc` tokenBuilder TokenOperator off acc)
+                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (B.char8 x)  (out `DL.snoc` tokenBuilder TokenOperator off acc)
+                   | isDigitLT ! x      ->  if toLazySmallByteString  acc == "."
+                                            then TokenAccum StateDigit (off+1) 0 (acc <> B.char8 x)  out
+                                            else TokenAccum StateDigit (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenOperator off acc)
+                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenOperator off acc)
+                   | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
+                   | otherwise          ->  TokenAccum StateOther      (off+1) 0 (acc <> B.char8 x)  out
+
+
+
+{-# NOINLINE toLazySmallByteString #-}
+toLazySmallByteString :: B.Builder -> LB.ByteString
+toLazySmallByteString =
+  B.toLazyByteStringWith (B.safeStrategy 64 B.smallChunkSize) LB.empty
 
 
 fixKeyword :: Maybe LanguageInfo -> Token -> Token
