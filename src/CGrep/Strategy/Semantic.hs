@@ -69,12 +69,14 @@ search f ps = do
 
     -- transform text
 
+
     let [text''', text'', text', _ ] = scanr ($) text [ expandMultiline opt
                                                       , contextFilter (languageLookup opt filename) filt
                                                       , ignoreCase opt
                                                       ]
 
-        filt  = (mkContextFilter opt) { ctxComment = False, ctxLiteral = False }
+        filt = (mkContextFilter opt) { ctxComment = False, ctxLiteral = False }
+
 
     -- pre-process patterns
 
@@ -96,10 +98,9 @@ search f ps = do
     putStrLn2 $ "multicards: " ++ show patterns''
     putStrLn2 $ "identif   : " ++ show identif
 
-    let quick1 = quickMatch ps $ shallowSearch identif text'
-        quick2 = quickMatch ps $ shallowSearch identif text''
+    let quick = quickMatch ps $ shallowSearch identif text'
 
-    runSearch opt filename (quick1 && quick2) $ do
+    runSearch opt filename quick $ do
 
         -- parse source code, get the Generic.Chunk list...
 
