@@ -63,7 +63,7 @@ Executable cgrep
                        CGrep.Parser.Char
                        CGrep.Parser.Chunk
                        CGrep.Parser.Token
-                       CGrep.Parser.WildCard
+                       CGrep.Parser.Atom
                        CGrep.Strategy.Semantic
                        CGrep.Strategy.Tokenizer
                        CGrep.Strategy.Levenshtein

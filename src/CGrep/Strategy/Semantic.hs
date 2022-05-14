@@ -23,6 +23,8 @@ module CGrep.Strategy.Semantic (search) where
 import qualified Data.ByteString.Char8 as C
 
 import CGrep.Parser.Token
+    ( Token(TokenIdentifier, TokenString, toOffset, toString),
+      parseTokens )
 
 import CGrep.ContextFilter
     ( ContextFilter(ctxComment, ctxLiteral), mkContextFilter)
@@ -39,11 +41,11 @@ import CGrep.Common
       ignoreCase, trim8 )
 import CGrep.Output ( Output, mkOutput )
 
-import CGrep.Parser.WildCard
-    ( WildCard(TokenCard),
-      mkWildCardFromToken,
-      combineMultiCard,
-      filterTokensWithMultiCards )
+import CGrep.Parser.Atom
+    ( Atom(..),
+      mkAtomFromToken,
+      combineAtoms,
+      filterTokensWithAtoms)
 
 import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
@@ -81,14 +83,14 @@ search f ps = do
     -- pre-process patterns
 
         patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkWildCardFromToken) patterns                                            -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineMultiCard . map (:[])) patterns'                                      -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+        patterns'  = map (map mkAtomFromToken) patterns                                            -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineAtoms . map (:[])) patterns'                                      -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
         identif = mapMaybe (\case
-                            TokenCard (TokenString xs _)       -> Just (rmQuote8 $ trim8 xs)
-                            TokenCard (TokenIdentifier "OR" _) -> Nothing
-                            TokenCard t                        -> Just (toString t)
-                            _                                  -> Nothing
+                            Token (TokenString xs _)       -> Just (rmQuote8 $ trim8 xs)
+                            Token (TokenIdentifier "OR" _) -> Nothing
+                            Token t                        -> Just (toString t)
+                            _                              -> Nothing
                             ) . concat $ patterns'
 
     -- put banners...
@@ -108,7 +110,7 @@ search f ps = do
 
         -- get matching tokens ...
 
-        let tokens' = sortBy (compare `on` toOffset) $ nub $ concatMap (\ms -> filterTokensWithMultiCards opt ms tokens) patterns''
+        let tokens' = sortBy (compare `on` toOffset) $ nub $ concatMap (\ms -> filterTokensWithAtoms opt ms tokens) patterns''
 
         -- convert Tokens to Chunks
 

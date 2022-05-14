@@ -71,7 +71,7 @@ import CGrep.Output
       putOutput,
       showFileName )
 import CGrep.Common ( takeN, trim8, getTargetName )
-import CGrep.Parser.WildCard ( wildCardMap )
+import CGrep.Parser.Atom ( wildCardMap )
 
 import CmdOptions ( options )
 import Options ( Options(..) )
