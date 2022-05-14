@@ -76,5 +76,6 @@ data Options = Options
     -- Misc:
     ,   verbosity           :: Int
     ,   no_shallow          :: Bool
+    ,   show_palette        :: Bool
     ,   others              :: [String]
     } deriving (Data, Typeable, Show)

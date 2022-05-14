@@ -1,22 +1,22 @@
 #
 # cgrep YAML config file...
-# 
+#
 
 languages:   [ Agda , Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csharp , Css ,
                 D , Dart , Elm , Elixir , Erlang , Eta , Fortran , Fsharp , Go , Haskell , Html , Idris , Java , Javascript , Json , Kotlin ,
-                Latex , Lisp , Lua , Make , Nmap , OCaml , ObjectiveC , PHP , Perl , Python , R , Ruby , Rust , Scala , SmallTalk , Shell , Swift , Tcl 
+                Latex , Lisp , Lua , Make , Nmap , OCaml , ObjectiveC , PHP , Perl , Python , R , Ruby , Rust , Scala , SmallTalk , Shell , Swift , Tcl
                     Text , VHDL , Verilog , Vim , Yaml ]
 
 prune_dirs       : [".svn", ".git", "CMakeFiles", ".stack-work" ]
 
 colors           : True
-color_filename   : "Green" 
-color_match      : "Magenta"
+color_filename   : "Orange"
+color_match      : "1:1:3"
 
 #
-# file_line option: enable edit for file:line 
+# file_line option: enable edit for file:line
 # vim: see 'file-line' plugin
 #
 #
 # file_line : True
-# 
+#

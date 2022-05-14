@@ -80,7 +80,7 @@ import Verbose ( putStrLn1 )
 import Config
     ( Config(Config, configFileLine, configColorMatch, configColorFile,
              configPruneDirs, configColors, configLanguages),
-      getConfig )
+      getConfig, dumpPalette )
 import Reader ( OptionIO, Env (..) )
 
 import qualified Data.ByteString as B
@@ -280,6 +280,9 @@ main = do
 
     when (language_map opt) $
         dumpLanguagesMap languagesMap >> exitSuccess
+
+    when (show_palette opt) $
+        dumpPalette >> exitSuccess
 
     -- check whether the pattern list is empty, display help message if it's the case
 

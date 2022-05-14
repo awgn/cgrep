@@ -22,7 +22,7 @@
 
 module Config where
 
-import Control.Monad ( MonadPlus(mzero), filterM )
+import Control.Monad ( MonadPlus(mzero), filterM, forM_ )
 import System.Directory ( doesFileExist, getHomeDirectory )
 import System.FilePath ((</>))
 import System.Console.ANSI
@@ -30,7 +30,15 @@ import System.Console.ANSI
       ColorIntensity(Vivid),
       ConsoleIntensity(BoldIntensity),
       ConsoleLayer(Foreground),
-      SGR(SetColor, SetConsoleIntensity) )
+      SGR(SetColor, SetConsoleIntensity), setSGRCode )
+
+import System.Console.ANSI.Types
+    ( SGR(SetPaletteColor, SetColor, SetConsoleIntensity),
+      xterm6LevelRGB,
+      Color(White, Red, Green, Yellow, Blue, Magenta, Cyan),
+      ColorIntensity(Vivid),
+      ConsoleIntensity(BoldIntensity),
+      ConsoleLayer(Foreground) )
 
 import qualified Data.Yaml  as Y
 import Data.Aeson ( (.!=), (.:?), FromJSON(parseJSON) )
@@ -39,6 +47,9 @@ import Data.Maybe ( fromMaybe, mapMaybe )
 import GHC.Generics ( Generic )
 import CGrep.Language ( Language )
 import Util ( notNull, readMaybe )
+
+import Data.List.Split
+import qualified Data.ByteString as B
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"
@@ -119,4 +130,15 @@ readColor "Blue"      =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreg
 readColor "Magenta"   =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Magenta]
 readColor "Cyan"      =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Cyan]
 readColor "White"     =  Just [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid White]
-readColor _           =  Nothing
+readColor "Orange"    =  Just [SetConsoleIntensity BoldIntensity, SetPaletteColor Foreground $ xterm6LevelRGB 5 2 0]
+readColor "Acqua"     =  Just [SetConsoleIntensity BoldIntensity, SetPaletteColor Foreground $ xterm6LevelRGB 2 5 4]
+readColor xs          = case splitOn ":" xs of
+                          [r, g, b] -> Just [SetConsoleIntensity BoldIntensity, SetPaletteColor Foreground $ xterm6LevelRGB (read r) (read g) (read b)]
+                          _      -> Nothing
+
+
+dumpPalette :: IO ()
+dumpPalette = do
+  let palette = [(r, g, b) | r <- [0..5], g <- [0..5], b <- [0..5]]
+  forM_ palette $ \(r, g, b) -> do
+    putStrLn $ setSGRCode [SetConsoleIntensity BoldIntensity, SetPaletteColor Foreground $ xterm6LevelRGB r g b] <> "COLOR " <> show r <> ":" <> show g <> ":" <> show b <> setSGRCode []

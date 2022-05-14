@@ -83,5 +83,6 @@ options = cmdArgsMode $ Options
           ,     asynch = False              &= help "Process chunks asynchronously"
           ,     verbosity = 0               &= groupname "\nMiscellaneous" &= help "Verbosity level: 1, 2 or 3"
           ,     no_shallow = False          &= help "Disable shallow-search"  &= explicit &= name "no-shallow"
+          ,     show_palette = False        &= help "Show color palette"  &= explicit &= name "palette"
           ,     others = []                 &= args
           } &= summary ("Cgrep " ++ showVersion version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
