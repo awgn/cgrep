@@ -27,14 +27,13 @@ import CGrep.ContextFilter
       Boundary(Boundary),
       ContextFilter(ContextFilter),
       FilterFunction,
-      contextFilterFun,
-      findIndex' )
+      contextFilterFun)
 
 import CGrep.Types ( Text8 )
 import qualified Data.Map as Map
 import System.FilePath ( takeExtension, takeFileName )
 import Control.Monad ( forM_ )
-import Data.Maybe ( fromJust )
+import Data.Maybe ( fromJust, isJust )
 import Control.Applicative ( Alternative((<|>)) )
 import Options ( Options(Options, language_force) )
 import qualified Data.ByteString.Char8 as C
@@ -42,6 +41,7 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.Array.BitArray as BA
 
 import qualified Data.Set as S
+import Data.List (findIndex)
 
 type LanguagesMapType = Map.Map Language LanguageInfo
 type FileMapType = Map.Map FileType Language
@@ -604,7 +604,7 @@ mkFilter cs ls =
 
 
 mkBloom :: [StringBoundary] -> BA.BitArray Char
-mkBloom bs = BA.listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
+mkBloom bs = BA.listArray ('\0', '\255') (map (\c -> isJust (findIndex (\(b,_) -> c == head b) bs)) ['\0'..'\255'])
 {-# INLINE mkBloom #-}
 
 

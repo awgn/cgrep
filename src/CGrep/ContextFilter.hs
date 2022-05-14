@@ -37,6 +37,8 @@ import GHC.Prim ( (+#) )
 import GHC.Exts ( Int(I#), (+#) )
 
 import Options ( Options(..) )
+import Data.List (findIndex)
+import Data.Maybe (fromMaybe)
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
 
@@ -111,11 +113,11 @@ nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
                                       lindex = findBoundary (x,xs) (litrBound c)
                                   in if bloom c ! x
-                                     then if cindex >= 0
-                                          then s{ cxtState = CommState cindex, display = commfilt, skip = C.length ( _beg (commBound c !! cindex) ) - 1 }
-                                          else if lindex >= 0
-                                               then s{ cxtState = LitrState lindex, display = codefilt, skip = C.length ( _beg (litrBound c !! lindex) ) - 1 }
-                                               else s{ display  = codefilt, skip = 0 }
+                                     then case cindex of
+                                            (Just i) ->  s{ cxtState = CommState i, display = commfilt, skip = C.length ( _beg (commBound c !! i) ) - 1 }
+                                            _        -> case lindex of
+                                                            (Just l) -> s{ cxtState = LitrState l, display = codefilt, skip = C.length ( _beg (litrBound c !! l) ) - 1 }
+                                                            _        -> s{ display  = codefilt, skip = 0 }
                                      else s{ display  = codefilt, skip = 0 }
 
     | CommState n <- cxtState s = let Boundary _ e = commBound c !! n
@@ -128,8 +130,8 @@ nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
                                      then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
                                      else s{ display = litrfilt, skip = 0 }
 
-findBoundary :: (Char, Text8) -> [Boundary] -> Int
-findBoundary (x,xs) =  findIndex' (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
+findBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
+findBoundary (x,xs) =  findIndex (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
 {-# INLINE findBoundary #-}
 
 
@@ -138,11 +140,3 @@ mkContextFilter Options{..} =
     if not (code || comment || literal)
         then ContextFilter { ctxCode = True, ctxComment = True,  ctxLiteral = True }
         else ContextFilter { ctxCode = code , ctxComment = comment , ctxLiteral = literal }
-
-
-findIndex' :: (a -> Bool) -> [a] -> Int
-findIndex' p ls =
-    loop 0# ls
-        where loop _ [] = -1
-              loop n (x:xs) | p x       = I# n
-                            | otherwise = loop (n +# 1#) xs
