@@ -156,7 +156,7 @@ ref ~<&> !x = modifySTRef' ref x
 
 
 parseTokens :: Maybe LanguageInfo -> C.ByteString -> [Token]
-parseTokens l t = runST $ parseToken' l t
+parseTokens l t = fixKeyword l <$> runST (parseToken' l t)
   where parseToken' :: Maybe LanguageInfo -> C.ByteString -> ST a [Token]
         parseToken' linfo txt  = do
           stateR  <- newSTRef StateSpace
