@@ -20,6 +20,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.ContextFilter where
 
@@ -62,6 +63,7 @@ data ParConf  =  ParConf
     ,   bloom     :: BA.BitArray Char
     }
 
+
 data ParState =  ParState
     {   cxtState  :: !ContextState
     ,   display   :: !Bool
@@ -102,9 +104,9 @@ displayContext  (LitrState _) (ContextFilter _ _ b ) = b
 
 nextContextState :: ParConf -> ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
-    | skip s > 0                = s { skip = skip s - 1 }
-    | x == '\'' && C.pack "\"'" `C.isPrefixOf` xs = s { skip = 2 }
-    | x == '\\'                 = s { display = displayContext (cxtState s) filt, skip = 1 }
+    | skip s > 0                           = s { skip = skip s - 1 }
+    | x == '\'' && "\"'" `C.isPrefixOf` xs = s { skip = 2 }
+    | x == '\\'                            = s { display = displayContext (cxtState s) filt, skip = 1 }
 
     | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
                                       lindex = findBoundary (x,xs) (litrBound c)
