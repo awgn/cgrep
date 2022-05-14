@@ -26,7 +26,7 @@ import qualified Data.DList as DL
 
 import Data.Char
     ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
-import Data.Array.Unboxed ( (!), listArray, UArray )
+
 import CGrep.Types ( Text8, LineOffset, Offset )
 import Data.List (genericLength)
 import CGrep.LanguagesMap ( LanguageInfo )

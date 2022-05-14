@@ -39,8 +39,11 @@ import CGrep.Output ( Output, mkOutput )
 import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
 import Reader ( OptionIO )
-import Util ( spanGroup, toLowercase, notNull )
+import Util ( spanGroup, notNull )
 import Data.Int (Int64)
+
+import Data.Char ( isSpace, toLower )
+
 
 takeN :: Int -> String -> String
 takeN n xs | length xs > n = take n xs ++ "..."
@@ -98,6 +101,6 @@ expandMultiline Options { multiline = n } xs
 
 ignoreCase :: Options -> Text8 -> Text8
 ignoreCase opt
-    | ignore_case opt =  C.map toLowercase
+    | ignore_case opt =  C.map toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}

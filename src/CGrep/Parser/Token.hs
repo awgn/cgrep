@@ -32,8 +32,6 @@ import qualified Data.DList as DL
 import Data.Char
     ( isSpace, isAlpha, isAlphaNum, isDigit, isHexDigit )
 
-import Data.Array.Unboxed ( (!), listArray, UArray )
-
 import CGrep.Types (Offset)
 import Data.List (genericLength)
 

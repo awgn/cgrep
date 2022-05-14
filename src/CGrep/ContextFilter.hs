@@ -26,10 +26,11 @@ module CGrep.ContextFilter where
 import CGrep.Types ( Text8 )
 
 import Data.Char ( isSpace )
-import Data.Array.Unboxed ( (!), listArray, UArray )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
+import qualified Data.Array.BitArray as BA
+import Data.Array.BitArray ((!))
 
 import GHC.Prim ( (+#) )
 import GHC.Exts ( Int(I#), (+#) )
@@ -58,9 +59,8 @@ data Boundary = Boundary
 data ParConf  =  ParConf
     {   commBound :: [Boundary]
     ,   litrBound :: [Boundary]
-    ,   bloom     :: UArray Char Bool
-    } deriving (Show)
-
+    ,   bloom     :: BA.BitArray Char
+    }
 
 data ParState =  ParState
     {   cxtState  :: !ContextState
@@ -144,14 +144,3 @@ findIndex' p ls =
         where loop _ [] = -1
               loop n (x:xs) | p x       = I# n
                             | otherwise = loop (n +# 1#) xs
-
--- findIndex' :: (a -> Bool) -> [a] -> Int
--- findIndex' p =
---     loop 0
---         where loop n [] = -1
---               loop n (x:xs) | p x       = n
---                             | otherwise = loop (n + 1) xs
---
-
--- filter language map:
---

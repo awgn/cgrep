@@ -18,8 +18,6 @@
 
 module Util where
 
-import Data.Array.Unboxed ( (!), listArray, UArray, IArray (bounds) )
-
 import Data.Maybe ( listToMaybe )
 import Data.Char ( toLower )
 
@@ -61,12 +59,6 @@ spanGroup _ [] = []
 spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
 {-# INLINE spanGroup #-}
-
-
-toLowercase :: Char -> Char
-toLowercase x = ctypeLowercase ! x
-    where ctypeLowercase = listArray ('\0','\255') (map toLower ['\0'..'\255']) :: UArray Char Char
-{-# INLINE  toLowercase #-}
 
 
 rmQuote :: String -> String

@@ -38,7 +38,9 @@ import Data.Maybe ( fromJust )
 import Control.Applicative ( Alternative((<|>)) )
 import Options ( Options(Options, language_force) )
 import qualified Data.ByteString.Char8 as C
-import Data.Array.Base ( listArray, UArray )
+
+import qualified Data.Array.BitArray as BA
+
 import qualified Data.Set as S
 
 type LanguagesMapType = Map.Map Language LanguageInfo
@@ -600,8 +602,9 @@ mkFilter cs ls =
                             (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
                             (mkBloom (cs ++ ls)))
 
-mkBloom :: [StringBoundary] -> UArray Char Bool
-mkBloom bs = listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
+
+mkBloom :: [StringBoundary] -> BA.BitArray Char
+mkBloom bs = BA.listArray ('\0', '\255') (map (\c -> findIndex' (\(b,_) -> c == head b) bs >= 0 ) ['\0'..'\255'])
 {-# INLINE mkBloom #-}
 
 

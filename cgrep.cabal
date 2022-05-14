@@ -101,6 +101,7 @@ Executable cgrep
                        exceptions,
                        mono-traversable,
                        bytestring-strict-builder,
+                       bitwise,
                        extra
 
   Ghc-options:  -O2 -j -funbox-strict-fields
