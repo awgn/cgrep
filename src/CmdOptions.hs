@@ -85,4 +85,4 @@ options = cmdArgsMode $ Options
           ,     no_shallow = False          &= help "Disable shallow-search"  &= explicit &= name "no-shallow"
           ,     show_palette = False        &= help "Show color palette"  &= explicit &= name "palette"
           ,     others = []                 &= args
-          } &= summary ("Cgrep " ++ showVersion version ++ ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"
+          } &= summary ("Cgrep " <> showVersion version <> ". Usage: cgrep [OPTION] [PATTERN] files...") &= program "cgrep"

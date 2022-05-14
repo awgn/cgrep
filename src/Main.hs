@@ -166,7 +166,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                     isDir <- doesDirectoryExist p
                     if isDir
                         then withRecursiveContents opt p langs
-                                (mkPrunableDirName <$> configPruneDirs ++ prune_dir) (Set.singleton p) (atomically . writeTQueue in_chan)
+                                (mkPrunableDirName <$> configPruneDirs <> prune_dir) (Set.singleton p) (atomically . writeTQueue in_chan)
                         else atomically . writeTQueue in_chan $ [p]
 
             else forM_ (if null paths && not isTermIn
@@ -202,7 +202,7 @@ parallelSearch paths patterns langs (isTermIn, _) = do
                                 atomically $ writeTQueue out_chan out
 
                 )  (\e -> let msg = show (e :: SomeException) in
-                            hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) ++ ": error: " ++ takeN 80 msg))
+                            hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> takeN 80 msg))
 
             when (null fs) $ throwE ()
 
@@ -236,10 +236,10 @@ parallelSearch paths patterns langs (isTermIn, _) = do
         files   <- Set.toList <$> readIORef matchingFiles
 
         let editFiles = (if fileline || configFileLine
-                            then fmap (\(a,b) -> a ++ ":" ++ show b)
+                            then fmap (\(a,b) -> a <> ":" <> show b)
                             else nub . sort . fmap fst) files
 
-        putStrLn $ "cgrep: open files " ++ unwords editFiles ++ "..."
+        putStrLn $ "cgrep: open files " <> unwords editFiles <> "..."
 
         void $ runProcess (fromJust $ editor' <|> Just "vi")
                           editFiles
@@ -302,7 +302,7 @@ main = do
     -- display the configuration in use
 
     -- when (isJust confpath) $
-    --    hPutStrLn stderr $ showBold opt ("Using '" ++ fromJust confpath ++ "' configuration file...")
+    --    hPutStrLn stderr $ showBold opt ("Using '" <> fromJust confpath <> "' configuration file...")
 
     -- load files to parse:
 
@@ -316,14 +316,14 @@ main = do
 
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
-    runReaderT (do putStrLn1 $ "Cgrep " ++ showVersion version ++ "!"
-                   putStrLn1 $ "options   : " ++ show opt
-                   putStrLn1 $ "config    : " ++ show conf
-                   putStrLn1 $ "languages : " ++ show langs
-                   putStrLn1 $ "pattern   : " ++ show patterns'
-                   putStrLn1 $ "files     : " ++ show paths
-                   putStrLn1 $ "isTermIn  : " ++ show isTermIn
-                   putStrLn1 $ "isTermOut : " ++ show isTermOut
+    runReaderT (do putStrLn1 $ "Cgrep " <> showVersion version <> "!"
+                   putStrLn1 $ "options   : " <> show opt
+                   putStrLn1 $ "config    : " <> show conf
+                   putStrLn1 $ "languages : " <> show langs
+                   putStrLn1 $ "pattern   : " <> show patterns'
+                   putStrLn1 $ "files     : " <> show paths
+                   putStrLn1 $ "isTermIn  : " <> show isTermIn
+                   putStrLn1 $ "isTermOut : " <> show isTermOut
         ) (Env conf opt Nothing Nothing)
 
     -- specify number of cores
@@ -360,5 +360,5 @@ isPruneableDir dir = any (`isSuffixOf` pdir)
 
 mkPrunableDirName :: FilePath -> FilePath
 mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
-                     | otherwise           = xs ++ "/"
+                     | otherwise           = xs <> "/"
 {-# INLINE mkPrunableDirName #-}

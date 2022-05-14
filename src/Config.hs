@@ -111,7 +111,7 @@ instance Y.FromJSON YamlConfig where
 getConfig :: IO (Config, Maybe FilePath)
 getConfig = do
     home  <- getHomeDirectory
-    confs <- filterM doesFileExist [cgreprc, "." ++ cgreprc, home </> "." ++ cgreprc, "/etc" </> cgreprc]
+    confs <- filterM doesFileExist [cgreprc, "." <> cgreprc, home </> "." <> cgreprc, "/etc" </> cgreprc]
     if notNull confs
         then do
             conf <- Y.decodeFileEither (head confs)

@@ -78,5 +78,5 @@ runSearch filename patterns = do
            | otherwise                                                                                -> undefined
    )
    (\e -> let msg = show (e :: SomeException) in
-       liftIO $ hPutStrLn stderr (showFileName conf opt filename ++ ": exception: " ++ takeN 80 msg) $> [ ]
+       liftIO $ hPutStrLn stderr (showFileName conf opt filename <> ": exception: " <> takeN 80 msg) $> [ ]
    )

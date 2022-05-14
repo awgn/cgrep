@@ -1,7 +1,7 @@
-CGrep: a context-aware grep for source codes 
+CGrep: a context-aware grep for source codes
 ============================================
 
-[![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep) 
+[![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep)
 [![Join the chat at https://gitter.im/awgn/cgrep](https://badges.gitter.im/awgn/cgrep.svg)](https://gitter.im/awgn/cgrep?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Usage
@@ -25,7 +25,7 @@ Pattern:
 
 
 Context filters (generic):
-    
+
     -c --code                  Enable search in source code
     -m --comment               Enable search in comments
     -l --literal               Enable search in string literals
@@ -96,7 +96,7 @@ Concurrency:
 Miscellaneous:
 
     -d --debug=INT             Debug level: 1, 2 or 3
-       --no-shallow            Disable shallow-search 
+       --no-shallow            Disable shallow-search
     -? --help                  Display help message
     -V --version               Print version information
        --numeric-version       Print just the version number

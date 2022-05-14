@@ -73,7 +73,7 @@ search f ps = do
                                                  ]
 
 
-    putStrLn1 $ "strategy: running token search on " ++ filename ++ "..."
+    putStrLn1 $ "strategy: running token search on " <> filename <> "..."
 
     let quick = quickMatch ps $ shallowSearch ps text'
 
@@ -100,11 +100,11 @@ search f ps = do
 
             matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (toString t)) tokens'' :: [Chunk]
 
-        putStrLn2 $ "tokens    : " ++ show tokens
-        putStrLn2 $ "tokens'   : " ++ show tokens'
-        putStrLn2 $ "tokens''  : " ++ show tokens''
-        putStrLn2 $ "matches   : " ++ show matches
-        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " <> show tokens
+        putStrLn2 $ "tokens'   : " <> show tokens'
+        putStrLn2 $ "tokens''  : " <> show tokens''
+        putStrLn2 $ "matches   : " <> show matches
+        putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
         mkOutput filename text text''' matches
 

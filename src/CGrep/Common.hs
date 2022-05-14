@@ -46,7 +46,7 @@ import Data.Char ( isSpace, toLower )
 
 
 takeN :: Int -> String -> String
-takeN n xs | length xs > n = take n xs ++ "..."
+takeN n xs | length xs > n = take n xs <> "..."
           | otherwise     = xs
 {-# INLINE takeN #-}
 

@@ -95,10 +95,9 @@ search f ps = do
 
     -- put banners...
 
-    putStrLn1 $ "strategy  : running generic semantic search on " ++ filename ++ "..."
-    putStrLn2 $ "wildcards : " ++ show patterns'
-    putStrLn2 $ "multicards: " ++ show patterns''
-    putStrLn2 $ "identif   : " ++ show identif
+    putStrLn1 $ "strategy  : running generic semantic search on " <> filename <> "..."
+    putStrLn2 $ "atoms     : " <> show patterns''
+    putStrLn2 $ "identif   : " <> show identif
 
     let quick = quickMatch ps $ shallowSearch identif text'
 
@@ -116,8 +115,8 @@ search f ps = do
 
         let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (toString t)) tokens' :: [Chunk]
 
-        putStrLn2 $ "tokens    : " ++ show tokens'
-        putStrLn2 $ "matches   : " ++ show matches
-        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " <> show tokens'
+        putStrLn2 $ "matches   : " <> show matches
+        putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
         mkOutput filename text text''' matches

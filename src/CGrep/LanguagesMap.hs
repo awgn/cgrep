@@ -588,19 +588,19 @@ languagesFileMap = Map.fromList $ concatMap (\(l, LanguageInfo{..}) -> map (,l) 
 
 dumpLanguagesMap :: LanguagesMapType -> IO ()
 dumpLanguagesMap m = forM_ (Map.toList m) $ \(l, ex) ->
-                putStrLn $ show l ++ [ ' ' | _ <- [length (show l)..12]] ++ "-> " ++ show (langExtensions ex)
+                putStrLn $ show l <> [ ' ' | _ <- [length (show l)..12]] <> "-> " <> show (langExtensions ex)
 
 
 dumpLanguagesFileMap :: FileMapType -> IO ()
 dumpLanguagesFileMap m = forM_ (Map.toList m) $ \(ext, l) ->
-                    putStrLn $ show ext ++ [ ' ' | _ <- [length (show ext)..12 ]] ++ "-> " ++ show l
+                    putStrLn $ show ext <> [ ' ' | _ <- [length (show ext)..12 ]] <> "-> " <> show l
 
 
 mkFilter :: [StringBoundary] -> [StringBoundary] -> Maybe FilterFunction
 mkFilter cs ls =
   Just $ contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
                             (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
-                            (mkBloom (cs ++ ls)))
+                            (mkBloom (cs <> ls)))
 
 
 mkBloom :: [StringBoundary] -> BA.BitArray Char

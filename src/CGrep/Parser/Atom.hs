@@ -75,7 +75,7 @@ mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
     | T.isIdentifier t = case () of
         _ | Just wc <- M.lookup str wildCardMap -> wc
-          | isAtomIdentif str               -> Identif str
+          | isAtomIdentif str                   -> Identif str
           | otherwise                           -> Token $ T.TokenIdentifier (rmAtomEscape str) (T.toOffset t)
             where str = T.toString t
     | otherwise = Token t
@@ -83,7 +83,7 @@ mkAtomFromToken t
 
 combineAtoms :: [Atoms] -> [Atoms]
 combineAtoms (m1:r@(m2:m3:ms))
-    | [Token b] <- m2, T.toString b == "OR" = combineAtoms $ (m1++m3):ms
+    | [Token b] <- m2, T.toString b == "OR" = combineAtoms $ (m1<>m3):ms
     | otherwise          =  m1 : combineAtoms r
 combineAtoms [m1,m2] =  [m1,m2]
 combineAtoms [m1]    =  [m1]
@@ -95,7 +95,7 @@ filterTokensWithAtoms opt ws = filterTokensWithAtoms' opt (spanOptionalCards ws)
     where filterTokensWithAtoms' :: Options -> [[Atoms]] -> [T.Token] -> [T.Token]
           filterTokensWithAtoms' _ [] _ = []
           filterTokensWithAtoms' opt (g:gs) ts =
-              concatMap (take grpLen . (`drop` ts)) (findIndices (wildCardsCompare opt g) grp) ++
+              concatMap (take grpLen . (`drop` ts)) (findIndices (wildCardsCompare opt g) grp) <>
                   filterTokensWithAtoms' opt gs ts
               where grp    = spanGroup grpLen ts
                     grpLen = length g
@@ -169,7 +169,7 @@ wildCardsCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True 
                     [Identif "$8"]  -> xs
                     [Identif "$9"]  -> xs
                     _                   -> []
-                ) $ M.fromListWith (++) (map snd ts)
+                ) $ M.fromListWith (<>) (map snd ts)
 {-# INLINE wildCardsCheckOccurences #-}
 
 

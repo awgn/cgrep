@@ -72,8 +72,8 @@ search f patterns = do
         tokens = map (\(str, (off,_)) -> Chunk (fromIntegral off) str) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putStrLn1 $ "strategy  : running regex " ++ (if regex_pcre opt then "(pcre)" else "(posix)") ++ " search on " ++ filename ++ "..."
-    putStrLn2 $ "tokens    : " ++ show tokens
-    putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+    putStrLn1 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
+    putStrLn2 $ "tokens    : " <> show tokens
+    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     mkOutput filename text text''' tokens

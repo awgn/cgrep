@@ -77,15 +77,15 @@ search f patterns = do
                     then filter (checkChunk opt langInfo text''') tokens
                     else tokens
 
-    putStrLn1 $ "strategy  : running Boyer-Moore search on " ++ filename ++ "..."
+    putStrLn1 $ "strategy  : running Boyer-Moore search on " <> filename <> "..."
 
     runSearch opt filename (quickMatch patterns shallow) $ do
 
         -- print banners...
 
-        putStrLn2 $ "tokens    : " ++ show tokens
-        putStrLn2 $ "tokens'   : " ++ show tokens'
-        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+        putStrLn2 $ "tokens    : " <> show tokens
+        putStrLn2 $ "tokens'   : " <> show tokens'
+        putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
         mkOutput filename text text''' tokens'
 

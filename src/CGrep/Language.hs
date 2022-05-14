@@ -42,7 +42,7 @@ data FileType = Name String | Ext String
 
 instance Show FileType where
     show (Name x) = x
-    show (Ext  e) = "*." ++ e
+    show (Ext  e) = "*." <> e
 
 
 -- utility functions

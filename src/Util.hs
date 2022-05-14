@@ -30,7 +30,7 @@ partitionM _ [] = return ([], [])
 partitionM f (x:xs) = do
     res <- f x
     (as,bs) <- partitionM f xs
-    return ([x | res]++as, [x | not res]++bs)
+    return ([x | res]<>as, [x | not res]<>bs)
 {-# INLINE partitionM #-}
 
 
@@ -46,7 +46,7 @@ prettyRead :: Read a => String -> String -> a
 prettyRead xs err =
     case readMaybe xs of
         Just v -> v
-        _      -> error $ err ++ ": parse error near " ++ show (take 40 xs)
+        _      -> error $ err <> ": parse error near " <> show (take 40 xs)
 
 
 readMaybe :: Read a => String -> Maybe a

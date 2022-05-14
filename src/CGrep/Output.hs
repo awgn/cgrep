@@ -185,10 +185,10 @@ filenameOutput outs = return $ B.stringUtf8 <$> nub ((\(Output fname _ _ _) -> f
 xmlOutput :: [Output] -> OptionIO [B.Builder]
 xmlOutput [] = return []
 xmlOutput outs = return $
-    [B.byteString "<file name='" <> B.stringUtf8  fname <> B.byteString "'>" ] ++
-    [B.byteString "<matches>" ] ++
-    [foldl mkMatch mempty outs] ++
-    [B.byteString "</matches>"] ++
+    [B.byteString "<file name='" <> B.stringUtf8  fname <> B.byteString "'>" ] <>
+    [B.byteString "<matches>" ] <>
+    [foldl mkMatch mempty outs] <>
+    [B.byteString "</matches>"] <>
     [B.byteString "</file>"]
         where fname = case outs of
                         [] -> ""
@@ -202,7 +202,7 @@ replace :: String -> [(String, String)] -> String
 replace ys@(x:xs) pats =
   let pats' = filter ((`isPrefixOf` ys) . fst) pats  in
   if null pats' then x : replace xs pats
-                else let new = head pats' in snd new ++ replace (drop (length(fst new) - 1) xs) pats
+                else let new = head pats' in snd new <> replace (drop (length(fst new) - 1) xs) pats
 replace [] _ = []
 
 
@@ -244,7 +244,7 @@ showLineCol :: Options -> Output -> String
 showLineCol Options{no_numbers = True } _ = ""
 showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
 showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n
-showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n ++ ":" ++ show ((+1) . tOffset . head $ ts)
+showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n <> ":" <> show ((+1) . tOffset . head $ ts)
 {-# INLINE showLineCol #-}
 
 
@@ -280,7 +280,7 @@ showBold opt = showColoredAs opt bold
 
 showColoredAs :: Options -> ColorString -> String -> String
 showColoredAs Options { color = c, no_color = c'} colorCode str
-    | c && not c'= colorCode ++ str ++ resetTerm
+    | c && not c'= colorCode <> str <> resetTerm
     | otherwise  = str
 {-# INLINE showColoredAs #-}
 
