@@ -60,6 +60,7 @@ Executable cgrep
                        CGrep.Distance
                        CGrep.Common
                        CGrep.Chunk
+                       CGrep.Parser.Char
                        CGrep.Parser.Chunk
                        CGrep.Parser.Token
                        CGrep.Parser.WildCard
@@ -98,12 +99,14 @@ Executable cgrep
                        aeson,
                        yaml,
                        exceptions,
+                       mono-traversable,
+                       bytestring-strict-builder,
                        extra
 
   Ghc-options:  -O2 -j -funbox-strict-fields
                 -fwrite-ide-info
                 -hiedir=.hie
                 -threaded
-                -rtsopts "-with-rtsopts=-N -H128m"
+                -rtsopts "-with-rtsopts=-N -H64m"
 
   Default-language:    Haskell2010

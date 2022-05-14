@@ -35,9 +35,17 @@ import CGrep.Chunk ( Chunk(..), Line(..) )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as LB
+import qualified Data.ByteString.Internal as BI
 
-import qualified Data.ByteString.Builder as B
-import qualified Data.ByteString.Builder.Extra as B
+import qualified ByteString.StrictBuilder as B
+
+import Data.MonoTraversable ( MonoFoldable(oforM_) )
+
+import Data.STRef ( STRef, newSTRef, writeSTRef, readSTRef )
+import Control.Monad.ST ( ST, runST )
+
+import CGrep.Parser.Char
+    ( isCharNumberC, isAlphaC, isAlphaNumC, isBracketC )
 
 data ChunkState =
     StateSpace   |
@@ -48,96 +56,74 @@ data ChunkState =
         deriving (Eq, Enum, Show)
 
 
-data ChunkAccum = ChunkAccum !ChunkState {-# UNPACK #-} !Offset B.Builder (DL.DList Chunk)
+(<~) :: STRef s a -> a -> ST s ()
+ref <~ !x = writeSTRef ref x
+{-# INLINE (<~) #-}
+
 
 parseChunks :: Maybe LanguageInfo -> Text8 -> [Chunk]
-parseChunks _ xs = (\(ChunkAccum _ off acc out) ->
-    let accbs = toLazySmallByteString acc
-      in DL.toList (if LB.null accbs
-                    then out
-                    else out `DL.snoc` mkChunk off acc)) $ C.foldl' tokens' (ChunkAccum StateSpace 0 mempty DL.empty) xs
-    where tokens' :: ChunkAccum -> Char -> ChunkAccum
-          tokens' (ChunkAccum StateSpace off _ out) x =
-                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  mempty         out
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (B.char8  x) out
-                   | isDigitLT ! x      ->  ChunkAccum StateDigit   (off+1) (B.char8  x) out
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (B.char8  x) out
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (B.char8  x) out
+parseChunks l t = runST $ parseChunks' l t
+  where parseChunks' :: Maybe LanguageInfo -> C.ByteString -> ST a [Chunk]
+        parseChunks' linfo txt  = do
+          stateR  <- newSTRef StateSpace
+          offR    <- newSTRef 0
+          skipR   <- newSTRef 0
+          accR    <- newSTRef (mempty :: B.Builder)
+          tokensR <- newSTRef DL.empty
+          oforM_ txt $ \w -> do
+            let x = BI.w2c w
+            state  <- readSTRef stateR
+            off    <- readSTRef offR
+            skip   <- readSTRef skipR
+            acc    <- readSTRef accR
+            tokens <- readSTRef tokensR
+            case state of
+                StateSpace ->
+                    if | isSpace x        ->  do stateR <~ StateSpace   ; accR <~  mempty
+                       | isAlphaC x       ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar  x
+                       | isDigit x        ->  do stateR <~ StateDigit   ; accR <~ B.asciiChar  x
+                       | isBracketC  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x
+                StateAlpha ->
+                    if | isAlphaNumC  x   ->  do stateR <~ StateAlpha   ; accR <~ (acc <> B.asciiChar x)
+                       | isSpace x        ->  do stateR <~ StateSpace   ; accR <~ mempty     ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isBracketC  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                StateDigit ->
+                    if | isCharNumberC  x ->  do stateR <~ StateDigit   ; accR <~ (acc <> B.asciiChar x)
+                       | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~  mempty    ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isAlphaC  x      ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isBracketC  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                StateBracket ->
+                    if | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~  mempty   ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isAlphaC  x      ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isDigit  x       ->  do stateR <~ StateDigit   ; accR <~ B.asciiChar x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isBracketC x     ->  do stateR <~ StateBracket ; accR <~ B.asciiChar x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                StateOther ->
+                    if | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~ mempty    ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isAlphaC  x      ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isDigit  x       ->  if B.builderBytes acc == "."
+                                                then do stateR <~ StateDigit ; accR <~ (acc <> B.asciiChar x)
+                                                else do stateR <~ StateDigit ; accR <~ B.asciiChar  x; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | isBracketC  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar x ; tokensR <~ (tokens `DL.snoc` mkChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ (acc <> B.asciiChar x)
+            offR <~ (off+1)
 
-          tokens' (ChunkAccum StateAlpha off acc out) x =
-                if | isAlphaNumLT ! x   ->  ChunkAccum StateAlpha   (off+1) (acc <> B.char8 x)  out
-                   | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  mempty         (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
+          lastAcc <- readSTRef accR
+          tokens  <- readSTRef tokensR
 
-          tokens' (ChunkAccum StateDigit off acc out) x =
-                if | isCharNumberLT ! x ->  ChunkAccum StateDigit   (off+1) (acc <> B.char8 x)  out
-                   | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  mempty         (out `DL.snoc` mkChunk off acc)
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-
-          tokens' (ChunkAccum StateBracket off acc out) x =
-                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  mempty         (out `DL.snoc` mkChunk off acc)
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | isDigitLT ! x      ->  ChunkAccum StateDigit   (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther   (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-
-          tokens' (ChunkAccum StateOther off acc out) x =
-                if | isSpaceLT ! x      ->  ChunkAccum StateSpace   (off+1)  mempty         (out `DL.snoc` mkChunk off acc)
-                   | isAlphaLT ! x      ->  ChunkAccum StateAlpha   (off+1) (B.char8 x)  (out `DL.snoc` mkChunk off acc)
-                   | isDigitLT ! x      ->  if toLazySmallByteString acc == "."
-                                            then ChunkAccum StateDigit (off+1) (acc <> B.char8 x)  out
-                                            else ChunkAccum StateDigit (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | isBracketLT ! x    ->  ChunkAccum StateBracket    (off+1) (B.char8  x) (out `DL.snoc` mkChunk off acc)
-                   | otherwise          ->  ChunkAccum StateOther      (off+1) (acc <> B.char8 x)  out
-
-
-{-# NOINLINE toLazySmallByteString #-}
-toLazySmallByteString :: B.Builder -> LB.ByteString
-toLazySmallByteString =
-  B.toLazyByteStringWith (B.safeStrategy 64 B.smallChunkSize) LB.empty
-
-
-isCharNumberLT :: UArray Char Bool
-isCharNumberLT =
-    listArray ('\0', '\255')
-        (map (\c -> isHexDigit c || c `elem` (".xX" :: String)) ['\0'..'\255'])
-{-# INLINE isCharNumberLT #-}
-
-isSpaceLT :: UArray Char Bool
-isSpaceLT =
-    listArray ('\0', '\255')
-        (map isSpace ['\0'..'\255'])
-{-# INLINE isSpaceLT #-}
-
-isAlphaLT :: UArray Char Bool
-isAlphaLT =
-    listArray ('\0', '\255')
-        (map (\c -> isAlpha c || c == '_') ['\0'..'\255'])
-{-# INLINE isAlphaLT #-}
-
-isAlphaNumLT :: UArray Char Bool
-isAlphaNumLT =
-    listArray ('\0', '\255')
-        (map (\c -> isAlphaNum c || c == '_' || c == '\'') ['\0'..'\255'])
-{-# INLINE isAlphaNumLT #-}
-
-isDigitLT :: UArray Char Bool
-isDigitLT =
-    listArray ('\0', '\255')
-        (map isDigit ['\0'..'\255'])
-{-# INLINE isDigitLT #-}
-
-isBracketLT :: UArray Char Bool
-isBracketLT =
-    listArray ('\0', '\255')
-        (map (`elem` ("{[()]}" :: String)) ['\0'..'\255'])
-{-# INLINE isBracketLT #-}
+          DL.toList <$>
+            if B.builderLength lastAcc == 0
+                then return tokens
+                else do
+                  state   <- readSTRef stateR
+                  off     <- readSTRef offR
+                  return $ tokens `DL.snoc` mkChunk off lastAcc
 
 
 mkChunk :: Offset -> B.Builder -> Chunk
-mkChunk off b =  Chunk (off - fromIntegral (C.length str)) str
-    where str = LB.toStrict $ toLazySmallByteString b
+mkChunk off b =  Chunk (off - fromIntegral (B.builderLength b)) str
+    where str = B.builderBytes b
 {-# INLINE mkChunk #-}

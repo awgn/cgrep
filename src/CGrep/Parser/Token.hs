@@ -25,9 +25,7 @@ module CGrep.Parser.Token (parseTokens, filterToken, Token(..), TokenFilter(..),
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as LB
-
-import qualified Data.ByteString.Builder as B
-import qualified Data.ByteString.Builder.Extra as B
+import qualified Data.ByteString.Internal as BI
 
 import qualified Data.DList as DL
 
@@ -36,7 +34,7 @@ import Data.Char
 
 import Data.Array.Unboxed ( (!), listArray, UArray )
 
-import CGrep.Types ( Text8, Offset )
+import CGrep.Types (Offset)
 import Data.List (genericLength)
 
 import CGrep.LanguagesMap ( LanguageInfo (langResKeywords) )
@@ -44,6 +42,14 @@ import qualified Data.Set as S
 
 import qualified CGrep.Chunk as T
 
+import Control.Monad.ST ( ST, runST )
+import Data.STRef ( STRef, newSTRef, readSTRef, writeSTRef, modifySTRef', modifySTRef )
+import Data.MonoTraversable ( MonoFoldable(oforM_) )
+import Data.Word (Word8)
+
+import qualified ByteString.StrictBuilder as B
+
+import CGrep.Parser.Char ( isCharNumberC, isBracketC )
 
 data TokenState =
     StateSpace        |
@@ -108,8 +114,8 @@ isOperator _  = False
 
 
 tokenBuilder :: (C.ByteString -> Offset -> Token) -> Offset -> B.Builder -> Token
-tokenBuilder ctor off b =  ctor ds (off - fromIntegral (C.length ds))
-    where ds = LB.toStrict $ toLazySmallByteString b
+tokenBuilder ctor off b =  ctor ds (off - fromIntegral (B.builderLength b))
+    where ds = B.builderBytes b
 {-# INLINE tokenBuilder #-}
 
 
@@ -141,76 +147,93 @@ filterToken filt TokenOperator{}   = filtOperator   filt
 filterToken filt TokenBracket{}    = False
 
 
-data TokenAccum = TokenAccum !TokenState {-# UNPACK #-} !Offset {-# UNPACK #-} !Int B.Builder (DL.DList Token)
+(<~) :: STRef s a -> a -> ST s ()
+ref <~ !x = writeSTRef ref x
+{-# INLINE (<~) #-}
 
 
-parseTokens :: Maybe LanguageInfo -> Text8 -> [Token]
-parseTokens linfo xs = fixKeyword linfo <$> (\(TokenAccum ss  off _ acc out) ->
-    let accbs = toLazySmallByteString acc
-    in DL.toList (if LB.null accbs
-                    then out
-                    else out `DL.snoc` tokenBuilder (mkToken ss) off acc)) (C.foldl' tokens' (TokenAccum StateSpace 0 0 mempty DL.empty) xs)
-    where tokens' :: TokenAccum -> Char -> TokenAccum
-          tokens' (TokenAccum StateSpace off _ _ out) x =
-                if | isSpaceLT ! x      ->  TokenAccum StateSpace      (off+1) 0  mempty     out
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier (off+1) 0 (B.char8 x) out
-                   | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (B.char8 x) out
-                   | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (B.char8 x) out
-                   | isDigitLT ! x      ->  TokenAccum StateDigit      (off+1) 0 (B.char8 x) out
-                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) 0 (B.char8 x) out
-                   | otherwise          ->  TokenAccum StateOther      (off+1) 0 (B.char8 x) out
-
-          tokens' (TokenAccum StateIdentifier off _ acc out) x =
-                if | isAlphaNumLT ! x   ->  TokenAccum StateIdentifier   (off+1) 0 (acc <> B.char8 x)  out
-                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty      (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenIdentifier off acc)
-
-          tokens' (TokenAccum StateDigit off _ acc out) x =
-                if | isCharNumberLT ! x ->  TokenAccum StateDigit   (off+1) 0 (acc <> B.char8 x)  out
-                   | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty         (out `DL.snoc` tokenBuilder TokenDigit off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenDigit off acc)
-
-          tokens' (TokenAccum StateLit1 off skip acc out) x =
-                if | skip > 0           ->  TokenAccum StateLit1    (off+1) (skip-1) (acc <> B.char8 x)  out
-                   | x == '\\'          ->  TokenAccum StateLit1    (off+1) 1        (acc <> B.char8 x)  out
-                   | x == '\''          ->  TokenAccum StateSpace   (off+1) 0         mempty         (out `DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.char8 '\''))
-                   | otherwise          ->  TokenAccum StateLit1    (off+1) 0        (acc <> B.char8 x)  out
-
-          tokens' (TokenAccum StateLit2 off skip acc out) x =
-                if | skip > 0           ->  TokenAccum StateLit2    (off+1) (skip-1) (acc <> B.char8 x)  out
-                   | x == '\\'          ->  TokenAccum StateLit2    (off+1) 1        (acc <> B.char8 x)  out
-                   | x == '"'           ->  TokenAccum StateSpace   (off+1) 0         mempty         (out `DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.char8 '"'))
-                   | otherwise          ->  TokenAccum StateLit2    (off+1) 0        (acc <> B.char8 x)  out
-
-          tokens' (TokenAccum StateBracket off _ acc out) x =
-                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty         (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | isDigitLT ! x      ->  TokenAccum StateDigit   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | x == '\''          ->  TokenAccum StateLit1    (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | x == '"'           ->  TokenAccum StateLit2    (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | otherwise          ->  TokenAccum StateOther   (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-
-          tokens' (TokenAccum StateOther off _ acc out) x =
-                if | isSpaceLT ! x      ->  TokenAccum StateSpace   (off+1) 0  mempty         (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | isAlphaLT ! x      ->  TokenAccum StateIdentifier   (off+1) 0 (B.char8 x)  (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | isDigitLT ! x      ->  if toLazySmallByteString  acc == "."
-                                            then TokenAccum StateDigit (off+1) 0 (acc <> B.char8 x)  out
-                                            else TokenAccum StateDigit (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | isBracketLT ! x    ->  TokenAccum StateBracket    (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenOperator off acc)
-                   | x == '\''          ->  TokenAccum StateLit1       (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | x == '"'           ->  TokenAccum StateLit2       (off+1) 0 (B.char8  x) (out `DL.snoc` tokenBuilder TokenBracket off acc)
-                   | otherwise          ->  TokenAccum StateOther      (off+1) 0 (acc <> B.char8 x)  out
+(~<&>) :: STRef s a -> (a -> a) -> ST s ()
+ref ~<&> !x = modifySTRef' ref x
+{-# INLINE (~<&>) #-}
 
 
+parseTokens :: Maybe LanguageInfo -> C.ByteString -> [Token]
+parseTokens l t = runST $ parseToken' l t
+  where parseToken' :: Maybe LanguageInfo -> C.ByteString -> ST a [Token]
+        parseToken' linfo txt  = do
+          stateR  <- newSTRef StateSpace
+          offR    <- newSTRef 0
+          skipR   <- newSTRef 0
+          accR    <- newSTRef (mempty :: B.Builder)
+          tokensR <- newSTRef DL.empty
+          oforM_ txt $ \w -> do
+            let x = BI.w2c w
+            state  <- readSTRef stateR
+            off    <- readSTRef offR
+            skip   <- readSTRef skipR
+            acc    <- readSTRef accR
+            case state of
+                StateSpace ->
+                    if | isSpace  x      -> do stateR <~ StateSpace      ; accR <~ mempty
+                       | isAlpha  x      -> do stateR <~ StateIdentifier ; accR <~ B.asciiChar x
+                       | x == '\''       -> do stateR <~ StateLit1       ; accR <~ B.asciiChar x
+                       | x == '"'        -> do stateR <~ StateLit2       ; accR <~ B.asciiChar x
+                       | isDigit  x      -> do stateR <~ StateDigit      ; accR <~ B.asciiChar x
+                       | isBracketC  x   -> do stateR <~ StateBracket    ; accR <~ B.asciiChar x
+                       | otherwise       -> do stateR <~ StateOther      ; accR <~ B.asciiChar x
+                StateIdentifier ->
+                    if | isAlphaNum  x   ->  do stateR <~ StateIdentifier; accR ~<&> (<> B.asciiChar x)
+                       | isSpace  x      ->  do stateR <~ StateSpace     ; accR <~  mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
+                       | isBracketC x    ->  do stateR <~ StateBracket   ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
+                       | otherwise       ->  do stateR <~ StateOther     ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
 
-{-# NOINLINE toLazySmallByteString #-}
-toLazySmallByteString :: B.Builder -> LB.ByteString
-toLazySmallByteString =
-  B.toLazyByteStringWith (B.safeStrategy 64 B.smallChunkSize) LB.empty
+                StateDigit ->
+                    if | isCharNumberC x ->  do stateR <~ StateDigit      ; accR ~<&> (<> B.asciiChar x)
+                       | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                       | isAlpha  x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                       | isBracketC  x   ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                       | otherwise       ->  do stateR <~ StateOther      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                StateLit1 ->
+                    if | skip > 0        ->  do stateR <~ StateLit1       ; skipR <~ (skip-1); accR ~<&> (<> B.asciiChar x)
+                       | x == '\\'       ->  do stateR <~ StateLit1       ; skipR <~ 1       ; accR ~<&> (<> B.asciiChar x)
+                       | x == '\''       ->  do stateR <~ StateSpace      ; skipR <~ 0       ; accR <~ mempty; tokensR ~<&> (`DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.asciiChar '\''))
+                       | otherwise       ->  do stateR <~ StateLit1       ; skipR <~ 0       ; accR ~<&> (<> B.asciiChar x)
+                StateLit2 ->
+                    if | skip > 0        ->  do stateR <~ StateLit2       ; skipR <~ (skip-1); accR ~<&> (<> B.asciiChar x)
+                       | x == '\\'       ->  do stateR <~ StateLit2       ; skipR <~ 1       ; accR ~<&> (<> B.asciiChar x)
+                       | x == '"'        ->  do stateR <~ StateSpace      ; skipR <~ 0       ; accR <~  mempty; tokensR  ~<&> (`DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.asciiChar '"'))
+                       | otherwise       ->  do stateR <~ StateLit2       ; skipR <~ 0       ; accR ~<&> (<> B.asciiChar x)
+                StateBracket ->
+                    if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | isAlpha  x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | isDigit  x      ->  do stateR <~ StateDigit      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | isBracketC x    ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | x == '\''       ->  do stateR <~ StateLit1       ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | x == '"'        ->  do stateR <~ StateLit2       ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | otherwise       ->  do stateR <~ StateOther      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                StateOther ->
+                    if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
+                       | isAlpha  x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
+                       | isDigit  x      ->  if B.builderBytes acc == "."
+                                                then do stateR <~ StateDigit ; accR ~<&> (<> B.asciiChar x)
+                                                else do stateR <~ StateDigit ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
+                       | isBracketC x    ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
+                       | x == '\''       ->  do stateR <~ StateLit1       ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | x == '"'        ->  do stateR <~ StateLit2       ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | otherwise       ->  do stateR <~ StateOther      ; accR ~<&> (<> B.asciiChar x)
+
+            offR ~<&> (+1)
+
+          lastAcc <- readSTRef accR
+          tokens  <- readSTRef tokensR
+
+          DL.toList <$>
+            if B.builderLength lastAcc == 0
+                then return tokens
+                else do
+                  state   <- readSTRef stateR
+                  off     <- readSTRef offR
+                  return $ tokens `DL.snoc` tokenBuilder (mkToken state) off lastAcc
 
 
 fixKeyword :: Maybe LanguageInfo -> Token -> Token
@@ -219,41 +242,3 @@ fixKeyword (Just linfo) t@(TokenIdentifier s o) =
         then  TokenKeyword s o
          else t
 fixKeyword _  t = t
-
-
-isCharNumberLT :: UArray Char Bool
-isCharNumberLT =
-    listArray ('\0', '\255')
-        (map (\c -> isHexDigit c || c `elem` (".xX" :: String)) ['\0'..'\255'])
-{-# INLINE isCharNumberLT #-}
-
-
-isSpaceLT :: UArray Char Bool
-isSpaceLT =
-    listArray ('\0', '\255')
-        (map isSpace ['\0'..'\255'])
-{-# INLINE isSpaceLT #-}
-
-isAlphaLT :: UArray Char Bool
-isAlphaLT =
-    listArray ('\0', '\255')
-        (map (\c -> isAlpha c || c == '_') ['\0'..'\255'])
-{-# INLINE isAlphaLT #-}
-
-isAlphaNumLT :: UArray Char Bool
-isAlphaNumLT =
-    listArray ('\0', '\255')
-        (map (\c -> isAlphaNum c || c == '_' || c == '\'') ['\0'..'\255'])
-{-# INLINE isAlphaNumLT #-}
-
-isDigitLT :: UArray Char Bool
-isDigitLT =
-    listArray ('\0', '\255')
-        (map isDigit ['\0'..'\255'])
-{-# INLINE isDigitLT #-}
-
-isBracketLT :: UArray Char Bool
-isBracketLT =
-    listArray ('\0', '\255')
-        (map (`elem` ("{[()]}" :: String)) ['\0'..'\255'])
-{-# INLINE isBracketLT #-}
