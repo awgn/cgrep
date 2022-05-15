@@ -23,11 +23,11 @@ module CGrep.LanguagesMap where
 
 import CGrep.Language ( Language(..), FileType(..) )
 import CGrep.ContextFilter
-    ( ParConf(ParConf),
+    ( ParConfig(ParConfig),
       Boundary(Boundary),
       ContextFilter(ContextFilter),
       FilterFunction,
-      contextFilterFun)
+      runContextFilter, mkParConfig)
 
 import CGrep.Types ( Text8 )
 import qualified Data.Map as Map
@@ -559,6 +559,7 @@ languagesMap = Map.fromList
     })
     ]
 
+
 contextFilter :: Maybe Language -> ContextFilter -> Text8 -> Text8
 contextFilter _ (ContextFilter True True True) txt = txt
 contextFilter Nothing _ txt = txt
@@ -597,15 +598,8 @@ dumpLanguagesFileMap m = forM_ (Map.toList m) $ \(ext, l) ->
 
 
 mkFilter :: [StringBoundary] -> [StringBoundary] -> Maybe FilterFunction
-mkFilter cs ls =
-  Just $ contextFilterFun (ParConf (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
-                            (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
-                            (mkBloom (cs <> ls)))
-
-
-mkBloom :: [StringBoundary] -> BA.BitArray Char
-mkBloom bs = BA.listArray ('\0', '\255') (map (\c -> isJust (findIndex (\(b,_) -> c == head b) bs)) ['\0'..'\255'])
-{-# INLINE mkBloom #-}
+mkFilter cs ls = Just $ runContextFilter(mkParConfig cs ls)
+{-# INLINE mkFilter #-}
 
 
 forcedLang :: Options -> Maybe Language

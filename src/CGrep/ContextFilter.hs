@@ -38,7 +38,7 @@ import GHC.Exts ( Int(I#), (+#) )
 
 import Options ( Options(..) )
 import Data.List (findIndex)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
 
@@ -53,17 +53,32 @@ data ContextFilter = ContextFilter
     } deriving (Eq, Show)
 
 
+mkContextFilter :: Options -> ContextFilter
+mkContextFilter Options{..} =
+    if not (code || comment || literal)
+        then ContextFilter { ctxCode = True, ctxComment = True,  ctxLiteral = True }
+        else ContextFilter { ctxCode = code , ctxComment = comment , ctxLiteral = literal }
+
+
 data Boundary = Boundary
-    {   _beg   :: !Text8
-    ,   _end   :: !Text8
+    {   bBegin  :: !Text8
+    ,   bEnd    :: !Text8
     } deriving (Show)
 
 
-data ParConf  =  ParConf
+data ParConfig  =  ParConfig
     {   commBound :: [Boundary]
     ,   litrBound :: [Boundary]
     ,   bloom     :: BA.BitArray Char
     }
+
+
+mkParConfig :: [(String, String)] -> [(String, String)] -> ParConfig
+mkParConfig cs ls = ParConfig (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs)
+                                (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) ls)
+                                (mkBoundaryBloom (cs <> ls))
+    where mkBoundaryBloom :: [(String, String)] -> BA.BitArray Char
+          mkBoundaryBloom bs = BA.listArray ('\0', '\255') (map (\c -> isJust (findIndex (\(b,_) -> c == head b) bs)) ['\0'..'\255'])
 
 
 data ParState =  ParState
@@ -83,18 +98,15 @@ type ParData = (Text8, ContextFilter, ParState)
 -- contextFilterFun:
 --
 
-contextFilterFun :: ParConf -> ContextFilter -> Text8 -> Text8
-contextFilterFun conf filt txt =
-  fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState False 0)
-{-# INLINE contextFilterFun #-}
-
-
-contextFilterImpl :: ParConf -> ParData ->  Maybe (Char, ParData)
-contextFilterImpl _ (C.uncons -> Nothing, _, _)     = Nothing
-contextFilterImpl c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs, f, s'))
-    where !s' = nextContextState c s (x,xs) f
-          !c' = if display s' || isSpace x then x else ' '
-contextFilterImpl _ _ = undefined
+runContextFilter :: ParConfig -> ContextFilter -> Text8 -> Text8
+runContextFilter conf filt txt =
+  fst $ C.unfoldrN (C.length txt) (contextFilterImpl' conf) (txt, filt, ParState CodeState False 0)
+    where contextFilterImpl' :: ParConfig -> ParData ->  Maybe (Char, ParData)
+          contextFilterImpl' _ (C.uncons -> Nothing, _, _)     = Nothing
+          contextFilterImpl' c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs, f, s'))
+              where !s' = nextContextState c s (x,xs) f
+                    !c' = if display s' || isSpace x then x else ' '
+          contextFilterImpl' _ _ = undefined
 
 
 {-# INLINE displayContext #-}
@@ -104,19 +116,19 @@ displayContext  (CommState _) (ContextFilter _ b _ ) = b
 displayContext  (LitrState _) (ContextFilter _ _ b ) = b
 
 
-nextContextState :: ParConf -> ParState -> (Char,Text8) -> ContextFilter -> ParState
+nextContextState :: ParConfig -> ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
     | skip s > 0                           = s { skip = skip s - 1 }
     | x == '\'' && "\"'" `C.isPrefixOf` xs = s { skip = 2 }
     | x == '\\'                            = s { display = displayContext (cxtState s) filt, skip = 1 }
 
-    | CodeState   <- cxtState s = let cindex = findBoundary (x,xs) (commBound c)
-                                      lindex = findBoundary (x,xs) (litrBound c)
+    | CodeState   <- cxtState s = let cindex = findPrefixBoundary (x,xs) (commBound c)
+                                      lindex = findPrefixBoundary (x,xs) (litrBound c)
                                   in if bloom c ! x
                                      then case cindex of
-                                            (Just i) ->  s{ cxtState = CommState i, display = commfilt, skip = C.length ( _beg (commBound c !! i) ) - 1 }
-                                            _        -> case lindex of
-                                                            (Just l) -> s{ cxtState = LitrState l, display = codefilt, skip = C.length ( _beg (litrBound c !! l) ) - 1 }
+                                            (Just ci) ->  s{ cxtState = CommState ci, display = commfilt, skip = C.length (bBegin (commBound c !! ci)) - 1 }
+                                            _         -> case lindex of
+                                                            (Just li) -> s{ cxtState = LitrState li, display = codefilt, skip = C.length ( bBegin (litrBound c !! li) ) - 1 }
                                                             _        -> s{ display  = codefilt, skip = 0 }
                                      else s{ display  = codefilt, skip = 0 }
 
@@ -130,13 +142,7 @@ nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
                                      then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
                                      else s{ display = litrfilt, skip = 0 }
 
-findBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
-findBoundary (x,xs) =  findIndex (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
-{-# INLINE findBoundary #-}
 
-
-mkContextFilter :: Options -> ContextFilter
-mkContextFilter Options{..} =
-    if not (code || comment || literal)
-        then ContextFilter { ctxCode = True, ctxComment = True,  ctxLiteral = True }
-        else ContextFilter { ctxCode = code , ctxComment = comment , ctxLiteral = literal }
+findPrefixBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
+findPrefixBoundary (x,xs) =  findIndex (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs)
+{-# INLINE findPrefixBoundary #-}

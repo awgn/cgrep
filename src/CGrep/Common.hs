@@ -31,7 +31,7 @@ module CGrep.Common ( Text8
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Search as SC
 
-import Data.Char ( isSpace )
+import Data.Char ( isSpace, isSpace, toLower )
 
 import CGrep.Types ( Text8 )
 import CGrep.Output ( Output, mkOutput )
@@ -41,8 +41,6 @@ import Options
 import Reader ( OptionIO )
 import Util ( spanGroup, notNull )
 import Data.Int (Int64)
-
-import Data.Char ( isSpace, toLower )
 
 
 takeN :: Int -> String -> String
