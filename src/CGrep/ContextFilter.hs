@@ -26,7 +26,7 @@ module CGrep.ContextFilter where
 
 import CGrep.Types ( Text8 )
 
-import Data.Char ( isSpace )
+import Data.Char ( isSpace, chr )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
@@ -39,6 +39,7 @@ import GHC.Exts ( Int(I#), (+#) )
 import Options ( Options(..) )
 import Data.List (findIndex)
 import Data.Maybe (fromMaybe, isJust)
+import qualified Data.Aeson.KeyMap as B
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
 
@@ -82,7 +83,8 @@ mkParConfig cs ls = ParConfig (map (\(a,b) -> Boundary (C.pack a) (C.pack b)) cs
 
 
 data ParState =  ParState
-    {   cxtState  :: !ContextState
+    {   ctxState  :: !ContextState
+    ,   nextState :: !ContextState
     ,   display   :: !Bool
     ,   skip      :: {-# UNPACK #-} !Int
     } deriving (Show)
@@ -91,21 +93,32 @@ data ParState =  ParState
 data ContextState = CodeState | CommState {-# UNPACK #-} !Int | LitrState {-# UNPACK #-} !Int
     deriving (Show, Eq, Ord)
 
+getContext :: ContextState -> Context
+getContext CodeState = Code
+getContext (CommState _ ) = Comment
+getContext (LitrState _) = Literal
+{-# INLINE  getContext #-}
+
 
 type ParData = (Text8, ContextFilter, ParState)
-
 
 -- contextFilterFun:
 --
 
 runContextFilter :: ParConfig -> ContextFilter -> Text8 -> Text8
 runContextFilter conf filt txt =
-  fst $ C.unfoldrN (C.length txt) (contextFilterImpl' conf) (txt, filt, ParState CodeState False 0)
+  fst $ C.unfoldrN (C.length txt) (contextFilterImpl' conf) (txt, filt, ParState CodeState CodeState False 0)
     where contextFilterImpl' :: ParConfig -> ParData ->  Maybe (Char, ParData)
           contextFilterImpl' _ (C.uncons -> Nothing, _, _)     = Nothing
-          contextFilterImpl' c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs, f, s'))
+          contextFilterImpl' c (C.uncons -> Just (x,xs), f, s) = Just (c', (xs', f, s'))
               where !s' = nextContextState c s (x,xs) f
-                    !c' = if display s' || isSpace x then x else ' '
+                    !(c', xs') | display s' = case (ctxState s, ctxState s') of
+                                                (getContext -> Code, getContext -> Literal) -> (chr 2, xs)
+                                                (getContext -> Literal, getContext -> Code) -> (chr 3, xs)
+                                                _                                           -> (x , xs)
+                               | isSpace x  = (x  , xs)
+                               | otherwise  = (' ', xs)
+
           contextFilterImpl' _ _ = undefined
 
 
@@ -116,30 +129,36 @@ displayContext  (CommState _) (ContextFilter _ b _ ) = b
 displayContext  (LitrState _) (ContextFilter _ _ b ) = b
 
 
-nextContextState :: ParConfig -> ParState -> (Char,Text8) -> ContextFilter -> ParState
-nextContextState c s (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
-    | skip s > 0                           = s { skip = skip s - 1 }
-    | x == '\'' && "\"'" `C.isPrefixOf` xs = s { skip = 2 }
-    | x == '\\'                            = s { display = displayContext (cxtState s) filt, skip = 1 }
+transState :: ParState -> ParState
+transState s@ParState {..} = if skip == 0
+                                then s{ ctxState = nextState }
+                                else s
+{-# INLINE transState #-}
 
-    | CodeState   <- cxtState s = let cindex = findPrefixBoundary (x,xs) (commBound c)
-                                      lindex = findPrefixBoundary (x,xs) (litrBound c)
+
+nextContextState :: ParConfig -> ParState -> (Char,Text8) -> ContextFilter -> ParState
+nextContextState c s@ParState{..} (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
+    | skip > 0   = transState $ s { skip = skip - 1 }
+    | x == '\\'  = s { display = displayContext ctxState filt, skip = 1 }
+
+    | CodeState   <- ctxState = let cindex = findPrefixBoundary (x,xs) (commBound c)
+                                    lindex = findPrefixBoundary (x,xs) (litrBound c)
                                   in if bloom c ! x
                                      then case cindex of
-                                            (Just ci) ->  s{ cxtState = CommState ci, display = commfilt, skip = C.length (bBegin (commBound c !! ci)) - 1 }
+                                            (Just ci) -> transState $ s{ nextState = CommState ci, display = commfilt, skip = C.length (bBegin (commBound c !! ci)) - 1 }
                                             _         -> case lindex of
-                                                            (Just li) -> s{ cxtState = LitrState li, display = codefilt, skip = C.length ( bBegin (litrBound c !! li) ) - 1 }
-                                                            _        -> s{ display  = codefilt, skip = 0 }
+                                                            (Just li) -> transState $ s{ nextState = LitrState li, display = codefilt, skip = C.length ( bBegin (litrBound c !! li) ) - 1 }
+                                                            _         -> s{ display  = codefilt, skip = 0 }
                                      else s{ display  = codefilt, skip = 0 }
 
-    | CommState n <- cxtState s = let Boundary _ e = commBound c !! n
+    | CommState n <- ctxState = let Boundary _ e = commBound c !! n
                                   in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                                     then s{ cxtState = CodeState, display = commfilt, skip = C.length e - 1}
+                                     then transState $ s{ nextState = CodeState, display = commfilt, skip = C.length e - 1}
                                      else s{ display  = commfilt, skip = 0 }
 
-    | LitrState n <- cxtState s = let Boundary _ e = litrBound c !! n
+    | LitrState n <- ctxState  = let Boundary _ e = litrBound c !! n
                                   in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                                     then s{ cxtState = CodeState, display = codefilt, skip = C.length e - 1}
+                                     then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
                                      else s{ display = litrfilt, skip = 0 }
 
 
