@@ -30,7 +30,7 @@ import qualified Data.ByteString.Internal as BI
 import qualified Data.DList as DL
 
 import Data.Char
-    ( isSpace, isAlpha, isAlphaNum, isDigit, isHexDigit )
+    ( isSpace, isAlpha, isAlphaNum, isDigit, isHexDigit, chr )
 
 import CGrep.Types (Offset)
 import Data.List (genericLength)
@@ -54,8 +54,7 @@ data TokenState =
     StateIdentifier   |
     StateDigit        |
     StateBracket      |
-    StateLit1         |
-    StateLit2         |
+    StateLiteral      |
     StateOther
       deriving (Eq, Enum, Show)
 
@@ -75,8 +74,7 @@ mkToken StateSpace      = TokenOperator
 mkToken StateIdentifier = TokenIdentifier
 mkToken StateDigit      = TokenDigit
 mkToken StateBracket    = TokenBracket
-mkToken StateLit1       = TokenString
-mkToken StateLit2       = TokenString
+mkToken StateLiteral    = TokenString
 mkToken StateOther      = TokenOperator
 
 
@@ -174,41 +172,39 @@ parseTokens l t = fixKeyword l <$> runST (parseToken' l t)
                 StateSpace ->
                     if | isSpace  x      -> do stateR <~ StateSpace      ; accR <~ mempty
                        | isAlpha  x      -> do stateR <~ StateIdentifier ; accR <~ B.asciiChar x
-                       | x == '\''       -> do stateR <~ StateLit1       ; accR <~ B.asciiChar x
-                       | x == '"'        -> do stateR <~ StateLit2       ; accR <~ B.asciiChar x
+                       | x == chr 2      -> do stateR <~ StateLiteral    ; accR <~ mempty
                        | isDigit  x      -> do stateR <~ StateDigit      ; accR <~ B.asciiChar x
                        | isBracketC  x   -> do stateR <~ StateBracket    ; accR <~ B.asciiChar x
                        | otherwise       -> do stateR <~ StateOther      ; accR <~ B.asciiChar x
                 StateIdentifier ->
                     if | isAlphaNum  x   ->  do stateR <~ StateIdentifier; accR ~<&> (<> B.asciiChar x)
-                       | isSpace  x      ->  do stateR <~ StateSpace     ; accR <~  mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
+                       | isSpace  x      ->  do stateR <~ StateSpace     ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
+                       | x == chr 2      ->  do stateR <~ StateLiteral   ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
                        | isBracketC x    ->  do stateR <~ StateBracket   ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
                        | otherwise       ->  do stateR <~ StateOther     ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
 
                 StateDigit ->
                     if | isCharNumberC x ->  do stateR <~ StateDigit      ; accR ~<&> (<> B.asciiChar x)
                        | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                       | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
                        | isAlpha  x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
                        | isBracketC  x   ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
                        | otherwise       ->  do stateR <~ StateOther      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
-                StateLit1 ->
-                    if | skip > 0        ->  do stateR <~ StateLit1       ; skipR <~ (skip-1); accR ~<&> (<> B.asciiChar x)
-                       | x == '\\'       ->  do stateR <~ StateLit1       ; skipR <~ 1       ; accR ~<&> (<> B.asciiChar x)
-                       | x == '\''       ->  do stateR <~ StateSpace      ; skipR <~ 0       ; accR <~ mempty; tokensR ~<&> (`DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.asciiChar '\''))
-                       | otherwise       ->  do stateR <~ StateLit1       ; skipR <~ 0       ; accR ~<&> (<> B.asciiChar x)
-                StateLit2 ->
-                    if | skip > 0        ->  do stateR <~ StateLit2       ; skipR <~ (skip-1); accR ~<&> (<> B.asciiChar x)
-                       | x == '\\'       ->  do stateR <~ StateLit2       ; skipR <~ 1       ; accR ~<&> (<> B.asciiChar x)
-                       | x == '"'        ->  do stateR <~ StateSpace      ; skipR <~ 0       ; accR <~  mempty; tokensR  ~<&> (`DL.snoc` tokenBuilder TokenString (off+1) (acc <> B.asciiChar '"'))
-                       | otherwise       ->  do stateR <~ StateLit2       ; skipR <~ 0       ; accR ~<&> (<> B.asciiChar x)
+
+                StateLiteral ->
+                    if | skip > 0        ->  do stateR <~ StateLiteral    ; skipR <~ (skip-1); accR ~<&> (<> B.asciiChar x)
+                       | x == '\\'       ->  do stateR <~ StateLiteral    ; skipR <~ 1       ; accR ~<&> (<> B.asciiChar x)
+                       | x == chr 3      ->  do stateR <~ StateSpace      ; skipR <~ 0       ; accR <~ mempty; tokensR ~<&> (`DL.snoc` tokenBuilder TokenString off acc)
+                       | otherwise       ->  do stateR <~ StateLiteral    ; skipR <~ 0       ; accR ~<&> (<> B.asciiChar x)
+
                 StateBracket ->
                     if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | isAlpha  x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | isDigit  x      ->  do stateR <~ StateDigit      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | isBracketC x    ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
-                       | x == '\''       ->  do stateR <~ StateLit1       ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
-                       | x == '"'        ->  do stateR <~ StateLit2       ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | otherwise       ->  do stateR <~ StateOther      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+
                 StateOther ->
                     if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
                        | isAlpha  x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
@@ -216,8 +212,7 @@ parseTokens l t = fixKeyword l <$> runST (parseToken' l t)
                                                 then do stateR <~ StateDigit ; accR ~<&> (<> B.asciiChar x)
                                                 else do stateR <~ StateDigit ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
                        | isBracketC x    ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
-                       | x == '\''       ->  do stateR <~ StateLit1       ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
-                       | x == '"'        ->  do stateR <~ StateLit2       ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <~ mempty        ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | otherwise       ->  do stateR <~ StateOther      ; accR ~<&> (<> B.asciiChar x)
 
             offR ~<&> (+1)
