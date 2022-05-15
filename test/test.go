@@ -20,6 +20,7 @@ func main() {
 	var d = "\n"
 
 	var msg = "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\""
+	var msg_ = `Sed etiam a suspendisse. "Aliquam nulla erat risus."`
 
-	fmt.Printf("%v %v %v %v %v\n", a, b, c, d, msg)
+	fmt.Printf("%v %v %v %v %v\n", a, b, c, d, msg, msg_)
 }
