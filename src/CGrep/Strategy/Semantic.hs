@@ -77,14 +77,15 @@ search f ps = do
                                                       , ignoreCase opt
                                                       ]
 
-        filt = (mkContextFilter opt) { ctxComment = False, ctxLiteral = False }
+        filt = (mkContextFilter opt) { ctxComment = False }
 
 
     -- pre-process patterns
 
         patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkAtomFromToken) patterns                                            -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineAtoms . map (:[])) patterns'                                      -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+        patterns'  = map (map mkAtomFromToken) patterns                                                -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineAtoms . map (:[])) patterns'                                          -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+
 
         identif = mapMaybe (\case
                             Token (TokenString xs _)       -> Just (rmQuote8 $ trim8 xs)
@@ -96,8 +97,7 @@ search f ps = do
     -- put banners...
 
     putStrLn1 $ "strategy  : running generic semantic search on " <> filename <> "..."
-    putStrLn2 $ "atoms     : " <> show patterns''
-    putStrLn2 $ "identif   : " <> show identif
+    putStrLn2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
 
     let quick = quickMatch ps $ shallowSearch identif text'
 
@@ -115,7 +115,7 @@ search f ps = do
 
         let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (toString t)) tokens' :: [Chunk]
 
-        putStrLn2 $ "tokens    : " <> show tokens'
+        putStrLn2 $ "tokens    : " <> show tokens
         putStrLn2 $ "matches   : " <> show matches
         putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 

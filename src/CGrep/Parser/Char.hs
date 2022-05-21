@@ -1,20 +1,24 @@
+{-# LANGUAGE RecordWildCards #-}
 module CGrep.Parser.Char where
+
 import Data.Char ( isAlphaNum, isAlpha, isHexDigit )
+import CGrep.LanguagesMap ( LanguageInfo(..) )
 
 
-isCharNumberC :: Char -> Bool
-isCharNumberC c = isHexDigit c || c `elem` (".xX" :: String)
+isCharNumber :: Char -> Bool
+isCharNumber c = isHexDigit c || c `elem` (".xX" :: String)
 
-isAlphaC :: Char -> Bool
-isAlphaC c = isAlpha c || c == '_'
-{-# INLINE isAlphaC  #-}
+isAlpha1 :: Maybe LanguageInfo -> Char -> Bool
+isAlpha1 Nothing c = isAlpha c
+isAlpha1 (Just LanguageInfo {..}) c = isAlpha c || c `elem` fst langAdditonalValidIdentifChars
+{-# INLINE isAlpha1  #-}
+
+isAlphaN :: Maybe LanguageInfo -> Char -> Bool
+isAlphaN Nothing c = isAlphaNum c
+isAlphaN (Just LanguageInfo {..}) c = isAlphaNum c || c `elem` snd langAdditonalValidIdentifChars
+{-# INLINE isAlphaN  #-}
 
 
-isAlphaNumC :: Char -> Bool
-isAlphaNumC c = isAlphaNum c || c == '_' || c == '\''
-{-# INLINE isAlphaNumC #-}
-
-
-isBracketC :: Char -> Bool
-isBracketC = (`elem` ("{[()]}" :: String))
-{-# INLINE isBracketC #-}
+isBracket' :: Char -> Bool
+isBracket' = (`elem` ("{[()]}" :: String))
+{-# INLINE isBracket' #-}
