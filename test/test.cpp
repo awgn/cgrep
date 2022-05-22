@@ -13,7 +13,7 @@
 int
 main(int argc, char *argv[])
 {
-    char a = 'a', b = '"', c = '\'', d = '\n';
+    char a = 'a', b = '"', c = '\'', d = '\n', e = '"';
 
     const char * msg = "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
     const char * raw = R"P(This is a raw string)P";
