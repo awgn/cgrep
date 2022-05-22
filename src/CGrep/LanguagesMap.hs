@@ -44,6 +44,7 @@ import Data.List (findIndex)
 
 import CGrep.Boundary ( Boundary(Boundary) )
 import CGrep.Parser.Char
+import Data.Char
 
 type LanguagesMapType = Map.Map Language LanguageInfo
 type FileMapType = Map.Map FileType Language
@@ -101,7 +102,7 @@ languagesMap = Map.fromList
             "BEGIN", "END", "if", "else", "while", "do", "for", "in", "break", "continue",
                 "delete", "next", "nextfile", "function", "func", "exit"]
     })
-    ,    (C,         LanguageInfo {
+    ,  (C,         LanguageInfo {
         langExtensions = [Ext "c", Ext "C", Ext "inc"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
@@ -135,55 +136,69 @@ languagesMap = Map.fromList
     ,   langValidIdentifierChars = (const False, const False)
     ,   langResKeywords = keywords []
     })
---    ,  (Chapel,    LanguageInfo {
---        langExtensions = [Ext "chpl"]
---    ,   langChar = []
---    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "atomic", "begin", "bool", "break", "by", "class", "cobegin", "coforall", "complex", "config",
---            "const", "continue", "def", "distributed", "do", "domain", "else", "enum", "false", "for",
---            "forall", "goto", "if", "imag", "in", "int", "inout", "let", "locale", "module",
---            "nil", "of", "on", "ordered", "otherwise", "out", "param", "pragma", "range", "real",
---            "record", "reduce", "return", "scan", "select", "serial", "single", "sync", "then", "true",
---            "type", "uint", "union", "use", "var", "when", "where", "while", "yield"
---        ]
---    ,   langAdditonalValidIdentifChars = ("_", "_$")
---    })
---    ,  (Clojure,   LanguageInfo {
---        langExtensions = [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"]
---    ,   langFilter = mkFilter [";" ~~ "\n"] ["\"" ~~ "\""]
---    ,   langResKeywords = keywords [
---            "and", "let", "def", "defn", "if", "else", "do", "quote", "var", "fn", "loop", "recur", "throw", "try",
---            "monitor-enter", "monitor-exit"
---        ]
---    ,  langAdditonalValidIdentifChars = ("", "*+!-?<>=_")
---    })
---    ,  (Coffee,    LanguageInfo {
---        langExtensions = [Ext "coffee"]
---    ,   langFilter = mkFilter ["#" ~~ "\n"]  ["'" ~~ "'", "\"" ~~ "\""]
---    ,   langResKeywords = keywords [
---            "case", "default", "function", "var", "void", "with", "const", "let", "enum", "export", "import", "native",
---            "__hasProp", "__extends", "__slice", "__bind", "__indexOf", "implements", "interface", "package", "private",
---            "protected", "public", "static", "yield", "true", "false", "null", "this", "new", "delete", "typeof", "in",
---            "arguments", "eval", "instanceof", "return", "throw", "break", "continue", "debugger", "if", "else", "switch",
---            "for", "while", "do", "try", "catch", "finally", "class", "extends", "super", "undefined", "then", "unless",
---            "until", "loop", "of", "by", "when", "and", "or", "is", "isnt", "not", "yes", "no", "on", "off"
---        ]
---    ,   langAdditonalValidIdentifChars = ("$_", "$")
---    })
---    ,  (Conf,      LanguageInfo {
---        langExtensions = [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"]
---    ,   langFilter = mkFilter ["#" ~~ "\n"]  ["'" ~~ "'", "\"" ~~ "\""]
---    ,   langResKeywords = keywords []
---    ,   langAdditonalValidIdentifChars = ("", "_")
---    })
+    ,  (Chapel,    LanguageInfo {
+        langExtensions = [Ext "chpl"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
+    ,   langRawString = ["\"\"\"" ~~ "\"\"\"", "'''" ~~ "'''"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_and "$")
+    ,   langResKeywords = keywords [
+        "align", "as", "atomic", "begin", "bool", "borrowed", "break", "by", "bytes", "catch",
+        "class", "cobegin", "coforall", "complex", "config", "const", "continue", "defer",
+        "delete", "dmapped", "do", "domain", "else", "enum", "except", "export", "extern", "false",
+        "for", "forall", "forwarding", "if", "imag", "in", "index", "inline", "inout", "int", "iter",
+        "label", "let", "lifetime", "local", "locale", "module", "new", "nil", "noinit", "on", "only",
+        "otherwise", "out", "override", "owned", "param", "private", "prototype", "proc", "public",
+        "real", "record", "reduce", "ref", "require", "return", "scan", "select", "serial", "shared",
+        "single", "sparse", "string", "subdomain", "sync", "then", "this", "throw", "throws", "true",
+        "try", "type", "uint", "union", "unmanaged", "use", "var", "when", "where", "while", "with", "yield", "zip"
+        ]
+    })
+    ,  (Clojure,   LanguageInfo {
+       langExtensions = [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"]
+    ,   langChar = []
+    ,   langComment = [";" ~~ "\n"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langValidIdentifierChars = (isAlpha, isAlphaNum_and "*+!-_?")
+    ,   langResKeywords = keywords [
+           "and", "let", "def", "defn", "if", "else", "do", "quote", "var", "fn", "loop", "recur", "throw", "try",
+           "monitor-enter", "monitor-exit"
+       ]
+   })
+    ,  (Coffee,    LanguageInfo {
+        langExtensions = [Ext "coffee"]
+    ,   langChar = []
+    ,   langComment = ["#" ~~ "\n", "###" ~~ "###"]
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = ["'''" ~~ "'''", "\"\"\"" ~~ "\"\"\"" ]
+    ,   langValidIdentifierChars = (isAlpha_and "$", isAlphaNum_and "$")
+    ,   langResKeywords = keywords [
+            "case", "default", "function", "var", "void", "with", "const", "let", "enum", "export", "import", "native",
+            "__hasProp", "__extends", "__slice", "__bind", "__indexOf", "implements", "interface", "package", "private",
+            "protected", "public", "static", "yield", "true", "false", "null", "this", "new", "delete", "typeof", "in",
+            "arguments", "eval", "instanceof", "return", "throw", "break", "continue", "debugger", "if", "else", "switch",
+            "for", "while", "do", "try", "catch", "finally", "class", "extends", "super", "undefined", "then", "unless",
+            "until", "loop", "of", "by", "when", "and", "or", "is", "isnt", "not", "yes", "no", "on", "off"
+        ]
+    })
+    ,  (Conf,      LanguageInfo {
+        langExtensions = [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"]
+    ,   langChar = []
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords []
+    })
     ,  (Cpp,    LanguageInfo {
         langExtensions = [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "c++", Ext "tcc",
                           Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx",
                           Ext "hh", Ext "hp", Ext "h++", Ext "cu", Ext "cuh"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
-    ,   langRawString = []
+    ,   langRawString = ["R\"(" ~~ ")\"", "R\"-(" ~~ ")-\"", "R\"--(" ~~ ")--\""]
     ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
@@ -203,43 +218,52 @@ languagesMap = Map.fromList
             "_Pragma"
         ]
     })
---    ,  (Csharp,    LanguageInfo {
---        langExtensions = [Ext "cs", Ext "CS"]
---    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
---            "continue", "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern",
---            "false", "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface",
---            "internal", "is", "lock", "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
---            "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc",
---            "static", "string", "struct", "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked",
---            "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
---        ]
---    ,   langAdditonalValidIdentifChars = ("_", "_")
---    })
---    ,  (Css,       LanguageInfo {
---        langExtensions = [Ext "css"]
---    ,   langFilter = mkFilter ["/*" ~~ "*/"] ["\"" ~~ "\""]
---    ,   langResKeywords = keywords []
---    ,   langAdditonalValidIdentifChars = ("-_", "-_")
---    })
---    ,  (D,         LanguageInfo {
---        langExtensions = [Ext "d", Ext "D"]
---    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "abstract", "alias", "align", "asm", "assert", "auto", "body", "bool", "break", "byte", "case", "cast", "catch",
---            "cdouble", "cent", "cfloat", "char", "class", "const", "continue", "creal", "dchar", "debug", "default", "delegate",
---            "delete", "deprecated", "do", "double", "else", "enum", "export", "extern", "false", "final", "finally", "float",
---            "for", "foreach", "foreach_reverse", "function", "goto", "idouble", "if", "ifloat", "immutable", "import", "in",
---            "inout", "int", "interface", "invariant", "ireal", "is", "lazy", "long", "macro", "mixin", "module", "new", "nothrow",
---            "null", "out", "override", "package", "pragma", "private", "protected", "public", "pure", "real", "ref", "return",
---            "scope", "shared", "short", "static", "struct", "super", "switch", "synchronized", "template", "this", "throw", "true",
---            "try", "typeid", "typeof", "ubyte", "ucent", "uint", "ulong", "union", "unittest", "ushort", "version", "void", "wchar",
---            "while", "with", "__FILE__", "__FILE_FULL_PATH__", "__MODULE__", "__LINE__", "__FUNCTION__", "__PRETTY_FUNCTION__",
---            "__gshared", "__traits", "__vector", "__parameters"
---        ]
---    ,   langAdditonalValidIdentifChars = ("_", "_")
---    })
+    ,  (Csharp,    LanguageInfo {
+        langExtensions = [Ext "cs", Ext "CS"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
+            "continue", "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern",
+            "false", "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface",
+            "internal", "is", "lock", "long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+            "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc",
+            "static", "string", "struct", "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked",
+            "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
+        ]
+    })
+    ,  (Css,       LanguageInfo {
+        langExtensions = [Ext "css"]
+    ,   langChar = []
+    ,   langComment = ["/*" ~~ "*/"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langValidIdentifierChars = (isAlpha_and "-", isAlphaNum_and "-")
+    ,   langResKeywords = keywords []
+    })
+    ,  (D,         LanguageInfo {
+        langExtensions = [Ext "d", Ext "D"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = ["r\"" ~~ "\"", "`" ~~ "`"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "abstract", "alias", "align", "asm", "assert", "auto", "body", "bool", "break", "byte", "case", "cast", "catch",
+            "cdouble", "cent", "cfloat", "char", "class", "const", "continue", "creal", "dchar", "debug", "default", "delegate",
+            "delete", "deprecated", "do", "double", "else", "enum", "export", "extern", "false", "final", "finally", "float",
+            "for", "foreach", "foreach_reverse", "function", "goto", "idouble", "if", "ifloat", "immutable", "import", "in",
+            "inout", "int", "interface", "invariant", "ireal", "is", "lazy", "long", "macro", "mixin", "module", "new", "nothrow",
+            "null", "out", "override", "package", "pragma", "private", "protected", "public", "pure", "real", "ref", "return",
+            "scope", "shared", "short", "static", "struct", "super", "switch", "synchronized", "template", "this", "throw", "true",
+            "try", "typeid", "typeof", "ubyte", "ucent", "uint", "ulong", "union", "unittest", "ushort", "version", "void", "wchar",
+            "while", "with", "__FILE__", "__FILE_FULL_PATH__", "__MODULE__", "__LINE__", "__FUNCTION__", "__PRETTY_FUNCTION__",
+            "__gshared", "__traits", "__vector", "__parameters"
+        ]
+    })
 --    ,  (Dart,      LanguageInfo {
 --        langExtensions = [Ext "dart"]
 --    ,   langFilter = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
