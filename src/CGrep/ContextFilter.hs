@@ -163,7 +163,7 @@ nextContextState c s@ParState{..} (x,xs) filt@(ContextFilter codefilt commfilt l
         let cindex = findPrefixBoundary (x,xs) (commBound c)
             lindex = findPrefixBoundary (x,xs) (litrBound c)
             rindex = findPrefixBoundary (x,xs) (rawBound  c)
-            hindex = findChrPrefixBoundary (x,xs) (chrBound  c)
+            hindex = findPrefixBoundary' (x,xs) (chrBound  c)
           in if bloom c ! x
                 then if | Just i <- cindex -> transState $ s{ nextState = CommState i, display = commfilt, skip = C.length (bBegin (commBound c !! i)) - 1 }
                         | Just i <- lindex -> transState $ s{ nextState = LitrState i, display = codefilt, skip = C.length (bBegin (litrBound c !! i)) - 1 }
@@ -185,13 +185,6 @@ nextContextState c s@ParState{..} (x,xs) filt@(ContextFilter codefilt commfilt l
                in if C.head e == x && C.tail e `C.isPrefixOf` xs
                     then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
                     else s{ display = litrfilt, skip = 0 }
-
-    | RawState n <- ctxState  =
-        let Boundary _ e = rawBound c !! n
-            in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
-                else s{ display = litrfilt, skip = 0 }
-
     | ChrState n <- ctxState  =
         if x == '\\'
         then s { display = displayContext ctxState filt, skip = 1 }
@@ -199,6 +192,11 @@ nextContextState c s@ParState{..} (x,xs) filt@(ContextFilter codefilt commfilt l
                 in if C.head e == x && C.tail e `C.isPrefixOf` xs
                     then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
                     else s{ display = litrfilt, skip = 0 }
+    | RawState n <- ctxState  =
+        let Boundary _ e = rawBound c !! n
+            in if C.head e == x && C.tail e `C.isPrefixOf` xs
+                then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
+                else s{ display = litrfilt, skip = 0 }
 
 
 findPrefixBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
@@ -206,8 +204,8 @@ findPrefixBoundary (x,xs) =  findIndex (\(Boundary b _ ) -> C.head b == x && C.t
 {-# INLINE findPrefixBoundary #-}
 
 
-findChrPrefixBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int
-findChrPrefixBoundary (x,xs) bs =
+findPrefixBoundary' :: (Char, Text8) -> [Boundary] -> Maybe Int
+findPrefixBoundary' (x,xs) bs =
     case findIndex (\(Boundary b _ ) -> C.head b == x && C.tail b `C.isPrefixOf` xs) bs of
         (Just i) -> let (Boundary _ e) = bs !! i
                     in case xs of
@@ -217,6 +215,4 @@ findChrPrefixBoundary (x,xs) bs =
                         _ -> Nothing
         _ -> Nothing
 
-
-
-{-# INLINE findChrPrefixBoundary #-}
+{-# INLINE findPrefixBoundary' #-}

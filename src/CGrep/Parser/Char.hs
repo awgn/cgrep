@@ -21,6 +21,15 @@ isAlphaNum_' :: Char -> Bool
 isAlphaNum_' c = isAlphaNum c || c == '_' || c == '\''
 {-# INLINE isAlphaNum_' #-}
 
+
 isBracket' :: Char -> Bool
 isBracket' c = c `elem` ("[]{}()" :: String)
 {-# INLINE isBracket' #-}
+
+isAlpha_and :: String -> Char -> Bool
+isAlpha_and s c = isAlpha c || c == '_' || c `elem` s
+{-# INLINE isAlpha_and #-}
+
+isAlphaNum_and :: String -> Char -> Bool
+isAlphaNum_and s c = isAlphaNum c || c == '_' || c `elem` s
+{-# INLINE isAlphaNum_and #-}
