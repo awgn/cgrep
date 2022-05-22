@@ -50,8 +50,10 @@ search f patterns = do
 
     -- transform text
 
+    let ctxFilter = mkContextFilter opt
+
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (languageLookup opt filename) (mkContextFilter opt)
+                                              , contextFilter (languageLookup opt filename) ctxFilter False
                                               , ignoreCase opt
                                               ]
 
@@ -65,8 +67,9 @@ search f patterns = do
         matches  = filter (\t -> any (\p -> p ~== C.unpack (tStr t)) patterns') tokens'
 
     putStrLn1 $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
+    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
+
     putStrLn2 $ "tokens    : " <> show tokens'
     putStrLn2 $ "matches   : " <> show matches
-    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     mkOutput filename text text''' matches

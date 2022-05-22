@@ -73,7 +73,7 @@ search f ps = do
 
 
     let [text''', text'', text', _ ] = scanr ($) text [ expandMultiline opt
-                                                      , contextFilter (languageLookup opt filename) filt
+                                                      , contextFilter (languageLookup opt filename) filt True
                                                       , ignoreCase opt
                                                       ]
 
@@ -82,9 +82,9 @@ search f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkAtomFromToken) patterns                                                -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineAtoms . map (:[])) patterns'                                          -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+        patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt True) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns'  = map (map mkAtomFromToken) patterns                                                     -- [ [w1,w2,..], [w1,w2,..] ]
+        patterns'' = map (combineAtoms . map (:[])) patterns'                                               -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
 
         identif = mapMaybe (\case
@@ -98,6 +98,7 @@ search f ps = do
 
     putStrLn1 $ "strategy  : running generic semantic search on " <> filename <> "..."
     putStrLn2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
+    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     let quick = quickMatch ps $ shallowSearch identif text'
 
@@ -117,6 +118,5 @@ search f ps = do
 
         putStrLn2 $ "tokens    : " <> show tokens
         putStrLn2 $ "matches   : " <> show matches
-        putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
         mkOutput filename text text''' matches

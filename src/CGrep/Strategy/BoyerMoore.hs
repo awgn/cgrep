@@ -58,8 +58,10 @@ search f patterns = do
 
     -- transform text
 
+    let ctxFilter = mkContextFilter opt
+
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (languageLookup opt filename) (mkContextFilter opt)
+                                              , contextFilter (languageLookup opt filename) ctxFilter False
                                               , ignoreCase opt
                                               ]
 
@@ -77,7 +79,8 @@ search f patterns = do
                     then filter (checkChunk opt langInfo text''') tokens
                     else tokens
 
-    putStrLn1 $ "strategy  : running Boyer-Moore search on " <> filename <> "..."
+    putStrLn1 $ "strategy  : running Boyer-Moore search on " <> filename
+    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     runSearch opt filename (quickMatch patterns shallow) $ do
 
@@ -85,7 +88,6 @@ search f patterns = do
 
         putStrLn2 $ "tokens    : " <> show tokens
         putStrLn2 $ "tokens'   : " <> show tokens'
-        putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
 
         mkOutput filename text text''' tokens'
 

@@ -60,8 +60,10 @@ search f patterns = do
 
     -- transform text
 
+    let ctxFilter = mkContextFilter opt
+
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (languageLookup opt filename) (mkContextFilter opt)
+                                              , contextFilter (languageLookup opt filename) ctxFilter False
                                               , ignoreCase opt
                                               ]
 
@@ -73,7 +75,8 @@ search f patterns = do
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putStrLn1 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
-    putStrLn2 $ "tokens    : " <> show tokens
     putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
+
+    putStrLn2 $ "tokens    : " <> show tokens
 
     mkOutput filename text text''' tokens

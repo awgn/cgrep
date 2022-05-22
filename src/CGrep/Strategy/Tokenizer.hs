@@ -68,12 +68,13 @@ search f ps = do
     let filt = (mkContextFilter opt) { ctxComment = False }
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (languageLookup opt filename) filt
+                                                 , contextFilter (languageLookup opt filename) filt True
                                                  , ignoreCase opt
                                                  ]
 
 
     putStrLn1 $ "strategy: running token search on " ++ filename ++ "..."
+    putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     let quick = quickMatch ps $ shallowSearch ps text'
 
@@ -104,7 +105,6 @@ search f ps = do
         putStrLn2 $ "tokens'   : " ++ show tokens'
         putStrLn2 $ "tokens''  : " ++ show tokens''
         putStrLn2 $ "matches   : " ++ show matches
-        putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
         mkOutput filename text text''' matches
 

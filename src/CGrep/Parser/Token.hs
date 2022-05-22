@@ -34,7 +34,7 @@ import Data.Char ( isSpace, isDigit, isHexDigit, chr )
 import CGrep.Types (Offset)
 import Data.List (genericLength)
 
-import CGrep.LanguagesMap ( LanguageInfo (langResKeywords) )
+import CGrep.LanguagesMap ( LanguageInfo (langResKeywords, langValidIdentifierChars) )
 import qualified Data.Set as S
 
 import qualified CGrep.Chunk as T
@@ -46,7 +46,8 @@ import Data.Word (Word8)
 
 import qualified ByteString.StrictBuilder as B
 
-import CGrep.Parser.Char ( isCharNumber, isBracket', isAlpha1, isAlphaN )
+import CGrep.Parser.Char ( isCharNumber, isBracket', isAlpha_, isAlphaNum_)
+import Data.Maybe
 
 data TokenState =
     StateSpace        |
@@ -154,29 +155,29 @@ ref ~<&> !x = modifySTRef' ref x
 
 parseTokens :: Maybe LanguageInfo -> C.ByteString -> [Token]
 parseTokens l t = fixKeyword l <$> runST (parseToken' l t)
-  where parseToken' :: Maybe LanguageInfo -> C.ByteString -> ST a [Token]
+  where isAlpha1 = maybe isAlpha_    (fst . langValidIdentifierChars) l
+        isAlphaN = maybe isAlphaNum_ (snd . langValidIdentifierChars) l
+        parseToken' :: Maybe LanguageInfo -> C.ByteString -> ST a [Token]
         parseToken' linfo txt  = do
           stateR  <- newSTRef StateSpace
           offR    <- newSTRef 0
-          skipR   <- newSTRef 0
           accR    <- newSTRef (mempty :: B.Builder)
           tokensR <- newSTRef DL.empty
           oforM_ txt $ \w -> do
             let x = BI.w2c w
             state  <- readSTRef stateR
             off    <- readSTRef offR
-            skip   <- readSTRef skipR
             acc    <- readSTRef accR
             case state of
                 StateSpace ->
                     if | isSpace  x     -> do stateR <~ StateSpace      ; accR <~ mempty
-                       | isAlpha1 l  x  -> do stateR <~ StateIdentifier ; accR <~ B.asciiChar x
+                       | isAlpha1  x    -> do stateR <~ StateIdentifier ; accR <~ B.asciiChar x
                        | x == chr 2     -> do stateR <~ StateLiteral    ; accR <~ mempty
                        | isDigit  x     -> do stateR <~ StateDigit      ; accR <~ B.asciiChar x
                        | isBracket'  x  -> do stateR <~ StateBracket    ; accR <~ B.asciiChar x
                        | otherwise      -> do stateR <~ StateOther      ; accR <~ B.asciiChar x
                 StateIdentifier ->
-                    if | isAlphaN l  x   ->  do stateR <~ StateIdentifier; accR ~<&> (<> B.asciiChar x)
+                    if | isAlphaN   x    ->  do stateR <~ StateIdentifier; accR ~<&> (<> B.asciiChar x)
                        | isSpace  x      ->  do stateR <~ StateSpace     ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
                        | x == chr 2      ->  do stateR <~ StateLiteral   ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
                        | isBracket' x    ->  do stateR <~ StateBracket   ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenIdentifier off acc)
@@ -186,19 +187,17 @@ parseTokens l t = fixKeyword l <$> runST (parseToken' l t)
                     if | isCharNumber  x ->  do stateR <~ StateDigit      ; accR ~<&> (<> B.asciiChar x)
                        | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
                        | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
-                       | isAlpha1 l  x   ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
-                       | isBracket'  x   ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                       | isAlpha1   x    ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
+                       | isBracket' x    ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
                        | otherwise       ->  do stateR <~ StateOther      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenDigit off acc)
 
                 StateLiteral ->
-                    if | skip > 0        ->  do stateR <~ StateLiteral    ; skipR <~ (skip-1); accR ~<&> (<> B.asciiChar x)
-                       | x == '\\'       ->  do stateR <~ StateLiteral    ; skipR <~ 1       ; accR ~<&> (<> B.asciiChar x)
-                       | x == chr 3      ->  do stateR <~ StateSpace      ; skipR <~ 0       ; accR <~ mempty; tokensR ~<&> (`DL.snoc` tokenBuilder TokenString off acc)
-                       | otherwise       ->  do stateR <~ StateLiteral    ; skipR <~ 0       ; accR ~<&> (<> B.asciiChar x)
+                    if | x == chr 3      ->  do stateR <~ StateSpace      ; accR <~ mempty; tokensR ~<&> (`DL.snoc` tokenBuilder TokenString off acc)
+                       | otherwise       ->  do stateR <~ StateLiteral    ; accR ~<&> (<> B.asciiChar x)
 
                 StateBracket ->
                     if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
-                       | isAlpha1 l  x   ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
+                       | isAlpha1 x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | isDigit  x      ->  do stateR <~ StateDigit      ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | isBracket' x    ->  do stateR <~ StateBracket    ; accR <~ B.asciiChar  x ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
                        | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <~ mempty         ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenBracket off acc)
@@ -206,7 +205,7 @@ parseTokens l t = fixKeyword l <$> runST (parseToken' l t)
 
                 StateOther ->
                     if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <~ mempty       ; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
-                       | isAlpha1 l  x   ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
+                       | isAlpha1 x      ->  do stateR <~ StateIdentifier ; accR <~ B.asciiChar x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
                        | isDigit  x      ->  if B.builderBytes acc == "."
                                                 then do stateR <~ StateDigit ; accR ~<&> (<> B.asciiChar x)
                                                 else do stateR <~ StateDigit ; accR <~ B.asciiChar  x; tokensR ~<&> (`DL.snoc` tokenBuilder TokenOperator off acc)
