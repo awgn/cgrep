@@ -117,24 +117,24 @@ languagesMap = Map.fromList
             "define", "undef", "include", "line", "error", "pragma", "defined", "__has_c_attribute", "_Pragma", "asm", "fortran"
         ]
     })
---    ,  (CMake,     LanguageInfo {
---        langExtensions = [Name "CMakeLists.txt", Ext "cmake"]
---    ,   langChar = ["'"]
---    ,   langString= ["\"" ~~ "\""]
---    ,   langRawString = []
---    ,   langComment = ["#" ~~ "\n"]
---    ,   langAdditonalValidIdentifChars = ("", "-_")
---    ,   langResKeywords = keywords []
---    })
---    ,  (Cabal,     LanguageInfo {
---        langExtensions = [Ext "cabal"]
---    ,   langChar = []
---    ,   langString= ["\"" ~~ "\""]
---    ,   langRawString = []
---    ,   langComment = mkFilter ["--" ~~ "\n"]
---    ,   langAdditonalValidIdentifChars = ("", "-")
---    ,   langResKeywords = keywords []
---    })
+    ,  (CMake,     LanguageInfo {
+        langExtensions = [Name "CMakeLists.txt", Ext "cmake"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString= ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords []
+    })
+    ,  (Cabal,     LanguageInfo {
+        langExtensions = [Ext "cabal"]
+    ,   langChar = []
+    ,   langString= ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langComment = ["--" ~~ "\n"]
+    ,   langValidIdentifierChars = (const False, const False)
+    ,   langResKeywords = keywords []
+    })
 --    ,  (Chapel,    LanguageInfo {
 --        langExtensions = [Ext "chpl"]
 --    ,   langChar = []

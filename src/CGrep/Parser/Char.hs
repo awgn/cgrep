@@ -2,7 +2,6 @@ module CGrep.Parser.Char where
 
 import Data.Char ( isAlpha, isAlphaNum, isHexDigit )
 
-
 isCharNumber :: Char -> Bool
 isCharNumber c = isHexDigit c || c `elem` (".xX" :: String)
 
