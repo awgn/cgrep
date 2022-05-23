@@ -44,7 +44,13 @@ import Data.List (findIndex)
 
 import CGrep.Boundary ( Boundary(Boundary) )
 import CGrep.Parser.Char
-import Data.Char
+    ( isAlphaNum_,
+      isAlphaNum_',
+      isAlpha_,
+      isAlpha_',
+      isAlphaNum_and,
+      isAlpha_and )
+import Data.Char ( isAlpha, isAlphaNum )
 
 type LanguagesMapType = Map.Map Language LanguageInfo
 type FileMapType = Map.Map FileType Language
@@ -69,10 +75,10 @@ languagesMap = Map.fromList
     [
         (Agda,      LanguageInfo {
         langExtensions = [Ext "agda", Ext "lagda"]
+    ,   langComment  = ["{-" ~~ "-}", "--" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langComment  = ["{-" ~~ "-}", "--" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "abstract", "codata", "constructor", "data", "eta-equality", "field",
@@ -84,19 +90,19 @@ languagesMap = Map.fromList
     })
    ,  (Assembly,  LanguageInfo {
        langExtensions = [Ext "s", Ext "S"]
+   ,   langComment = ["#" ~~ "\n", ";" ~~ "\n", "|" ~~ "\n", "!" ~~ "\n", "/*" ~~ "*/"]
    ,   langChar = []
    ,   langString= ["\"" ~~ "\""]
    ,   langRawString = []
-   ,   langComment = ["#" ~~ "\n", ";" ~~ "\n", "|" ~~ "\n", "!" ~~ "\n", "/*" ~~ "*/"]
    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
    ,   langResKeywords = keywords []
    })
     ,  (Awk,       LanguageInfo {
         langExtensions = [Ext "awk", Ext "mawk", Ext "gawk"]
+    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
     ,   langChar = []
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "BEGIN", "END", "if", "else", "while", "do", "for", "in", "break", "continue",
@@ -104,10 +110,10 @@ languagesMap = Map.fromList
     })
     ,  (C,         LanguageInfo {
         langExtensions = [Ext "c", Ext "C", Ext "inc"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["R\"" ~~ "\""]
-    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern",
@@ -120,28 +126,28 @@ languagesMap = Map.fromList
     })
     ,  (CMake,     LanguageInfo {
         langExtensions = [Name "CMakeLists.txt", Ext "cmake"]
+    ,   langComment = ["#" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langComment = ["#" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords []
     })
     ,  (Cabal,     LanguageInfo {
         langExtensions = [Ext "cabal"]
+    ,   langComment = ["--" ~~ "\n"]
     ,   langChar = []
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langComment = ["--" ~~ "\n"]
     ,   langValidIdentifierChars = (const False, const False)
     ,   langResKeywords = keywords []
     })
     ,  (Chapel,    LanguageInfo {
         langExtensions = [Ext "chpl"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\"", "'''" ~~ "'''"]
-    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_and "$")
     ,   langResKeywords = keywords [
         "align", "as", "atomic", "begin", "bool", "borrowed", "break", "by", "bytes", "catch",
@@ -156,9 +162,9 @@ languagesMap = Map.fromList
         ]
     })
     ,  (Clojure,   LanguageInfo {
-       langExtensions = [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"]
-    ,   langChar = []
+        langExtensions = [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"]
     ,   langComment = [";" ~~ "\n"]
+    ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
     ,   langValidIdentifierChars = (isAlpha, isAlphaNum_and "*+!-_?")
@@ -169,8 +175,8 @@ languagesMap = Map.fromList
    })
     ,  (Coffee,    LanguageInfo {
         langExtensions = [Ext "coffee"]
-    ,   langChar = []
     ,   langComment = ["#" ~~ "\n", "###" ~~ "###"]
+    ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = ["'''" ~~ "'''", "\"\"\"" ~~ "\"\"\"" ]
     ,   langValidIdentifierChars = (isAlpha_and "$", isAlphaNum_and "$")
@@ -185,10 +191,10 @@ languagesMap = Map.fromList
     })
     ,  (Conf,      LanguageInfo {
         langExtensions = [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"]
+    ,   langComment = ["#" ~~ "\n"]
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = []
-    ,   langComment = ["#" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords []
     })
@@ -196,10 +202,10 @@ languagesMap = Map.fromList
         langExtensions = [Ext "cpp", Ext "CPP", Ext "cxx", Ext "cc", Ext "cp", Ext "c++", Ext "tcc",
                           Ext "h", Ext "H", Ext "hpp", Ext "ipp", Ext "HPP", Ext "hxx",
                           Ext "hh", Ext "hp", Ext "h++", Ext "cu", Ext "cuh"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["R\"(" ~~ ")\"", "R\"-(" ~~ ")-\"", "R\"--(" ~~ ")--\""]
-    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit", "atomic_noexcept",
@@ -220,10 +226,10 @@ languagesMap = Map.fromList
     })
     ,  (Csharp,    LanguageInfo {
         langExtensions = [Ext "cs", Ext "CS"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
-    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
@@ -237,8 +243,8 @@ languagesMap = Map.fromList
     })
     ,  (Css,       LanguageInfo {
         langExtensions = [Ext "css"]
-    ,   langChar = []
     ,   langComment = ["/*" ~~ "*/"]
+    ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
     ,   langValidIdentifierChars = (isAlpha_and "-", isAlphaNum_and "-")
@@ -246,10 +252,10 @@ languagesMap = Map.fromList
     })
     ,  (D,         LanguageInfo {
         langExtensions = [Ext "d", Ext "D"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["r\"" ~~ "\"", "`" ~~ "`"]
-    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "abstract", "alias", "align", "asm", "assert", "auto", "body", "bool", "break", "byte", "case", "cast", "catch",
@@ -264,92 +270,110 @@ languagesMap = Map.fromList
             "__gshared", "__traits", "__vector", "__parameters"
         ]
     })
---    ,  (Dart,      LanguageInfo {
---        langExtensions = [Ext "dart"]
---    ,   langComment = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---         "assert", "break", "case", "catch", "class", "const", "continue", "default", "do", "else", "enum", "extends", "false",
---         "final", "finally", "for", "if", "in", "is", "new", "null", "rethrow", "return", "super", "switch", "this", "throw",
---         "true", "try", "var", "void", "while", "with", "async", "hide", "on", "show", "sync", "abstract", "as", "covariant",
---         "deferred", "dynamic", "export", "extension", "external", "factory", "function", "get", "implements", "import", "interface",
---         "library", "mixin", "operator", "part", "set", "static", "typedef",  "await", "yield"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (Elixir,    LanguageInfo {
---        langExtensions = [Ext "ex", Ext "exs"]
---    ,   langComment = mkFilter ["#" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---        "true", "false", "nil", "when", "and", "or", "not", "in", "fn", "do", "end", "catch", "rescue", "after", "else"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (Elm,       LanguageInfo {
---        langExtensions = [Ext "elm"]
---    ,   langComment =  mkFilter ["{-" ~~ "-}", "--" ~~ "\n"]  ["\"" ~~ "\"", "\"\"\"" ~~ "\"\"\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "type", "alias", "port", "if", "then", "else", "case", "of", "let", "in", "infix", "left", "right", "non",
---            "module", "import", "exposing", "as", "where", "effect", "command", "subscription", "true", "false", "null"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (Erlang,    LanguageInfo {
---        langExtensions = [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"]
---    ,   langComment = mkFilter ["%" ~~ "\n"]  ["\"" ~~ "\""]
---    ,   langResKeywords = keywords [
---            "after", "and", "andalso", "band", "begin", "bnot", "bor", "bsl", "bsr", "bxor", "case", "catch", "cond",
---            "div", "end", "fun", "if", "let", "not", "of", "or", "orelse", "receive", "rem", "try", "when", "xor"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (Fortran,   LanguageInfo {
---        langExtensions = [Ext "f", Ext "for", Ext "ftn",
---                    Ext "F", Ext "FOR", Ext "FTN", Ext "fpp", Ext "FPP",
---                    Ext "f90", Ext "f95", Ext "f03", Ext "f08",
---                    Ext "F90", Ext "F95", Ext "F03", Ext "F08"]
---    ,   langComment = mkFilter []  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            -- fortran77
---            "assign", "backspace", "block", "data", "call", "close", "common", "continue", "data", "dimension", "do",
---            "else", "else", "if", "end", "endfile", "endif", "entry", "equivalence", "external", "format", "function",
---            "goto", "if", "implicit", "inquire", "intrinsic", "open", "parameter", "pause", "print", "program", "read",
---            "return", "rewind", "rewrite", "save", "stop", "subroutine", "then", "write",
---            -- fortran 90
---            "allocatable", "allocate", "case", "contains", "cycle", "deallocate", "elsewhere", "exit?", "include",
---            "interface", "intent", "module", "namelist", "nullify", "only", "operator", "optional", "pointer", "private",
---            "procedure", "public", "recursive", "result", "select", "sequence", "target", "use", "while", "where",
---            -- fortran 95
---            "elemental", "forall", "pure",
---            -- fortran 03
---            "abstract", "associate", "asynchronous", "bind", "class", "deferred", "enum", "enumerator", "extends", "final",
---            "flush", "generic", "import", "non_overridable", "nopass", "pass", "protected", "value", "volatile", "wait",
---            -- fortran 08
---            "block", "codimension", "do", "concurrent", "contiguous", "critical", "error", "stop", "submodule", "sync",
---            "all", "sync", "images", "sync",  "memory", "lock", "unlock"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (Fsharp,    LanguageInfo {
---        langExtensions = [Ext "fs", Ext "fsx", Ext "fsi"]
---    ,   langComment =  mkFilter ["(*" ~~ "*)", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "abstract", "and", "as", "assert", "base", "begin", "class", "default", "delegate", "do", "done", "downcast",
---            "downto", "elif", "else", "end", "exception", "extern", "FALSE", "finally", "fixed", "for", "fun", "function",
---            "global", "if", "in", "inherit", "inline", "interface", "internal", "lazy", "let", "let!",  "match", "match!",
---            "member", "module", "mutable", "namespace", "new", "not", "null", "of", "open", "or", "override", "private",
---            "public", "rec", "return", "return!",  "select", "static", "struct", "then", "to", "TRUE", "try", "type",
---            "upcast", "use", "use!",  "val", "void", "when", "while", "with", "yield", "yield!",  "const", "asr", "land",
---            "lor", "lsl", "lsr", "lxor", "mod", "sig", "break", "checked", "component", "const", "constraint", "continue",
---            "event", "external", "include", "mixin", "parallel", "process", "protected", "pure", "sealed", "tailcall", "trait", "virtual"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
+    ,  (Dart,      LanguageInfo {
+        langExtensions = [Ext "dart"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
+    ,   langRawString = ["'''" ~~ "'''", "\"\"\"" ~~ "\"\"\""]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "assert", "break", "case", "catch", "class", "const", "continue", "default", "do", "else", "enum", "extends", "false",
+            "final", "finally", "for", "if", "in", "is", "new", "null", "rethrow", "return", "super", "switch", "this", "throw",
+            "true", "try", "var", "void", "while", "with", "async", "hide", "on", "show", "sync", "abstract", "as", "covariant",
+            "deferred", "dynamic", "export", "extension", "external", "factory", "function", "get", "implements", "import", "interface",
+            "library", "mixin", "operator", "part", "set", "static", "typedef",  "await", "yield"
+        ]
+    })
+    ,  (Elixir,    LanguageInfo {
+        langExtensions = [Ext "ex", Ext "exs"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
+    ,   langRawString = []
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "true", "false", "nil", "when", "and", "or", "not", "in", "fn", "do", "end", "catch", "rescue", "after", "else"
+        ]
+    })
+    ,  (Elm,       LanguageInfo {
+        langExtensions = [Ext "elm"]
+    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString =  ["\"" ~~ "\""]
+    ,   langRawString =  ["\"\"\"" ~~ "\"\"\""]
+    ,   langValidIdentifierChars = (isAlpha,  isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "type", "alias", "port", "if", "then", "else", "case", "of", "let", "in", "infix", "left", "right", "non",
+            "module", "import", "exposing", "as", "where", "effect", "command", "subscription", "true", "false", "null"
+        ]
+    })
+   ,  (Erlang,    LanguageInfo {
+       langExtensions = [Ext "erl", Ext "ERL",Ext "hrl", Ext "HRL"]
+   ,   langComment = ["%" ~~ "\n"]
+   ,   langChar = []
+   ,   langString = ["\"" ~~ "\""]
+   ,   langRawString = []
+   ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+   ,   langResKeywords = keywords [
+           "after", "and", "andalso", "band", "begin", "bnot", "bor", "bsl", "bsr", "bxor", "case", "catch", "cond",
+           "div", "end", "fun", "if", "let", "not", "of", "or", "orelse", "receive", "rem", "try", "when", "xor"
+       ]
+   })
+    ,  (Fortran,   LanguageInfo {
+        langExtensions = [Ext "f", Ext "for", Ext "ftn",
+                    Ext "F", Ext "FOR", Ext "FTN", Ext "fpp", Ext "FPP",
+                    Ext "f90", Ext "f95", Ext "f03", Ext "f08",
+                    Ext "F90", Ext "F95", Ext "F03", Ext "F08"]
+    ,   langComment = ["!" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
+    ,   langRawString =[]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            -- fortran77
+            "assign", "backspace", "block", "data", "call", "close", "common", "continue", "data", "dimension", "do",
+            "else", "else", "if", "end", "endfile", "endif", "entry", "equivalence", "external", "format", "function",
+            "goto", "if", "implicit", "inquire", "intrinsic", "open", "parameter", "pause", "print", "program", "read",
+            "return", "rewind", "rewrite", "save", "stop", "subroutine", "then", "write",
+            -- fortran 90
+            "allocatable", "allocate", "case", "contains", "cycle", "deallocate", "elsewhere", "exit?", "include",
+            "interface", "intent", "module", "namelist", "nullify", "only", "operator", "optional", "pointer", "private",
+            "procedure", "public", "recursive", "result", "select", "sequence", "target", "use", "while", "where",
+            -- fortran 95
+            "elemental", "forall", "pure",
+            -- fortran 03
+            "abstract", "associate", "asynchronous", "bind", "class", "deferred", "enum", "enumerator", "extends", "final",
+            "flush", "generic", "import", "non_overridable", "nopass", "pass", "protected", "value", "volatile", "wait",
+            -- fortran 08
+            "block", "codimension", "do", "concurrent", "contiguous", "critical", "error", "stop", "submodule", "sync",
+            "all", "sync", "images", "sync",  "memory", "lock", "unlock"
+        ]
+    })
+    ,  (Fsharp,    LanguageInfo {
+        langExtensions = [Ext "fs", Ext "fsx", Ext "fsi"]
+    ,   langComment =  ["(*" ~~ "*)", "//" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString =  ["\"" ~~ "\""]
+    ,   langRawString =  ["\"\"\"" ~~ "\"\"\""]
+    ,   langValidIdentifierChars = (isAlpha_and "$@`?", isAlphaNum_and "$@`?")
+    ,   langResKeywords = keywords [
+            "abstract", "and", "as", "assert", "base", "begin", "class", "default", "delegate", "do", "done", "downcast",
+            "downto", "elif", "else", "end", "exception", "extern", "FALSE", "finally", "fixed", "for", "fun", "function",
+            "global", "if", "in", "inherit", "inline", "interface", "internal", "lazy", "let", "let!",  "match", "match!",
+            "member", "module", "mutable", "namespace", "new", "not", "null", "of", "open", "or", "override", "private",
+            "public", "rec", "return", "return!",  "select", "static", "struct", "then", "to", "TRUE", "try", "type",
+            "upcast", "use", "use!",  "val", "void", "when", "while", "with", "yield", "yield!",  "const", "asr", "land",
+            "lor", "lsl", "lsr", "lxor", "mod", "sig", "break", "checked", "component", "const", "constraint", "continue",
+            "event", "external", "include", "mixin", "parallel", "process", "protected", "pure", "sealed", "tailcall", "trait", "virtual"
+        ]
+    })
     ,  (Go,        LanguageInfo {
         langExtensions = [Ext "go"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["`" ~~ "`"]
-    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
     ,   langResKeywords = keywords [
             "break", "default", "func", "interface", "select", "case", "defer", "go", "map",
@@ -363,10 +387,10 @@ languagesMap = Map.fromList
     })
     ,  (Haskell,   LanguageInfo {
         langExtensions = [Ext "hs", Ext "lhs", Ext "hsc"]
+    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = [ "[r|" ~~ "|]", "[q|" ~~ "|]", "[s|" ~~ "|]", "[here|" ~~"|]",  "[i|" ~~ "|]"]
-    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
     ,   langValidIdentifierChars = (isAlpha_', isAlphaNum_')
     ,   langResKeywords = keywords [
             "as", "case", "class", "data", "default", "deriving", "do", "else", "hiding", "if", "import",
@@ -435,31 +459,37 @@ languagesMap = Map.fromList
     ,   langValidIdentifierChars = (const False, const False)
     ,   langResKeywords = keywords []
     })
---    ,  (Julia,      LanguageInfo {
---        langExtensions = [Ext "jl"]
---    ,   langComment = mkFilter ["#" ~~ "\n", "#-" ~~ "-#"]  ["\"" ~~ "\"", "\"\"\"" ~~ "\"\"\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "baremodule",  "begin",  "break",  "catch",  "const",  "continue",  "do",  "else",  "elseif",  "end",
---            "export",  "false",  "finally",  "for",  "function",  "global",  "if",  "import",  "let",  "local",
---            "macro",  "module",  "quote",  "return",  "struct",  "true",  "try",  "using",  "while"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (Kotlin,    LanguageInfo {
---        langExtensions = [Ext "kt", Ext "kts", Ext "ktm"]
---    ,   langComment = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'", "\"\"\"" ~~ "\"\"\""]
---    ,   langResKeywords = keywords [
---        "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null", "object",
---        "package", "return", "super", "this", "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",
---        "by", "catch", "constructor", "delegate", "dynamic", "field", "file", "finally", "get", "import", "init",
---        "param", "property", "receiver", "set", "setparam", "value", "where",
---        "abstract", "actual", "annotation", "companion", "const", "crossinline", "data", "enum", "expect", "external",
---        "final", "infix", "inline", "inner", "internal", "lateinit", "noinline", "open", "operator", "out", "override",
---        "private", "protected", "public", "reified", "sealed", "suspend", "tailrec", "vararg",
---        "field", "it"
---        ]
---    ,   langValidIdentifierChars = ("$_", "$_")
---    })
+    ,  (Julia,      LanguageInfo {
+        langExtensions = [Ext "jl"]
+    ,   langComment = ["#" ~~ "\n", "#-" ~~ "-#"]
+    ,   langChar= ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "baremodule",  "begin",  "break",  "catch",  "const",  "continue",  "do",  "else",  "elseif",  "end",
+            "export",  "false",  "finally",  "for",  "function",  "global",  "if",  "import",  "let",  "local",
+            "macro",  "module",  "quote",  "return",  "struct",  "true",  "try",  "using",  "while"
+        ]
+    })
+    ,  (Kotlin,    LanguageInfo {
+        langExtensions = [Ext "kt", Ext "kts", Ext "ktm"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+        "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null", "object",
+        "package", "return", "super", "this", "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",
+        "by", "catch", "constructor", "delegate", "dynamic", "field", "file", "finally", "get", "import", "init",
+        "param", "property", "receiver", "set", "setparam", "value", "where",
+        "abstract", "actual", "annotation", "companion", "const", "crossinline", "data", "enum", "expect", "external",
+        "final", "infix", "inline", "inner", "internal", "lateinit", "noinline", "open", "operator", "out", "override",
+        "private", "protected", "public", "reified", "sealed", "suspend", "tailrec", "vararg",
+        "field", "it"
+        ]
+    })
     ,  (Latex,     LanguageInfo {
         langExtensions = [Ext "latex", Ext "tex"]
     ,   langComment = ["%" ~~ "\n"]
@@ -508,52 +538,61 @@ languagesMap = Map.fromList
     ,   langValidIdentifierChars = (const False, const False)
     ,   langResKeywords = keywords []
     })
---    ,  (Nim,         LanguageInfo {
---        langExtensions = [Ext "nim"]
---    ,   langComment = mkFilter ["#[" ~~ "#]", "#" ~~ "\n"]  ["\"" ~~ "\"", "\"\"\"" ~~ "\"\"\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "addr", "and", "as", "asm",
---            "bind", "block", "break",
---            "case", "cast", "concept", "const", "continue", "converter",
---            "defer", "discard", "distinct", "div", "do",
---            "elif", "else", "end", "enum", "except", "export",
---            "finally", "for", "from", "func",
---            "if", "import", "in", "include", "interface", "is", "isnot", "iterator",
---            "let", "macro", "method", "mixin", "mod", "nil", "not", "notin",
---            "object", "of", "or", "out", "proc", "ptr",
---            "raise", "ref", "return", "shl", "shr", "static",
---            "template", "try", "tuple", "type",
---            "using", "var", "when", "while", "xor", "yield"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (OCaml ,    LanguageInfo {
---        langExtensions = [Ext "ml", Ext "mli"]
---    ,   langComment = mkFilter ["(*" ~~ "*)"] ["\"" ~~ "\"", "'" ~~ "'", "{id|" ~~ "|id}"]
---    ,   langResKeywords = keywords [
---            "and",         "as",          "assert",      "asr",         "begin",       "class",
---            "constraint",  "do",          "done",        "downto",      "else",        "end",
---            "exception",   "external",    "false",       "for",         "fun",         "function",
---            "functor",     "if",          "in",          "include",     "inherit",     "initializer",
---            "land",        "lazy",        "let",         "lor",         "lsl",         "lsr",
---            "lxor",        "match",       "method",      "mod",         "module",      "mutable",
---            "new",         "nonrec",      "object",      "of",          "open",        "or",
---            "private",     "rec",         "sig",         "struct",      "then",        "to",
---            "true",        "try",         "type",        "val",         "virtual",     "when",
---            "while",       "with"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
---    ,  (ObjectiveC,LanguageInfo {
---        langExtensions = [Ext "m", Ext "mi"]
---    ,   langComment = mkFilter ["/*" ~~ "*/", "//" ~~ "\n"]  ["\"" ~~ "\"", "'" ~~ "'"]
---    ,   langResKeywords = keywords [
---            "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "id", "const", "volatile", "in",
---            "out", "inout", "bycopy", "byref", "oneway", "self", "super", "interface", "end", "@implementation", "@end",
---            "@interface", "@end", "@implementation", "@end", "@protoco", "@end", "@class"
---        ]
---    ,   langValidIdentifierChars = ("_", "_")
---    })
+    ,  (Nim,         LanguageInfo {
+        langExtensions = [Ext "nim"]
+    ,   langComment = ["#[" ~~ "#]", "#" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString  = ["\"\"\"" ~~ "\"\"\""]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "addr", "and", "as", "asm",
+            "bind", "block", "break",
+            "case", "cast", "concept", "const", "continue", "converter",
+            "defer", "discard", "distinct", "div", "do",
+            "elif", "else", "end", "enum", "except", "export",
+            "finally", "for", "from", "func",
+            "if", "import", "in", "include", "interface", "is", "isnot", "iterator",
+            "let", "macro", "method", "mixin", "mod", "nil", "not", "notin",
+            "object", "of", "or", "out", "proc", "ptr",
+            "raise", "ref", "return", "shl", "shr", "static",
+            "template", "try", "tuple", "type",
+            "using", "var", "when", "while", "xor", "yield"
+        ]
+    })
+    ,  (OCaml ,    LanguageInfo {
+        langExtensions = [Ext "ml", Ext "mli"]
+    ,   langComment = ["(*" ~~ "*)"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = ["{id|" ~~ "|id}"]
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_')
+    ,   langResKeywords = keywords [
+            "and",         "as",          "assert",      "asr",         "begin",       "class",
+            "constraint",  "do",          "done",        "downto",      "else",        "end",
+            "exception",   "external",    "false",       "for",         "fun",         "function",
+            "functor",     "if",          "in",          "include",     "inherit",     "initializer",
+            "land",        "lazy",        "let",         "lor",         "lsl",         "lsr",
+            "lxor",        "match",       "method",      "mod",         "module",      "mutable",
+            "new",         "nonrec",      "object",      "of",          "open",        "or",
+            "private",     "rec",         "sig",         "struct",      "then",        "to",
+            "true",        "try",         "type",        "val",         "virtual",     "when",
+            "while",       "with"
+        ]
+    })
+    ,  (ObjectiveC,LanguageInfo {
+        langExtensions = [Ext "m", Ext "mi"]
+    ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langResKeywords = keywords [
+            "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "id", "const", "volatile", "in",
+            "out", "inout", "bycopy", "byref", "oneway", "self", "super", "interface", "end", "@implementation", "@end",
+            "@interface", "@end", "@implementation", "@end", "@protoco", "@end", "@class"
+        ]
+    })
     ,  (PHP,       LanguageInfo {
         langExtensions = [Ext "php", Ext "php3", Ext "php4", Ext "php5",Ext "phtml"]
     ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n", "#" ~~ "\n" ]
@@ -709,17 +748,17 @@ languagesMap = Map.fromList
            Ext "mdtxt", Ext "mdtext", Ext "text", Name "README", Name "INSTALL", Name "VERSION",
            Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"
        ]
+   ,   langComment = []
    ,   langChar = []
    ,   langString = []
    ,   langRawString = []
-   ,   langComment = []
    ,   langValidIdentifierChars = (const False, const False)
    ,   langResKeywords = keywords []
    })
     ,  (VHDL,      LanguageInfo {
         langExtensions = [Ext "vhd", Ext "vhdl"]
-    ,   langChar = ["'" ~~ "'"]
     ,   langComment = ["--" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
     ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
