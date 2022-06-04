@@ -145,8 +145,8 @@ getFilePaths False xs = if length xs == 1 then [] else tail xs
 getFilePaths True  xs = xs
 
 
-parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> (Bool, Bool) -> OptionIO ()
-parallelSearch paths patterns langs (isTermIn, _) = do
+parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> Bool -> OptionIO ()
+parallelSearch paths patterns langs isTermIn = do
 
     Env{..} <- ask
 
@@ -334,7 +334,7 @@ main = do
 
     -- run search
 
-    runReaderT (parallelSearch paths patterns' langs (isTermIn, isTermOut)) (Env conf opt { jobs = njobs} Nothing Nothing)
+    runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt { jobs = njobs} Nothing Nothing)
 
 
 fileFilter :: Options -> [Language] -> FilePath -> Bool
