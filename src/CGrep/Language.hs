@@ -29,9 +29,9 @@ import Options ( Options(Options, language_force) )
 import Util ( prettyRead )
 
 
-data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css |
+data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css | Cql |
                 D | Dart | Elm | Elixir | Erlang | Fortran | Fsharp | Go | Haskell | Html | Idris | Java | Javascript | Json | Julia | Kotlin |
-                Latex | Lisp | Lua | Make | Nim | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Tcl |
+                Latex | Lisp | Lua | Make | Nim | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Sql | Tcl |
                 Text | VHDL | Verilog | Yaml
                 deriving (Read, Show, Eq, Ord, Bounded)
 
