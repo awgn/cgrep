@@ -408,6 +408,17 @@ languagesMap = Map.fromList
             "recover", "string", "true"," uint", "uint8", "uintptr"
         ]
     })
+    ,  (GoMod,        LanguageInfo {
+        langExtensions = [Name "go.mod"]
+    ,   langComment = ["//" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langValidIdentifierChars = (const False, const False)
+    ,   langResKeywords = keywords [
+            "module", "go", "require", "exclude", "replace", "retract"
+        ]
+    })
     ,  (Haskell,   LanguageInfo {
         langExtensions = [Ext "hs", Ext "lhs", Ext "hsc"]
     ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
@@ -544,7 +555,7 @@ languagesMap = Map.fromList
         ]
     })
     ,  (Make,      LanguageInfo {
-        langExtensions = [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak"]
+        langExtensions = [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext  "mak", Ext "make"]
     ,   langComment = ["#" ~~ "\n"]
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
@@ -832,7 +843,7 @@ languagesMap = Map.fromList
        langExtensions = [
            Ext "txt", Ext "md", Ext "markdown", Ext "mdown", Ext "mkdn", Ext "mkd", Ext "mdwn",
            Ext "mdtxt", Ext "mdtext", Ext "text", Name "README", Name "INSTALL", Name "VERSION",
-           Name "LICENSE", Name "AUTHORS", Name "CHANGELOG"
+           Name "LICENSE", Name "AUTHORS", Name "CHANGELOG", Name "go.sum"
        ]
    ,   langComment = []
    ,   langChar = []
