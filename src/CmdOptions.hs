@@ -78,7 +78,6 @@ options = cmdArgsMode $ Options
           ,     editor = False              &= help "Run the editor specified by EDITOR var., passing the files that match" &= explicit &=name "editor"
           ,     fileline = False            &= help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" &= explicit &=name "fileline"
           ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
-          ,     xml = False                 &= help "Format output as xml document" &= explicit &= name "xml"
           ,     jobs = 0                    &= groupname "\nConcurrency" &= help "Number of jobs to run in parallel"
           ,     asynch = False              &= help "Process chunks asynchronously"
           ,     verbosity = 0               &= groupname "\nMiscellaneous" &= help "Verbosity level: 1, 2 or 3"

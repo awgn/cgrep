@@ -66,7 +66,6 @@ data Options = Options
     ,   count               :: Bool
     ,   filename_only       :: Bool
     ,   json                :: Bool
-    ,   xml                 :: Bool
     ,   vim                 :: Bool
     ,   editor              :: Bool
     ,   fileline            :: Bool

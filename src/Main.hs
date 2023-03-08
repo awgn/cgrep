@@ -66,8 +66,6 @@ import CGrep.LanguagesMap ( languagesMap, languageLookup, dumpLanguagesMap)
 
 import CGrep.Output
     ( Output(..),
-      putOutputHeader,
-      putOutputFooter,
       putOutput,
       showFileName )
 import CGrep.Common ( takeN, trim8, getTargetName )
@@ -209,8 +207,6 @@ parallelSearch paths patterns langs isTermIn = do
 
     -- dump output until workers are done
 
-    putOutputHeader
-
     let stop = jobs
 
     fix (\action (!n) m ->
@@ -222,8 +218,6 @@ parallelSearch paths patterns langs isTermIn = do
                         liftIO $ mapM_ (B.hPutBuilder stdout . (<> B.char8 '\n')) out
                         action n True
         )  0 False
-
-    putOutputFooter
 
     -- run editor...
 
@@ -270,7 +264,6 @@ main = do
     -- check for multiple backends...
 
     when (length (catMaybes [
-                if xml opt  then Just "" else Nothing,
                 if json opt then Just "" else Nothing
                ]) > 1)
         $ error "you can use one back-end at time!"

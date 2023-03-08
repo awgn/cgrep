@@ -24,8 +24,6 @@
 
 module CGrep.Output ( Output(..)
                     , mkOutput
-                    , putOutputHeader
-                    , putOutputFooter
                     , putOutput
                     , showFileName
                     , showFile
@@ -56,7 +54,7 @@ import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
 import CGrep.Chunk ( Line(..), Chunk(..) )
 
 import Options
-    ( Options(Options, invert_match, filename_only, json, xml,
+    ( Options(Options, invert_match, filename_only, json,
               no_filename, count, no_numbers, no_column, show_match,
               color, no_color) )
 
@@ -114,25 +112,10 @@ invertLines n xs =  filter (\(Line i _) ->  i `notElem` idx ) $ take n [ Line i 
 {-# INLINE invertLines #-}
 
 
-putOutputHeader :: OptionIO ()
-putOutputHeader = do
-   Env{..} <- ask
-   if  | xml  opt  -> liftIO $ putStrLn "<?xml version=\"1.0\"?>" >> putStrLn "<cgrep>"
-       | otherwise -> return ()
-
-
-putOutputFooter :: OptionIO ()
-putOutputFooter = do
-    Env{..} <- ask
-    if | xml  opt  -> liftIO $ putStrLn "</cgrep>"
-       | otherwise -> return ()
-
-
 putOutput :: [Output] -> OptionIO [B.Builder]
 putOutput out = do
     Env{..} <- ask
-    if  | xml opt           -> xmlOutput  out
-        | json opt          -> jsonOutput out
+    if  | json opt          -> jsonOutput out
         | filename_only opt -> filenameOutput out
         | otherwise         -> defaultOutput out
 
@@ -182,22 +165,6 @@ filenameOutput outs = return $ B.stringUtf8 <$> nub ((\(Output fname _ _ _) -> f
 {-# INLINE filenameOutput #-}
 
 
-xmlOutput :: [Output] -> OptionIO [B.Builder]
-xmlOutput [] = return []
-xmlOutput outs = return $
-    [B.byteString "<file name='" <> B.stringUtf8  fname <> B.byteString "'>" ] <>
-    [B.byteString "<matches>" ] <>
-    [foldl mkMatch mempty outs] <>
-    [B.byteString "</matches>"] <>
-    [B.byteString "</file>"]
-        where fname = case outs of
-                        [] -> ""
-                        (Output f _ _ _) : _ -> f
-              mkToken (Chunk n xs) = B.byteString "<token col='" <> B.int64Dec n <> B.byteString "'>" <> B.byteString xs <> B.byteString "</token>"
-              mkMatch xs (Output _ n _ ts) =
-                  xs <> B.byteString "<match line='" <> B.int64Dec n <> B.byteString "'>" <> mconcat (map mkToken ts) <> B.byteString "</match>"
-
-
 replace :: String -> [(String, String)] -> String
 replace ys@(x:xs) pats =
   let pats' = filter ((`isPrefixOf` ys) . fst) pats  in
@@ -238,14 +205,6 @@ buildColoredAs Options { color = c, no_color = c'} colorCode str
     | c && not c'= B.string8 colorCode <> B.string8 str <> B.string8 resetTerm
     | otherwise  = B.string8 str
 {-# INLINE buildColoredAs #-}
-
-
-showLineCol :: Options -> Output -> String
-showLineCol Options{no_numbers = True } _ = ""
-showLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = show n
-showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = show n
-showLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = show n <> ":" <> show ((+1) . tOffset . head $ ts)
-{-# INLINE showLineCol #-}
 
 
 buildLineCol :: Options -> Output -> B.Builder
