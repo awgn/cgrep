@@ -121,21 +121,22 @@ putOutput out = do
 
 space :: B.Builder
 space = B.char8 ' '
+{-# INLINE space #-}
 
 defaultOutput :: [Output] -> OptionIO [B.Builder]
 defaultOutput xs = do
     Env{..} <- ask
     if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> space <> buildTokens opt out <> space <> buildLine conf opt out) xs
+                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
-                -> return $ map (\out -> buildFile conf opt out <> space <> buildTokens opt out <> space <> buildLine conf opt out) xs
+                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
-              -> return $ map (\out -> buildTokens opt out <> space <> buildLine conf opt out) xs
+              -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
-              -> return $ map (\out -> buildTokens opt out <> space <> buildLine conf opt out) xs
+              -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, count = True } <- opt
             -> do
@@ -217,7 +218,7 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = B.stringUtf8 bold <> mconcat (B.byteString . tStr <$> outChunks out) <> B.stringUtf8 resetTerm
+    | st        = B.stringUtf8 bold <> mconcat (B.byteString . tStr <$> outChunks out) <> B.stringUtf8 resetTerm <> B.char8 ':'
     | otherwise = mempty
 
 buildLine :: Config -> Options -> Output -> B.Builder
