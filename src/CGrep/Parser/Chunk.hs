@@ -27,11 +27,11 @@ import qualified Data.DList as DL
 import Data.Char
     ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
 
-import CGrep.Types ( Text8, LineOffset, Offset )
+import CGrep.Types ( Text8, Offset )
 import Data.List (genericLength)
 import CGrep.LanguagesMap ( LanguageInfo (langValidIdentifierChars) )
 
-import CGrep.Chunk ( Chunk(..), Line(..) )
+import CGrep.Chunk ( Chunk(..), MatchingLine(..) )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as LB

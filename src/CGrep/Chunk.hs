@@ -19,7 +19,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module CGrep.Chunk ( Chunk(..)
-                   , Line(..)
+                   , MatchingLine(..)
                    ) where
 
 import qualified Data.ByteString.Char8 as C
@@ -28,7 +28,7 @@ import qualified Data.DList as DL
 import Data.Char
     ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
 
-import CGrep.Types ( LineOffset, Offset )
+import CGrep.Types ( Offset )
 
 data Chunk = Chunk {
     tOffset :: {-# UNPACK #-} !Offset,
@@ -36,7 +36,7 @@ data Chunk = Chunk {
 } deriving (Eq, Show)
 
 
-data Line = Line {
-    lOffset :: {-# UNPACK #-} !LineOffset,
-    lChunks :: ![Chunk]
+data MatchingLine = MatchingLine {
+    lOffset :: {-# UNPACK #-} !Offset,
+    lChunks :: [Chunk]
 } deriving (Eq, Show)

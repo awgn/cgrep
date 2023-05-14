@@ -26,17 +26,16 @@ module CGrep.Output ( Output(..)
                     , mkOutput
                     , putOutput
                     , showFileName
-                    , showFile
                     , showBold) where
 
 import qualified Data.ByteString as B
-
 import qualified Data.ByteString.Builder as B
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
 
-import qualified Codec.Binary.UTF8.String as UC
+import qualified Data.Vector.Unboxed as V
+import Data.Vector.Unboxed ( (!) )
 
 import System.Console.ANSI
     ( setSGRCode,
@@ -50,8 +49,8 @@ import Data.List
     ( foldl', sortBy, groupBy, isPrefixOf, nub, sort, genericLength, intersperse )
 import Data.Function ( on )
 
-import CGrep.Types ( Text8, LineOffset, Offset2d, Offset )
-import CGrep.Chunk ( Line(..), Chunk(..) )
+import CGrep.Types ( Text8, Offset )
+import CGrep.Chunk ( MatchingLine(..), Chunk(..) )
 
 import Options
     ( Options(Options, invert_match, filename_only, json,
@@ -64,50 +63,61 @@ import Data.Int ( Int64 )
 
 
 data Output = Output
-    { outFilePath :: !FilePath
+    { outFilePath :: B.ByteString
     , outLineNumb :: {-# UNPACK #-} !Int64
     , outLine     :: {-# UNPACK #-} !Text8
     , outChunks   :: ![Chunk]
     }
     deriving (Show)
 
-
-getOffsetsLines :: Text8 -> [Int64]
-getOffsetsLines txt =
+getLineOffsets :: Text8 -> V.Vector Int64
+getLineOffsets txt =
     let l = C.length txt
-        ret = filter (<(l-1)) $ C.elemIndices '\n' txt
-    in  fromIntegral <$> ret
-{-# INLINE getOffsetsLines #-}
+        idx :: [ Int64 ] = fromIntegral <$> C.elemIndices '\n' txt
+    in if last idx == fromIntegral (l-1)
+        then V.fromListN (l-1) idx
+        else V.fromListN l idx
 
 
-getOffset2d :: [LineOffset] -> Offset -> Offset2d
-getOffset2d idx off =
-  let prc = filter (< off) idx
-      (!len_prc, !last_prc) = foldl' (\(len,_ ) cur -> let !l1 = len+1 in  (l1, cur)) (0, off) prc
-  in (# len_prc, off - last_prc - 1 #)
-{-# INLINE getOffset2d #-}
+insertIndex :: V.Vector Offset -> Offset -> Int
+insertIndex xs x = search xs 0 (V.length xs)
+    where
+        search xs lo hi
+            | lo == hi = lo
+            | otherwise = let mid = (lo + hi) `div` 2
+                        in if x < xs ! mid
+                                then search xs lo mid
+                                else search xs (mid+1) hi
+
+
+getLineNumberAndOffset :: V.Vector Offset -> Offset -> (# Int, Offset #)
+getLineNumberAndOffset xs x =
+    let idx = insertIndex xs x
+    in (# idx, x - 1 - (if idx > 0 then xs ! (idx-1) else 0) #)
+{-# INLINE getLineNumberAndOffset #-}
 
 
 mkOutput :: FilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
 mkOutput f text multi ts = do
     invert <- invert_match <$> reader opt
-    return $ if invert then map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkLines multi ts
-                       else map (\(Line n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkLines multi ts
+    return $ if invert then map (\(MatchingLine n xs) -> Output fp n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines multi ts
+                       else map (\(MatchingLine n xs) -> Output fp n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines multi ts
     where ls = C.lines text
+          fp = C.pack f
 {-# INLINE mkOutput #-}
 
 
-mkLines :: Text8 -> [Chunk] -> [Line]
-mkLines _ [] = []
-mkLines text ts = map mergeGroup $ groupBy ((==) `on` lOffset) $
-    sortBy (compare `on` lOffset) $ (\Chunk{..} -> let (# r, c #) = getOffset2d ols tOffset in Line (1 + r) [Chunk c tStr]) <$> ts
-    where mergeGroup :: [Line] -> Line
-          mergeGroup ls = Line ((lOffset . head) ls) (foldl (\l m -> l <> lChunks m) [] ls)
-          ols = getOffsetsLines text
+mkMatchingLines :: Text8 -> [Chunk] -> [MatchingLine]
+mkMatchingLines _ [] = []
+mkMatchingLines text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
+    (\Chunk{..} -> let (# r, c #) = getLineNumberAndOffset ols tOffset in MatchingLine (fromIntegral r + 1) [Chunk c tStr]) <$> ts
+        where mergeGroup :: [MatchingLine] -> MatchingLine
+              mergeGroup ls = MatchingLine ((lOffset . head) ls) (foldl (\l m -> l <> lChunks m) [] ls)
+              ols = getLineOffsets text
 
 
-invertLines :: Int -> [Line] -> [Line]
-invertLines n xs =  filter (\(Line i _) ->  i `notElem` idx ) $ take n [ Line i [] | i <- [1..]]
+invertLines :: Int -> [MatchingLine] -> [MatchingLine]
+invertLines n xs =  filter (\(MatchingLine i _) ->  i `notElem` idx ) $ take n [ MatchingLine i [] | i <- [1..]]
     where idx = lOffset <$> xs
 {-# INLINE invertLines #-}
 
@@ -119,18 +129,15 @@ putOutput out = do
         | filename_only opt -> filenameOutput out
         | otherwise         -> defaultOutput out
 
-space :: B.Builder
-space = B.char8 ' '
-{-# INLINE space #-}
 
 defaultOutput :: [Output] -> OptionIO [B.Builder]
 defaultOutput xs = do
     Env{..} <- ask
     if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+                -> return $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
-                -> return $ map (\out -> buildFile conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+                -> return $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
               -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
@@ -141,7 +148,7 @@ defaultOutput xs = do
         |  Options{ no_filename = False, count = True } <- opt
             -> do
                 let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                return $ (\ys@(y:_) -> buildFile conf opt y <> B.char8 ':' <> B.intDec (length ys)) <$> gs
+                return $ (\ys@(y:_) -> buildFileName conf opt y <> B.char8 ':' <> B.intDec (length ys)) <$> gs
 
         |  Options{ count = True } <- opt
             -> do
@@ -152,7 +159,7 @@ defaultOutput xs = do
 jsonOutput :: [Output] -> OptionIO [B.Builder]
 jsonOutput [] = return []
 jsonOutput outs = return $
-    [B.byteString "{ \"file\":\"" <> B.stringUtf8 fname <> B.byteString "\", \"matches\":["] <>
+    [B.byteString "{ \"file\":\"" <> B.byteString fname <> B.byteString "\", \"matches\":["] <>
     [ mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs) ] <> [B.byteString "]}"]
      where fname | (Output f _ _ _) <- head outs = f
            mkJToken (Chunk n xs) = B.byteString "{ \"col\":" <> B.int64Dec n <> B.byteString ", \"token\":\"" <> B.byteString xs <> B.byteString "\" }"
@@ -162,49 +169,38 @@ jsonOutput outs = return $
 
 
 filenameOutput :: [Output] -> OptionIO [B.Builder]
-filenameOutput outs = return $ B.stringUtf8 <$> nub ((\(Output fname _ _ _) -> fname) <$> outs)
+filenameOutput outs = return $ B.byteString <$> nub ((\(Output fname _ _ _) -> fname) <$> outs)
 {-# INLINE filenameOutput #-}
 
 
-replace :: String -> [(String, String)] -> String
-replace ys@(x:xs) pats =
-  let pats' = filter ((`isPrefixOf` ys) . fst) pats  in
-  if null pats' then x : replace xs pats
-                else let new = head pats' in snd new <> replace (drop (length(fst new) - 1) xs) pats
-replace [] _ = []
-
-
-bold, resetTerm :: String
-bold      = setSGRCode [SetConsoleIntensity BoldIntensity]
-resetTerm = setSGRCode []
+bold, reset :: String
+bold  = setSGRCode [SetConsoleIntensity BoldIntensity]
+reset = setSGRCode []
 {-# INLINE bold #-}
-{-# INLINE resetTerm #-}
+{-# INLINE reset #-}
+
+
+boldBuilder, resetBuilder :: B.Builder
+boldBuilder = B.string8 bold
+resetBuilder = B.string8 reset
+{-# INLINE boldBuilder #-}
+{-# INLINE resetBuilder #-}
+
 
 type ColorString = String
 
-showSep  :: String -> Options -> Output -> String
-showSep xs _ _ = xs
-{-# INLINE showSep #-}
 
-showFile :: Config -> Options -> Output -> String
-showFile conf opt = showFileName conf opt . outFilePath
-{-# INLINE showFile #-}
-
-
-buildFile :: Config -> Options -> Output -> B.Builder
-buildFile conf opt = buildFileName conf opt . outFilePath
-{-# INLINE buildFile #-}
-
-
-buildFileName :: Config -> Options -> String -> B.Builder
-buildFileName conf opt = buildColoredAs opt $ setSGRCode (configColorFile conf)
+buildFileName :: Config -> Options -> Output -> B.Builder
+buildFileName conf opt = buildFileName' conf opt . outFilePath
+    where buildFileName' :: Config -> Options -> B.ByteString -> B.Builder
+          buildFileName' conf opt = buildColoredAs opt $ setSGRCode (configColorFile conf)
 {-# INLINE buildFileName #-}
 
 
-buildColoredAs :: Options -> ColorString -> String -> B.Builder
+buildColoredAs :: Options -> ColorString -> B.ByteString -> B.Builder
 buildColoredAs Options { color = c, no_color = c'} colorCode str
-    | c && not c'= B.string8 colorCode <> B.string8 str <> B.string8 resetTerm
-    | otherwise  = B.string8 str
+    | c && not c'= B.string8 colorCode <> B.byteString str <> resetBuilder
+    | otherwise  = B.byteString str
 {-# INLINE buildColoredAs #-}
 
 
@@ -218,12 +214,13 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = B.stringUtf8 bold <> mconcat (B.byteString . tStr <$> outChunks out) <> B.stringUtf8 resetTerm <> B.char8 ':'
+    | st        = boldBuilder <> mconcat (B.byteString . tStr <$> outChunks out) <> resetBuilder <> B.char8 ':'
     | otherwise = mempty
+
 
 buildLine :: Config -> Options -> Output -> B.Builder
 buildLine conf Options { color = c, no_color = c' } out
-    | c && not c'= hilightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outChunks out)) (outLine out)
+    | c && not c'= highlightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outChunks out)) (outLine out)
     | otherwise  = B.byteString $ outLine out
 {-# INLINE buildLine #-}
 
@@ -238,21 +235,21 @@ showBold opt = showColoredAs opt bold
 {-# INLINE showBold #-}
 
 
-showColoredAs :: Options -> ColorString -> String -> String
+showColoredAs :: Options -> String -> String -> String
 showColoredAs Options { color = c, no_color = c'} colorCode str
-    | c && not c'= colorCode <> str <> resetTerm
+    | c && not c'= colorCode <> str <> reset
     | otherwise  = str
 {-# INLINE showColoredAs #-}
 
 
-hilightLine :: Config -> [Chunk] -> Text8 -> B.Builder
-hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
-    where hilightLine' :: ([(Int64, Int64)], Int64, Int) -> C.ByteString -> B.Builder
-          hilightLine'  _ (C.uncons -> Nothing) = mempty
-          hilightLine' (ns, !n, !bs) s@(C.uncons -> Just (x,_)) =
-                (if | check && bs' == 0 -> if fst stack > 0 then B.string8 colorMatch <> B.char8 x <> B.string8 resetTerm else B.char8 x <> B.string8 resetTerm
+highlightLine :: Config -> [Chunk] -> Text8 -> B.Builder
+highlightLine conf ts =  highlightLine' (highlightIndexes ts, 0, 0)
+    where highlightLine' :: ([(Int64, Int64)], Int64, Int) -> C.ByteString -> B.Builder
+          highlightLine'  _ (C.uncons -> Nothing) = mempty
+          highlightLine' (ns, !n, !bs) s@(C.uncons -> Just (x,_)) =
+                (if | check && bs' == 0 -> if fst stack > 0 then B.string8 colorMatch <> B.char8 x <> resetBuilder else B.char8 x <> resetBuilder
                     | check && bs' > 0 -> B.string8 colorMatch <> B.char8 x
-                    | otherwise -> B.byteString next) <> hilightLine' (ns, n + nn, bs') rest
+                    | otherwise -> B.byteString next) <> highlightLine' (ns, n + nn, bs') rest
             where stack = foldr (\(a, b) (c, d) -> (c + fromEnum (a == n), d + fromEnum (b == n))) (0, 0) ns
                   check = fst stack > 0 || snd stack > 0
                   colorMatch = setSGRCode (configColorMatch conf)
@@ -263,9 +260,9 @@ hilightLine conf ts =  hilightLine' (hilightIndicies ts, 0, 0)
                      | otherwise = head plain' - n
                          where plain' = dropWhile (<=n) plain
                   (next, rest) = C.splitAt (fromIntegral nn) s
-          hilightLine'  _ _ = undefined
+          highlightLine'  _ _ = undefined
 
 
-hilightIndicies :: [Chunk] -> [(Int64, Int64)]
-hilightIndicies = foldr (\Chunk{..} a -> let b = tOffset in (fromIntegral b, b + fromIntegral (C.length tStr) - 1) : a) [] . filter (not. B.null.tStr)
-{-# INLINE hilightIndicies #-}
+highlightIndexes :: [Chunk] -> [(Int64, Int64)]
+highlightIndexes = foldr (\Chunk{..} a -> let b = tOffset in (fromIntegral b, b + fromIntegral (C.length tStr) - 1) : a) [] . filter (not. B.null.tStr)
+{-# INLINE highlightIndexes #-}

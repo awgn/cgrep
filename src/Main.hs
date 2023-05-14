@@ -41,8 +41,7 @@ import Control.Monad.STM ( atomically )
 import Control.Concurrent.STM.TQueue
     ( newTQueueIO, readTQueue, writeTQueue )
 
-import Control.Monad
-    ( when, forM_, forever, replicateM_, unless, void )
+import Control.Monad ( when, forM_, forever, replicateM_, unless, void, forM )
 import Control.Monad.Trans ( MonadIO(liftIO) )
 import Control.Monad.Trans.Except ( runExceptT, throwE )
 import Control.Monad.Trans.Reader ( ReaderT(runReaderT), ask )
@@ -56,7 +55,7 @@ import System.Environment ( lookupEnv, withArgs )
 import System.PosixCompat.Files as PosixCompat
     ( getSymbolicLinkStatus, isSymbolicLink )
 import System.IO
-    ( stdout, stdin, hIsTerminalDevice, stderr, hPutStrLn )
+    ( stdout, stdin, hIsTerminalDevice, stderr, hPutStrLn, hSetBuffering, hSetBinaryMode, BufferMode (BlockBuffering) )
 import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
@@ -90,8 +89,7 @@ import qualified Codec.Binary.UTF8.String as UC
 import Data.Tuple.Extra ( (&&&) )
 import System.FilePath.Posix ( (</>), takeBaseName )
 import GHC.Conc ( getNumCapabilities )
-
-import Control.Monad.Cont (forM)
+import qualified Data.Bifunctor
 
 -- push file names in Chan...
 
@@ -191,33 +189,33 @@ parallelSearch paths patterns langs isTermIn = do
                             out <- fmap (take max_count)
                                 (runReaderT (do
                                     out' <- runSearch x patterns
-                                    liftIO $ when (vim || editor) $
-                                        mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
+                                    when (vim || editor) $
+                                        liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
                                     putOutput out'
                                 ) (Env conf opt Nothing Nothing))
 
                             unless (null out) $
-                                atomically $ writeTQueue out_chan out
+                                atomically $ writeTQueue out_chan ((<> B.char8 '\n') <$> out)
 
                 )  (\e -> let msg = show (e :: SomeException) in
-                            hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> takeN 80 msg))
+                        hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> takeN 80 msg))
 
             when (null fs) $ throwE ()
-
 
     -- dump output until workers are done
 
     let stop = jobs
 
-    fix (\action (!n) m ->
-         unless (n == stop) $ do
-                 out <- liftIO $ atomically $ readTQueue out_chan
-                 case out of
+    -- setup stdout...
+
+    liftIO $ do
+        hSetBuffering stdout (BlockBuffering $ Just 8192)
+        hSetBinaryMode stdout True
+        fix (\action (!n) m ->
+         unless (n == stop) $ atomically (readTQueue out_chan) >>= \case
                       [] -> action (n+1) m
-                      _  -> do
-                        liftIO $ mapM_ (B.hPutBuilder stdout . (<> B.char8 '\n')) out
-                        action n True
-        )  0 False
+                      out -> mapM_ (B.hPutBuilder stdout) out *> action n True
+            )  0 False
 
     -- run editor...
 
@@ -227,11 +225,12 @@ parallelSearch paths patterns langs isTermIn = do
                     then return (Just "vim")
                     else lookupEnv "EDITOR"
 
-        files   <- Set.toList <$> readIORef matchingFiles
+        files <- Set.toList <$> readIORef matchingFiles
+        let filesUnpacked = Data.Bifunctor.first C.unpack <$> files
 
         let editFiles = (if fileline || configFileLine
                             then fmap (\(a,b) -> a <> ":" <> show b)
-                            else nub . sort . fmap fst) files
+                            else fmap fst) filesUnpacked
 
         putStrLn $ "cgrep: open files " <> unwords editFiles <> "..."
 

@@ -20,12 +20,8 @@
 module CGrep.Types where
 
 import Data.ByteString.Char8 as C ( ByteString )
-
 import Data.Int ( Int64 )
 
-type Offset2d   = (# Int64, Int64 #)
 type Offset     = Int64
-type LineOffset = Int64
-
 type Text8     = C.ByteString
 type Line8     = C.ByteString

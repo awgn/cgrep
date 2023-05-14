@@ -78,6 +78,7 @@ Executable cgrep
                        filepath,
                        stm,
                        containers,
+                       vector,
                        array,
                        ghc-prim,
                        dlist,
