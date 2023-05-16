@@ -267,8 +267,6 @@ main = do
     patterns <- if null file then pure $ readPatternsFromCommandLine others
                              else readPatternsFromFile file
 
-    mapM_ print patterns
-
     let patterns' = map (if ignore_case then ic else id) patterns
             where ic | (not . isRegexp) opt && semantic = C.unwords . map (\p -> if p `elem` wildCardTokens then p else C.map toLower p) . C.words
                      | otherwise = C.map toLower
