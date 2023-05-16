@@ -21,7 +21,7 @@
 
 module Main where
 
-import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union, isPrefixOf, genericLength )
+import Data.List ( isSuffixOf, (\\), isInfixOf, nub, sort, union, isPrefixOf, genericLength, partition, elemIndex )
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe ( catMaybes, fromJust )
@@ -36,7 +36,7 @@ import Paths_cgrep ( version )
 
 import Control.Exception as E ( catch, SomeException )
 import Control.Concurrent ( forkIO )
-import Control.Concurrent.Async ( forConcurrently_, forConcurrently )
+import Control.Concurrent.Async ( forConcurrently_ )
 import Control.Monad.STM ( atomically )
 import Control.Concurrent.STM.TQueue
     ( newTQueueIO, readTQueue, writeTQueue )
@@ -52,10 +52,10 @@ import System.Console.CmdArgs ( cmdArgsRun )
 import System.Directory
     ( canonicalizePath, doesDirectoryExist, listDirectory )
 import System.Environment ( lookupEnv, withArgs )
-import System.PosixCompat.Files as PosixCompat
-    ( getSymbolicLinkStatus, isSymbolicLink )
+import System.PosixCompat.Files as PC
+    ( getSymbolicLinkStatus, getFileStatus, isSymbolicLink, isDirectory, FileStatus )
 import System.IO
-    ( stdout, stdin, hIsTerminalDevice, stderr, hPutStrLn, hSetBuffering, hSetBinaryMode, BufferMode (BlockBuffering) )
+    ( stdout, stdin, hIsTerminalDevice, stderr, hPutStrLn, hSetBuffering, hSetBinaryMode, BufferMode (..) )
 import System.Exit ( exitSuccess )
 import System.Process (readProcess, runProcess, waitForProcess)
 
@@ -65,7 +65,7 @@ import CGrep.LanguagesMap ( languagesMap, languageLookup, dumpLanguagesMap)
 
 import CGrep.Output
     ( Output(..),
-      putOutput,
+      putOutputElements,
       showFileName )
 import CGrep.Common ( takeN, trim8, getTargetName )
 import CGrep.Parser.Atom ( wildCardMap )
@@ -73,7 +73,7 @@ import CGrep.Parser.Atom ( wildCardMap )
 import CmdOptions ( options )
 import Options ( Options(..) )
 import Util ( partitionM, notNull )
-import Verbose ( putStrLn1 )
+import Verbose ( putStrLnVerbose )
 import Config
     ( Config(Config, configFileLine, configColorMatch, configColorFile,
              configPruneDirs, configColors, configLanguages),
@@ -82,6 +82,8 @@ import Reader ( OptionIO, Env (..) )
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Builder.Extra as B
+
 import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
@@ -93,53 +95,47 @@ import qualified Data.Bifunctor
 
 -- push file names in Chan...
 
+data StatusFile = StatusFile{
+    fullPath :: FilePath,
+    status :: FileStatus
+}
+
+getStatusFile :: Bool -> FilePath -> IO StatusFile
+getStatusFile True path =
+    PC.getSymbolicLinkStatus path >>= \s -> return $ StatusFile path s
+getStatusFile False path =
+    PC.getFileStatus path >>= \s -> return $ StatusFile path s
+{-# INLINE getStatusFile #-}
+
+
 withRecursiveContents :: Options -> FilePath -> [Language] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
 withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
-    xs <- listDirectory dir
+    xs <- mapM (getStatusFile follow . (dir </>)) =<< listDirectory dir
 
-    (dirs,files) <- partitionM doesDirectoryExist [dir </> x | x <- xs]
-
-    magics <- if null magic_filter || null files
-               then return []
-               else getFilesMagic files
+    let (dirs, files) = partition (PC.isDirectory . status) xs
 
     -- filter the list of files
 
-    let files' = if null magics
-                   then  filter (fileFilter opt langs) files
-                   else  catMaybes $ zipWith (\f m ->  if any (`isInfixOf` m) magic_filter then Just f else Nothing) files magics
-
-        files'' = filter (\f -> not skip_test || isNotTestFile f) files'
+    let files' = fullPath <$> filter (\f -> fileFilter opt langs (fullPath f) && (not skip_test || isNotTestFile (fullPath f))) files
 
     -- run action
 
-    unless (null files'') $ do
-        let bl = length files'' `div` jobs
-            batches = chunksOf (if bl == 0 then 1 else bl) files''
+    unless (null files') $ do
+        let bl = length files' `div` jobs
+            batches = chunksOf (if bl == 0 then 1 else bl) files'
         mapM_ action batches
 
     -- process dirs recursively
 
-    forConcurrently_ dirs $ \path -> do
-         lstatus <- getSymbolicLinkStatus path
-         when (deference_recursive || not (PosixCompat.isSymbolicLink lstatus)) $
-             unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
-                 canonicalizePath path >>= \cpath -> unless (cpath `Set.member` visited) $
+    forConcurrently_ dirs $ \dirPath -> do
+        let path = fullPath dirPath
+        unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
+                canonicalizePath path >>= \cpath -> unless (cpath `Set.member` visited) $
                     withRecursiveContents opt path langs pdirs (Set.insert cpath visited) action
 
--- read patterns from file
-
-readPatternsFromFile :: FilePath -> IO [C.ByteString]
-readPatternsFromFile f =
-    if null f then return []
-              else map trim8 . C.lines <$> C.readFile f
-
-getFilePaths :: Bool        ->     -- pattern(s) from file
-                [String]    ->     -- list of patterns and files
-                [String]
-getFilePaths False xs = if length xs == 1 then [] else tail xs
-getFilePaths True  xs = xs
-
+{-# NOINLINE toLazyByteStringShort #-}
+toLazyByteStringShort =
+  B.toLazyByteStringWith (B.untrimmedStrategy 128 256) LB.empty
 
 parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> Bool -> OptionIO ()
 parallelSearch paths patterns langs isTermIn = do
@@ -154,10 +150,10 @@ parallelSearch paths patterns langs isTermIn = do
     in_chan  <- liftIO newTQueueIO
     out_chan <- liftIO newTQueueIO
 
-    -- push the files to for...
+    -- recursively traverse the filesystem ...
 
     _ <- liftIO . forkIO $ do
-        if recursive || deference_recursive
+        if recursive || follow
             then forM_ (if null paths then ["."] else paths) $ \p -> do
                     isDir <- doesDirectoryExist p
                     if isDir
@@ -172,8 +168,7 @@ parallelSearch paths patterns langs isTermIn = do
         -- enqueue EOF messages:
         replicateM_ jobs ((atomically . writeTQueue in_chan) [])
 
-
-    -- launch worker threads...
+    -- launch the worker threads...
 
     matchingFiles <- liftIO $ newIORef Set.empty
 
@@ -183,19 +178,17 @@ parallelSearch paths patterns langs isTermIn = do
             liftIO $ E.catch (
                 case fs of
                     [] -> atomically $ writeTQueue out_chan []
-                    xs -> (if asynch then forConcurrently_
-                                     else forM_) xs $ \x -> do
-
+                    xs -> forM_ xs $ \x -> do
                             out <- fmap (take max_count)
                                 (runReaderT (do
                                     out' <- runSearch x patterns
                                     when (vim || editor) $
                                         liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
-                                    putOutput out'
+                                    putOutputElements out'
                                 ) (Env conf opt Nothing Nothing))
 
                             unless (null out) $
-                                atomically $ writeTQueue out_chan ((<> B.char8 '\n') <$> out)
+                                atomically $ writeTQueue out_chan (toLazyByteStringShort <$> (<> B.char8 '\n') <$> out)
 
                 )  (\e -> let msg = show (e :: SomeException) in
                         hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> takeN 80 msg))
@@ -204,17 +197,14 @@ parallelSearch paths patterns langs isTermIn = do
 
     -- dump output until workers are done
 
-    let stop = jobs
-
-    -- setup stdout...
-
     liftIO $ do
         hSetBuffering stdout (BlockBuffering $ Just 8192)
+        -- hSetBuffering stdout NoBuffering
         hSetBinaryMode stdout True
         fix (\action (!n) m ->
-         unless (n == stop) $ atomically (readTQueue out_chan) >>= \case
+         unless (n == jobs) $ atomically (readTQueue out_chan) >>= \case
                       [] -> action (n+1) m
-                      out -> mapM_ (B.hPutBuilder stdout) out *> action n True
+                      out -> mapM_ (LB.hPut stdout) out *> action n True
             )  0 False
 
     -- run editor...
@@ -242,7 +232,6 @@ parallelSearch paths patterns langs isTermIn = do
                           (Just stdout)
                           (Just stderr) >>= waitForProcess
 
-
 main :: IO ()
 main = do
     -- check whether this is a terminal device
@@ -250,44 +239,38 @@ main = do
     isTermIn  <- hIsTerminalDevice stdin
     isTermOut <- hIsTerminalDevice stdout
 
-    -- read Cgrep config options
-
-    (conf, _)  <- getConfig
+    -- read config options
+    (conf, _) <- getConfig
 
     -- read command-line options
-
-    opt  <- (if isTermOut
+    opt@Options{..} <- (if isTermOut
                 then \o -> o { color = color o || configColors conf }
                 else id) <$> cmdArgsRun options
 
     -- check for multiple backends...
-
-    when (length (catMaybes [
-                if json opt then Just "" else Nothing
-               ]) > 1)
-        $ error "you can use one back-end at time!"
-
+    when (length (catMaybes [ if json then Just "" else Nothing ]) > 1) $
+        error "Cgrep: you can use one back-end at time!"
 
     -- display lang-map and exit...
-
-    when (language_map opt) $
+    when language_map $
         dumpLanguagesMap languagesMap >> exitSuccess
 
-    when (show_palette opt) $
+    -- display color palette and exit...
+    when show_palette $
         dumpPalette >> exitSuccess
 
     -- check whether the pattern list is empty, display help message if it's the case
-
-    when (null (others opt) && isTermIn && null (file opt)) $
+    when (null others && isTermIn && null file) $
         withArgs ["--help"] $ void (cmdArgsRun options)
 
-    -- load patterns:
+    -- load patterns
+    patterns <- if null file then pure $ readPatternsFromCommandLine others
+                             else readPatternsFromFile file
 
-    patterns <- if null (file opt) then return $ map (C.pack . UC.encodeString) (((:[]).head.others) opt)
-                                    else readPatternsFromFile $ file opt
+    mapM_ print patterns
 
-    let patterns' = map (if ignore_case opt then ic else id) patterns
-            where ic | (not . isRegexp) opt && semantic opt = C.unwords . map (\p -> if p `elem` wildCardTokens then p else C.map toLower p) . C.words
+    let patterns' = map (if ignore_case then ic else id) patterns
+            where ic | (not . isRegexp) opt && semantic = C.unwords . map (\p -> if p `elem` wildCardTokens then p else C.map toLower p) . C.words
                      | otherwise = C.map toLower
                         where wildCardTokens = "OR" : M.keys wildCardMap   -- "OR" is not included in wildCardMap
 
@@ -297,35 +280,30 @@ main = do
     --    hPutStrLn stderr $ showBold opt ("Using '" <> fromJust confpath <> "' configuration file...")
 
     -- load files to parse:
-
-    let paths = getFilePaths (notNull (file opt)) (others opt)
+    let paths = getFilePaths (notNull file) others
 
     -- parse cmd line language list:
-
-    let (l0, l1, l2) = splitLanguagesList (language_filter opt)
+    let (l0, l1, l2) = splitLanguagesList language_filter
 
     -- language enabled:
-
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
-    runReaderT (do putStrLn1 $ "Cgrep " <> showVersion version <> "!"
-                   putStrLn1 $ "options   : " <> show opt
-                   putStrLn1 $ "config    : " <> show conf
-                   putStrLn1 $ "languages : " <> show langs
-                   putStrLn1 $ "pattern   : " <> show patterns'
-                   putStrLn1 $ "files     : " <> show paths
-                   putStrLn1 $ "isTermIn  : " <> show isTermIn
-                   putStrLn1 $ "isTermOut : " <> show isTermOut
+    runReaderT (do putStrLnVerbose 1 $ "Cgrep " <> showVersion version <> "!"
+                   putStrLnVerbose 1 $ "options   : " <> show opt
+                   putStrLnVerbose 1 $ "config    : " <> show conf
+                   putStrLnVerbose 1 $ "languages : " <> show langs
+                   putStrLnVerbose 1 $ "pattern   : " <> show patterns'
+                   putStrLnVerbose 1 $ "files     : " <> show paths
+                   putStrLnVerbose 1 $ "isTermIn  : " <> show isTermIn
+                   putStrLnVerbose 1 $ "isTermOut : " <> show isTermOut
         ) (Env conf opt Nothing Nothing)
 
     -- specify number of cores
-
-    njobs <- if jobs opt /= 0
-                then return (jobs opt)
+    njobs <- if jobs /= 0
+                then return jobs
                 else getNumCapabilities
 
     -- run search
-
     runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt { jobs = njobs} Nothing Nothing)
 
 
@@ -333,9 +311,6 @@ fileFilter :: Options -> [Language] -> FilePath -> Bool
 fileFilter opt langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opt filename)
 {-# INLINE fileFilter #-}
 
-getFilesMagic :: [FilePath] -> IO [String]
-getFilesMagic filenames = lines <$> readProcess "/usr/bin/file" ("-b" : filenames) []
-{-# INLINE getFilesMagic #-}
 
 isNotTestFile :: FilePath -> Bool
 isNotTestFile  f =
@@ -354,3 +329,21 @@ mkPrunableDirName :: FilePath -> FilePath
 mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
                      | otherwise           = xs <> "/"
 {-# INLINE mkPrunableDirName #-}
+
+-- read patterns from file
+readPatternsFromFile :: FilePath -> IO [C.ByteString]
+readPatternsFromFile "" = return []
+readPatternsFromFile f  = map trim8 . C.lines <$> C.readFile f
+
+readPatternsFromCommandLine :: [String] -> [C.ByteString]
+readPatternsFromCommandLine [] = []
+readPatternsFromCommandLine xs | ":" `elem` xs = C.pack . UC.encodeString <$> takeWhile (/= ":") xs
+                               | otherwise = [ (C.pack . UC.encodeString) (head xs) ]
+
+getFilePaths :: Bool        ->     -- pattern(s) from file
+                [String]    ->     -- list of patterns and files
+                [String]
+getFilePaths False xs = case ":" `elemIndex` xs of
+    Nothing  -> if null xs then [] else tail xs
+    (Just n) -> drop (n+1)  xs
+getFilePaths True xs = xs

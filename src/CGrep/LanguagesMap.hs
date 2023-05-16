@@ -929,7 +929,7 @@ languageInfoLookup opts f = languageLookup opts f >>= \l -> (l,) <$> Map.lookup 
 
 languagesFileMap :: FileMapType
 languagesFileMap = Map.fromList $ concatMap (\(l, LanguageInfo{..}) -> map (,l) langExtensions ) $ Map.toList languagesMap
-{-# INLINE languagesFileMap #-}
+{-# NOINLINE languagesFileMap #-}
 
 
 dumpLanguagesMap :: LanguagesMapType -> IO ()

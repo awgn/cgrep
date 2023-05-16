@@ -34,7 +34,7 @@ import CGrep.Common
       ignoreCase,
       runSearch,
       shallowSearch, quickMatch )
-import CGrep.Output ( Output, mkOutput )
+import CGrep.Output ( Output, mkOutputElements )
 import CGrep.ContextFilter ( mkContextFilter )
 import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
 import CGrep.Types ( Offset )
@@ -43,7 +43,7 @@ import CGrep.Parser.Chunk ( parseChunks )
 
 import Reader ( OptionIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
-import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
+import Verbose ( putStrLnVerbose )
 import Util ( notNull )
 import CGrep.Chunk (Chunk(..))
 
@@ -79,17 +79,13 @@ search f patterns = do
                     then filter (checkChunk opt langInfo text''') tokens
                     else tokens
 
-    putStrLn1 $ "strategy  : running Boyer-Moore search on " <> filename
-    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putStrLnVerbose 1 $ "strategy  : running Boyer-Moore search on " <> filename
+    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     runSearch opt filename (quickMatch patterns shallow) $ do
-
-        -- print banners...
-
-        putStrLn2 $ "tokens    : " <> show tokens
-        putStrLn2 $ "tokens'   : " <> show tokens'
-
-        mkOutput filename text text''' tokens'
+        putStrLnVerbose 2 $ "tokens    : " <> show tokens
+        putStrLnVerbose 2 $ "tokens'   : " <> show tokens'
+        mkOutputElements filename text text''' tokens'
 
 
 checkChunk :: Options -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool

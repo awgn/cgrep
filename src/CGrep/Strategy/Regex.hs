@@ -39,13 +39,13 @@ import CGrep.Common
       getTargetContents,
       expandMultiline,
       ignoreCase )
-import CGrep.Output ( Output, mkOutput )
+import CGrep.Output ( Output, mkOutputElements )
 import CGrep.ContextFilter ( mkContextFilter)
 import CGrep.LanguagesMap ( languageLookup, contextFilter )
 
 import Reader ( OptionIO, Env (..) )
 import Options ( Options(regex_pcre) )
-import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
+import Verbose ( putStrLnVerbose )
 
 import CGrep.Chunk ( Chunk(..) )
 
@@ -74,9 +74,8 @@ search f patterns = do
         tokens = map (\(str, (off,_)) -> Chunk (fromIntegral off) str) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putStrLn1 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
-    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putStrLnVerbose 1 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
+    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putStrLnVerbose 2 $ "tokens    : " <> show tokens
 
-    putStrLn2 $ "tokens    : " <> show tokens
-
-    mkOutput filename text text''' tokens
+    mkOutputElements filename text text''' tokens

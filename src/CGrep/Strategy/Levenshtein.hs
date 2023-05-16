@@ -31,13 +31,13 @@ import CGrep.Common
       getTargetContents,
       expandMultiline,
       ignoreCase )
-import CGrep.Output ( Output, mkOutput )
+import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
 import CGrep.Chunk ( Chunk(..) )
 import CGrep.Parser.Chunk
 
 import Reader ( OptionIO, Env (..) )
-import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
+import Verbose ( putStrLnVerbose )
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
@@ -66,10 +66,10 @@ search f patterns = do
         patterns' = map C.unpack patterns
         matches  = filter (\t -> any (\p -> p ~== C.unpack (tStr t)) patterns') tokens'
 
-    putStrLn1 $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
-    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putStrLnVerbose 1 $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
+    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 
-    putStrLn2 $ "tokens    : " <> show tokens'
-    putStrLn2 $ "matches   : " <> show matches
+    putStrLnVerbose 2 $ "tokens    : " <> show tokens'
+    putStrLnVerbose 2 $ "matches   : " <> show matches
 
-    mkOutput filename text text''' matches
+    mkOutputElements filename text text''' matches

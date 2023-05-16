@@ -39,7 +39,7 @@ import CGrep.Common
       runSearch,
       expandMultiline,
       ignoreCase, trim8 )
-import CGrep.Output ( Output, mkOutput )
+import CGrep.Output ( Output, mkOutputElements )
 
 import CGrep.Parser.Atom
     ( Atom(..),
@@ -55,7 +55,7 @@ import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
 import Reader ( OptionIO, Env (..) )
-import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
+import Verbose ( putStrLnVerbose )
 import Util ( notNull, rmQuote, rmQuote8 )
 import CGrep.Chunk (Chunk (..))
 
@@ -96,9 +96,9 @@ search f ps = do
 
     -- put banners...
 
-    putStrLn1 $ "strategy  : running generic semantic search on " <> filename <> "..."
-    putStrLn2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
-    putStrLn3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putStrLnVerbose 1 $ "strategy  : running generic semantic search on " <> filename <> "..."
+    putStrLnVerbose 2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
+    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     let quick = quickMatch ps $ shallowSearch identif text'
 
@@ -116,7 +116,7 @@ search f ps = do
 
         let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (toString t)) tokens' :: [Chunk]
 
-        putStrLn2 $ "tokens    : " <> show tokens
-        putStrLn2 $ "matches   : " <> show matches
+        putStrLnVerbose 2 $ "tokens    : " <> show tokens
+        putStrLnVerbose 2 $ "matches   : " <> show matches
 
-        mkOutput filename text text''' matches
+        mkOutputElements filename text text''' matches

@@ -40,7 +40,7 @@ import CGrep.Common
       runSearch,
       shallowSearch,
       quickMatch )
-import CGrep.Output ( Output, mkOutput )
+import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
 
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
@@ -49,7 +49,7 @@ import Reader ( OptionIO, Env (..) )
 import Options
     ( Options(identifier, keyword, string, number, operator, edit_dist,
               word_match, prefix_match, suffix_match) )
-import Verbose ( putStrLn1, putStrLn2, putStrLn3 )
+import Verbose ( putStrLnVerbose )
 import Util ( notNull )
 import CGrep.Chunk (Chunk (..))
 
@@ -73,8 +73,8 @@ search f ps = do
                                                  ]
 
 
-    putStrLn1 $ "strategy: running token search on " ++ filename ++ "..."
-    putStrLn3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+    putStrLnVerbose 1 $ "strategy: running token search on " ++ filename ++ "..."
+    putStrLnVerbose 3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     let quick = quickMatch ps $ shallowSearch ps text'
 
@@ -101,12 +101,12 @@ search f ps = do
 
             matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (toString t)) tokens'' :: [Chunk]
 
-        putStrLn2 $ "tokens    : " ++ show tokens
-        putStrLn2 $ "tokens'   : " ++ show tokens'
-        putStrLn2 $ "tokens''  : " ++ show tokens''
-        putStrLn2 $ "matches   : " ++ show matches
+        putStrLnVerbose 2 $ "tokens    : " ++ show tokens
+        putStrLnVerbose 2 $ "tokens'   : " ++ show tokens'
+        putStrLnVerbose 2 $ "tokens''  : " ++ show tokens''
+        putStrLnVerbose 2 $ "matches   : " ++ show matches
 
-        mkOutput filename text text''' matches
+        mkOutputElements filename text text''' matches
 
 
 genericTokenFilter :: Options -> [C.ByteString] -> [Token] -> [Token]

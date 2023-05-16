@@ -34,7 +34,7 @@ import qualified Data.ByteString.Search as SC
 import Data.Char ( isSpace, isSpace, toLower )
 
 import CGrep.Types ( Text8 )
-import CGrep.Output ( Output, mkOutput )
+import CGrep.Output ( Output, mkOutputElements )
 
 import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
@@ -87,7 +87,7 @@ runSearch :: Options
 runSearch opt filename shallowTest doSearch =
     if shallowTest || no_shallow opt
         then doSearch
-        else mkOutput filename C.empty C.empty []
+        else mkOutputElements filename C.empty C.empty []
 
 
 expandMultiline :: Options -> Text8 -> Text8

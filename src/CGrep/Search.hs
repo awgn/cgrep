@@ -43,7 +43,7 @@ import Data.Maybe ( isJust )
 import Options ( Options(..) )
 import Reader ( OptionIO, Env (..) )
 import Data.Functor (($>))
-
+import qualified Data.ByteString.Char8 as C
 
 hasLanguage :: FilePath -> Options -> [Language] -> Bool
 hasLanguage path opt xs = isJust $ languageLookup opt path >>= (`elemIndex` xs)
@@ -78,5 +78,4 @@ runSearch filename patterns = do
            | otherwise                                                                                -> undefined
    )
    (\e -> let msg = show (e :: SomeException) in
-       liftIO $ hPutStrLn stderr (showFileName conf opt filename <> ": exception: " <> takeN 80 msg) $> [ ]
-   )
+       liftIO $ C.hPutStrLn stderr (C.pack (showFileName conf opt filename <> ": exception: " <> takeN 80 msg)) $> [ ])

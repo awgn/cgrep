@@ -26,21 +26,8 @@ import Control.Monad ( when )
 import Options ( Options(verbosity) )
 import Reader ( OptionIO, Env(..) )
 
-
-putStrLn1 :: String -> OptionIO ()
-putStrLn1 xs = do
+putStrLnVerbose :: Int -> String -> OptionIO ()
+putStrLnVerbose l xs = do
     n <- reader $ verbosity . opt
-    when (n > 0) $ liftIO $ putStrLn xs
-{-# INLINE putStrLn1 #-}
-
-putStrLn2 :: String -> OptionIO ()
-putStrLn2 xs = do
-    n <- reader $ verbosity . opt
-    when (n > 1) $ liftIO $ putStrLn xs
-{-# INLINE putStrLn2 #-}
-
-putStrLn3 :: String -> OptionIO ()
-putStrLn3 xs = do
-    n <- reader $ verbosity . opt
-    when (n > 2) $ liftIO $ putStrLn xs
-{-# INLINE putStrLn3 #-}
+    when (n > l) $ liftIO $ putStrLn xs
+{-# INLINE putStrLnVerbose #-}

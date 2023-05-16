@@ -49,13 +49,12 @@ data Options = Options
     ,   language_filter     :: [String]
     ,   language_force      :: Maybe String
     ,   language_map        :: Bool
-    ,   magic_filter        :: [String]
     ,   invert_match        :: Bool
     ,   multiline           :: Int
     ,   recursive           :: Bool
     ,   skip_test           :: Bool
     ,   prune_dir           :: [FilePath]
-    ,   deference_recursive :: Bool
+    ,   follow              :: Bool
     -- Output format:
     ,   show_match          :: Bool
     ,   color               :: Bool
@@ -71,7 +70,6 @@ data Options = Options
     ,   fileline            :: Bool
     -- Parallel:
     ,   jobs                :: Int
-    ,   asynch              :: Bool
     -- Misc:
     ,   verbosity           :: Int
     ,   no_shallow          :: Bool

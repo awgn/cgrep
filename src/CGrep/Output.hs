@@ -23,8 +23,8 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Output ( Output(..)
-                    , mkOutput
-                    , putOutput
+                    , mkOutputElements
+                    , putOutputElements
                     , showFileName
                     , showBold) where
 
@@ -34,7 +34,7 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
 
-import qualified Data.Vector.Unboxed as V
+import qualified Data.Vector.Unboxed as UV
 import Data.Vector.Unboxed ( (!) )
 
 import System.Console.ANSI
@@ -60,7 +60,10 @@ import Options
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( OptionIO, Env(..) )
 import Data.Int ( Int64 )
-
+import Data.Word ( Word8 )
+import Data.ByteString.Internal (c2w)
+import Debug.Trace
+import qualified Data.Vector.Unboxed as VU
 
 data Output = Output
     { outFilePath :: B.ByteString
@@ -70,17 +73,32 @@ data Output = Output
     }
     deriving (Show)
 
-getLineOffsets :: Text8 -> V.Vector Int64
-getLineOffsets txt =
-    let l = C.length txt
-        idx :: [ Int64 ] = fromIntegral <$> C.elemIndices '\n' txt
-    in if last idx == fromIntegral (l-1)
-        then V.fromListN (l-1) idx
-        else V.fromListN l idx
+
+-- Returns a vector of offsets for a given character in a ByteString, up to the given maximum offset.
+charOffsets :: Char -> Int64 -> B.ByteString -> UV.Vector Int64
+charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
+  where
+    target = c2w c
+    findOffsets :: Int64 -> Maybe (Int64, Int64)
+    findOffsets i
+      | i >= maxOff = Nothing
+      | B.index bs (fromIntegral i) == target = Just (fromIntegral i, i + 1)
+      | otherwise = findOffsets (i + 1)
 
 
-insertIndex :: V.Vector Offset -> Offset -> Int
-insertIndex xs x = search xs 0 (V.length xs)
+getLineOffsets :: Text8 -> Int64 -> UV.Vector Offset
+getLineOffsets text maxOff =
+    let l = C.length text
+        idx = charOffsets '\n' maxOff text
+    in if VU.null idx
+        then idx
+        else if UV.last idx == fromIntegral (l-1)
+            then UV.init idx
+            else idx
+
+
+insertIndex :: UV.Vector Offset -> Offset -> Int
+insertIndex xs x = search xs 0 (UV.length xs)
     where
         search xs lo hi
             | lo == hi = lo
@@ -90,30 +108,32 @@ insertIndex xs x = search xs 0 (V.length xs)
                                 else search xs (mid+1) hi
 
 
-getLineNumberAndOffset :: V.Vector Offset -> Offset -> (# Int, Offset #)
+getLineNumberAndOffset :: UV.Vector Offset -> Offset -> (# Int, Offset #)
 getLineNumberAndOffset xs x =
     let idx = insertIndex xs x
-    in (# idx, x - 1 - (if idx > 0 then xs ! (idx-1) else 0) #)
+        shift = if idx == 0 then 0 else 1
+    in (# idx, x - shift - (if idx > 0 then xs ! (idx-1) else 0) #)
 {-# INLINE getLineNumberAndOffset #-}
 
 
-mkOutput :: FilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
-mkOutput f text multi ts = do
+mkOutputElements :: FilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
+mkOutputElements f text multi ts = do
     invert <- invert_match <$> reader opt
     return $ if invert then map (\(MatchingLine n xs) -> Output fp n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines multi ts
                        else map (\(MatchingLine n xs) -> Output fp n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines multi ts
     where ls = C.lines text
           fp = C.pack f
-{-# INLINE mkOutput #-}
+{-# INLINE mkOutputElements #-}
 
 
 mkMatchingLines :: Text8 -> [Chunk] -> [MatchingLine]
 mkMatchingLines _ [] = []
 mkMatchingLines text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
-    (\Chunk{..} -> let (# r, c #) = getLineNumberAndOffset ols tOffset in MatchingLine (fromIntegral r + 1) [Chunk c tStr]) <$> ts
+    (\Chunk{..} -> let (# r, c #) = getLineNumberAndOffset lineOffsets tOffset in MatchingLine (fromIntegral r + 1) [Chunk c tStr]) <$> ts
         where mergeGroup :: [MatchingLine] -> MatchingLine
-              mergeGroup ls = MatchingLine ((lOffset . head) ls) (foldl (\l m -> l <> lChunks m) [] ls)
-              ols = getLineOffsets text
+              mergeGroup ls = MatchingLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
+              maxOff = maximum $ tOffset <$> ts
+              lineOffsets = getLineOffsets text maxOff
 
 
 invertLines :: Int -> [MatchingLine] -> [MatchingLine]
@@ -122,8 +142,8 @@ invertLines n xs =  filter (\(MatchingLine i _) ->  i `notElem` idx ) $ take n [
 {-# INLINE invertLines #-}
 
 
-putOutput :: [Output] -> OptionIO [B.Builder]
-putOutput out = do
+putOutputElements :: [Output] -> OptionIO [B.Builder]
+putOutputElements out = do
     Env{..} <- ask
     if  | json opt          -> jsonOutput out
         | filename_only opt -> filenameOutput out
