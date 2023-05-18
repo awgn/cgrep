@@ -73,7 +73,7 @@ search f ps = do
                                                  ]
 
 
-    putStrLnVerbose 1 $ "strategy: running token search on " ++ filename ++ "..."
+    putStrLnVerbose 2 $ "strategy: running token search on " ++ filename ++ "..."
     putStrLnVerbose 3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     let quick = quickMatch ps $ shallowSearch ps text'

@@ -37,7 +37,7 @@ import Data.List
     ( isSuffixOf, findIndices, isInfixOf, isPrefixOf, subsequences )
 import Options
     ( Options(edit_dist, word_match, prefix_match, suffix_match) )
-import Util ( spanGroup, rmQuote, rmQuote8 )
+import Util ( spanGroup, rmQuote8 )
 
 import qualified CGrep.Parser.Token as T
 import qualified Data.ByteString.Char8 as C

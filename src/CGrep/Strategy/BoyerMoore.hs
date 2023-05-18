@@ -17,6 +17,7 @@
 --
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module CGrep.Strategy.BoyerMoore (search) where
 
@@ -46,7 +47,7 @@ import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLnVerbose )
 import Util ( notNull )
 import CGrep.Chunk (Chunk(..))
-
+import Data.Int
 
 search :: FilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
@@ -60,14 +61,15 @@ search f patterns = do
 
     let ctxFilter = mkContextFilter opt
 
-    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
+    let [text', _ , _ , _] = scanr ($) text [ expandMultiline opt
                                               , contextFilter (languageLookup opt filename) ctxFilter False
                                               , ignoreCase opt
                                               ]
 
     -- make shallow search
 
-    let shallow = shallowSearch patterns text'''
+    let shallow = shallowSearch patterns text'
+    -- let shallow :: [[Int64]]= []
 
     -- search for matching tokens
 
@@ -76,16 +78,15 @@ search f patterns = do
     -- filter exact/partial matching tokens
 
     let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkChunk opt langInfo text''') tokens
+                    then filter (checkChunk opt langInfo text') tokens
                     else tokens
 
-    putStrLnVerbose 1 $ "strategy  : running Boyer-Moore search on " <> filename
-    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putStrLnVerbose 2 $ "strategy  : running Boyer-Moore search on " <> filename
+    putStrLnVerbose 3 $ "---\n" <> C.unpack text' <> "\n---"
 
     runSearch opt filename (quickMatch patterns shallow) $ do
-        putStrLnVerbose 2 $ "tokens    : " <> show tokens
         putStrLnVerbose 2 $ "tokens'   : " <> show tokens'
-        mkOutputElements filename text text''' tokens'
+        mkOutputElements filename text text' tokens'
 
 
 checkChunk :: Options -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool

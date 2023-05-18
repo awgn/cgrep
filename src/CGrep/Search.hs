@@ -19,7 +19,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 
-module CGrep.Search ( runSearch , isRegexp) where
+module CGrep.Search ( run, isRegexp) where
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
@@ -64,8 +64,8 @@ isRegexp opt = regex_posix opt || regex_pcre opt
 {-# INLINE isRegexp #-}
 
 
-runSearch :: FilePath -> [Text8] -> OptionIO [Output]
-runSearch filename patterns = do
+run :: FilePath -> [Text8] -> OptionIO [Output]
+run filename patterns = do
   Env{..} <- ask
   let info = languageInfoLookup opt filename
   catch ( do

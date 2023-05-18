@@ -56,7 +56,7 @@ import Data.Maybe ( mapMaybe )
 
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLnVerbose )
-import Util ( notNull, rmQuote, rmQuote8 )
+import Util ( notNull, rmQuote8 )
 import CGrep.Chunk (Chunk (..))
 
 
@@ -96,7 +96,7 @@ search f ps = do
 
     -- put banners...
 
-    putStrLnVerbose 1 $ "strategy  : running generic semantic search on " <> filename <> "..."
+    putStrLnVerbose 2 $ "strategy  : running generic semantic search on " <> filename <> "..."
     putStrLnVerbose 2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
     putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 

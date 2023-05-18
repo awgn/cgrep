@@ -38,9 +38,11 @@ notNull :: [a] -> Bool
 notNull = not . null
 {-# INLINE notNull #-}
 
+
 xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
 {-# INLINE xor #-}
+
 
 prettyRead :: Read a => String -> String -> a
 prettyRead xs err =

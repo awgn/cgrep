@@ -66,7 +66,7 @@ search f patterns = do
         patterns' = map C.unpack patterns
         matches  = filter (\t -> any (\p -> p ~== C.unpack (tStr t)) patterns') tokens'
 
-    putStrLnVerbose 1 $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
+    putStrLnVerbose 2 $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
     putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     putStrLnVerbose 2 $ "tokens    : " <> show tokens'
