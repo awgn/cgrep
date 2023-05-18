@@ -41,7 +41,7 @@ import Options
 import Reader ( OptionIO )
 import Util ( spanGroup, notNull )
 import Data.Int (Int64)
-
+import System.IO.MMap
 
 takeN :: Int -> String -> String
 takeN n xs | length xs > n = take n xs <> "..."
@@ -66,7 +66,7 @@ getTargetName name = name
 
 getTargetContents :: FilePath -> IO Text8
 getTargetContents [] = C.getContents
-getTargetContents xs = C.readFile xs
+getTargetContents xs = mmapFileByteString xs Nothing
 {-# INLINE getTargetContents #-}
 
 

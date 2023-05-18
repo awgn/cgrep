@@ -104,6 +104,7 @@ Executable cgrep
                        mono-traversable,
                        bytestring-strict-builder,
                        bitwise,
+                       mmap,
                        extra
 
   Ghc-options:  -O2 -j -funbox-strict-fields
