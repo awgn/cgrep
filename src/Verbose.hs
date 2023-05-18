@@ -29,5 +29,5 @@ import Reader ( OptionIO, Env(..) )
 putStrLnVerbose :: Int -> String -> OptionIO ()
 putStrLnVerbose l xs = do
     n <- reader $ verbosity . opt
-    when (n > l) $ liftIO $ putStrLn xs
+    when (n >= l) $ liftIO $ putStrLn xs
 {-# INLINE putStrLnVerbose #-}
