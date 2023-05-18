@@ -17,7 +17,9 @@
 --
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Main where
 
@@ -27,15 +29,13 @@ import qualified Data.Map as M
 import Data.Maybe ( catMaybes, fromJust )
 import Data.Char ( toLower )
 import Data.Data()
-
-import Data.IORef ( modifyIORef, newIORef, readIORef )
 import Data.Version(showVersion)
 import Data.Function ( fix )
 import qualified Data.Set as Set
 import Paths_cgrep ( version )
 
 import Control.Exception as E ( catch, SomeException )
-import Control.Concurrent ( forkIO )
+import Control.Concurrent ( forkIO, newMVar )
 import Control.Concurrent.Async ( forConcurrently_ )
 import Control.Monad.STM ( atomically )
 import Control.Concurrent.STM.TQueue
@@ -93,6 +93,15 @@ import System.FilePath.Posix ( (</>), takeBaseName )
 import GHC.Conc ( getNumCapabilities )
 import qualified Data.Bifunctor
 
+import qualified Data.Vector as V hiding ((!))
+import Data.Vector ((!))
+
+import Data.IORef
+
+import Control.Concurrent.Chan.Unagi.Bounded
+    ( newChan, readChan, writeChan, tryReadChan )
+import GHC.Base (VecElem(Int16ElemRep))
+
 -- push file names in Chan...
 
 data StatusFile = StatusFile{
@@ -102,9 +111,9 @@ data StatusFile = StatusFile{
 
 getStatusFile :: Bool -> FilePath -> IO StatusFile
 getStatusFile True path =
-    PC.getSymbolicLinkStatus path >>= \s -> return $ StatusFile path s
+    PC.getSymbolicLinkStatus path >>= \s -> pure $ StatusFile path s
 getStatusFile False path =
-    PC.getFileStatus path >>= \s -> return $ StatusFile path s
+    PC.getFileStatus path >>= \s -> pure $ StatusFile path s
 {-# INLINE getStatusFile #-}
 
 
@@ -127,7 +136,7 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
 
     -- process dirs recursively
 
-    forConcurrently_ dirs $ \dirPath -> do
+    forM_ dirs $ \dirPath -> do
         let path = fullPath dirPath
         unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
                 canonicalizePath path >>= \cpath -> unless (cpath `Set.member` visited) $
@@ -135,7 +144,11 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
 
 {-# NOINLINE toLazyByteStringShort #-}
 toLazyByteStringShort =
-  B.toLazyByteStringWith (B.untrimmedStrategy 128 256) LB.empty
+  B.toLazyByteStringWith (B.untrimmedStrategy 128 B.defaultChunkSize) LB.empty
+
+(.!.) :: V.Vector a -> Int -> a
+v .!. i = v ! (i `mod` V.length v)
+{-# INLINE  (.!.) #-}
 
 parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> Bool -> OptionIO ()
 parallelSearch paths patterns langs isTermIn = do
@@ -145,39 +158,41 @@ parallelSearch paths patterns langs isTermIn = do
     let Config{..} = conf
         Options{..} = opt
 
-    -- create Transactional Chan and Vars...
+    -- create channels ...
 
-    in_chan  <- liftIO newTQueueIO
-    out_chan <- liftIO newTQueueIO
+    fileCh <- liftIO $ forM [1 .. jobs] $ const (newChan 65536)
+    respCh <- liftIO $ forM [1 .. jobs] $ const (newChan 65536)
 
     -- recursively traverse the filesystem ...
 
     _ <- liftIO . forkIO $ do
+        cnt <- newIORef (0 :: Int)
         if recursive || follow
             then forM_ (if null paths then ["."] else paths) $ \p -> do
                     isDir <- doesDirectoryExist p
                     if isDir
                         then withRecursiveContents opt p langs
-                                (mkPrunableDirName <$> configPruneDirs <> prune_dir) (Set.singleton p) (atomically . writeTQueue in_chan)
-                        else atomically . writeTQueue in_chan $ [p]
+                                (mkPrunableDirName <$> configPruneDirs <> prune_dir) (Set.singleton p)
+                                (\a -> readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) a >> modifyIORef' cnt (+1))
+                        else readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) [p] >> modifyIORef' cnt (+1)
 
             else forM_ (if null paths && not isTermIn
-                        then [""]
-                        else paths) (\p -> atomically . writeTQueue in_chan $ [p] )
+                        then [("", 0)]
+                        else paths `zip` [0..]) (\(p, idx) -> writeChan (fst (fileCh .!. idx)) [p] )
 
-        -- enqueue EOF messages:
-        replicateM_ jobs ((atomically . writeTQueue in_chan) [])
+        -- enqueue EOF messages...
+        forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst (fileCh .!. idx)) []
 
     -- launch the worker threads...
 
     matchingFiles <- liftIO $ newIORef Set.empty
 
-    forM_ [1 .. jobs] $ \_ -> liftIO . forkIO $ do
+    forM_ ([0 .. jobs-1] :: [Int]) $ \idx -> liftIO . forkIO $ do
         void $ runExceptT . forever $ do
-            fs <- liftIO . atomically $ readTQueue in_chan
+            fs <- liftIO $ readChan (snd (fileCh ! idx))
             liftIO $ E.catch (
                 case fs of
-                    [] -> atomically $ writeTQueue out_chan []
+                    [] -> writeChan (fst (respCh ! idx)) []
                     xs -> forM_ xs $ \x -> do
                             out <- fmap (take max_count)
                                 (runReaderT (do
@@ -188,24 +203,23 @@ parallelSearch paths patterns langs isTermIn = do
                                 ) (Env conf opt Nothing Nothing))
 
                             unless (null out) $
-                                atomically $ writeTQueue out_chan (toLazyByteStringShort <$> (<> B.char8 '\n') <$> out)
-
+                                writeChan (fst (respCh ! idx)) (toLazyByteStringShort . (<> B.char8 '\n') <$> out)
                 )  (\e -> let msg = show (e :: SomeException) in
                         hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> takeN 80 msg))
-
             when (null fs) $ throwE ()
 
     -- dump output until workers are done
 
     liftIO $ do
         hSetBuffering stdout (BlockBuffering $ Just 8192)
-        -- hSetBuffering stdout NoBuffering
         hSetBinaryMode stdout True
-        fix (\action (!n) m ->
-         unless (n == jobs) $ atomically (readTQueue out_chan) >>= \case
-                      [] -> action (n+1) m
-                      out -> mapM_ (LB.hPut stdout) out *> action n True
-            )  0 False
+
+        fix (\action !n !i !indexes -> unless (n == jobs) $ do
+            let idx :: Int = indexes .!. i
+            readChan (snd (respCh ! idx)) >>= \case
+                [] -> action (n+1) i (V.filter (/= idx) indexes)
+                out -> mapM_ (LB.hPut stdout) out *> action n (i+1) indexes
+            ) 0 0 ([0.. jobs-1] :: V.Vector Int)
 
     -- run editor...
 
@@ -312,7 +326,7 @@ fileFilter opt langs filename = maybe False (liftA2 (||) (const $ null langs) (`
 
 isNotTestFile :: FilePath -> Bool
 isNotTestFile  f =
-    let fs = [("_test" `isSuffixOf`), ("-test" `isSuffixOf`), ("test-" `isPrefixOf`), ("test_" `isPrefixOf`), ("test" == )]
+    let fs = [("_test" `isSuffixOf`), ("-test" `isSuffixOf`), ("test-" `isPrefixOf`), ("test_" `isPrefixOf`), ("test" == )] :: [String -> Bool]
         in not $ any ($ takeBaseName f) fs
 {-# INLINE isNotTestFile #-}
 
