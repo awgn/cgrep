@@ -17,6 +17,7 @@
 --
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiWayIf #-}
 
 module CGrep.Search ( run, isRegexp) where
@@ -44,8 +45,10 @@ import Options ( Options(..) )
 import Reader ( OptionIO, Env (..) )
 import Data.Functor (($>))
 import qualified Data.ByteString.Char8 as C
+import System.Posix.FilePath (RawFilePath)
 
-hasLanguage :: FilePath -> Options -> [Language] -> Bool
+
+hasLanguage :: RawFilePath -> Options -> [Language] -> Bool
 hasLanguage path opt xs = isJust $ languageLookup opt path >>= (`elemIndex` xs)
 {-# INLINE hasLanguage #-}
 
@@ -64,7 +67,7 @@ isRegexp opt = regex_posix opt || regex_pcre opt
 {-# INLINE isRegexp #-}
 
 
-run :: FilePath -> [Text8] -> OptionIO [Output]
+run :: RawFilePath -> [Text8] -> OptionIO [Output]
 run filename patterns = do
   Env{..} <- ask
   let info = languageInfoLookup opt filename
@@ -78,4 +81,4 @@ run filename patterns = do
            | otherwise                                                                                -> undefined
    )
    (\e -> let msg = show (e :: SomeException) in
-       liftIO $ C.hPutStrLn stderr (C.pack (showFileName conf opt filename <> ": exception: " <> takeN 80 msg)) $> [ ])
+       liftIO $ C.hPutStrLn stderr (showFileName conf opt filename <> ": exception: " <> C.pack (takeN 80 msg)) $> [ ])

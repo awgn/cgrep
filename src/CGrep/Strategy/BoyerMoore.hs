@@ -49,7 +49,9 @@ import Util ( notNull )
 import CGrep.Chunk (Chunk(..))
 import Data.Int
 
-search :: FilePath -> [Text8] -> OptionIO [Output]
+import System.Posix.FilePath ( RawFilePath )
+
+search :: RawFilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     Env{..} <- ask
@@ -81,7 +83,7 @@ search f patterns = do
                     then filter (checkChunk opt langInfo text') tokens
                     else tokens
 
-    putStrLnVerbose 2 $ "strategy  : running Boyer-Moore search on " <> filename
+    putStrLnVerbose 2 $ "strategy  : running Boyer-Moore search on " <> C.unpack filename
     putStrLnVerbose 3 $ "---\n" <> C.unpack text' <> "\n---"
 
     runSearch opt filename (quickMatch patterns shallow) $ do

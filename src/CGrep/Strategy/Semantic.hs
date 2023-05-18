@@ -59,8 +59,9 @@ import Verbose ( putStrLnVerbose )
 import Util ( notNull, rmQuote8 )
 import CGrep.Chunk (Chunk (..))
 
+import System.Posix.FilePath ( RawFilePath, takeBaseName )
 
-search :: FilePath -> [Text8] -> OptionIO [Output]
+search :: RawFilePath -> [Text8] -> OptionIO [Output]
 search f ps = do
 
     Env{..} <- ask
@@ -96,7 +97,7 @@ search f ps = do
 
     -- put banners...
 
-    putStrLnVerbose 2 $ "strategy  : running generic semantic search on " <> filename <> "..."
+    putStrLnVerbose 2 $ "strategy  : running generic semantic search on " <> C.unpack filename <> "..."
     putStrLnVerbose 2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
     putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 

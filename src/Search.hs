@@ -41,9 +41,6 @@ import Control.Monad.Trans.Reader ( ReaderT(runReaderT), ask )
 import Control.Applicative
     ( Applicative(liftA2), Alternative((<|>)) )
 
-import System.Directory
-    ( canonicalizePath, doesDirectoryExist, listDirectory )
-
 import System.Environment ( lookupEnv )
 import System.PosixCompat.Files as PC
     ( getFileStatus, getSymbolicLinkStatus, isDirectory, FileStatus )
@@ -81,8 +78,7 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
-import Data.Tuple.Extra ( (&&&) )
-import System.FilePath.Posix ( (</>), takeBaseName )
+import Data.Tuple.Extra ( )
 import GHC.Conc ( forkIO )
 import qualified Data.Bifunctor
 
@@ -94,30 +90,30 @@ import Data.IORef
 import Control.Concurrent.Chan.Unagi.Bounded
     ( newChan, readChan, writeChan )
 
+import System.Posix.Directory.Traversals ( getDirectoryContents )
+import System.Posix.FilePath ( RawFilePath, takeBaseName, (</>) )
+import System.Posix.Directory.Foreign (dtDir)
+import System.Directory (makeAbsolute, canonicalizePath)
+import Data.Functor ( void, (<&>) )
+import RawFilePath.Directory (doesDirectoryExist)
+import Control.Arrow
+
 -- push file names in Chan...
-
-data StatusFile = StatusFile{
-    fullPath :: FilePath,
-    status :: FileStatus
-}
-
-getStatusFile :: Bool -> FilePath -> IO StatusFile
-getStatusFile True path =
-    PC.getSymbolicLinkStatus path >>= \s -> pure $ StatusFile path s
-getStatusFile False path =
-    PC.getFileStatus path >>= \s -> pure $ StatusFile path s
-{-# INLINE getStatusFile #-}
+canonicalizeRawPath :: RawFilePath -> IO RawFilePath
+canonicalizeRawPath p = canonicalizePath (C.unpack p) <&> C.pack
+{-# INLINE canonicalizeRawPath #-}
 
 
-withRecursiveContents :: Options -> FilePath -> [Language] -> [String] -> Set.Set FilePath -> ([FilePath] -> IO ()) -> IO ()
+withRecursiveContents :: Options -> RawFilePath -> [Language] -> [RawFilePath] -> Set.Set RawFilePath -> ([RawFilePath] -> IO ()) -> IO ()
 withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
-    xs <- mapM (getStatusFile follow . (dir </>)) =<< listDirectory dir
+    xs <- getDirectoryContents dir
 
-    let (dirs, files) = partition (PC.isDirectory . status) xs
+    let (dirs, files) = partition ((== dtDir) . fst) xs
 
     -- filter the list of files
 
-    let files' = fullPath <$> filter (\f -> fileFilter opt langs (fullPath f) && (not skip_test || isNotTestFile (fullPath f))) files
+    let files' = (dir </>) . snd <$> filter (\f -> fileFilter opt langs (snd f) && (not skip_test || isNotTestFile (snd f))) files
+    let dirs'  = (dir </>) . snd <$> dirs
 
     -- run action
 
@@ -128,21 +124,14 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
 
     -- process dirs recursively
 
-    forM_ dirs $ \dirPath -> do
-        let path = fullPath dirPath
-        unless (isPruneableDir path pdirs) $ do -- this is a good directory (unless already visited)!
-                canonicalizePath path >>= \cpath -> unless (cpath `Set.member` visited) $
-                    withRecursiveContents opt path langs pdirs (Set.insert cpath visited) action
+    forM_ dirs' $ \dirPath -> do
+        unless (isPruneableDir dirPath pdirs) $ do -- this is a good directory (unless already visited)!
+                canonicalizeRawPath dirPath >>= \cpath -> do
+                    unless (cpath `Set.member` visited) $ do
+                        withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) action
 
-{-# NOINLINE toLazyByteStringShort #-}
-toLazyByteStringShort =
-  B.toLazyByteStringWith (B.untrimmedStrategy 128 B.defaultChunkSize) LB.empty
 
-(.!.) :: V.Vector a -> Int -> a
-v .!. i = v ! (i `mod` V.length v)
-{-# INLINE  (.!.) #-}
-
-parallelSearch :: [FilePath] -> [C.ByteString] -> [Language] -> Bool -> OptionIO ()
+parallelSearch :: [RawFilePath] -> [C.ByteString] -> [Language] -> Bool -> OptionIO ()
 parallelSearch paths patterns langs isTermIn = do
 
     Env{..} <- ask
@@ -164,9 +153,9 @@ parallelSearch paths patterns langs isTermIn = do
                     isDir <- doesDirectoryExist p
                     if isDir
                         then withRecursiveContents opt p langs
-                                (mkPrunableDirName <$> configPruneDirs <> prune_dir) (Set.singleton p)
-                                (\a -> readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) a >> modifyIORef' cnt (+1))
-                        else readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) [p] >> modifyIORef' cnt (+1)
+                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p)
+                                (\a -> readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) a *> modifyIORef' cnt (+1))
+                        else readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) [p] *> modifyIORef' cnt (+1)
 
             else forM_ (if null paths && not isTermIn
                         then [("", 0)]
@@ -198,7 +187,7 @@ parallelSearch paths patterns langs isTermIn = do
                             unless (null out) $
                                 writeChan (fst (respCh ! idx)) (toLazyByteStringShort . (<> B.char8 '\n') <$> out)
                 )  (\e -> let msg = show (e :: SomeException) in
-                        hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> takeN 80 msg))
+                        C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 80 msg)))
             when (null fs) $ throwE ()
 
     -- dump output until workers are done
@@ -240,25 +229,36 @@ parallelSearch paths patterns langs isTermIn = do
                           (Just stderr) >>= waitForProcess
 
 
-fileFilter :: Options -> [Language] -> FilePath -> Bool
+fileFilter :: Options -> [Language] -> RawFilePath -> Bool
 fileFilter opt langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opt filename)
 {-# INLINE fileFilter #-}
 
 
-isNotTestFile :: FilePath -> Bool
-isNotTestFile  f =
-    let fs = [("_test" `isSuffixOf`), ("-test" `isSuffixOf`), ("test-" `isPrefixOf`), ("test_" `isPrefixOf`), ("test" == )] :: [String -> Bool]
+isNotTestFile :: RawFilePath -> Bool
+isNotTestFile f =
+    let fs = [("_test" `C.isSuffixOf`), ("-test" `C.isSuffixOf`), ("test-" `C.isPrefixOf`), ("test_" `C.isPrefixOf`), ("test" == )] :: [C.ByteString -> Bool]
         in not $ any ($ takeBaseName f) fs
 {-# INLINE isNotTestFile #-}
 
 
-isPruneableDir:: FilePath -> [FilePath] -> Bool
-isPruneableDir dir = any (`isSuffixOf` pdir)
+isPruneableDir:: RawFilePath -> [RawFilePath] -> Bool
+isPruneableDir dir = any (`C.isSuffixOf` pdir)
     where pdir = mkPrunableDirName dir
 {-# INLINE isPruneableDir #-}
 
 
-mkPrunableDirName :: FilePath -> FilePath
-mkPrunableDirName xs | "/" `isSuffixOf` xs = xs
+mkPrunableDirName :: RawFilePath -> RawFilePath
+mkPrunableDirName xs | "/" `C.isSuffixOf` xs = xs
                      | otherwise           = xs <> "/"
 {-# INLINE mkPrunableDirName #-}
+
+
+toLazyByteStringShort :: B.Builder -> LB.ByteString
+toLazyByteStringShort =
+  B.toLazyByteStringWith (B.untrimmedStrategy 128 B.defaultChunkSize) LB.empty
+{-# NOINLINE toLazyByteStringShort #-}
+
+
+(.!.) :: V.Vector a -> Int -> a
+v .!. i = v ! (i `mod` V.length v)
+{-# INLINE  (.!.) #-}

@@ -64,9 +64,10 @@ import Data.Word ( Word8 )
 import Data.ByteString.Internal (c2w)
 import Debug.Trace
 import qualified Data.Vector.Unboxed as VU
+import System.Posix.FilePath (RawFilePath)
 
 data Output = Output
-    { outFilePath :: B.ByteString
+    { outFilePath :: RawFilePath
     , outLineNumb :: {-# UNPACK #-} !Int64
     , outLine     :: {-# UNPACK #-} !Text8
     , outChunks   :: ![Chunk]
@@ -116,13 +117,12 @@ getLineNumberAndOffset xs x =
 {-# INLINE getLineNumberAndOffset #-}
 
 
-mkOutputElements :: FilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
+mkOutputElements :: RawFilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
 mkOutputElements f text multi ts = do
     invert <- invert_match <$> reader opt
-    return $ if invert then map (\(MatchingLine n xs) -> Output fp n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines multi ts
-                       else map (\(MatchingLine n xs) -> Output fp n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines multi ts
+    return $ if invert then map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines multi ts
+                       else map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines multi ts
     where ls = C.lines text
-          fp = C.pack f
 {-# INLINE mkOutputElements #-}
 
 
@@ -193,33 +193,31 @@ filenameOutput outs = return $ B.byteString <$> nub ((\(Output fname _ _ _) -> f
 {-# INLINE filenameOutput #-}
 
 
-bold, reset :: String
-bold  = setSGRCode [SetConsoleIntensity BoldIntensity]
-reset = setSGRCode []
-{-# INLINE bold #-}
-{-# INLINE reset #-}
-
+bold, reset :: C.ByteString
+bold  = C.pack $ setSGRCode [SetConsoleIntensity BoldIntensity]
+reset = C.pack $ setSGRCode []
+{-# NOINLINE bold #-}
+{-# NOINLINE reset #-}
 
 boldBuilder, resetBuilder :: B.Builder
-boldBuilder = B.string8 bold
-resetBuilder = B.string8 reset
-{-# INLINE boldBuilder #-}
-{-# INLINE resetBuilder #-}
+boldBuilder = B.byteString bold
+resetBuilder = B.byteString reset
+{-# NOINLINE boldBuilder #-}
+{-# NOINLINE resetBuilder #-}
 
-
-type ColorString = String
+type ColorString = C.ByteString
 
 
 buildFileName :: Config -> Options -> Output -> B.Builder
 buildFileName conf opt = buildFileName' conf opt . outFilePath
     where buildFileName' :: Config -> Options -> B.ByteString -> B.Builder
-          buildFileName' conf opt = buildColoredAs opt $ setSGRCode (configColorFile conf)
+          buildFileName' conf opt = buildColoredAs opt $ C.pack (setSGRCode (configColorFile conf))
 {-# INLINE buildFileName #-}
 
 
 buildColoredAs :: Options -> ColorString -> B.ByteString -> B.Builder
 buildColoredAs Options { color = c, no_color = c'} colorCode str
-    | c && not c'= B.string8 colorCode <> B.byteString str <> resetBuilder
+    | c && not c'= B.byteString colorCode <> B.byteString str <> resetBuilder
     | otherwise  = B.byteString str
 {-# INLINE buildColoredAs #-}
 
@@ -245,17 +243,17 @@ buildLine conf Options { color = c, no_color = c' } out
 {-# INLINE buildLine #-}
 
 
-showFileName :: Config -> Options -> String -> String
-showFileName conf opt = showColoredAs opt $ setSGRCode (configColorFile conf)
+showFileName :: Config -> Options -> RawFilePath -> RawFilePath
+showFileName conf opt = showColoredAs opt $ C.pack (setSGRCode (configColorFile conf))
 {-# INLINE showFileName #-}
 
 
-showBold :: Options -> String -> String
+showBold :: Options -> C.ByteString -> C.ByteString
 showBold opt = showColoredAs opt bold
 {-# INLINE showBold #-}
 
 
-showColoredAs :: Options -> String -> String -> String
+showColoredAs :: Options -> C.ByteString -> C.ByteString -> C.ByteString
 showColoredAs Options { color = c, no_color = c'} colorCode str
     | c && not c'= colorCode <> str <> reset
     | otherwise  = str

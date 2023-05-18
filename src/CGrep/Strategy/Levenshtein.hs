@@ -38,8 +38,9 @@ import CGrep.Parser.Chunk
 
 import Reader ( OptionIO, Env (..) )
 import Verbose ( putStrLnVerbose )
+import System.Posix.FilePath (RawFilePath)
 
-search :: FilePath -> [Text8] -> OptionIO [Output]
+search :: RawFilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     Env{..} <- ask
@@ -66,7 +67,7 @@ search f patterns = do
         patterns' = map C.unpack patterns
         matches  = filter (\t -> any (\p -> p ~== C.unpack (tStr t)) patterns') tokens'
 
-    putStrLnVerbose 2 $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
+    putStrLnVerbose 2 $ "strategy  : running edit-distance (Levenshtein) search on " <> C.unpack filename <> "..."
     putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 
     putStrLnVerbose 2 $ "tokens    : " <> show tokens'

@@ -24,7 +24,6 @@ module Config where
 
 import Control.Monad ( MonadPlus(mzero), filterM, forM_ )
 import System.Directory ( doesFileExist, getHomeDirectory )
-import System.FilePath ((</>))
 import System.Console.ANSI
     ( Color(White, Red, Green, Yellow, Blue, Magenta, Cyan),
       ColorIntensity(Vivid),
@@ -48,8 +47,12 @@ import GHC.Generics ( Generic )
 import CGrep.Language ( Language )
 import Util ( notNull, readMaybe )
 
-import Data.List.Split
+import Data.List.Split ( splitOn )
 import qualified Data.ByteString as B
+import System.FilePath ((</>))
+import Data.ByteString.RawFilePath (RawFilePath)
+import qualified Data.ByteString.Char8 as C
+
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"
@@ -57,7 +60,7 @@ cgreprc = "cgreprc"
 
 data Config = Config
   {   configLanguages  :: [Language]
-  ,   configPruneDirs  :: [String]
+  ,   configPruneDirs  :: [RawFilePath]
   ,   configColors     :: Bool
   ,   configColorFile  :: [SGR]
   ,   configColorMatch :: [SGR]
@@ -79,7 +82,7 @@ defaultConfig = Config
 mkConfig :: YamlConfig -> Config
 mkConfig YamlConfig{..} =
    let configLanguages  = mapMaybe readMaybe yamlLanguages
-       configPruneDirs  = yamlPruneDirs
+       configPruneDirs  = C.pack <$> yamlPruneDirs
        configColors     = yamlColors
        configColorFile  = fromMaybe [] (yamlColorFileName >>= readColor)
        configColorMatch = fromMaybe [] (yamlColorMatch >>= readColor)

@@ -16,6 +16,9 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE  ViewPatterns #-}
+{-# LANGUAGE  OverloadedStrings #-}
+
 module CGrep.Common ( Text8
                     , getTargetName
                     , getTargetContents
@@ -41,7 +44,9 @@ import Options
 import Reader ( OptionIO )
 import Util ( spanGroup, notNull )
 import Data.Int (Int64)
-import System.IO.MMap
+import System.IO.MMap ( mmapFileByteString )
+
+import System.Posix.FilePath ( RawFilePath )
 
 takeN :: Int -> String -> String
 takeN n xs | length xs > n = take n xs <> "..."
@@ -58,15 +63,15 @@ trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 {-# INLINE trim8 #-}
 
 
-getTargetName :: FilePath -> String
-getTargetName [] = "<STDIN>"
+getTargetName :: RawFilePath -> RawFilePath
+getTargetName (C.null -> True )= "<STDIN>"
 getTargetName name = name
 {-# INLINE getTargetName #-}
 
 
-getTargetContents :: FilePath -> IO Text8
-getTargetContents [] = C.getContents
-getTargetContents xs = mmapFileByteString xs Nothing
+getTargetContents :: RawFilePath -> IO Text8
+getTargetContents (C.null -> True) = C.getContents
+getTargetContents xs = mmapFileByteString (C.unpack xs) Nothing
 {-# INLINE getTargetContents #-}
 
 
@@ -80,7 +85,7 @@ quickMatch _   = any notNull
 {-# INLINE quickMatch #-}
 
 runSearch :: Options
-          -> FilePath
+          -> RawFilePath
           -> Bool
           -> OptionIO [Output]
           -> OptionIO [Output]

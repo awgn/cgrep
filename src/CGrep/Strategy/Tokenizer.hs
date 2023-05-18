@@ -52,9 +52,10 @@ import Options
 import Verbose ( putStrLnVerbose )
 import Util ( notNull )
 import CGrep.Chunk (Chunk (..))
+import System.Posix.FilePath (RawFilePath)
 
 
-search :: FilePath -> [Text8] -> OptionIO [Output]
+search :: RawFilePath -> [Text8] -> OptionIO [Output]
 search f ps = do
 
     Env{..} <- ask
@@ -73,7 +74,7 @@ search f ps = do
                                                  ]
 
 
-    putStrLnVerbose 2 $ "strategy: running token search on " ++ filename ++ "..."
+    putStrLnVerbose 2 $ "strategy: running token search on " ++ C.unpack filename ++ "..."
     putStrLnVerbose 3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
     let quick = quickMatch ps $ shallowSearch ps text'

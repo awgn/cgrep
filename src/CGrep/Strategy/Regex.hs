@@ -48,8 +48,9 @@ import Options ( Options(regex_pcre) )
 import Verbose ( putStrLnVerbose )
 
 import CGrep.Chunk ( Chunk(..) )
+import System.Posix.FilePath (RawFilePath)
 
-search :: FilePath -> [Text8] -> OptionIO [Output]
+search :: RawFilePath -> [Text8] -> OptionIO [Output]
 search f patterns = do
 
     Env{..} <- ask
@@ -74,7 +75,7 @@ search f patterns = do
         tokens = map (\(str, (off,_)) -> Chunk (fromIntegral off) str) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putStrLnVerbose 2 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
+    putStrLnVerbose 2 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> C.unpack filename <> "..."
     putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
     putStrLnVerbose 2 $ "tokens    : " <> show tokens
 

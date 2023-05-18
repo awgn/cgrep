@@ -30,7 +30,6 @@ import CGrep.ContextFilter
 
 import CGrep.Types ( Text8 )
 import qualified Data.Map as Map
-import System.FilePath ( takeExtension, takeFileName )
 import Control.Monad ( forM_ )
 import Data.Maybe ( fromJust, isJust )
 import Control.Applicative ( Alternative((<|>)) )
@@ -51,6 +50,8 @@ import CGrep.Parser.Char
       isAlphaNum_and,
       isAlpha_and )
 import Data.Char ( isAlpha, isAlphaNum )
+
+import System.Posix.FilePath ( RawFilePath, takeBaseName, takeFileName, takeExtension )
 
 type LanguagesMapType = Map.Map Language LanguageInfo
 type FileMapType = Map.Map FileType Language
@@ -915,14 +916,14 @@ contextFilter (Just language) filt alterBoundary txt
 {-# INLINE contextFilter #-}
 
 
-languageLookup :: Options -> FilePath -> Maybe Language
+languageLookup :: Options -> RawFilePath -> Maybe Language
 languageLookup opts f = forcedLang opts <|> lookupFileLang f
-    where lookupFileLang :: FilePath -> Maybe Language
-          lookupFileLang f = Map.lookup (Name $ takeFileName f) languagesFileMap <|> Map.lookup (Ext (let name = takeExtension f in case name of ('.':xs) -> xs; _ -> name )) languagesFileMap
+    where lookupFileLang :: RawFilePath -> Maybe Language
+          lookupFileLang f = Map.lookup (Name $ takeFileName f) languagesFileMap <|> Map.lookup (Ext (C.dropWhile ( == '.') $ takeExtension f)) languagesFileMap
 {-# INLINE languageLookup #-}
 
 
-languageInfoLookup :: Options -> FilePath -> Maybe (Language, LanguageInfo)
+languageInfoLookup :: Options -> RawFilePath -> Maybe (Language, LanguageInfo)
 languageInfoLookup opts f = languageLookup opts f >>= \l -> (l,) <$> Map.lookup l languagesMap
 {-# INLINE languageInfoLookup #-}
 
@@ -945,8 +946,8 @@ dumpLanguagesFileMap m = forM_ (Map.toList m) $ \(ext, l) ->
 
 forcedLang :: Options -> Maybe Language
 forcedLang Options{ language_force = l }
-    | Nothing <- l = Nothing
-    | otherwise    = Map.lookup (Ext $ fromJust l) languagesFileMap <|> Map.lookup (Name $ fromJust l) languagesFileMap
+    | Just lang <- l = Map.lookup (Ext $ C.pack lang) languagesFileMap <|> Map.lookup (Name $ C.pack lang) languagesFileMap
+    | otherwise = Nothing
 
 
 (~~) :: C.ByteString -> C.ByteString -> Boundary

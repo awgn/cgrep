@@ -19,7 +19,6 @@
 module CGrep.Language ( Language(..), FileType(..), splitLanguagesList) where
 
 import qualified Data.Map as Map
-import System.FilePath(takeExtension, takeFileName)
 import Control.Monad ( forM_ )
 import Control.Applicative ( Alternative((<|>)) )
 import Data.Maybe ( fromJust )
@@ -27,6 +26,7 @@ import Data.Maybe ( fromJust )
 import qualified Data.ByteString.Char8 as C
 import Options ( Options(Options, language_force) )
 import Util ( prettyRead )
+import System.Posix.FilePath (RawFilePath)
 
 
 data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css | Cql |
@@ -36,13 +36,13 @@ data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | 
                 deriving (Read, Show, Eq, Ord, Bounded)
 
 
-data FileType = Name String | Ext String
+data FileType = Name RawFilePath| Ext C.ByteString
     deriving (Eq, Ord)
 
 
 instance Show FileType where
-    show (Name x) = x
-    show (Ext  e) = "*." <> e
+    show (Name x) = C.unpack x
+    show (Ext  e) = "*." <> C.unpack e
 
 
 -- utility functions

@@ -58,6 +58,7 @@ import Config
 import Util ( partitionM, notNull )
 import Reader ( OptionIO, Env (..) )
 import Search ( parallelSearch )
+import System.Posix.FilePath (RawFilePath)
 
 
 main :: IO ()
@@ -91,9 +92,11 @@ main = do
     when (null others && isTermIn && null file) $
         withArgs ["--help"] $ void (cmdArgsRun options)
 
+    let others' = C.pack <$> others
+
     -- load patterns
-    patterns <- if null file then pure $ readPatternsFromCommandLine others
-                             else readPatternsFromFile file
+    patterns <- if null file then pure $ readPatternsFromCommandLine others'
+                             else readPatternsFromFile (C.pack file)
 
     let patterns' = map (if ignore_case then ic else id) patterns
             where ic | (not . isRegexp) opt && semantic = C.unwords . map (\p -> if p `elem` wildCardTokens then p else C.map toLower p) . C.words
@@ -106,7 +109,7 @@ main = do
     --    hPutStrLn stderr $ showBold opt ("Using '" <> fromJust confpath <> "' configuration file...")
 
     -- load files to parse:
-    let paths = getFilePaths (notNull file) others
+    let paths = getFilePaths (notNull file) others'
 
     -- parse cmd line language list:
     let (l0, l1, l2) = splitLanguagesList language_filter
@@ -128,18 +131,18 @@ main = do
     runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt { jobs = njobs} Nothing Nothing)
 
 
-readPatternsFromFile :: FilePath -> IO [C.ByteString]
+readPatternsFromFile :: RawFilePath -> IO [C.ByteString]
 readPatternsFromFile "" = return []
-readPatternsFromFile f  = map trim8 . C.lines <$> C.readFile f
+readPatternsFromFile f  = map trim8 . C.lines <$> C.readFile (C.unpack f)
 
-readPatternsFromCommandLine :: [String] -> [C.ByteString]
+
+readPatternsFromCommandLine :: [C.ByteString] -> [C.ByteString]
 readPatternsFromCommandLine [] = []
-readPatternsFromCommandLine xs | ":" `elem` xs = C.pack . UC.encodeString <$> takeWhile (/= ":") xs
-                               | otherwise = [ (C.pack . UC.encodeString) (head xs) ]
+readPatternsFromCommandLine xs | ":" `elem` xs = takeWhile (/= ":") xs
+                               | otherwise = [ head xs ]
 
-getFilePaths :: Bool        ->     -- pattern(s) from file
-                [String]    ->     -- list of patterns and files
-                [String]
+
+getFilePaths :: Bool -> [RawFilePath] -> [RawFilePath]
 getFilePaths False xs = case ":" `elemIndex` xs of
     Nothing  -> if null xs then [] else tail xs
     (Just n) -> drop (n+1)  xs
