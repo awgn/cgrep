@@ -27,14 +27,12 @@ import CGrep.Parser.Token
       parseTokens )
 
 import CGrep.ContextFilter
-    ( ContextFilter(ctxComment, ctxLiteral), mkContextFilter)
-import CGrep.LanguagesMap ( languageLookup, contextFilter )
 import CGrep.Common
     ( Text8,
       trim,
       getTargetName,
       getTargetContents,
-      shallowSearch,
+      stringSearch,
       quickMatch,
       runSearch,
       expandMultiline,
@@ -54,15 +52,19 @@ import Data.List ( sortBy, nub )
 import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
-import Reader ( OptionIO, Env (..) )
+import Reader ( ReaderIO, Env (..) )
 import Verbose ( putStrLnVerbose )
 import Util ( notNull, rmQuote8 )
 import CGrep.Chunk (Chunk (..))
 
 import System.Posix.FilePath ( RawFilePath, takeBaseName )
 
-search :: RawFilePath -> [Text8] -> OptionIO [Output]
-search f ps = do
+import CGrep.Language ( Language )
+import CGrep.LanguagesMap
+    ( languageLookup, LanguageInfo, contextFilter )
+
+search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search linfo f ps = do
 
     Env{..} <- ask
 
@@ -78,12 +80,12 @@ search f ps = do
                                                       , ignoreCase opt
                                                       ]
 
-        filt = (mkContextFilter opt) { ctxComment = False }
+        filt = mkContextFilter opt ~! contextBitComment
 
 
     -- pre-process patterns
 
-        patterns   = map (parseTokens langInfo . contextFilter (languageLookup opt filename) filt True) ps  -- [ [t1,t2,..], [t1,t2...] ]
+        patterns   = map (parseTokens (snd <$> linfo) . contextFilter (languageLookup opt filename) filt True) ps  -- [ [t1,t2,..], [t1,t2...] ]
         patterns'  = map (map mkAtomFromToken) patterns                                                     -- [ [w1,w2,..], [w1,w2,..] ]
         patterns'' = map (combineAtoms . map (:[])) patterns'                                               -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
 
@@ -101,13 +103,13 @@ search f ps = do
     putStrLnVerbose 2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
     putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
 
-    let quick = quickMatch ps $ shallowSearch identif text'
+    let quick = quickMatch ps $ stringSearch identif text'
 
     runSearch opt filename quick $ do
 
         -- parse source code, get the Generic.Chunk list...
 
-        let tokens = parseTokens langInfo text'''
+        let tokens = parseTokens (snd <$> linfo) text'''
 
         -- get matching tokens ...
 

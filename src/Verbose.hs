@@ -24,9 +24,9 @@ import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Control.Monad ( when )
 
 import Options ( Options(verbosity) )
-import Reader ( OptionIO, Env(..) )
+import Reader ( ReaderIO, Env(..) )
 
-putStrLnVerbose :: Int -> String -> OptionIO ()
+putStrLnVerbose :: Int -> String -> ReaderIO ()
 putStrLnVerbose l xs = do
     n <- reader $ verbosity . opt
     when (n >= l) $ liftIO $ putStrLn xs

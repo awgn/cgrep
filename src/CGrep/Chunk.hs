@@ -17,23 +17,26 @@
 --
 
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module CGrep.Chunk ( Chunk(..)
                    , MatchingLine(..)
                    ) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.DList as DL
+import qualified Control.DeepSeq as DS
 
 import Data.Char
     ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
 
 import CGrep.Types ( Offset )
+import GHC.Generics ( Generic )
 
 data Chunk = Chunk {
     tOffset :: {-# UNPACK #-} !Offset,
     tStr    :: C.ByteString
-} deriving (Eq, Show)
+} deriving (Eq, Show, Generic, DS.NFData)
 
 
 data MatchingLine = MatchingLine {

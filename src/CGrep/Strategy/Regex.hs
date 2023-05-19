@@ -41,17 +41,18 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.ContextFilter ( mkContextFilter)
-import CGrep.LanguagesMap ( languageLookup, contextFilter )
+import CGrep.Language ( Language )
+import CGrep.LanguagesMap ( LanguageInfo(..), languageLookup, contextFilter )
 
-import Reader ( OptionIO, Env (..) )
+import Reader ( ReaderIO, Env (..) )
 import Options ( Options(regex_pcre) )
 import Verbose ( putStrLnVerbose )
 
 import CGrep.Chunk ( Chunk(..) )
 import System.Posix.FilePath (RawFilePath)
 
-search :: RawFilePath -> [Text8] -> OptionIO [Output]
-search f patterns = do
+search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search linfo f patterns = do
 
     Env{..} <- ask
 

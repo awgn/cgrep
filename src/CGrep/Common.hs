@@ -22,7 +22,7 @@
 module CGrep.Common ( Text8
                     , getTargetName
                     , getTargetContents
-                    , shallowSearch
+                    , stringSearch
                     , runSearch
                     , expandMultiline
                     , ignoreCase
@@ -32,7 +32,8 @@ module CGrep.Common ( Text8
                     , takeN) where
 
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as SC
+import qualified Data.ByteString.Search as BM
+import qualified Data.ByteString.Search.DFA as DFA
 
 import Data.Char ( isSpace, isSpace, toLower )
 
@@ -41,7 +42,7 @@ import CGrep.Output ( Output, mkOutputElements )
 
 import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
-import Reader ( OptionIO )
+import Reader ( ReaderIO )
 import Util ( spanGroup, notNull )
 import Data.Int (Int64)
 import System.IO.MMap ( mmapFileByteString )
@@ -75,9 +76,11 @@ getTargetContents xs = mmapFileByteString (C.unpack xs) Nothing
 {-# INLINE getTargetContents #-}
 
 
-shallowSearch :: [Text8] -> Text8 -> [[Int64]]
-shallowSearch ps text = ps >>= (\p -> [fromIntegral <$> p `SC.nonOverlappingIndices` text])
-{-# INLINE shallowSearch #-}
+stringSearch :: [Text8] -> Text8 -> [[Int64]]
+stringSearch ps text | maximum (C.length <$> ps) > 4 = ps >>= (\p -> [fromIntegral <$> p `BM.nonOverlappingIndices` text])
+                     | otherwise = ps >>= (\p -> [fromIntegral <$> p `DFA.nonOverlappingIndices` text])
+{-# INLINE stringSearch #-}
+
 
 quickMatch :: [a] -> [[Int64]] -> Bool
 quickMatch [_] = all notNull
@@ -87,8 +90,8 @@ quickMatch _   = any notNull
 runSearch :: Options
           -> RawFilePath
           -> Bool
-          -> OptionIO [Output]
-          -> OptionIO [Output]
+          -> ReaderIO [Output]
+          -> ReaderIO [Output]
 runSearch opt filename shallowTest doSearch =
     if shallowTest || no_shallow opt
         then doSearch

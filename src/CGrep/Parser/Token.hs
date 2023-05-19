@@ -47,7 +47,6 @@ import Data.Word (Word8)
 import qualified ByteString.StrictBuilder as B
 
 import CGrep.Parser.Char ( isCharNumber, isBracket', isAlpha_, isAlphaNum_)
-import Data.Maybe
 
 data TokenState =
     StateSpace        |

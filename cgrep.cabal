@@ -56,7 +56,6 @@ Executable cgrep
                        CGrep.LanguagesMap
                        CGrep.ContextFilter
                        CGrep.Types
-                       CGrep.Search
                        CGrep.Output
                        CGrep.Distance
                        CGrep.Common
@@ -107,12 +106,16 @@ Executable cgrep
                        bitwise,
                        mmap,
                        unagi-chan,
+                       posix-paths,
+                       rawfilepath,
+                       monad-loops,
+                       deepseq,
                        extra
 
   Ghc-options:  -O2 -j -funbox-strict-fields
                 -fwrite-ide-info
                 -hiedir=.hie
                 -threaded
-                -rtsopts "-with-rtsopts=-N -H64m"
+                -rtsopts "-with-rtsopts=-N -H8m"
 
   Default-language:    Haskell2010

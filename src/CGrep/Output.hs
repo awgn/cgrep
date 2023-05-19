@@ -21,6 +21,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutputElements
@@ -33,8 +35,10 @@ import qualified Data.ByteString.Builder as B
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LC
+import qualified Data.ByteString.Unsafe as BU
 
 import qualified Data.Vector.Unboxed as UV
+
 import Data.Vector.Unboxed ( (!) )
 
 import System.Console.ANSI
@@ -58,13 +62,19 @@ import Options
               color, no_color) )
 
 import Config ( Config(configColorFile, configColorMatch) )
-import Reader ( OptionIO, Env(..) )
+import Reader ( ReaderIO, Env(..) )
 import Data.Int ( Int64 )
 import Data.Word ( Word8 )
 import Data.ByteString.Internal (c2w)
-import Debug.Trace
 import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Fusion.Util as VU (Box(..))
+
 import System.Posix.FilePath (RawFilePath)
+
+import qualified Control.DeepSeq as DS
+import Control.DeepSeq (NFData)
+import GHC.Generics ( Generic )
+import qualified Data.Vector.Generic as GV
 
 data Output = Output
     { outFilePath :: RawFilePath
@@ -72,19 +82,20 @@ data Output = Output
     , outLine     :: {-# UNPACK #-} !Text8
     , outChunks   :: ![Chunk]
     }
-    deriving (Show)
+    deriving (Show, Generic, NFData)
 
 
 -- Returns a vector of offsets for a given character in a ByteString, up to the given maximum offset.
 charOffsets :: Char -> Int64 -> B.ByteString -> UV.Vector Int64
 charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
   where
-    target = c2w c
+    !target = c2w c
     findOffsets :: Int64 -> Maybe (Int64, Int64)
     findOffsets i
       | i >= maxOff = Nothing
-      | B.index bs (fromIntegral i) == target = Just (fromIntegral i, i + 1)
+      | BU.unsafeIndex bs (fromIntegral i) == target = Just (fromIntegral i, i + 1)
       | otherwise = findOffsets (i + 1)
+{-# INLINABLE charOffsets #-}
 
 
 getLineOffsets :: Text8 -> Int64 -> UV.Vector Offset
@@ -99,12 +110,12 @@ getLineOffsets text maxOff =
 
 
 insertIndex :: UV.Vector Offset -> Offset -> Int
-insertIndex xs x = search xs 0 (UV.length xs)
+insertIndex vs x = search vs 0 (UV.length vs)
     where
-        search xs lo hi
+        search xs !lo !hi
             | lo == hi = lo
-            | otherwise = let mid = (lo + hi) `div` 2
-                        in if x < xs ! mid
+            | otherwise = let !mid = (lo + hi) `quot` 2
+                        in if x < VU.unBox(xs `GV.basicUnsafeIndexM` mid)
                                 then search xs lo mid
                                 else search xs (mid+1) hi
 
@@ -117,7 +128,7 @@ getLineNumberAndOffset xs x =
 {-# INLINE getLineNumberAndOffset #-}
 
 
-mkOutputElements :: RawFilePath -> Text8 -> Text8 -> [Chunk] -> OptionIO [Output]
+mkOutputElements :: RawFilePath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
 mkOutputElements f text multi ts = do
     invert <- invert_match <$> reader opt
     return $ if invert then map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines multi ts
@@ -142,45 +153,45 @@ invertLines n xs =  filter (\(MatchingLine i _) ->  i `notElem` idx ) $ take n [
 {-# INLINE invertLines #-}
 
 
-putOutputElements :: [Output] -> OptionIO [B.Builder]
+putOutputElements :: [Output] -> ReaderIO (Maybe B.Builder)
+putOutputElements [] = pure Nothing
 putOutputElements out = do
     Env{..} <- ask
-    if  | json opt          -> jsonOutput out
-        | filename_only opt -> filenameOutput out
-        | otherwise         -> defaultOutput out
+    if  | json opt          -> Just <$> jsonOutput out
+        | filename_only opt -> Just <$> filenameOutput out
+        | otherwise         -> Just <$> defaultOutput out
 
 
-defaultOutput :: [Output] -> OptionIO [B.Builder]
+defaultOutput :: [Output] -> ReaderIO B.Builder
 defaultOutput xs = do
     Env{..} <- ask
     if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
-                -> return $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+                -> pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
-                -> return $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+                -> pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = False , count = False } <- opt
-              -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
+                -> pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = True , no_numbers = True  , count = False } <- opt
-              -> return $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
+                -> pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, count = True } <- opt
-            -> do
-                let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                return $ (\ys@(y:_) -> buildFileName conf opt y <> B.char8 ':' <> B.intDec (length ys)) <$> gs
-
+                -> do
+                    let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+                    pure $ mconcat . intersperse (B.char8 '\n') $ (\ys@(y:_) -> buildFileName conf opt y <> B.char8 ':' <> B.intDec (length ys)) <$> gs
         |  Options{ count = True } <- opt
-            -> do
-                let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                return $ (\ys@(y:_) ->  B.intDec (length ys)) <$> gs
+                -> do
+                    let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
+                    pure $ mconcat . intersperse (B.char8 '\n') $ (\ys@(y:_) ->  B.intDec (length ys)) <$> gs
 
 
-jsonOutput :: [Output] -> OptionIO [B.Builder]
-jsonOutput [] = return []
-jsonOutput outs = return $
-    [B.byteString "{ \"file\":\"" <> B.byteString fname <> B.byteString "\", \"matches\":["] <>
-    [ mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs) ] <> [B.byteString "]}"]
+jsonOutput :: [Output] -> ReaderIO B.Builder
+jsonOutput [] = pure mempty
+jsonOutput outs = pure $ mconcat . intersperse (B.char8 '\n') $
+        [B.byteString "{ \"file\":\"" <> B.byteString fname <> B.byteString "\", \"matches\":["] <>
+        [ mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs) ] <> [B.byteString "]}"]
      where fname | (Output f _ _ _) <- head outs = f
            mkJToken (Chunk n xs) = B.byteString "{ \"col\":" <> B.int64Dec n <> B.byteString ", \"token\":\"" <> B.byteString xs <> B.byteString "\" }"
            mkMatch xs (Output _ n _ ts) =
@@ -188,8 +199,8 @@ jsonOutput outs = return $
                         mconcat (intersperse (B.byteString ",") (map mkJToken ts)) <> B.byteString "] }" ]
 
 
-filenameOutput :: [Output] -> OptionIO [B.Builder]
-filenameOutput outs = return $ B.byteString <$> nub ((\(Output fname _ _ _) -> fname) <$> outs)
+filenameOutput :: [Output] -> ReaderIO B.Builder
+filenameOutput outs = return $ mconcat . intersperse (B.char8 '\n') $ B.byteString <$> nub ((\(Output fname _ _ _) -> fname) <$> outs)
 {-# INLINE filenameOutput #-}
 
 

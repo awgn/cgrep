@@ -44,7 +44,6 @@ import System.Exit ( exitSuccess )
 import System.Environment ( withArgs )
 
 import CGrep.LanguagesMap ( dumpLanguagesMap, languagesMap )
-import CGrep.Search ( isRegexp )
 import CGrep.Parser.Atom ( wildCardMap )
 import CGrep.Language ( splitLanguagesList )
 import CGrep.Common ( trim8 )
@@ -56,8 +55,8 @@ import Options ( Options(..) )
 import Config
     ( dumpPalette, getConfig, Config(configLanguages, configColors) )
 import Util ( partitionM, notNull )
-import Reader ( OptionIO, Env (..) )
-import Search ( parallelSearch )
+import Reader ( ReaderIO, Env (..) )
+import Search ( parallelSearch, isRegexp )
 import System.Posix.FilePath (RawFilePath)
 
 
@@ -120,7 +119,7 @@ main = do
     runReaderT (do putStrLnVerbose 1 $ "Cgrep " <> showVersion version <> "!"
                    putStrLnVerbose 1 $ "patterns  : " <> show patterns'
                    putStrLnVerbose 1 $ "files     : " <> show paths
-        ) (Env conf opt Nothing Nothing)
+        ) (Env conf opt)
 
     -- specify number of cores
     njobs <- if jobs /= 0
@@ -128,7 +127,7 @@ main = do
                 else getNumCapabilities
 
     -- run search
-    runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt { jobs = njobs} Nothing Nothing)
+    runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt { jobs = njobs})
 
 
 readPatternsFromFile :: RawFilePath -> IO [C.ByteString]

@@ -28,9 +28,6 @@ import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter
-    ( ContextFilter(ctxComment), mkContextFilter)
-import CGrep.LanguagesMap
-    ( contextFilter, languageLookup, languageLookup )
 import CGrep.Common
     ( Text8,
       expandMultiline,
@@ -38,14 +35,17 @@ import CGrep.Common
       getTargetName,
       ignoreCase,
       runSearch,
-      shallowSearch,
+      stringSearch,
       quickMatch )
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
+import CGrep.Language ( Language )
+import CGrep.LanguagesMap
+    ( languageLookup, LanguageInfo, contextFilter )
 
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
-import Reader ( OptionIO, Env (..) )
+import Reader ( ReaderIO, Env (..) )
 import Options
     ( Options(identifier, keyword, string, number, operator, edit_dist,
               word_match, prefix_match, suffix_match) )
@@ -55,8 +55,8 @@ import CGrep.Chunk (Chunk (..))
 import System.Posix.FilePath (RawFilePath)
 
 
-search :: RawFilePath -> [Text8] -> OptionIO [Output]
-search f ps = do
+search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search linfo f ps = do
 
     Env{..} <- ask
 
@@ -66,7 +66,7 @@ search f ps = do
 
     -- transform text
 
-    let filt = (mkContextFilter opt) { ctxComment = False }
+    let filt = mkContextFilter opt ~! contextBitComment
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
                                                  , contextFilter (languageLookup opt filename) filt True
@@ -77,13 +77,13 @@ search f ps = do
     putStrLnVerbose 2 $ "strategy: running token search on " ++ C.unpack filename ++ "..."
     putStrLnVerbose 3 $ "---\n" ++ C.unpack text''' ++ "\n---"
 
-    let quick = quickMatch ps $ shallowSearch ps text'
+    let quick = quickMatch ps $ stringSearch ps text'
 
     runSearch opt filename quick $ do
 
         -- parse source code, get the Cpp.Chunk list...
 
-        let tokens = parseTokens langInfo text'''
+        let tokens = parseTokens (snd <$> linfo) text'''
 
         -- token-filterting...
 

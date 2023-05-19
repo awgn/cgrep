@@ -24,7 +24,6 @@ import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter ( mkContextFilter )
-import CGrep.LanguagesMap ( languageLookup, contextFilter )
 import CGrep.Common
     ( Text8,
       getTargetName,
@@ -34,14 +33,17 @@ import CGrep.Common
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
 import CGrep.Chunk ( Chunk(..) )
-import CGrep.Parser.Chunk
+import CGrep.Parser.Chunk ( parseChunks )
+import CGrep.Language ( Language )
+import CGrep.LanguagesMap
+    ( languageLookup, LanguageInfo, contextFilter )
 
-import Reader ( OptionIO, Env (..) )
+import Reader ( ReaderIO, Env (..) )
 import Verbose ( putStrLnVerbose )
 import System.Posix.FilePath (RawFilePath)
 
-search :: RawFilePath -> [Text8] -> OptionIO [Output]
-search f patterns = do
+search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search linfo f patterns = do
 
     Env{..} <- ask
 
@@ -60,7 +62,7 @@ search f patterns = do
 
     -- parse source code, get the Cpp.Token list...
 
-        tokens' = parseChunks langInfo text'''
+        tokens' = parseChunks (snd <$> linfo) text'''
 
     -- filter tokens...
 

@@ -34,15 +34,16 @@ import CGrep.Common
       getTargetName,
       ignoreCase,
       runSearch,
-      shallowSearch, quickMatch )
+      stringSearch, quickMatch )
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.ContextFilter ( mkContextFilter )
+import CGrep.Language ( Language )
 import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
 import CGrep.Types ( Offset )
 
 import CGrep.Parser.Chunk ( parseChunks )
 
-import Reader ( OptionIO, Env(..) )
+import Reader ( ReaderIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putStrLnVerbose )
 import Util ( notNull )
@@ -51,10 +52,11 @@ import Data.Int
 
 import System.Posix.FilePath ( RawFilePath )
 
-search :: RawFilePath -> [Text8] -> OptionIO [Output]
-search f patterns = do
+search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search linfo f patterns = do
 
     Env{..} <- ask
+
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
@@ -64,14 +66,14 @@ search f patterns = do
     let ctxFilter = mkContextFilter opt
 
     let [text', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (languageLookup opt filename) ctxFilter False
-                                              , ignoreCase opt
-                                              ]
+                                            , contextFilter (fst <$> linfo) ctxFilter False
+                                            , ignoreCase opt
+                                            ]
 
     -- make shallow search
 
-    let shallow = shallowSearch patterns text'
-    -- let shallow :: [[Int64]]= []
+    let shallow = stringSearch patterns text'
+    -- let shallow :: [[Int64]] = []
 
     -- search for matching tokens
 
@@ -80,7 +82,7 @@ search f patterns = do
     -- filter exact/partial matching tokens
 
     let tokens' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkChunk opt langInfo text') tokens
+                    then filter (checkChunk opt (snd <$> linfo) text') tokens
                     else tokens
 
     putStrLnVerbose 2 $ "strategy  : running Boyer-Moore search on " <> C.unpack filename
@@ -97,8 +99,8 @@ checkChunk opt linfo text Chunk{..}
      | prefix_match  opt = any (\(Chunk o s) -> tStr `C.isPrefixOf` s && o + off' == tOffset) cs
      | suffix_match  opt = any (\(Chunk o s) -> tStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length tStr) == tOffset) cs
      | otherwise         = undefined
-     where (text',off') = getLineByOffset tOffset text
-           cs           = parseChunks linfo text'
+     where (text',off')  = getLineByOffset tOffset text
+           cs            = parseChunks linfo text'
 
 
 splitLines :: Text8 -> [(Text8, Offset)]

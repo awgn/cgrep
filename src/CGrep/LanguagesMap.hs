@@ -23,10 +23,6 @@ module CGrep.LanguagesMap where
 
 import CGrep.Language ( Language(..), FileType(..) )
 import CGrep.ContextFilter
-    ( ParConfig(ParConfig),
-      ContextFilter(ContextFilter),
-      FilterFunction,
-      runContextFilter, mkParConfig)
 
 import CGrep.Types ( Text8 )
 import qualified Data.Map as Map
@@ -905,9 +901,8 @@ mkLangFilter  alterBoundary LanguageInfo {..} = Just $
     runContextFilter (mkParConfig langComment langString langRawString langChar alterBoundary)
 {-# INLINE mkLangFilter #-}
 
-
 contextFilter :: Maybe Language -> ContextFilter -> Bool -> Text8 -> Text8
-contextFilter _ (ContextFilter True True True) False txt = txt
+contextFilter _  (isContextFilterAll -> True) False txt = txt
 contextFilter Nothing _ _ txt = txt
 contextFilter (Just language) filt alterBoundary txt
    | Just fun <- parFunc = fun filt txt

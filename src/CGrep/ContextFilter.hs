@@ -20,8 +20,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module CGrep.ContextFilter where
 
@@ -35,27 +37,78 @@ import qualified Data.Array.BitArray as BA
 import Data.Array.BitArray ((!))
 
 import GHC.Prim ( (+#) )
-import GHC.Exts ( Int(I#), (+#) )
+import GHC.Exts ( Int(I#), (+#), iShiftL# )
 
 import Options ( Options(..) )
 import Data.List (findIndex)
 import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Aeson.KeyMap as B
-
 import CGrep.Boundary ( Boundary(..) )
 
-type FilterFunction = ContextFilter -> Text8 -> Text8
+import Data.Int ( Int32 )
+import Data.Bits ( Bits((.|.), complement, (.&.)) )
 
+type FilterFunction = ContextFilter -> Text8 -> Text8
 
 data Context = Code | Comment | Literal
     deriving (Eq, Show)
 
+newtype ContextBit = ContextBit Int32
+    deriving stock (Eq, Show)
+    deriving newtype (Bits)
 
-data ContextFilter = ContextFilter
-    {   ctxCode    :: !Bool
-    ,   ctxComment :: !Bool
-    ,   ctxLiteral :: !Bool
-    } deriving (Eq, Show)
+
+contextBitEmpty :: ContextBit
+contextBitEmpty   = ContextBit 0
+contextBitCode :: ContextBit
+contextBitCode    = ContextBit 0x1
+contextBitComment :: ContextBit
+contextBitComment = ContextBit 0x2
+contextBitLiteral :: ContextBit
+contextBitLiteral = ContextBit 0x4
+
+{-# INLINE contextBitEmpty #-}
+{-# INLINE contextBitCode #-}
+{-# INLINE contextBitComment #-}
+{-# INLINE contextBitLiteral #-}
+
+(~=) :: ContextBit -> Bool -> ContextBit
+b ~= True = b
+_ ~= False = contextBitEmpty
+{-# INLINE (~=) #-}
+
+
+(~?) :: ContextFilter -> ContextBit -> Bool
+f ~? b = (unFilter f .&. b) /= contextBitEmpty
+{-# INLINE (~?) #-}
+
+(~!) :: ContextFilter -> ContextBit -> ContextFilter
+a ~! b = ContextFilter $ unFilter a .&. complement b
+{-# INLINE (~!) #-}
+
+newtype ContextFilter = ContextFilter { unFilter :: ContextBit }
+    deriving stock (Eq, Show)
+    deriving newtype (Bits)
+
+contextFilterAll :: ContextFilter
+contextFilterAll = ContextFilter (contextBitCode .|. contextBitComment .|. contextBitLiteral)
+{-# NOINLINE contextFilterAll #-}
+
+isContextFilterAll :: ContextFilter -> Bool
+isContextFilterAll f = f == contextFilterAll
+{-# INLINE isContextFilterAll #-}
+
+codeFilter :: ContextFilter -> Bool
+codeFilter f = (unFilter f  .&. contextBitCode) /= contextBitEmpty
+{-# INLINE codeFilter #-}
+
+commentFilter :: ContextFilter -> Bool
+commentFilter f = (unFilter f .&. contextBitComment) /= contextBitEmpty
+{-# INLINE commentFilter #-}
+
+literalFilter :: ContextFilter -> Bool
+literalFilter f = (unFilter f .&. contextBitLiteral) /= contextBitEmpty
+{-# INLINE literalFilter #-}
 
 
 data ParConfig  =  ParConfig
@@ -100,9 +153,8 @@ type ParData = (Text8, ContextFilter, ParState)
 mkContextFilter :: Options -> ContextFilter
 mkContextFilter Options{..} =
     if not (code || comment || literal)
-        then ContextFilter { ctxCode = True, ctxComment = True,  ctxLiteral = True }
-        else ContextFilter { ctxCode = code , ctxComment = comment , ctxLiteral = literal }
-
+        then contextFilterAll
+        else ContextFilter $ contextBitCode ~= code .|. contextBitComment ~= comment .|. contextBitLiteral ~= literal
 
 
 unpackBoundary :: Boundary -> (String, String)
@@ -122,30 +174,30 @@ getContext (ChrState _)   = Literal
 
 runContextFilter :: ParConfig -> ContextFilter -> Text8 -> Text8
 runContextFilter conf@ParConfig{..} filt txt =
-  fst $ C.unfoldrN (C.length txt) (contextFilterImpl' conf) (txt, filt, ParState CodeState CodeState False 0)
-    where contextFilterImpl' :: ParConfig -> ParData ->  Maybe (Char, ParData)
-          contextFilterImpl' _ (C.uncons -> Nothing, _, _)     = Nothing
-          contextFilterImpl' c (C.uncons -> Just (x,xs), f, s) = Just (x', (xs', f, s'))
+  fst $ C.unfoldrN (C.length txt) (contextFilterImpl conf) (txt, filt, ParState CodeState CodeState False 0)
+    where contextFilterImpl :: ParConfig -> ParData ->  Maybe (Char, ParData)
+          contextFilterImpl c (C.uncons -> Just (x,xs), f, s) = Just (x', (xs', f, s'))
               where !s' = nextContextState c s (x,xs) f
-                    !(x', xs') | display s' = if alterBoundary
-                                                then case (ctxState s, ctxState s') of
-                                                        (getContext -> Code, getContext -> Literal) -> (chr 2, xs)
-                                                        (getContext -> Literal, getContext -> Code) -> (chr 3, xs)
-                                                        _                                           -> (x , xs)
-                                                else (x, xs)
-                               | isSpace x  = (x  , xs)
-                               | otherwise  = (' ', xs)
+                    (# x', xs' #)   | display s' = if alterBoundary
+                                                then case (# ctxState s, ctxState s' #) of
+                                                        (# getContext -> Code, getContext -> Literal #) -> (# chr 2, xs #)
+                                                        (# getContext -> Literal, getContext -> Code #) -> (# chr 3, xs #)
+                                                        _                                               -> (# x , xs #)
+                                                else (# x, xs #)
+                                    | isSpace x  = (# x , xs #)
+                                    | otherwise  = (#' ', xs #)
+          contextFilterImpl _ (C.uncons -> Nothing, _, _)     = Nothing
 
-          contextFilterImpl' _ _ = undefined
+          contextFilterImpl_ _ = undefined
 
 
-{-# INLINE displayContext #-}
 displayContext :: ContextState -> ContextFilter -> Bool
-displayContext  CodeState     (ContextFilter b _ _ ) = b
-displayContext  (CommState _) (ContextFilter _ b _ ) = b
-displayContext  (LitrState _) (ContextFilter _ _ b ) = b
-displayContext  (RawState _)  (ContextFilter _ _ b ) = b
-displayContext  (ChrState _)  (ContextFilter _ _ b ) = b
+displayContext  CodeState     cf = cf ~? contextBitCode
+displayContext  (CommState _) cf = cf ~? contextBitComment
+displayContext  (LitrState _) cf = cf ~? contextBitLiteral
+displayContext  (RawState _)  cf = cf ~? contextBitLiteral
+displayContext  (ChrState _)  cf = cf ~? contextBitLiteral
+{-# INLINE displayContext #-}
 
 
 transState :: ParState -> ParState
@@ -156,47 +208,47 @@ transState s@ParState {..} = if skip == 0
 
 
 nextContextState :: ParConfig -> ParState -> (Char,Text8) -> ContextFilter -> ParState
-nextContextState c s@ParState{..} (x,xs) filt@(ContextFilter codefilt commfilt litrfilt)
+nextContextState c s@ParState{..} (x,xs) filt
     | skip > 0   = transState $ s { skip = skip - 1 }
 
     | CodeState  <- ctxState =
-        let cindex = findPrefixBoundary (x,xs) (commBound c)
-            lindex = findPrefixBoundary (x,xs) (litrBound c)
-            rindex = findPrefixBoundary (x,xs) (rawBound  c)
+        let cindex = findPrefixBoundary  (x,xs) (commBound c)
+            lindex = findPrefixBoundary  (x,xs) (litrBound c)
+            rindex = findPrefixBoundary  (x,xs) (rawBound  c)
             hindex = findPrefixBoundary' (x,xs) (chrBound  c)
           in if bloom c ! x
-                then if | Just i <- cindex -> transState $ s{ nextState = CommState i, display = commfilt, skip = C.length (bBegin (commBound c !! i)) - 1 }
-                        | Just i <- lindex -> transState $ s{ nextState = LitrState i, display = codefilt, skip = C.length (bBegin (litrBound c !! i)) - 1 }
-                        | Just i <- rindex -> transState $ s{ nextState = RawState i,  display = codefilt, skip = C.length (bBegin (rawBound c  !! i)) - 1 }
-                        | Just i <- hindex -> transState $ s{ nextState = ChrState i,  display = codefilt, skip = C.length (bBegin (chrBound c  !! i)) - 1 }
-                        | otherwise        -> s{ display = codefilt, skip = 0 }
-                else s{ display = codefilt, skip = 0 }
+                then if | Just i <- cindex -> transState $ s{ nextState = CommState i, display = commentFilter filt, skip = C.length (bBegin (commBound c !! i)) - 1 }
+                        | Just i <- lindex -> transState $ s{ nextState = LitrState i, display = codeFilter filt, skip = C.length (bBegin (litrBound c !! i)) - 1 }
+                        | Just i <- rindex -> transState $ s{ nextState = RawState  i, display = codeFilter filt, skip = C.length (bBegin (rawBound c  !! i)) - 1 }
+                        | Just i <- hindex -> transState $ s{ nextState = ChrState  i, display = codeFilter filt, skip = C.length (bBegin (chrBound c  !! i)) - 1 }
+                        | otherwise        -> s{ display = codeFilter filt, skip = 0 }
+                else s{ display = codeFilter filt, skip = 0 }
 
     | CommState n <- ctxState =
         let Boundary _ e = commBound c !! n
             in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                then transState $ s{ nextState = CodeState, display =  commfilt, skip = C.length e - 1}
-                else s{ display = commfilt, skip = 0 }
+                then transState $ s{ nextState = CodeState, display =  commentFilter filt, skip = C.length e - 1}
+                else s{ display = commentFilter filt, skip = 0 }
 
     | LitrState n <- ctxState  =
         if x == '\\'
         then s { display = displayContext ctxState filt, skip = 1 }
         else let Boundary _ e = litrBound c !! n
                in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                    then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
-                    else s{ display = litrfilt, skip = 0 }
+                    then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter filt, skip = C.length e - 1}
+                    else s{ display = literalFilter filt, skip = 0 }
     | ChrState n <- ctxState  =
         if x == '\\'
         then s { display = displayContext ctxState filt, skip = 1 }
         else let Boundary _ e = chrBound c !! n
                 in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                    then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
-                    else s{ display = litrfilt, skip = 0 }
+                    then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter filt, skip = C.length e - 1}
+                    else s{ display = literalFilter filt, skip = 0 }
     | RawState n <- ctxState  =
         let Boundary _ e = rawBound c !! n
             in if C.head e == x && C.tail e `C.isPrefixOf` xs
-                then s{ ctxState = CodeState, nextState = CodeState, display = codefilt, skip = C.length e - 1}
-                else s{ display = litrfilt, skip = 0 }
+                then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter filt, skip = C.length e - 1}
+                else s{ display = literalFilter filt, skip = 0 }
 
 
 findPrefixBoundary :: (Char, Text8) -> [Boundary] -> Maybe Int

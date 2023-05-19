@@ -19,15 +19,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module Search (
-    parallelSearch
+      parallelSearch
+    , isRegexp
 ) where
 
-import Data.List ( isPrefixOf, isSuffixOf, partition )
+import Data.List ( isPrefixOf, isSuffixOf, partition, elemIndex, intersperse )
 import Data.List.Split ( chunksOf )
 import qualified Data.Map as M
-import Data.Maybe ( fromJust )
+import Data.Maybe ( fromJust, isJust, catMaybes )
 import Data.Function ( fix )
 import qualified Data.Set as Set
 
@@ -37,7 +40,8 @@ import Control.Concurrent ( forkIO )
 import Control.Monad ( when, forM_, forever, unless, void, forM )
 import Control.Monad.Trans ( MonadIO(liftIO) )
 import Control.Monad.Trans.Except ( runExceptT, throwE )
-import Control.Monad.Trans.Reader ( ReaderT(runReaderT), ask )
+import Control.Monad.Trans.Reader
+    ( ReaderT(runReaderT), ask, reader, ask, local )
 import Control.Applicative
     ( Applicative(liftA2), Alternative((<|>)) )
 
@@ -51,24 +55,27 @@ import System.IO
       hPutStrLn,
       stderr,
       stdin,
-      stdout )
+      stdout,
+      stderr,
+      hPutStrLn )
 
 import System.Process ( runProcess, waitForProcess )
-
-import CGrep.Search ( run )
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap ( languageLookup )
 
 import CGrep.Output
     ( putOutputElements,
       showFileName,
-      Output(outLineNumb, outFilePath) )
-import CGrep.Common ( takeN, getTargetName )
+      Output(..),
+      showFileName )
+import CGrep.Common ( takeN, getTargetName, Text8, takeN )
 import Options ( Options(..) )
 import Config
     ( Config(Config, configLanguages, configFileLine, configColorMatch,
-             configColorFile, configColors, configPruneDirs) )
-import Reader ( Env(Env, langInfo, langType, opt, conf), OptionIO )
+             configColorFile, configColors, configPruneDirs),
+      dumpPalette )
+import Reader
+    ( Env(Env, opt, conf),
+      ReaderIO,
+      Env(..) )
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as B
@@ -86,7 +93,7 @@ import qualified Data.Vector as V hiding ((!))
 import Data.Vector ((!))
 
 import Data.IORef
-    ( modifyIORef, modifyIORef', newIORef, readIORef )
+    ( modifyIORef, modifyIORef', newIORef, readIORef, IORef, atomicModifyIORef, atomicModifyIORef' )
 import Control.Concurrent.Chan.Unagi.Bounded
     ( newChan, readChan, writeChan )
 
@@ -94,18 +101,34 @@ import System.Posix.Directory.Traversals ( getDirectoryContents )
 import System.Posix.FilePath ( RawFilePath, takeBaseName, (</>) )
 import System.Posix.Directory.Foreign (dtDir)
 import System.Directory (makeAbsolute, canonicalizePath)
-import Data.Functor ( void, (<&>) )
+import Data.Functor ( void, (<&>), ($>))
 import RawFilePath.Directory (doesDirectoryExist)
-import Control.Arrow
+import Control.Arrow ( Arrow((&&&)) )
+import Control.Concurrent.Async (forConcurrently, forConcurrently_, mapConcurrently_)
 
--- push file names in Chan...
-canonicalizeRawPath :: RawFilePath -> IO RawFilePath
-canonicalizeRawPath p = canonicalizePath (C.unpack p) <&> C.pack
-{-# INLINE canonicalizeRawPath #-}
+import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
+import qualified CGrep.Strategy.Levenshtein      as Levenshtein
+import qualified CGrep.Strategy.Regex            as Regex
+import qualified CGrep.Strategy.Tokenizer        as Tokenizer
+import qualified CGrep.Strategy.Semantic         as Semantic
+import Control.Monad.Catch ( SomeException, MonadCatch(catch) )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
+import CGrep.Language ( Language )
+import CGrep.LanguagesMap
+    ( languageInfoLookup, languageLookup, LanguageInfo )
 
-withRecursiveContents :: Options -> RawFilePath -> [Language] -> [RawFilePath] -> Set.Set RawFilePath -> ([RawFilePath] -> IO ()) -> IO ()
-withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
+import Control.Monad.Loops ( whileM_ )
+import Control.DeepSeq as DS ( force )
+
+withRecursiveContents :: Options
+                      -> RawFilePath
+                      -> [Language]
+                      -> [RawFilePath]
+                      -> Set.Set RawFilePath
+                      -> IORef Int
+                      -> ([RawFilePath] -> IO ()) -> IO ()
+withRecursiveContents opt@Options{..} dir langs pdirs visited cnt action = do
     xs <- getDirectoryContents dir
 
     let (dirs, files) = partition ((== dtDir) . fst) xs
@@ -117,21 +140,22 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited action = do
 
     -- run action
 
+    blen <- batchLen cnt 64
+
     unless (null files') $ do
-        let bl = length files' `div` jobs
-            batches = chunksOf (if bl == 0 then 1 else bl) files'
-        mapM_ action batches
+        mapM_ action (chunksOf blen files')
 
     -- process dirs recursively
 
     forM_ dirs' $ \dirPath -> do
-        unless (isPruneableDir dirPath pdirs) $ do -- this is a good directory (unless already visited)!
-                canonicalizeRawPath dirPath >>= \cpath -> do
-                    unless (cpath `Set.member` visited) $ do
-                        withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) action
+        unless (isPrunableDir dirPath pdirs) $ -- this is a good directory (unless already visited)!
+                 -- this is a good directory (unless already visited)!
+                makeRawAbsolute dirPath >>= \cpath ->
+                    unless (cpath `Set.member` visited) $
+                        withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) cnt action
 
 
-parallelSearch :: [RawFilePath] -> [C.ByteString] -> [Language] -> Bool -> OptionIO ()
+parallelSearch :: [RawFilePath] -> [C.ByteString] -> [Language] -> Bool -> ReaderIO ()
 parallelSearch paths patterns langs isTermIn = do
 
     Env{..} <- ask
@@ -141,54 +165,57 @@ parallelSearch paths patterns langs isTermIn = do
 
     -- create channels ...
 
-    fileCh <- liftIO $ forM [1 .. jobs] $ const (newChan 131072)
-    respCh <- liftIO $ forM [1 .. jobs] $ const (newChan 131072)
+    fileCh <- liftIO $ newChan 8192
+    outCh  <- liftIO $ newChan 8192
 
     -- recursively traverse the filesystem ...
 
     _ <- liftIO . forkIO $ do
-        cnt <- newIORef (0 :: Int)
-        if recursive || follow
-            then forM_ (if null paths then ["."] else paths) $ \p -> do
-                    isDir <- doesDirectoryExist p
-                    if isDir
-                        then withRecursiveContents opt p langs
-                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p)
-                                (\a -> readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) a *> modifyIORef' cnt (+1))
-                        else readIORef cnt >>= \idx -> writeChan (fst (fileCh .!. idx)) [p] *> modifyIORef' cnt (+1)
 
+        cnt <- newIORef (0 :: Int)
+
+        if recursive || follow
+            then forM_ (if null paths then ["."] else paths) $ \p ->
+                    doesDirectoryExist p >>= \case
+                        True -> withRecursiveContents opt p langs
+                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p) cnt $ do
+                                    (\a -> writeChan (fst fileCh) a *> atomicModifyIORef' cnt (\x -> (x+1, ())))
+                        _     ->  writeChan (fst fileCh) [p] *> atomicModifyIORef' cnt (\x -> (x+1, ()))
             else forM_ (if null paths && not isTermIn
                         then [("", 0)]
-                        else paths `zip` [0..]) (\(p, idx) -> writeChan (fst (fileCh .!. idx)) [p] )
+                        else paths `zip` [0..]) (\(p, idx) -> writeChan (fst fileCh) [p] )
 
         -- enqueue EOF messages...
-        forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst (fileCh .!. idx)) []
-        putStrLn "Done."
+        forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
+        hPutStrLn stderr "Search done!"
 
     -- launch the worker threads...
 
     matchingFiles <- liftIO $ newIORef Set.empty
 
+    let env = Env conf opt
+        runSearch = getSearcher env
+
     forM_ ([0 .. jobs-1] :: [Int]) $ \idx -> liftIO . forkIO $ do
         void $ runExceptT . forever $ do
-            fs <- liftIO $ readChan (snd (fileCh ! idx))
+            fs <- liftIO $ readChan (snd fileCh)
             liftIO $ E.catch (
                 case fs of
-                    [] -> writeChan (fst (respCh ! idx)) []
-                    xs -> forM_ xs $ \x -> do
-                            out <- fmap (take max_count)
-                                (runReaderT (do
-                                    out' <- run x patterns
-                                    when (vim || editor) $
-                                        liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
-                                    putOutputElements out'
-                                ) (Env conf opt Nothing Nothing))
+                    [] -> liftIO $ writeChan (fst outCh) []
+                    fs -> runReaderT (do
+                        out <- catMaybes <$> forM fs (\f -> do
+                                out' <- take max_count <$> runSearch (languageInfoLookup opt f) f patterns
+                                when (vim || editor) $
+                                    liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
+                                putOutputElements out')
+                        liftIO $ unless (null out) $
+                            writeChan (fst outCh) out
+                        ) env
+                ) (\e -> let msg = show (e :: SomeException) in C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 80 msg)))
 
-                            unless (null out) $
-                                writeChan (fst (respCh ! idx)) (toLazyByteStringShort . (<> B.char8 '\n') <$> out)
-                )  (\e -> let msg = show (e :: SomeException) in
-                        C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 80 msg)))
-            when (null fs) $ throwE ()
+            when (null fs) $ do
+                liftIO $ B.hPutStr stderr "worker done!\n"
+                throwE ()
 
     -- dump output until workers are done
 
@@ -196,12 +223,17 @@ parallelSearch paths patterns langs isTermIn = do
         hSetBuffering stdout (BlockBuffering $ Just 8192)
         hSetBinaryMode stdout True
 
-        fix (\action !n !i !indexes -> unless (n == jobs) $ do
-            let idx :: Int = indexes .!. i
-            readChan (snd (respCh ! idx)) >>= \case
-                [] -> action (n+1) i (V.filter (/= idx) indexes)
-                out -> mapM_ (LB.hPut stdout) out *> action n (i+1) indexes
-            ) 0 0 ([0.. jobs-1] :: V.Vector Int)
+        totalDone <- newIORef (0 :: Int)
+
+        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs)) $ do
+            readChan (snd outCh) >>= \case
+                [] -> modifyIORef' totalDone (+1)
+                out -> mapM_ (B.hPutBuilder stdout) out
+
+        -- fix (\action !n -> unless (n == jobs) $ do
+        --     readChan (snd outCh) >>= \case
+        --         [] -> action (n+1)
+        --         out -> mapM_ (\b -> B.hPut stdout b *> putChar '\n') out *> action n) 0
 
     -- run editor...
 
@@ -229,6 +261,34 @@ parallelSearch paths patterns langs isTermIn = do
                           (Just stderr) >>= waitForProcess
 
 
+{-# NOINLINE toLazyByteString #-}
+toLazyByteString :: B.Builder -> LB.ByteString
+toLazyByteString =
+  B.toLazyByteStringWith (B.untrimmedStrategy 128 B.smallChunkSize) LB.empty
+
+
+getSearcher :: Env -> (Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output])
+getSearcher Env{..} = do
+  if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
+     | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search
+     | (not . isRegexp) opt && semantic opt                                                     -> Semantic.search
+     | (not . isRegexp) opt                                                                     -> Tokenizer.search
+     | isRegexp opt                                                                             -> Regex.search
+     | otherwise                                                                                -> undefined
+
+
+makeRawAbsolute :: RawFilePath -> IO RawFilePath
+makeRawAbsolute p = makeAbsolute (C.unpack p) <&> C.pack
+{-# INLINE makeRawAbsolute #-}
+
+
+batchLen :: IORef Int -> Int -> IO Int
+batchLen cnt maxblen =
+    readIORef cnt >>=
+        \round -> modifyIORef' cnt (+1) $> min maxblen (1 + round)
+{-# INLINE  batchLen #-}
+
+
 fileFilter :: Options -> [Language] -> RawFilePath -> Bool
 fileFilter opt langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opt filename)
 {-# INLINE fileFilter #-}
@@ -241,24 +301,34 @@ isNotTestFile f =
 {-# INLINE isNotTestFile #-}
 
 
-isPruneableDir:: RawFilePath -> [RawFilePath] -> Bool
-isPruneableDir dir = any (`C.isSuffixOf` pdir)
+isPrunableDir:: RawFilePath -> [RawFilePath] -> Bool
+isPrunableDir dir = any (`C.isSuffixOf` pdir)
     where pdir = mkPrunableDirName dir
-{-# INLINE isPruneableDir #-}
+{-# INLINE isPrunableDir #-}
 
 
 mkPrunableDirName :: RawFilePath -> RawFilePath
 mkPrunableDirName xs | "/" `C.isSuffixOf` xs = xs
-                     | otherwise           = xs <> "/"
+                     | otherwise = xs <> "/"
 {-# INLINE mkPrunableDirName #-}
-
-
-toLazyByteStringShort :: B.Builder -> LB.ByteString
-toLazyByteStringShort =
-  B.toLazyByteStringWith (B.untrimmedStrategy 128 B.defaultChunkSize) LB.empty
-{-# NOINLINE toLazyByteStringShort #-}
 
 
 (.!.) :: V.Vector a -> Int -> a
 v .!. i = v ! (i `mod` V.length v)
 {-# INLINE  (.!.) #-}
+
+hasLanguage :: RawFilePath -> Options -> [Language] -> Bool
+hasLanguage path opt xs = isJust $ languageLookup opt path >>= (`elemIndex` xs)
+{-# INLINE hasLanguage #-}
+
+hasTokenizerOpt :: Options -> Bool
+hasTokenizerOpt Options{..} =
+  identifier ||
+  keyword    ||
+  number     ||
+  string     ||
+  operator
+
+isRegexp :: Options -> Bool
+isRegexp opt = regex_posix opt || regex_pcre opt
+{-# INLINE isRegexp #-}
