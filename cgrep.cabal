@@ -110,6 +110,7 @@ Executable cgrep
                        rawfilepath,
                        monad-loops,
                        deepseq,
+                       bitarray,
                        extra
 
   Ghc-options:  -O2 -j -funbox-strict-fields
