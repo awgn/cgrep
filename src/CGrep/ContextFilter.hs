@@ -71,10 +71,6 @@ contextBitComment = ContextBit 0x2
 contextBitLiteral :: ContextBit
 contextBitLiteral = ContextBit 0x4
 
-{-# INLINE contextBitEmpty #-}
-{-# INLINE contextBitCode #-}
-{-# INLINE contextBitComment #-}
-{-# INLINE contextBitLiteral #-}
 
 (~=) :: ContextBit -> Bool -> ContextBit
 b ~= True = b
@@ -89,6 +85,7 @@ f ~? b = (unFilter f .&. b) /= contextBitEmpty
 (~!) :: ContextFilter -> ContextBit -> ContextFilter
 a ~! b = ContextFilter $ unFilter a .&. complement b
 {-# INLINE (~!) #-}
+
 
 newtype ContextFilter = ContextFilter { unFilter :: ContextBit }
     deriving stock (Eq, Show)
@@ -211,22 +208,23 @@ transState s@ParState {..} = if skip == 0
 
 nextContextState :: ParConfig -> ParState -> (Char,Text8) -> ContextFilter -> ParState
 nextContextState c s@ParState{..} (x,xs) filt
-    | skip > 0   = {-# SCC skip #-} transState $ s { skip = skip - 1 }
+    | skip > 0   = {-# SCC skip #-} transState s{ skip = skip - 1 }
 
     | CodeState  <- ctxState = {-# SCC next_code #-} if bloom c `BA.unsafeLookupBit` (let v :: Int = unsafeCoerce x in if v >= 0 && v < 255 then v else 0)
-                then if | Just i <- {-# SCC code_switch_1 #-} findPrefixBoundary  (x,xs) (commBound c) -> transState $ s{ nextState = CommState i, display = commentFilter filt, skip = C.length (bBegin (commBound c V.! i)) - 1 }
-                        | Just i <- {-# SCC code_switch_2 #-} findPrefixBoundary  (x,xs) (litrBound c) -> transState $ s{ nextState = LitrState i, display = codeFilter filt, skip = C.length (bBegin (litrBound c V.! i)) - 1 }
-                        | Just i <- {-# SCC code_switch_3 #-} findPrefixBoundary  (x,xs) (rawBound  c) -> transState $ s{ nextState = RawState  i, display = codeFilter filt, skip = C.length (bBegin (rawBound c  V.! i)) - 1 }
-                        | Just i <- {-# SCC code_switch_4 #-} findPrefixBoundary' (x,xs) (chrBound  c) -> transState $ s{ nextState = ChrState  i, display = codeFilter filt, skip = C.length (bBegin (chrBound c  V.! i)) - 1 }
-                        | otherwise -> {-# SCC code_switch_5 #-} s{ display = codeFilter filt, skip = 0 }
-                -- FIXME else {-# SCC code_filter #-} s{ display = codeFilter filt, skip = 0 }
-                else {-# SCC code_filter #-} s -- { display = codeFilter filt, skip = 0 }
+                then if | Just i <-    {-# SCC next_code_1 #-} findPrefixBoundary  (x,xs) (commBound c) -> transState s{ nextState = CommState i, display = commentFilter filt, skip = C.length (bBegin (commBound c V.! i)) - 1 }
+                        | Just i <-    {-# SCC next_code_2 #-} findPrefixBoundary  (x,xs) (litrBound c) -> transState s{ nextState = LitrState i, display = codeFilter filt,    skip = C.length (bBegin (litrBound c V.! i)) - 1 }
+                        | Just i <-    {-# SCC next_code_3 #-} findPrefixBoundary  (x,xs) (rawBound  c) -> transState s{ nextState = RawState  i, display = codeFilter filt,    skip = C.length (bBegin (rawBound c  V.! i)) - 1 }
+                        | Just i <-    {-# SCC next_code_4 #-} findPrefixBoundary' (x,xs) (chrBound  c) -> transState s{ nextState = ChrState  i, display = codeFilter filt,    skip = C.length (bBegin (chrBound c  V.! i)) - 1 }
+                        | otherwise -> {-# SCC next_code_5 #-} s{ display = codeFilter filt }
+                else {-# SCC next_code_0 #-} let !d = codeFilter filt in if display == d
+                                                then s
+                                                else s{ display = d }
 
     | CommState n <- ctxState =
         let Boundary _ e = commBound c V.! n
             in {-# SCC next_comm #-} if C.head e == x && C.tail e `C.isPrefixOf` xs
                 then transState $ s{ nextState = CodeState, display = commentFilter filt, skip = C.length e - 1}
-                else s{ display = commentFilter filt, skip = 0 }
+                else s{ display = commentFilter filt }
 
     | LitrState n <- ctxState  =
         if x == '\\'
@@ -234,19 +232,21 @@ nextContextState c s@ParState{..} (x,xs) filt
         else let Boundary _ e = litrBound c V.! n
                in {-# SCC next_liter #-} if C.head e == x && C.tail e `C.isPrefixOf` xs
                     then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter filt, skip = C.length e - 1}
-                    else s{ display = literalFilter filt, skip = 0 }
+                    else s{ display = literalFilter filt }
+
     | ChrState n <- ctxState  =
         if x == '\\'
         then s { display = displayContext ctxState filt, skip = 1 }
         else let Boundary _ e = chrBound c V.! n
                 in {-# SCC next_chr #-} if C.head e == x && C.tail e `C.isPrefixOf` xs
                     then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter filt, skip = C.length e - 1}
-                    else s{ display = literalFilter filt, skip = 0 }
+                    else s{ display = literalFilter filt }
+
     | RawState n <- ctxState  =
         let Boundary _ e = rawBound c V.! n
             in {-# SCC next_raw #-} if C.head e == x && C.tail e `C.isPrefixOf` xs
                 then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter filt, skip = C.length e - 1}
-                else s{ display = literalFilter filt, skip = 0 }
+                else s{ display = literalFilter filt }
 
 
 findPrefixBoundary :: (Char, Text8) -> V.Vector Boundary -> Maybe Int

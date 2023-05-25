@@ -187,7 +187,7 @@ parallelSearch paths patterns langs isTermIn = do
 
         -- enqueue EOF messages...
         forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
-        hPutStrLn stderr "Search done!"
+        -- hPutStrLn stderr "Search done!"
 
     -- launch the worker threads...
 
@@ -214,7 +214,7 @@ parallelSearch paths patterns langs isTermIn = do
                 ) (\e -> let msg = show (e :: SomeException) in C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 80 msg)))
 
             when (null fs) $ do
-                liftIO $ B.hPutStr stderr "worker done!\n"
+                -- liftIO $ B.hPutStr stderr "worker done!\n"
                 throwE ()
 
     -- dump output until workers are done
@@ -228,12 +228,7 @@ parallelSearch paths patterns langs isTermIn = do
         whileM_ (readIORef totalDone >>= \n -> pure (n < jobs)) $ do
             readChan (snd outCh) >>= \case
                 [] -> modifyIORef' totalDone (+1)
-                out -> mapM_ (B.hPutBuilder stdout) out
-
-        -- fix (\action !n -> unless (n == jobs) $ do
-        --     readChan (snd outCh) >>= \case
-        --         [] -> action (n+1)
-        --         out -> mapM_ (\b -> B.hPut stdout b *> putChar '\n') out *> action n) 0
+                out -> mapM_ (\b -> B.hPutBuilder stdout b *> putChar '\n') out
 
     -- run editor...
 
