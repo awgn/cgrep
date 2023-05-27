@@ -23,7 +23,8 @@ import Data.Char ( toLower )
 
 import qualified Data.ByteString.Char8 as C
 
--- from hlint :-)
+import qualified Data.Sequence as S
+import Data.Sequence ((|>), Seq((:<|), (:|>), Empty))
 
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a], [a])
 partitionM _ [] = return ([], [])
@@ -34,15 +35,9 @@ partitionM f (x:xs) = do
 {-# INLINE partitionM #-}
 
 
-notNull :: [a] -> Bool
-notNull = not . null
-{-# INLINE notNull #-}
-
-
 xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
 {-# INLINE xor #-}
-
 
 prettyRead :: Read a => String -> String -> a
 prettyRead xs err =
@@ -61,6 +56,13 @@ spanGroup _ [] = []
 spanGroup 1 xs = map (: []) xs
 spanGroup n xs = take n xs : spanGroup n (tail xs)
 {-# INLINE spanGroup #-}
+
+
+spanGroupSeq :: Int -> S.Seq a -> [S.Seq a]
+spanGroupSeq _ S.Empty = []
+spanGroupSeq 1 xs = [xs]
+spanGroupSeq n xs = S.take n xs : spanGroupSeq n (S.drop 1 xs)
+{-# INLINE spanGroupSeq #-}
 
 
 rmQuote :: String -> String

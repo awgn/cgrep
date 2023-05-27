@@ -16,6 +16,7 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Tokenizer (search) where
 
@@ -28,32 +29,37 @@ import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
 import CGrep.ContextFilter
+    ( contextBitComment, (~!), mkContextFilter )
 import CGrep.Common
     ( Text8,
       expandMultiline,
       getTargetContents,
       getTargetName,
       ignoreCase,
-      runSearch,
-      stringSearch,
-      quickMatch )
-import CGrep.Output ( Output, mkOutputElements )
+      subText
+      )
+import CGrep.Output ( Output, mkOutputElements, runSearch )
 import CGrep.Distance ( (~==) )
+import CGrep.Parser.Line
 import CGrep.Language ( Language )
 import CGrep.LanguagesMap
     ( languageLookup, LanguageInfo, contextFilter )
 
+import CGrep.Search
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
 import Reader ( ReaderIO, Env (..) )
 import Options
     ( Options(identifier, keyword, string, number, operator, edit_dist,
               word_match, prefix_match, suffix_match) )
-import Verbose ( putStrLnVerbose )
-import Util ( notNull )
+import Verbose ( putMsgLnVerbose )
 import CGrep.Chunk (Chunk (..))
 import System.Posix.FilePath (RawFilePath)
+import System.IO (stderr)
 
+import Data.Foldable ( Foldable(toList) )
+import CGrep.Types (Offset)
+import Debug.Trace
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search linfo f ps = do
@@ -74,40 +80,40 @@ search linfo f ps = do
                                                  ]
 
 
-    putStrLnVerbose 2 $ "strategy: running token search on " ++ C.unpack filename ++ "..."
-    putStrLnVerbose 3 $ "---\n" ++ C.unpack text''' ++ "\n---"
+    putMsgLnVerbose 2 stderr $ "strategy: running token search on " <> filename <> "..."
+    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
 
-    let quick = quickMatch ps $ stringSearch ps text'
+    let indices' = searchStringIndices ps text'
 
-    runSearch opt filename quick $ do
+    runSearch opt filename (eligibleForSearch ps indices') $ do
 
-        -- parse source code, get the Cpp.Chunk list...
+        -- parse source code, get the token list...
 
-        let tokens = parseTokens (snd <$> linfo) text'''
+        let tokens = {-# SCC tok_0 #-} toList $ parseTokens (snd <$> linfo) (subText indices' ps text''')
 
-        -- token-filterting...
+        -- filter the tokens...
 
-            tokens'= filter (filterToken TokenFilter { filtIdentifier = identifier opt,
+            tokens'= {-# SCC tok_1 #-} filter (filterToken TokenFilter { filtIdentifier = identifier opt,
                                                        filtKeyword    = keyword opt,
                                                        filtString     = string opt,
                                                        filtNumber     = number opt,
                                                        filtOperator   = operator opt}) tokens
 
 
-        -- filter tokens...
+            tokens'' = {-# SCC tok_2 #-} genericTokenFilter opt ps tokens'
 
-            tokens'' = genericTokenFilter opt ps tokens'
+        -- convert matching tokens to chunks
 
-        -- convert Tokens to Chunks
+            matches = {-# SCC tok_3 #-} map (\t -> let off = fromIntegral (toOffset t) in Chunk off (toString t)) tokens'' :: [Chunk]
 
-            matches = map (\t -> let off = fromIntegral (toOffset t) in Chunk off (toString t)) tokens'' :: [Chunk]
+        putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
+        putMsgLnVerbose 2 stderr $ "tokens'   : " <> show tokens'
+        putMsgLnVerbose 2 stderr $ "tokens''  : " <> show tokens''
+        putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
-        putStrLnVerbose 2 $ "tokens    : " ++ show tokens
-        putStrLnVerbose 2 $ "tokens'   : " ++ show tokens'
-        putStrLnVerbose 2 $ "tokens''  : " ++ show tokens''
-        putStrLnVerbose 2 $ "matches   : " ++ show matches
+        let lineOffsets = getAllLineOffsets text
 
-        mkOutputElements filename text text''' matches
+        mkOutputElements lineOffsets filename text text''' matches
 
 
 genericTokenFilter :: Options -> [C.ByteString] -> [Token] -> [Token]

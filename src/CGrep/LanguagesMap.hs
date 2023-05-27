@@ -23,6 +23,11 @@ module CGrep.LanguagesMap where
 
 import CGrep.Language ( Language(..), FileType(..) )
 import CGrep.ContextFilter
+    ( ContextFilter,
+      FilterFunction,
+      isContextFilterAll,
+      mkParConfig,
+      runContextFilter )
 
 import CGrep.Types ( Text8 )
 import qualified Data.Map as Map
@@ -52,18 +57,17 @@ import System.Posix.FilePath ( RawFilePath, takeBaseName, takeFileName, takeExte
 type LanguagesMapType = Map.Map Language LanguageInfo
 type FileMapType = Map.Map FileType Language
 
-
-type CharIdentf = (Char -> Bool)
+type CharIdentifierF = (Char -> Bool)
 
 
 data LanguageInfo = LanguageInfo {
-    langExtensions                 :: [FileType]
-,   langChar                       :: [Boundary]
-,   langString                     :: [Boundary]
-,   langRawString                  :: [Boundary]
-,   langComment                    :: [Boundary]
-,   langValidIdentifierChars       :: (CharIdentf, CharIdentf)
-,   langResKeywords                :: S.Set C.ByteString
+    langExtensions          :: [FileType]
+,   langChar                :: [Boundary]
+,   langString              :: [Boundary]
+,   langRawString           :: [Boundary]
+,   langComment             :: [Boundary]
+,   langIdentifierChars     :: Maybe (CharIdentifierF, CharIdentifierF)
+,   langResKeywords         :: S.Set C.ByteString
 }
 
 
@@ -76,7 +80,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "abstract", "codata", "constructor", "data", "eta-equality", "field",
             "forall", "hiding", "import", "in", "inductive", "infix", "infixl",
@@ -91,7 +95,7 @@ languagesMap = Map.fromList
    ,   langChar = []
    ,   langString= ["\"" ~~ "\""]
    ,   langRawString = []
-   ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+   ,   langIdentifierChars = Nothing
    ,   langResKeywords = keywords []
    })
     ,  (Awk,       LanguageInfo {
@@ -100,7 +104,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "BEGIN", "END", "if", "else", "while", "do", "for", "in", "break", "continue",
                 "delete", "next", "nextfile", "function", "func", "exit"]
@@ -111,7 +115,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["R\"" ~~ "\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern",
             "float", "for", "goto", "if", "inline", "int", "long", "register", "restrict", "return", "short",
@@ -127,7 +131,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords []
     })
     ,  (Cabal,     LanguageInfo {
@@ -136,7 +140,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString= ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (const False, const False)
+    ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords []
     })
     ,  (Chapel,    LanguageInfo {
@@ -145,7 +149,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\"", "'''" ~~ "'''"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_and "$")
+    ,   langIdentifierChars = Just (isAlpha_, isAlphaNum_and "$")
     ,   langResKeywords = keywords [
         "align", "as", "atomic", "begin", "bool", "borrowed", "break", "by", "bytes", "catch",
         "class", "cobegin", "coforall", "complex", "config", "const", "continue", "defer",
@@ -164,7 +168,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha, isAlphaNum_and "*+!-_?")
+    ,   langIdentifierChars = Just (isAlpha, isAlphaNum_and "*+!-_?")
     ,   langResKeywords = keywords [
            "and", "let", "def", "defn", "if", "else", "do", "quote", "var", "fn", "loop", "recur", "throw", "try",
            "monitor-enter", "monitor-exit"
@@ -176,7 +180,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = ["'''" ~~ "'''", "\"\"\"" ~~ "\"\"\"" ]
-    ,   langValidIdentifierChars = (isAlpha_and "$", isAlphaNum_and "$")
+    ,   langIdentifierChars = Just (isAlpha_and "$", isAlphaNum_and "$")
     ,   langResKeywords = keywords [
             "case", "default", "function", "var", "void", "with", "const", "let", "enum", "export", "import", "native",
             "__hasProp", "__extends", "__slice", "__bind", "__indexOf", "implements", "interface", "package", "private",
@@ -192,7 +196,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords []
     })
     ,  (Cpp,    LanguageInfo {
@@ -203,7 +207,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["R\"(" ~~ ")\"", "R\"-(" ~~ ")-\"", "R\"--(" ~~ ")--\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit", "atomic_noexcept",
             "auto", "bitand", "bitor", "bool", "break", "case", "catch", "char", "char8_t", "char16_t", "char32_t",
@@ -227,7 +231,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
             "continue", "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern",
@@ -244,7 +248,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_and "-", isAlphaNum_and "-")
+    ,   langIdentifierChars = Just (isAlpha_and "-", isAlphaNum_and "-")
     ,   langResKeywords = keywords []
     })
     ,  (Cql,       LanguageInfo {
@@ -253,7 +257,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString= ["'" ~~ "'"]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "ADD", "AGGREGATE", "ALL",  "ALLOW",  "ALTER",  "AND",  "ANY",  "APPLY",  "AS",
             "ASC",  "ASCII",  "AUTHORIZE",  "BATCH",  "BEGIN",  "BIGINT",  "BLOB",  "BOOLEAN",
@@ -276,7 +280,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["r\"" ~~ "\"", "`" ~~ "`"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "abstract", "alias", "align", "asm", "assert", "auto", "body", "bool", "break", "byte", "case", "cast", "catch",
             "cdouble", "cent", "cfloat", "char", "class", "const", "continue", "creal", "dchar", "debug", "default", "delegate",
@@ -296,7 +300,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString = ["'''" ~~ "'''", "\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "assert", "break", "case", "catch", "class", "const", "continue", "default", "do", "else", "enum", "extends", "false",
             "final", "finally", "for", "if", "in", "is", "new", "null", "rethrow", "return", "super", "switch", "this", "throw",
@@ -311,7 +315,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "true", "false", "nil", "when", "and", "or", "not", "in", "fn", "do", "end", "catch", "rescue", "after", "else"
         ]
@@ -322,7 +326,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString =  ["\"" ~~ "\""]
     ,   langRawString =  ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha,  isAlphaNum_)
+    ,   langIdentifierChars = Just (isAlpha,  isAlphaNum_)
     ,   langResKeywords = keywords [
             "type", "alias", "port", "if", "then", "else", "case", "of", "let", "in", "infix", "left", "right", "non",
             "module", "import", "exposing", "as", "where", "effect", "command", "subscription", "true", "false", "null"
@@ -334,7 +338,7 @@ languagesMap = Map.fromList
    ,   langChar = []
    ,   langString = ["\"" ~~ "\""]
    ,   langRawString = []
-   ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+   ,   langIdentifierChars = Nothing
    ,   langResKeywords = keywords [
            "after", "and", "andalso", "band", "begin", "bnot", "bor", "bsl", "bsr", "bxor", "case", "catch", "cond",
            "div", "end", "fun", "if", "let", "not", "of", "or", "orelse", "receive", "rem", "try", "when", "xor"
@@ -349,7 +353,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString =[]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             -- fortran77
             "assign", "backspace", "block", "data", "call", "close", "common", "continue", "data", "dimension", "do",
@@ -376,7 +380,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString =  ["\"" ~~ "\""]
     ,   langRawString =  ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_and "$@`?", isAlphaNum_and "$@`?")
+    ,   langIdentifierChars = Just (isAlpha_and "$@`?", isAlphaNum_and "$@`?")
     ,   langResKeywords = keywords [
             "abstract", "and", "as", "assert", "base", "begin", "class", "default", "delegate", "do", "done", "downcast",
             "downto", "elif", "else", "end", "exception", "extern", "FALSE", "finally", "fixed", "for", "fun", "function",
@@ -394,7 +398,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["`" ~~ "`"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "break", "default", "func", "interface", "select", "case", "defer", "go", "map",
             "struct", "chan", "else", "goto", "package", "switch", "const", "fallthrough", "if",
@@ -411,7 +415,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (const False, const False)
+    ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords [
             "module", "go", "require", "exclude", "replace", "retract"
         ]
@@ -422,7 +426,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = [ "[r|" ~~ "|]", "[q|" ~~ "|]", "[s|" ~~ "|]", "[here|" ~~"|]",  "[i|" ~~ "|]"]
-    ,   langValidIdentifierChars = (isAlpha_', isAlphaNum_')
+    ,   langIdentifierChars = Just (isAlpha_', isAlphaNum_')
     ,   langResKeywords = keywords [
             "as", "case", "class", "data", "default", "deriving", "do", "else", "hiding", "if", "import",
             "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "qualified",
@@ -437,7 +441,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlpha_and "-:.")
+    ,   langIdentifierChars = Just (isAlpha_, isAlpha_and "-:.")
     ,   langResKeywords = keywords []
     })
     ,  (Idris,     LanguageInfo {
@@ -446,7 +450,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_', isAlphaNum_')
+    ,   langIdentifierChars = Just (isAlpha_', isAlphaNum_')
     ,   langResKeywords = keywords []
     })
     ,  (Java,      LanguageInfo {
@@ -455,7 +459,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_and "$", isAlphaNum_and "$")
+    ,   langIdentifierChars = Just (isAlpha_and "$", isAlphaNum_and "$")
     ,   langResKeywords = keywords [
             "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "continue", "const",
             "default", "do", "double", "else", "enum", "exports", "extends", "final", "finally", "float", "for", "goto",
@@ -471,7 +475,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_and "$", isAlphaNum_and "$")
+    ,   langIdentifierChars = Just (isAlpha_and "$", isAlphaNum_and "$")
     ,   langResKeywords = keywords [
             "abstract", "arguments", "await", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue",
             "debugger", "default", "delete", "do", "double", "else", "enum", "eval", "export", "extends", "false", "final",
@@ -487,7 +491,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (const False, const False)
+    ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords []
     })
     ,  (Julia,      LanguageInfo {
@@ -496,7 +500,7 @@ languagesMap = Map.fromList
     ,   langChar= ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "baremodule",  "begin",  "break",  "catch",  "const",  "continue",  "do",  "else",  "elseif",  "end",
             "export",  "false",  "finally",  "for",  "function",  "global",  "if",  "import",  "let",  "local",
@@ -509,7 +513,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
         "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in", "interface", "is", "null", "object",
         "package", "return", "super", "this", "throw", "true", "try", "typealias", "typeof", "val", "var", "when", "while",
@@ -527,7 +531,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (const False, const False)
+    ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords []
     })
     ,  (Lisp,      LanguageInfo {
@@ -536,7 +540,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_and "!$%&*+-./:<=>?@^~")
+    ,   langIdentifierChars = Just (isAlpha_, isAlphaNum_and "!$%&*+-./:<=>?@^~")
     ,   langResKeywords = keywords []
     })
     ,  (Lua,       LanguageInfo {
@@ -545,7 +549,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = ["[===[" ~~ "]===]", "[==[" ~~ "]==]", "[=[" ~~ "]=]", "[[" ~~ "]]"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if",
             "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"
@@ -557,7 +561,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_and "-", isAlpha_and "-")
+    ,   langIdentifierChars = Just (isAlpha_and "-", isAlpha_and "-")
     ,   langResKeywords = keywords []
     })
     ,  (Nmap,      LanguageInfo {
@@ -566,7 +570,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (const False, const False)
+    ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords []
     })
     ,  (Nim,         LanguageInfo {
@@ -575,7 +579,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString  = ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "addr", "and", "as", "asm",
             "bind", "block", "break",
@@ -597,7 +601,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["{id|" ~~ "|id}"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_')
+    ,   langIdentifierChars = Just (isAlpha_, isAlphaNum_')
     ,   langResKeywords = keywords [
             "and",         "as",          "assert",      "asr",         "begin",       "class",
             "constraint",  "do",          "done",        "downto",      "else",        "end",
@@ -617,7 +621,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "id", "const", "volatile", "in",
             "out", "inout", "bycopy", "byref", "oneway", "self", "super", "interface", "end", "@implementation", "@end",
@@ -630,7 +634,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = ["<<END" ~~ "END;", "<<'END'" ~~ "END;"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "__halt_compiler", "abstract", "and", "array", "as", "break", "callable", "case", "catch", "class",
             "clone", "const", "continue", "declare", "default", "die", "do", "echo", "else", "elseif",
@@ -648,7 +652,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = ["<<\"END\";" ~~ "END", "<<'END'" ~~ "END", "<<'EOT';" ~~ "EOT", "<<\"EOT\";" ~~ "EOT"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [ ]
     })
     ,  (Python,      LanguageInfo {
@@ -657,7 +661,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\"", "'''" ~~ "'''", "r'" ~~ "'"]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "False", "await", "else", "import", "pass", "None", "break", "except", "in", "raise",
             "True", "class", "finally", "is", "return", "and", "continue", "for", "lambda", "try",
@@ -671,7 +675,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString =[]
-    ,   langValidIdentifierChars = (isAlpha_and ".", isAlphaNum_and ".")
+    ,   langIdentifierChars = Just (isAlpha_and ".", isAlphaNum_and ".")
     ,   langResKeywords = keywords [
             "if", "else", "repeat", "while", "function", "for", "in", "next", "break", "TRUE", "FALSE", "NULL",
             "Inf", "NaN", "NA", "NA_integer_", "NA_real_", "NA_complex_", "NA_character_","…"
@@ -683,7 +687,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["'" ~~ "'", "\"" ~~ "\"", "%|" ~~ "|", "%q(" ~~ ")", "%Q(" ~~ ")" ]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "BEGIN", "END", "alias", "and", "begin", "break", "case", "class", "def",
             "module", "next", "nil", "not", "or", "redo", "rescue", "retry", "return",
@@ -697,7 +701,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["r##\"" ~~ "\"##",  "r#\"" ~~ "\"#", "r\"" ~~ "\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_and "#")
+    ,   langIdentifierChars = Just (isAlpha_, isAlphaNum_and "#")
     ,   langResKeywords = keywords [
             "as", "use", "extern crate", "break", "const", "continue", "crate", "else", "if", "if let",
             "enum", "extern", "false", "fn", "for", "if", "impl", "in", "for", "let", "loop", "match",
@@ -713,7 +717,7 @@ languagesMap = Map.fromList
    ,   langChar = ["'" ~~ "'"]
    ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
    ,   langRawString = []
-   ,   langValidIdentifierChars = (isAlpha_and "$", isAlphaNum_and "$")
+   ,   langIdentifierChars = Just (isAlpha_and "$", isAlphaNum_and "$")
    ,   langResKeywords = keywords [
            "abstract", "case", "catch", "class", "def", "do", "else", "extends", "false", "final",
            "finally", "for", "forSome", "if", "implicit", "import", "lazy", "match", "new", "null",
@@ -727,7 +731,7 @@ languagesMap = Map.fromList
     ,   langChar = ["$" ~~ ""]
     ,   langString = ["'" ~~ "'"]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha, isAlphaNum)
+    ,   langIdentifierChars = Just (isAlpha, isAlphaNum)
     ,   langResKeywords = keywords [
             "true", "false", "nil", "self", "super", "thisContext"
         ]
@@ -738,7 +742,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "if", "then", "elif", "else", "fi", "time", "for", "in", "until", "while", "do", "done",
             "case", "esac", "coproc", "select", "function"
@@ -750,7 +754,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = ["\"\"\"" ~~ "\"\"\""]
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "associatedtype",  "class",  "deinit",  "enum",  "extension",  "fileprivate",  "func",  "import",  "init",  "inout",
             "internal",  "let",  "open", "operator",  "private",  "precedencegroup",  "protocol",  "public",  "rethrows",  "static",
@@ -770,7 +774,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString= ["'" ~~ "'"]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "ABORT", "ABORTSESSION", "ABS", "ABSOLUTE", "ACCESS", "ACCESSIBLE", "ACCESS_LOCK", "ACCOUNT", "ACOS", "ACOSH", "ACTION", "ADD", "ADD_MONTHS", "ADMIN", "AFTER", "AGGREGATE", "ALIAS",
             "ALL", "ALLOCATE", "ALLOW", "ALTER", "ALTERAND", "AMP", "ANALYSE", "ANALYZE", "AND", "ANSIDATE", "ANY", "ARE", "ARRAY", "ARRAY_AGG", "ARRAY_EXISTS", "ARRAY_MAX_CARDINALITY", "AS",
@@ -834,7 +838,7 @@ languagesMap = Map.fromList
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
     ,   langResKeywords = keywords []
-    ,   langValidIdentifierChars = (isAlpha, isAlphaNum)
+    ,   langIdentifierChars = Just (isAlpha, isAlphaNum)
     })
    ,  (Text,  LanguageInfo {
        langExtensions = [
@@ -846,7 +850,7 @@ languagesMap = Map.fromList
    ,   langChar = []
    ,   langString = []
    ,   langRawString = []
-   ,   langValidIdentifierChars = (const False, const False)
+   ,   langIdentifierChars = Just (const False, const False)
    ,   langResKeywords = keywords []
    })
     ,  (VHDL,      LanguageInfo {
@@ -855,7 +859,7 @@ languagesMap = Map.fromList
     ,   langChar = ["'" ~~ "'"]
     ,   langString = ["\"" ~~ "\""]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+    ,   langIdentifierChars = Nothing
     ,   langResKeywords = keywords [
             "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute", "begin", "block", "body",
             "buffer", "bus", "case", "component", "configuration", "constant", "disconnect", "downto", "else", "elsif", "end", "entity",
@@ -872,7 +876,7 @@ languagesMap = Map.fromList
    ,   langChar = []
    ,   langString = ["\"" ~~ "\""]
    ,   langRawString = []
-   ,   langValidIdentifierChars = (isAlpha_, isAlphaNum_)
+   ,   langIdentifierChars = Nothing
    ,   langResKeywords = keywords [
            "always", "end", "ifnone", "or", "rpmos", "tranif1", "and", "endcase", "initial", "output", "rtran", "tri", "assign", "endmodule",
            "inout", "parameter", "rtranif0", "tri0", "begin", "endfunction", "input", "pmos", "rtranif1", "tri1", "buf", "endprimitive", "integer",
@@ -890,7 +894,7 @@ languagesMap = Map.fromList
     ,   langChar = []
     ,   langString = ["\"" ~~ "\"", "'" ~~ "'"]
     ,   langRawString = []
-    ,   langValidIdentifierChars = (const False, const False)
+    ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords []
     })
     ]

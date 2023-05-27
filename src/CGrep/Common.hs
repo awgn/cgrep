@@ -18,36 +18,39 @@
 
 {-# LANGUAGE  ViewPatterns #-}
 {-# LANGUAGE  OverloadedStrings #-}
+{-# LANGUAGE  DerivingStrategies #-}
 
 module CGrep.Common ( Text8
                     , getTargetName
                     , getTargetContents
-                    , stringSearch
-                    , runSearch
                     , expandMultiline
                     , ignoreCase
-                    , quickMatch
+                    , subText
                     , trim
                     , trim8
                     , takeN) where
 
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as BM
-import qualified Data.ByteString.Search.DFA as DFA
 
-import Data.Char ( isSpace, isSpace, toLower )
+import Data.Char (toLower)
+import CGrep.Parser.Char (isSpace)
 
-import CGrep.Types ( Text8 )
-import CGrep.Output ( Output, mkOutputElements )
+import CGrep.Types ( Offset, Text8 )
 
 import Options
     ( Options(Options, no_shallow, multiline, ignore_case) )
-import Reader ( ReaderIO )
-import Util ( spanGroup, notNull )
+
+import Util ( spanGroup )
 import Data.Int (Int64)
 import System.IO.MMap ( mmapFileByteString )
 
 import System.Posix.FilePath ( RawFilePath )
+import qualified Data.Vector.Unboxed as UV
+import Data.List (groupBy, group, sortOn, sort)
+
+import Debug.Trace (traceShowId)
+import GHC.Exts ( groupWith )
+
+import qualified Data.ByteString.Char8 as C
 
 takeN :: Int -> String -> String
 takeN n xs | length xs > n = take n xs <> "..."
@@ -76,26 +79,6 @@ getTargetContents xs = mmapFileByteString (C.unpack xs) Nothing
 {-# INLINE getTargetContents #-}
 
 
-stringSearch :: [Text8] -> Text8 -> [[Int64]]
-stringSearch ps text | maximum (C.length <$> ps) > 4 = ps >>= (\p -> [fromIntegral <$> p `BM.nonOverlappingIndices` text])
-                     | otherwise = ps >>= (\p -> [fromIntegral <$> p `DFA.nonOverlappingIndices` text])
-{-# INLINE stringSearch #-}
-
-
-quickMatch :: [a] -> [[Int64]] -> Bool
-quickMatch [_] = all notNull
-quickMatch _   = any notNull
-{-# INLINE quickMatch #-}
-
-runSearch :: Options
-          -> RawFilePath
-          -> Bool
-          -> ReaderIO [Output]
-          -> ReaderIO [Output]
-runSearch opt filename shallowTest doSearch =
-    if shallowTest || no_shallow opt
-        then doSearch
-        else mkOutputElements filename C.empty C.empty []
 
 
 expandMultiline :: Options -> Text8 -> Text8
@@ -110,3 +93,11 @@ ignoreCase opt
     | ignore_case opt =  C.map toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}
+
+
+subText :: [[Offset]] -> [C.ByteString] -> Text8 -> Text8
+subText indices ps txt =
+    let maxOff = fromIntegral $ maximum (last <$> indices)
+        maxLen = maximum (C.length <$> ps)
+    in C.take (maxOff + maxLen) txt
+{-# INLINE subText #-}

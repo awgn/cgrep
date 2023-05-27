@@ -45,7 +45,7 @@ import Data.Maybe ( fromMaybe, mapMaybe )
 
 import GHC.Generics ( Generic )
 import CGrep.Language ( Language )
-import Util ( notNull, readMaybe )
+import Util (readMaybe )
 
 import Data.List.Split ( splitOn )
 import qualified Data.ByteString as B
@@ -53,6 +53,7 @@ import System.FilePath ((</>))
 import Data.ByteString.RawFilePath (RawFilePath)
 import qualified Data.ByteString.Char8 as C
 
+import Data.List.Extra (notNull)
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"

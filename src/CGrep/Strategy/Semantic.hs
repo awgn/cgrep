@@ -32,12 +32,12 @@ import CGrep.Common
       trim,
       getTargetName,
       getTargetContents,
-      stringSearch,
-      quickMatch,
-      runSearch,
       expandMultiline,
-      ignoreCase, trim8 )
-import CGrep.Output ( Output, mkOutputElements )
+      ignoreCase, trim8, subText )
+
+import CGrep.Search
+import CGrep.Output ( Output, mkOutputElements, runSearch )
+import CGrep.Parser.Line
 
 import CGrep.Parser.Atom
     ( Atom(..),
@@ -53,8 +53,8 @@ import Data.Function ( on )
 import Data.Maybe ( mapMaybe )
 
 import Reader ( ReaderIO, Env (..) )
-import Verbose ( putStrLnVerbose )
-import Util ( notNull, rmQuote8 )
+import Verbose ( putMsgLnVerbose )
+import Util ( rmQuote8 )
 import CGrep.Chunk (Chunk (..))
 
 import System.Posix.FilePath ( RawFilePath, takeBaseName )
@@ -62,6 +62,11 @@ import System.Posix.FilePath ( RawFilePath, takeBaseName )
 import CGrep.Language ( Language )
 import CGrep.LanguagesMap
     ( languageLookup, LanguageInfo, contextFilter )
+import System.IO ( stderr )
+
+import qualified Data.Sequence as S
+import Data.Foldable ( Foldable(toList) )
+import Debug.Trace
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search linfo f ps = do
@@ -72,44 +77,40 @@ search linfo f ps = do
 
     let filename = getTargetName f
 
-    -- transform text
-
-
-    let [text''', text'', text', _ ] = scanr ($) text [ expandMultiline opt
-                                                      , contextFilter (languageLookup opt filename) filt True
-                                                      , ignoreCase opt
-                                                      ]
+    let [text''', _, text', _ ] = scanr ($) text [ expandMultiline opt
+                                                 , contextFilter (languageLookup opt filename) filt True
+                                                 , ignoreCase opt
+                                                 ]
 
         filt = mkContextFilter opt ~! contextBitComment
 
-
     -- pre-process patterns
 
-        patterns   = map (parseTokens (snd <$> linfo) . contextFilter (languageLookup opt filename) filt True) ps  -- [ [t1,t2,..], [t1,t2...] ]
-        patterns'  = map (map mkAtomFromToken) patterns                                                     -- [ [w1,w2,..], [w1,w2,..] ]
-        patterns'' = map (combineAtoms . map (:[])) patterns'                                               -- [ [m1,m2,..], [m1,m2,..] ] == [[[w1], [w2],..], [[w1],[w2],..]]
+        patterns   = map (parseTokens (snd <$> linfo) . contextFilter (languageLookup opt filename) filt True) ps
+        patterns'  = map (mkAtomFromToken <$>) patterns
+        patterns'' = map (combineAtoms . map (:[])) (toList <$> patterns')
 
-
-        identif = mapMaybe (\case
-                            Token (TokenString xs _)       -> Just (rmQuote8 $ trim8 xs)
-                            Token (TokenIdentifier "OR" _) -> Nothing
-                            Token t                        -> Just (toString t)
-                            _                              -> Nothing
-                            ) . concat $ patterns'
+        identifiers = mapMaybe
+          (\case
+             Token (TokenString xs _) -> Just (rmQuote8 $ trim8 xs)
+             Token (TokenIdentifier "OR" _) -> Nothing
+             Token t -> Just (toString t)
+             _ -> Nothing)
+          (concatMap toList patterns')
 
     -- put banners...
 
-    putStrLnVerbose 2 $ "strategy  : running generic semantic search on " <> C.unpack filename <> "..."
-    putStrLnVerbose 2 $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identif
-    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putMsgLnVerbose 2 stderr $ "strategy  : running generic semantic search on " <> filename <> "..."
+    putMsgLnVerbose 2 stderr $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identifiers
+    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
 
-    let quick = quickMatch ps $ stringSearch identif text'
+    let indices' = searchStringIndices identifiers text'
 
-    runSearch opt filename quick $ do
+    runSearch opt filename (eligibleForSearch identifiers indices') $ do
 
         -- parse source code, get the Generic.Chunk list...
 
-        let tokens = parseTokens (snd <$> linfo) text'''
+        let tokens = toList $ parseTokens (snd <$> linfo) (subText indices' ps text''')
 
         -- get matching tokens ...
 
@@ -119,7 +120,9 @@ search linfo f ps = do
 
         let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (toString t)) tokens' :: [Chunk]
 
-        putStrLnVerbose 2 $ "tokens    : " <> show tokens
-        putStrLnVerbose 2 $ "matches   : " <> show matches
+        putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
+        putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
-        mkOutputElements filename text text''' matches
+        let lineOffsets = getAllLineOffsets text
+
+        mkOutputElements lineOffsets filename text text''' matches

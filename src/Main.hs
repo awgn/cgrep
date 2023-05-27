@@ -38,7 +38,7 @@ import qualified Data.Map as M
 import GHC.Conc ( getNumCapabilities )
 import GHC.IO.Handle ( hIsTerminalDevice )
 
-import System.IO ( stdin, stdout )
+import System.IO ( stdin, stdout, stderr )
 import System.Console.CmdArgs ( cmdArgsRun )
 import System.Exit ( exitSuccess )
 import System.Environment ( withArgs )
@@ -48,17 +48,18 @@ import CGrep.Parser.Atom ( wildCardMap )
 import CGrep.Language ( splitLanguagesList )
 import CGrep.Common ( trim8 )
 
-import Verbose ( putStrLnVerbose )
+import Verbose ( putMsgLnVerbose )
 import Paths_cgrep ( version )
 import CmdOptions ( options )
 import Options ( Options(..) )
 import Config
     ( dumpPalette, getConfig, Config(configLanguages, configColors) )
-import Util ( partitionM, notNull )
+import Util ( partitionM)
 import Reader ( ReaderIO, Env (..) )
 import Search ( parallelSearch, isRegexp )
 import System.Posix.FilePath (RawFilePath)
 
+import Data.List.Extra (notNull)
 
 main :: IO ()
 main = do
@@ -116,9 +117,7 @@ main = do
     -- language enabled:
     let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
 
-    runReaderT (do putStrLnVerbose 1 $ "Cgrep " <> showVersion version <> "!"
-                   putStrLnVerbose 1 $ "patterns  : " <> show patterns'
-                   putStrLnVerbose 1 $ "files     : " <> show paths
+    runReaderT (do putMsgLnVerbose 1 stderr $ "cgrep " <> showVersion version <> "!"
         ) (Env conf opt)
 
     -- specify number of cores

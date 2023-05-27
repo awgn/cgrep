@@ -31,8 +31,8 @@ import qualified Data.Map as M
 
 import CGrep.Common ( trim, trim8 )
 import CGrep.Distance ( (~==) )
+import CGrep.Parser.Char ( isDigit )
 
-import Data.Char ( isNumber, isDigit )
 import Data.List
     ( isSuffixOf, findIndices, isInfixOf, isPrefixOf, subsequences )
 import Options
@@ -51,7 +51,7 @@ data Atom =
     Hex            |
     String         |
     Literal        |
-    Identif  C.ByteString
+    Identifier  C.ByteString
         deriving (Show, Eq, Ord)
 
 
@@ -75,7 +75,7 @@ mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
     | T.isIdentifier t = case () of
         _ | Just wc <- M.lookup str wildCardMap -> wc
-          | isAtomIdentif str                   -> Identif str
+          | isAtomIdentifier str                -> Identifier str
           | otherwise                           -> Token $ T.TokenIdentifier (rmAtomEscape str) (T.toOffset t)
             where str = T.toString t
     | otherwise = Token t
@@ -84,7 +84,7 @@ mkAtomFromToken t
 combineAtoms :: [Atoms] -> [Atoms]
 combineAtoms (m1:r@(m2:m3:ms))
     | [Token b] <- m2, T.toString b == "OR" = combineAtoms $ (m1<>m3):ms
-    | otherwise          =  m1 : combineAtoms r
+    | otherwise      =  m1 : combineAtoms r
 combineAtoms [m1,m2] =  [m1,m2]
 combineAtoms [m1]    =  [m1]
 combineAtoms []      =  []
@@ -95,9 +95,8 @@ filterTokensWithAtoms opt ws = filterTokensWithAtoms' opt (spanOptionalCards ws)
     where filterTokensWithAtoms' :: Options -> [[Atoms]] -> [T.Token] -> [T.Token]
           filterTokensWithAtoms' _ [] _ = []
           filterTokensWithAtoms' opt (g:gs) ts =
-              concatMap (take grpLen . (`drop` ts)) (findIndices (wildCardsCompare opt g) grp) <>
-                  filterTokensWithAtoms' opt gs ts
-              where grp    = spanGroup grpLen ts
+              {-# SCC "atomConcatMap" #-} concatMap (take grpLen . (`drop` ts)) ({-# SCC "atomicFindIndices" #-} findIndices (wildCardsCompare opt g) grp) <> filterTokensWithAtoms' opt gs ts
+              where grp    = {-# SCC "atomSpanGroup" #-} spanGroup grpLen ts
                     grpLen = length g
 
 
@@ -106,7 +105,7 @@ spanOptionalCards wc = map (`filterCardIndices` wc') idx
     where wc' = zip [0..] wc
           idx = subsequences $
                 findIndices (\case
-                                [Identif (C.uncons -> Just ('$', _))] -> True
+                                [Identifier (C.uncons -> Just ('$', _))] -> True
                                 _ -> False) wc
 
 
@@ -122,11 +121,11 @@ wildCardsCompare opt l r =
 {-# INLINE wildCardsCompare #-}
 
 
-isAtomIdentif :: C.ByteString -> Bool
-isAtomIdentif s =
-        if | Just (x, C.uncons -> Just (y, xs)) <- C.uncons s -> wprefix x && isNumber y
+isAtomIdentifier :: C.ByteString -> Bool
+isAtomIdentifier s =
+        if | Just (x, C.uncons -> Just (y, xs)) <- C.uncons s -> wprefix x && isDigit y
            | Just (x, "")                       <- C.uncons s -> wprefix x
-           | otherwise                                        -> error "isAtomIdentif"
+           | otherwise                                        -> error "isAtomIdentifier"
     where wprefix x = x == '$' || x == '_'
 
 
@@ -148,27 +147,27 @@ wildCardsCheckOccurences :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
 wildCardsCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
     where m =  M.mapWithKey (\k xs ->
                 case k of
-                    [Identif "_0"]  -> xs
-                    [Identif "_1"]  -> xs
-                    [Identif "_2"]  -> xs
-                    [Identif "_3"]  -> xs
-                    [Identif "_4"]  -> xs
-                    [Identif "_5"]  -> xs
-                    [Identif "_6"]  -> xs
-                    [Identif "_7"]  -> xs
-                    [Identif "_8"]  -> xs
-                    [Identif "_9"]  -> xs
-                    [Identif "$0"]  -> xs
-                    [Identif "$1"]  -> xs
-                    [Identif "$2"]  -> xs
-                    [Identif "$3"]  -> xs
-                    [Identif "$4"]  -> xs
-                    [Identif "$5"]  -> xs
-                    [Identif "$6"]  -> xs
-                    [Identif "$7"]  -> xs
-                    [Identif "$8"]  -> xs
-                    [Identif "$9"]  -> xs
-                    _                   -> []
+                    [Identifier "_0"]  -> xs
+                    [Identifier "_1"]  -> xs
+                    [Identifier "_2"]  -> xs
+                    [Identifier "_3"]  -> xs
+                    [Identifier "_4"]  -> xs
+                    [Identifier "_5"]  -> xs
+                    [Identifier "_6"]  -> xs
+                    [Identifier "_7"]  -> xs
+                    [Identifier "_8"]  -> xs
+                    [Identifier "_9"]  -> xs
+                    [Identifier "$0"]  -> xs
+                    [Identifier "$1"]  -> xs
+                    [Identifier "$2"]  -> xs
+                    [Identifier "$3"]  -> xs
+                    [Identifier "$4"]  -> xs
+                    [Identifier "$5"]  -> xs
+                    [Identifier "$6"]  -> xs
+                    [Identifier "$7"]  -> xs
+                    [Identifier "$8"]  -> xs
+                    [Identifier "$9"]  -> xs
+                    _                  -> []
                 ) $ M.fromListWith (<>) (map snd ts)
 {-# INLINE wildCardsCheckOccurences #-}
 
@@ -193,13 +192,13 @@ wildCardsMatch opt m t = any (\w -> wildCardMatch opt w t) m
 
 wildCardMatch :: Options -> Atom -> T.Token -> Bool
 wildCardMatch _  Any _          = True
-wildCardMatch _  (Identif _) t  = T.isIdentifier t
+wildCardMatch _  (Identifier _) t  = T.isIdentifier t
 wildCardMatch _  Keyword     t  = T.isKeyword t
 wildCardMatch _  String      t  = T.isString t
 wildCardMatch _  Literal     t  = T.isString t
 wildCardMatch _  Number      t  = T.isNumber t
 wildCardMatch _  Oct         t  = T.isNumber t && case C.uncons (T.toString t) of Just ('0', C.uncons -> Just (d, _))  -> isDigit d; _ -> False
-wildCardMatch _  Hex         t  = T.isNumber t && case C.uncons (T.toString t) of Just ('0', C.uncons -> Just ('x',_))-> True; _      -> False
+wildCardMatch _  Hex         t  = T.isNumber t && case C.uncons (T.toString t) of Just ('0', C.uncons -> Just ('x',_)) -> True; _      -> False
 wildCardMatch opt (Token l) r
     | T.isIdentifier l && T.isIdentifier r =
         if | edit_dist  opt   -> (C.unpack . T.toString) l ~== C.unpack (T.toString r)

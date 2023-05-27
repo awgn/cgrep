@@ -27,6 +27,7 @@
 module CGrep.Output ( Output(..)
                     , mkOutputElements
                     , putOutputElements
+                    , runSearch
                     , showFileName
                     , showBold) where
 
@@ -56,17 +57,11 @@ import Data.Function ( on )
 import CGrep.Types ( Text8, Offset )
 import CGrep.Chunk ( MatchingLine(..), Chunk(..) )
 
-import Options
-    ( Options(Options, invert_match, filename_only, json,
-              no_filename, count, no_numbers, no_column, show_match,
-              color, no_color) )
-
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( ReaderIO, Env(..) )
 import Data.Int ( Int64 )
 import Data.Word ( Word8 )
 import Data.ByteString.Internal (c2w)
-import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Fusion.Util as VU (Box(..))
 
 import System.Posix.FilePath (RawFilePath)
@@ -75,6 +70,9 @@ import qualified Control.DeepSeq as DS
 import Control.DeepSeq (NFData)
 import GHC.Generics ( Generic )
 import qualified Data.Vector.Generic as GV
+import qualified Data.Char as CGrep.Parser
+import CGrep.Parser.Line ( getLineOffsets )
+import Options
 
 data Output = Output
     { outFilePath :: RawFilePath
@@ -83,30 +81,6 @@ data Output = Output
     , outChunks   :: ![Chunk]
     }
     deriving (Show, Generic, NFData)
-
-
--- Returns a vector of offsets for a given character in a ByteString, up to the given maximum offset.
-charOffsets :: Char -> Int64 -> B.ByteString -> UV.Vector Int64
-charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
-  where
-    !target = c2w c
-    findOffsets :: Int64 -> Maybe (Int64, Int64)
-    findOffsets i
-      | i >= maxOff = Nothing
-      | BU.unsafeIndex bs (fromIntegral i) == target = Just (fromIntegral i, i + 1)
-      | otherwise = findOffsets (i + 1)
-{-# INLINABLE charOffsets #-}
-
-
-getLineOffsets :: Text8 -> Int64 -> UV.Vector Offset
-getLineOffsets text maxOff =
-    let l = C.length text
-        idx = charOffsets '\n' maxOff text
-    in if VU.null idx
-        then idx
-        else if UV.last idx == fromIntegral (l-1)
-            then UV.init idx
-            else idx
 
 
 insertIndex :: UV.Vector Offset -> Offset -> Int
@@ -123,28 +97,25 @@ insertIndex vs x = search vs 0 (UV.length vs)
 getLineNumberAndOffset :: UV.Vector Offset -> Offset -> (# Int, Offset #)
 getLineNumberAndOffset xs x =
     let idx = insertIndex xs x
-        shift = if idx == 0 then 0 else 1
-    in (# idx, x - shift - (if idx > 0 then xs ! (idx-1) else 0) #)
+    in (# idx, x - xs `UV.unsafeIndex` (idx-1) #)
 {-# INLINE getLineNumberAndOffset #-}
 
 
-mkOutputElements :: RawFilePath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
-mkOutputElements f text multi ts = do
+mkOutputElements :: UV.Vector Int64 -> RawFilePath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
+mkOutputElements lineOffsets f text multi ts = do
     invert <- invert_match <$> reader opt
-    return $ if invert then map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines multi ts
-                       else map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines multi ts
+    return $ if invert then map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines lineOffsets multi ts
+                       else map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines lineOffsets multi ts
     where ls = C.lines text
 {-# INLINE mkOutputElements #-}
 
 
-mkMatchingLines :: Text8 -> [Chunk] -> [MatchingLine]
-mkMatchingLines _ [] = []
-mkMatchingLines text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
-    (\Chunk{..} -> let (# r, c #) = getLineNumberAndOffset lineOffsets tOffset in MatchingLine (fromIntegral r + 1) [Chunk c tStr]) <$> ts
+mkMatchingLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchingLine]
+mkMatchingLines lineOffsets _ [] = []
+mkMatchingLines lineOffsets text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
+    (\Chunk{..} -> let (# r, c #) = getLineNumberAndOffset lineOffsets cOffset in MatchingLine (fromIntegral r) [Chunk c cStr]) <$> ts
         where mergeGroup :: [MatchingLine] -> MatchingLine
               mergeGroup ls = MatchingLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
-              maxOff = maximum $ tOffset <$> ts
-              lineOffsets = getLineOffsets text maxOff
 
 
 invertLines :: Int -> [MatchingLine] -> [MatchingLine]
@@ -160,6 +131,16 @@ putOutputElements out = do
     if  | json opt          -> Just <$> jsonOutput out
         | filename_only opt -> Just <$> filenameOutput out
         | otherwise         -> Just <$> defaultOutput out
+
+runSearch :: Options
+          -> RawFilePath
+          -> Bool
+          -> ReaderIO [Output]
+          -> ReaderIO [Output]
+runSearch opt filename eligible doSearch =
+    if eligible || no_shallow opt
+        then doSearch
+        else mkOutputElements UV.empty filename C.empty C.empty []
 
 
 defaultOutput :: [Output] -> ReaderIO B.Builder
@@ -237,19 +218,19 @@ buildLineCol :: Options -> Output -> B.Builder
 buildLineCol Options{no_numbers = True } _ = mempty
 buildLineCol Options{no_numbers = False, no_column = True  } (Output _ n _ _)  = B.int64Dec n
 buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ []) = B.int64Dec n
-buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = B.int64Dec n <> B.char8 ':' <> B.int64Dec ((+1) . tOffset . head $ ts)
+buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) = B.int64Dec n <> B.char8 ':' <> B.int64Dec ((+1) . cOffset . head $ ts)
 {-# INLINE buildLineCol #-}
 
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = boldBuilder <> mconcat (B.byteString . tStr <$> outChunks out) <> resetBuilder <> B.char8 ':'
+    | st        = boldBuilder <> mconcat (B.byteString . cStr <$> outChunks out) <> resetBuilder <> B.char8 ':'
     | otherwise = mempty
 
 
 buildLine :: Config -> Options -> Output -> B.Builder
 buildLine conf Options { color = c, no_color = c' } out
-    | c && not c'= highlightLine conf (sortBy (flip compare `on` (C.length . tStr)) (outChunks out)) (outLine out)
+    | c && not c'= highlightLine conf (sortBy (flip compare `on` (C.length . cStr)) (outChunks out)) (outLine out)
     | otherwise  = B.byteString $ outLine out
 {-# INLINE buildLine #-}
 
@@ -293,5 +274,5 @@ highlightLine conf ts =  highlightLine' (highlightIndexes ts, 0, 0)
 
 
 highlightIndexes :: [Chunk] -> [(Int64, Int64)]
-highlightIndexes = foldr (\Chunk{..} a -> let b = tOffset in (fromIntegral b, b + fromIntegral (C.length tStr) - 1) : a) [] . filter (not. B.null.tStr)
+highlightIndexes = foldr (\Chunk{..} a -> let b = cOffset in (fromIntegral b, b + fromIntegral (C.length cStr) - 1) : a) [] . filter (not. B.null.cStr)
 {-# INLINE highlightIndexes #-}

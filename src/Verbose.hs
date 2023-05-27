@@ -23,11 +23,45 @@ import Control.Monad.Trans.Reader ( reader )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 import Control.Monad ( when )
 
-import Options ( Options(verbosity) )
+import Options ( Options(verbose) )
 import Reader ( ReaderIO, Env(..) )
 
-putStrLnVerbose :: Int -> String -> ReaderIO ()
-putStrLnVerbose l xs = do
-    n <- reader $ verbosity . opt
-    when (n >= l) $ liftIO $ putStrLn xs
-{-# INLINE putStrLnVerbose #-}
+import qualified Data.ByteString as C (hPutStr, hPut)
+import GHC.IO.Handle ( Handle )
+import System.IO ( Handle, hPutStrLn, hPutStr )
+import Data.String ( IsString )
+
+import qualified Data.ByteString.Char8 as C
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+
+
+class (IsString a) => PutStr a where
+    putStringLn :: Handle -> a -> IO ()
+    putString :: Handle -> a -> IO ()
+
+instance PutStr String where
+    putStringLn = hPutStrLn
+    putString = hPutStr
+
+instance PutStr C.ByteString where
+    putStringLn = C.hPutStrLn
+    putString = C.hPutStr
+
+instance PutStr T.Text where
+    putStringLn = T.hPutStrLn
+    putString = T.hPutStr
+
+
+putMsgLnVerbose :: (PutStr a) => Int -> Handle -> a -> ReaderIO ()
+putMsgLnVerbose l h xs = do
+    n <- reader $ verbose . opt
+    when (n >= l) $
+        liftIO $ putStringLn h xs
+{-# INLINE putMsgLnVerbose #-}
+
+
+putMsgLn :: (PutStr a, MonadIO m) => Handle -> a -> m ()
+putMsgLn h xs =
+    liftIO $ putStringLn h xs
+{-# INLINE putMsgLn #-}

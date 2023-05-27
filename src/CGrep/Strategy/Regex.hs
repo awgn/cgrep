@@ -18,6 +18,7 @@
 
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Regex (search) where
 
@@ -46,10 +47,13 @@ import CGrep.LanguagesMap ( LanguageInfo(..), languageLookup, contextFilter )
 
 import Reader ( ReaderIO, Env (..) )
 import Options ( Options(regex_pcre) )
-import Verbose ( putStrLnVerbose )
+import Verbose ( putMsgLnVerbose )
 
 import CGrep.Chunk ( Chunk(..) )
+import CGrep.Parser.Line
+
 import System.Posix.FilePath (RawFilePath)
+import System.IO (stderr)
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search linfo f patterns = do
@@ -76,8 +80,10 @@ search linfo f patterns = do
         tokens = map (\(str, (off,_)) -> Chunk (fromIntegral off) str) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putStrLnVerbose 2 $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> C.unpack filename <> "..."
-    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
-    putStrLnVerbose 2 $ "tokens    : " <> show tokens
+    putMsgLnVerbose 2 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
+    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
 
-    mkOutputElements filename text text''' tokens
+    let lineOffsets = getAllLineOffsets text
+
+    mkOutputElements lineOffsets filename text text''' tokens

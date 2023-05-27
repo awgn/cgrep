@@ -71,7 +71,7 @@ data Options = Options
     -- Parallel:
     ,   jobs                :: Int
     -- Misc:
-    ,   verbosity           :: Int
+    ,   verbose             :: Int
     ,   no_shallow          :: Bool
     ,   show_palette        :: Bool
     ,   others              :: [String]

@@ -21,6 +21,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Search (
       parallelSearch
@@ -35,7 +36,7 @@ import Data.Function ( fix )
 import qualified Data.Set as Set
 
 import Control.Exception as E ( catch, SomeException )
-import Control.Concurrent ( forkIO )
+import Control.Concurrent ( forkIO, MVar, putMVar )
 
 import Control.Monad ( when, forM_, forever, unless, void, forM )
 import Control.Monad.Trans ( MonadIO(liftIO) )
@@ -104,7 +105,7 @@ import System.Directory (makeAbsolute, canonicalizePath)
 import Data.Functor ( void, (<&>), ($>))
 import RawFilePath.Directory (doesDirectoryExist)
 import Control.Arrow ( Arrow((&&&)) )
-import Control.Concurrent.Async (forConcurrently, forConcurrently_, mapConcurrently_)
+import Control.Concurrent.Async (forConcurrently, forConcurrently_, mapConcurrently_, async, Async, wait)
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
@@ -120,6 +121,8 @@ import CGrep.LanguagesMap
 
 import Control.Monad.Loops ( whileM_ )
 import Control.DeepSeq as DS ( force )
+import Verbose (putMsgLnVerbose, putMsgLn)
+import Control.Concurrent.MVar ( newMVar, takeMVar )
 
 withRecursiveContents :: Options
                       -> RawFilePath
@@ -140,7 +143,7 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited cnt action = do
 
     -- run action
 
-    blen <- batchLen cnt 64
+    blen <- batchLen cnt 256
 
     unless (null files') $ do
         mapM_ action (chunksOf blen files')
@@ -171,7 +174,6 @@ parallelSearch paths patterns langs isTermIn = do
     -- recursively traverse the filesystem ...
 
     _ <- liftIO . forkIO $ do
-
         cnt <- newIORef (0 :: Int)
 
         if recursive || follow
@@ -187,7 +189,7 @@ parallelSearch paths patterns langs isTermIn = do
 
         -- enqueue EOF messages...
         forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
-        -- hPutStrLn stderr "Search done!"
+        when (verbose > 0) $ putMsgLn @Text8 stderr "filesystem traversal completed!"
 
     -- launch the worker threads...
 
@@ -196,39 +198,36 @@ parallelSearch paths patterns langs isTermIn = do
     let env = Env conf opt
         runSearch = getSearcher env
 
-    forM_ ([0 .. jobs-1] :: [Int]) $ \idx -> liftIO . forkIO $ do
-        void $ runExceptT . forever $ do
+    forM_ ([0 .. jobs-1] :: [Int]) $ \idx -> liftIO . forkIO $ void . runExceptT $ do
+        asRef <- liftIO $ newIORef ([] :: [Async ()])
+        forever $ do
             fs <- liftIO $ readChan (snd fileCh)
             liftIO $ E.catch (
                 case fs of
-                    [] -> liftIO $ writeChan (fst outCh) []
+                    [] -> liftIO $ readIORef asRef >>= \as -> mapM_ wait as *> writeChan (fst outCh) ()
                     fs -> runReaderT (do
                         out <- catMaybes <$> forM fs (\f -> do
                                 out' <- take max_count <$> runSearch (languageInfoLookup opt f) f patterns
                                 when (vim || editor) $
                                     liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
                                 putOutputElements out')
-                        liftIO $ unless (null out) $
-                            writeChan (fst outCh) out
+                        liftIO $ unless (null out) $ do
+                            async (do
+                                let !dump = LB.toStrict $ B.toLazyByteString (mconcat ((<> B.char8 '\n') <$> out))
+                                B.hPut stdout dump) >>= \a -> atomicModifyIORef' asRef (\xs -> (a:xs, ()))
                         ) env
-                ) (\e -> let msg = show (e :: SomeException) in C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 80 msg)))
+                ) (\e -> let msg = show (e :: SomeException) in C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 120 msg)))
 
             when (null fs) $ do
-                -- liftIO $ B.hPutStr stderr "worker done!\n"
+                when (verbose > 0) $ putMsgLn stderr $ "[" <> C.pack (show idx) <> "] searcher done!"
                 throwE ()
 
     -- dump output until workers are done
 
-    liftIO $ do
-        hSetBuffering stdout (BlockBuffering $ Just 8192)
-        hSetBinaryMode stdout True
-
+    liftIO $  do
         totalDone <- newIORef (0 :: Int)
-
-        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs)) $ do
-            readChan (snd outCh) >>= \case
-                [] -> modifyIORef' totalDone (+1)
-                out -> mapM_ (\b -> B.hPutBuilder stdout b *> putChar '\n') out
+        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs)) $
+            readChan (snd outCh) *> modifyIORef' totalDone (+1)
 
     -- run editor...
 
@@ -254,12 +253,6 @@ parallelSearch paths patterns langs isTermIn = do
                           (Just stdin)
                           (Just stdout)
                           (Just stderr) >>= waitForProcess
-
-
-{-# NOINLINE toLazyByteString #-}
-toLazyByteString :: B.Builder -> LB.ByteString
-toLazyByteString =
-  B.toLazyByteStringWith (B.untrimmedStrategy 128 B.smallChunkSize) LB.empty
 
 
 getSearcher :: Env -> (Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output])

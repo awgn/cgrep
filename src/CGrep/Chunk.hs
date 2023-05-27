@@ -27,15 +27,12 @@ module CGrep.Chunk ( Chunk(..)
 import qualified Data.ByteString.Char8 as C
 import qualified Control.DeepSeq as DS
 
-import Data.Char
-    ( isSpace, isAlphaNum, isDigit, isAlpha, isHexDigit )
-
-import CGrep.Types ( Offset )
+import CGrep.Types ( Offset, Text8 )
 import GHC.Generics ( Generic )
 
 data Chunk = Chunk {
-    tOffset :: {-# UNPACK #-} !Offset,
-    tStr    :: C.ByteString
+    cOffset :: {-# UNPACK #-} !Offset,
+    cStr    :: {-# UNPACK #-} !Text8
 } deriving (Eq, Show, Generic, DS.NFData)
 
 

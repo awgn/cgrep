@@ -78,7 +78,7 @@ options = cmdArgsMode $ Options
           ,     fileline = False            &= help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" &= explicit &=name "fileline"
           ,     json = False                &= help "Format output as json object" &= explicit &= name "json"
           ,     jobs = 0                    &= groupname "\nConcurrency" &= help "Number of jobs to run in parallel"
-          ,     verbosity = 0               &= groupname "\nMiscellaneous" &= help "Verbose level: 1, 2 or 3" &= explicit &= name "verbose"
+          ,     verbose = 0                 &= groupname "\nMiscellaneous" &= help "Verbose level: 1, 2 or 3" &= explicit &= name "verbose"
           ,     no_shallow = False          &= help "Disable shallow-search"  &= explicit &= name "no-shallow"
           ,     show_palette = False        &= help "Show color palette"  &= explicit &= name "palette"
           ,     others = []                 &= args

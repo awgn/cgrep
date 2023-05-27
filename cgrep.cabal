@@ -1,7 +1,7 @@
 Cabal-version:       2.2
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             7.1.0
+Version:             8.0.0
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2.0-or-later
@@ -58,6 +58,7 @@ Executable cgrep
                        CGrep.Types
                        CGrep.Output
                        CGrep.Distance
+                       CGrep.Search
                        CGrep.Common
                        CGrep.Chunk
                        CGrep.Boundary
@@ -65,6 +66,7 @@ Executable cgrep
                        CGrep.Parser.Chunk
                        CGrep.Parser.Token
                        CGrep.Parser.Atom
+                       CGrep.Parser.Line
                        CGrep.Strategy.Semantic
                        CGrep.Strategy.Tokenizer
                        CGrep.Strategy.Levenshtein
@@ -111,12 +113,13 @@ Executable cgrep
                        monad-loops,
                        deepseq,
                        bitarray,
+                       text,
                        extra
 
   Ghc-options:  -O2 -j -funbox-strict-fields
                 -fwrite-ide-info
                 -hiedir=.hie
                 -threaded
-                -rtsopts "-with-rtsopts=-N -H128m"
+                -rtsopts "-with-rtsopts=-maxN16 -H1g -qn2"
 
   Default-language:    Haskell2010

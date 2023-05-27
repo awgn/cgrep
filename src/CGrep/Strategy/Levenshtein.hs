@@ -15,8 +15,10 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Levenshtein (search) where
+import CGrep.Parser.Line
 
 import qualified Data.ByteString.Char8 as C
 
@@ -39,8 +41,10 @@ import CGrep.LanguagesMap
     ( languageLookup, LanguageInfo, contextFilter )
 
 import Reader ( ReaderIO, Env (..) )
-import Verbose ( putStrLnVerbose )
+import Verbose ( putMsgLnVerbose )
 import System.Posix.FilePath (RawFilePath)
+import System.IO (stderr)
+import Data.Foldable
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search linfo f patterns = do
@@ -67,12 +71,14 @@ search linfo f patterns = do
     -- filter tokens...
 
         patterns' = map C.unpack patterns
-        matches  = filter (\t -> any (\p -> p ~== C.unpack (tStr t)) patterns') tokens'
+        matches  = filter (\t -> any (\p -> p ~== C.unpack (cStr t)) patterns') (toList tokens')
 
-    putStrLnVerbose 2 $ "strategy  : running edit-distance (Levenshtein) search on " <> C.unpack filename <> "..."
-    putStrLnVerbose 3 $ "---\n" <> C.unpack text''' <> "\n---"
+    putMsgLnVerbose 2 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
+    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
 
-    putStrLnVerbose 2 $ "tokens    : " <> show tokens'
-    putStrLnVerbose 2 $ "matches   : " <> show matches
+    putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens'
+    putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
-    mkOutputElements filename text text''' matches
+    let lineOffsets = getAllLineOffsets text
+
+    mkOutputElements lineOffsets filename text text''' matches
