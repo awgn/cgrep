@@ -47,7 +47,6 @@ import System.Posix.FilePath ( RawFilePath )
 import qualified Data.Vector.Unboxed as UV
 import Data.List (groupBy, group, sortOn, sort)
 
-import Debug.Trace (traceShowId)
 import GHC.Exts ( groupWith )
 
 import qualified Data.ByteString.Char8 as C
@@ -95,9 +94,9 @@ ignoreCase opt
 {-# INLINE ignoreCase #-}
 
 
-subText :: [[Offset]] -> [C.ByteString] -> Text8 -> Text8
-subText indices ps txt =
-    let maxOff = fromIntegral $ maximum (last <$> indices)
-        maxLen = maximum (C.length <$> ps)
-    in C.take (maxOff + maxLen) txt
+subText :: [[Offset]] -> Text8 -> Text8
+subText indices txt = case C.elemIndex '\n' (C.drop maxOff txt) of
+        Nothing  -> txt
+        (Just n) -> C.take (maxOff + n) txt
+    where maxOff = fromIntegral $ maximum (last <$> indices)
 {-# INLINE subText #-}

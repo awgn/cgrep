@@ -33,21 +33,20 @@ charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
 getLineOffsets :: Int64 -> Text8 -> UV.Vector Offset
 getLineOffsets maxOff text =
     let l = C.length text
-        idx = nlOffsets '\n' (fromIntegral maxOff) text
+        idx = nlOffsets (fromIntegral maxOff) text
     in if UV.null idx
         then idx
         else if UV.last idx == fromIntegral (l-1)
             then UV.init idx
             else idx
-    where nlOffsets :: Char -> Int -> Text8 -> UV.Vector Int64
-          nlOffsets c maxOff bs = UV.unfoldrN maxOff findOffsets 0
+    where nlOffsets :: Int -> Text8 -> UV.Vector Int64
+          nlOffsets maxOff bs = UV.unfoldrN maxOff findOffsets 0
             where
-              !target = c2w c
               findOffsets :: Int -> Maybe (Int64, Int)
               findOffsets !i
                 | i == 0 = Just (0, 1)
                 | i >= maxOff = Nothing
-                | BU.unsafeIndex bs (fromIntegral i) == target = Just (fromIntegral i + 1, i + 1)
+                | BU.unsafeIndex bs (fromIntegral i) == c2w '\n' = Just (fromIntegral i + 1, i + 1)
                 | otherwise = findOffsets (i + 1)
 
 

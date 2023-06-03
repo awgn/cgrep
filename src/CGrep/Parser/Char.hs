@@ -1,7 +1,22 @@
 {-# LANGUAGE MagicHash #-}
 
-
-module CGrep.Parser.Char where
+module CGrep.Parser.Char (
+        chr
+    ,   ord
+    ,   isDigit
+    ,  isSpace
+    ,   isHexDigit
+    ,   isCharNumber
+    ,   isAlphaNum
+    ,   isAlpha
+    ,   isAlphaNum_
+    ,   isAlpha_
+    ,   isAlpha_'
+    ,   isAlphaNum_'
+    ,   isBracket'
+    ,   isAlpha_and
+    ,   isAlphaNum_and
+) where
 
 import GHC.Exts ( Char(C#), Int(I#), ord# )
 import GHC.Base (isTrue#, int2Word#, leWord#, chr#)
@@ -25,9 +40,10 @@ isDigit c =  (fromIntegral (ord c - ord '0') :: Word) <= 9
 
 
 isSpace :: Char -> Bool
-isSpace c = uc == 32 || uc - 0x9 <= 4 || uc == 0xa0
+isSpace c = uc == 32 || uc == 0xa0 || (uc - 0x9 <= 4) && not ctrl
   where
     uc = ord c
+    ctrl = uc == 2 || uc == 3
 {-# INLINE isSpace #-}
 
 

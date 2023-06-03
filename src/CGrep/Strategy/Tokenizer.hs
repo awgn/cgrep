@@ -62,7 +62,7 @@ import CGrep.Types (Offset)
 import Debug.Trace
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
-search linfo f ps = do
+search info f ps = do
 
     Env{..} <- ask
 
@@ -89,16 +89,15 @@ search linfo f ps = do
 
         -- parse source code, get the token list...
 
-        let tokens = {-# SCC tok_0 #-} toList $ parseTokens (snd <$> linfo) (subText indices' ps text''')
+        let tokens = {-# SCC tok_0 #-} toList $ parseTokens (snd <$> info) (subText indices' text''')
 
         -- filter the tokens...
 
             tokens'= {-# SCC tok_1 #-} filter (filterToken TokenFilter { filtIdentifier = identifier opt,
-                                                       filtKeyword    = keyword opt,
-                                                       filtString     = string opt,
-                                                       filtNumber     = number opt,
-                                                       filtOperator   = operator opt}) tokens
-
+                                                                         filtKeyword    = keyword opt,
+                                                                         filtString     = string opt,
+                                                                         filtNumber     = number opt,
+                                                                         filtOperator   = operator opt}) tokens
 
             tokens'' = {-# SCC tok_2 #-} genericTokenFilter opt ps tokens'
 

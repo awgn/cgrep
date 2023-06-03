@@ -59,7 +59,7 @@ import Data.Array (indices)
 
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
-search linfo f patterns = do
+search info f patterns = do
 
     Env{..} <- ask
 
@@ -72,7 +72,7 @@ search linfo f patterns = do
     let ctxFilter = mkContextFilter opt
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (fst <$> linfo) ctxFilter False
+                                                 , contextFilter (fst <$> info) ctxFilter False
                                                  , ignoreCase opt
                                                  ]
 
@@ -90,7 +90,7 @@ search linfo f patterns = do
     let lineOffsets = getLineOffsets (fromIntegral $ C.length text) text
 
     let chunks' = if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (checkChunk opt lineOffsets (snd <$> linfo) text''') chunks
+                    then filter (checkChunk opt lineOffsets (snd <$> info) text''') chunks
                     else chunks
 
     putMsgLnVerbose 2 stderr $ "strategy  : running Boyer-Moore search on " <> filename
@@ -103,10 +103,10 @@ search linfo f patterns = do
 
 
 checkChunk :: Options -> UV.Vector Int64 -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool
-checkChunk opt vec linfo text c@Chunk{..}
+checkChunk opt vec info text c@Chunk{..}
      | word_match    opt = let !off = cOffset - off' in any (\(Chunk o s) -> o == off && s == cStr) cs
      | prefix_match  opt = any (\(Chunk o s) -> cStr `C.isPrefixOf` s && o + off' == cOffset) cs
      | suffix_match  opt = any (\(Chunk o s) -> cStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length cStr) == cOffset) cs
      | otherwise         = undefined
      where (# line',off' #) = getLineByOffset cOffset text vec
-           cs               = parseChunks linfo line'
+           cs               = parseChunks info line'

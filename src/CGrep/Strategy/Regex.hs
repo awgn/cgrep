@@ -56,7 +56,7 @@ import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
-search linfo f patterns = do
+search info f patterns = do
 
     Env{..} <- ask
 

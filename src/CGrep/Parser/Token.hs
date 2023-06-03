@@ -21,7 +21,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UnboxedSums #-}
-{-# LANGUAGE PatternSynonyms #-}
 
 module CGrep.Parser.Token (parseTokens, filterToken, Token(..), TokenFilter(..), tokenEqual,
                             isIdentifier, isKeyword, isNumber, isBracket, isString, isOperator ) where
@@ -34,11 +33,24 @@ import qualified Data.ByteString.Internal as BI
 import qualified Data.DList as DL
 
 import CGrep.Parser.Char
+    ( chr,
+      isAlphaNum_,
+      isAlpha_,
+      isBracket',
+      isCharNumber,
+      isDigit,
+      isSpace,
+      isCharNumber,
+      isBracket',
+      isAlpha_,
+      isAlphaNum_ )
 
 import CGrep.Types (Offset)
 import Data.List (genericLength)
 
 import CGrep.LanguagesMap
+    ( CharIdentifierF,
+      LanguageInfo(langResKeywords, langIdentifierChars) )
 import qualified Data.Set as Set
 import qualified Data.Sequence as S
 import Data.Sequence ((|>), Seq((:<|), (:|>), Empty))
@@ -51,12 +63,9 @@ import Data.MonoTraversable ( MonoFoldable(oforM_) )
 import Data.Word (Word8)
 
 import qualified ByteString.StrictBuilder as B
-
-import CGrep.Parser.Char ( isCharNumber, isBracket', isAlpha_, isAlphaNum_)
 import CGrep.Chunk (Chunk(cOffset))
 
-import GHC.Exts
-
+import GHC.Exts ( inline )
 
 data TokenState =
     StateSpace        |
@@ -78,13 +87,23 @@ data Token =
        deriving (Show, Eq, Ord)
 
 
-mkToken :: TokenState -> C.ByteString -> Offset -> Token
-mkToken StateSpace      = TokenOperator
-mkToken StateIdentifier = TokenIdentifier
-mkToken StateDigit      = TokenDigit
-mkToken StateBracket    = TokenBracket
-mkToken StateLiteral    = TokenString
-mkToken StateOther      = TokenOperator
+tokenIdentifierOrKeyword :: Maybe LanguageInfo -> C.ByteString -> Offset -> Token
+tokenIdentifierOrKeyword Nothing txt off = TokenIdentifier txt off
+tokenIdentifierOrKeyword (Just info) txt off =
+    if Set.member txt (langResKeywords info)
+        then TokenKeyword txt off
+        else TokenIdentifier txt off
+{-# INLINABLE tokenIdentifierOrKeyword #-}
+
+
+mkToken :: Maybe LanguageInfo -> TokenState -> C.ByteString -> Offset -> Token
+mkToken _ StateSpace         = TokenOperator
+mkToken info StateIdentifier = tokenIdentifierOrKeyword info
+mkToken _ StateDigit         = TokenDigit
+mkToken _ StateBracket       = TokenBracket
+mkToken _ StateLiteral       = TokenString
+mkToken _ StateOther         = TokenOperator
+
 
 isIdentifier :: Token -> Bool
 isIdentifier (TokenIdentifier _ _) = True
@@ -133,7 +152,7 @@ data TokenFilter = TokenFilter
     ,   filtString     :: !Bool
     ,   filtNumber     :: !Bool
     ,   filtOperator   :: !Bool
-    } deriving (Eq)
+    } deriving (Eq, Show)
 
 
 filterToken :: TokenFilter -> Token -> Bool
@@ -199,23 +218,23 @@ parseTokens l t = runST (case l >>= langIdentifierChars of
                 StateSpace -> {-# SCC "StateSpace" #-}
                     if | isSpace  x         -> do  accR <<~ Reset
                        | inline isAlpha1  x -> do  stateR <~ StateIdentifier ; accR <<~ Start cur
-                       | x == chr 2      -> do  stateR <~ StateLiteral    ; accR <<~ Reset
-                       | isDigit  x      -> do  stateR <~ StateDigit      ; accR <<~ Start cur
-                       | isBracket'  x   -> do  stateR <~ StateBracket    ; accR <<~ Start cur
-                       | otherwise       -> do  stateR <~ StateOther      ; accR <<~ Start cur
+                       | x == chr 2         -> do  stateR <~ StateLiteral    ; accR <<~ Reset
+                       | isDigit  x         -> do  stateR <~ StateDigit      ; accR <<~ Start cur
+                       | isBracket'  x      -> do  stateR <~ StateBracket    ; accR <<~ Start cur
+                       | otherwise          -> do  stateR <~ StateOther      ; accR <<~ Start cur
 
                 StateIdentifier -> {-# SCC "StateIdentifier" #-}
                     if | inline isAlphaN  x ->  do accR <<~ Append cur
-                       | isSpace  x      ->  do stateR <~ StateSpace     ; accR <<~ Reset      ; tokensR <~ (tokens |> buildTokenIdentifierOrKeyword info acc txt)
-                       | x == chr 2      ->  do stateR <~ StateLiteral   ; accR <<~ Reset      ; tokensR <~ (tokens |> buildTokenIdentifierOrKeyword info acc txt)
-                       | isBracket' x    ->  do stateR <~ StateBracket   ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildTokenIdentifierOrKeyword info acc txt)
-                       | otherwise       ->  do stateR <~ StateOther     ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildTokenIdentifierOrKeyword info acc txt)
+                       | isSpace  x      ->  do stateR <~ StateSpace     ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken (tokenIdentifierOrKeyword info) acc txt)
+                       | x == chr 2      ->  do stateR <~ StateLiteral   ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken (tokenIdentifierOrKeyword info) acc txt)
+                       | isBracket' x    ->  do stateR <~ StateBracket   ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken (tokenIdentifierOrKeyword info) acc txt)
+                       | otherwise       ->  do stateR <~ StateOther     ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken (tokenIdentifierOrKeyword info) acc txt)
 
                 StateDigit -> {-# SCC "StateDigit" #-}
                     if | isCharNumber  x ->  do accR <<~ Append cur
                        | isSpace  x      ->  do stateR <~ StateSpace      ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken TokenDigit acc txt)
                        | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken TokenDigit acc txt)
-                       | inline isAlpha1   x    ->  do stateR <~ StateIdentifier ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken TokenDigit acc txt)
+                       | inline isAlpha1  x    ->  do stateR <~ StateIdentifier ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken TokenDigit acc txt)
                        | isBracket' x    ->  do stateR <~ StateBracket    ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken TokenDigit acc txt)
                        | otherwise       ->  do stateR <~ StateOther      ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken TokenDigit acc txt)
 
@@ -232,14 +251,14 @@ parseTokens l t = runST (case l >>= langIdentifierChars of
                        | otherwise       ->  do stateR <~ StateOther      ; accR <<~ Start cur      ; tokensR <~ (tokens |> buildToken TokenBracket acc txt)
 
                 StateOther -> {-# SCC "StateOther" #-}
-                    if | isSpace  x      ->  do stateR <~ StateSpace      ; accR <<~ Reset          ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
-                       | inline isAlpha1 x      ->  do stateR <~ StateIdentifier ; accR <<~ Start cur      ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
-                       | isDigit  x      ->  if tkString acc txt == "."
+                    if | isSpace  x         ->  do stateR <~ StateSpace      ; accR <<~ Reset          ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
+                       | inline isAlpha1 x  ->  do stateR <~ StateIdentifier ; accR <<~ Start cur      ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
+                       | isDigit  x         ->  if tkString acc txt == "."
                                                 then do stateR <~ StateDigit ; accR <<~ Append cur
-                                                else do stateR <~ StateDigit ; accR <<~ Start cur   ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
-                       | isBracket' x    ->  do stateR <~ StateBracket    ; accR <<~ Append cur     ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
-                       | x == chr 2      ->  do stateR <~ StateLiteral    ; accR <<~ Reset          ; tokensR <~ (tokens |> buildToken TokenBracket  acc txt)
-                       | otherwise       ->  do accR <<~ Append cur
+                                                else do stateR <~ StateDigit ; accR <<~ Start cur      ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
+                       | isBracket' x       ->  do stateR <~ StateBracket    ; accR <<~ Append cur     ; tokensR <~ (tokens |> buildToken TokenOperator acc txt)
+                       | x == chr 2         ->  do stateR <~ StateLiteral    ; accR <<~ Reset          ; tokensR <~ (tokens |> buildToken TokenBracket  acc txt)
+                       | otherwise          ->  do accR <<~ Append cur
 
             curR <~ (cur + 1)
 
@@ -251,23 +270,12 @@ parseTokens l t = runST (case l >>= langIdentifierChars of
               else do
                 state   <- readSTRef stateR
                 cur     <- readSTRef curR
-                return $ tokens |> buildToken (mkToken state) lastAcc txt
+                return $ tokens |> buildToken (mkToken info state) lastAcc txt
 
 
 buildToken :: (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
 buildToken f (TokenIdx start len) txt = f (subByteString start len txt) (fromIntegral start)
 {-# INLINE buildToken #-}
-
-
-{-# INLINEABLE buildTokenIdentifierOrKeyword #-}
-buildTokenIdentifierOrKeyword :: Maybe LanguageInfo -> TokenIdx -> C.ByteString -> Token
-buildTokenIdentifierOrKeyword  (Just info) (TokenIdx start len) txt =
-    let s = subByteString start len txt
-        in if Set.member s (langResKeywords info)
-            then TokenKeyword s (fromIntegral start)
-            else TokenIdentifier s (fromIntegral start)
-buildTokenIdentifierOrKeyword Nothing (TokenIdx start len) txt =
-    TokenIdentifier (subByteString start len txt) (fromIntegral start)
 
 
 subByteString :: Int -> Int -> C.ByteString -> C.ByteString

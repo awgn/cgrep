@@ -69,7 +69,7 @@ import Data.Foldable ( Foldable(toList) )
 import Debug.Trace
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
-search linfo f ps = do
+search info f ps = do
 
     Env{..} <- ask
 
@@ -86,7 +86,7 @@ search linfo f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (parseTokens (snd <$> linfo) . contextFilter (languageLookup opt filename) filt True) ps
+        patterns   = map (parseTokens (snd <$> info) . contextFilter (languageLookup opt filename) filt True) ps
         patterns'  = map (mkAtomFromToken <$>) patterns
         patterns'' = map (combineAtoms . map (:[])) (toList <$> patterns')
 
@@ -110,7 +110,7 @@ search linfo f ps = do
 
         -- parse source code, get the Generic.Chunk list...
 
-        let tokens = toList $ parseTokens (snd <$> linfo) (subText indices' ps text''')
+        let tokens = toList $ parseTokens (snd <$> info) (subText indices' text''')
 
         -- get matching tokens ...
 

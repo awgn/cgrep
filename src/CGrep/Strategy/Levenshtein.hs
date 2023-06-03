@@ -47,7 +47,7 @@ import System.IO (stderr)
 import Data.Foldable
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
-search linfo f patterns = do
+search info f patterns = do
 
     Env{..} <- ask
 
@@ -66,7 +66,7 @@ search linfo f patterns = do
 
     -- parse source code, get the Cpp.Token list...
 
-        tokens' = parseChunks (snd <$> linfo) text'''
+        tokens' = parseChunks (snd <$> info) text'''
 
     -- filter tokens...
 
