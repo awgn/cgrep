@@ -95,8 +95,11 @@ ignoreCase opt
 
 
 subText :: [[Offset]] -> Text8 -> Text8
+subText [] txt = txt
 subText indices txt = case C.elemIndex '\n' (C.drop maxOff txt) of
         Nothing  -> txt
         (Just n) -> C.take (maxOff + n) txt
-    where maxOff = fromIntegral $ maximum (last <$> indices)
+    where maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
+          lastDef def xs = if null xs then def else last xs
+
 {-# INLINE subText #-}
