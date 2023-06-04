@@ -49,7 +49,7 @@ import Reader ( ReaderIO, Env (..) )
 import Options ( Options(regex_pcre) )
 import Verbose ( putMsgLnVerbose )
 
-import CGrep.Chunk ( Chunk(..) )
+import CGrep.Chunk ( Chunk(..), mkChunk )
 import CGrep.Parser.Line
 
 import System.Posix.FilePath (RawFilePath)
@@ -77,7 +77,7 @@ search info f patterns = do
 
         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
 
-        tokens = map (\(str, (off,_)) -> Chunk (fromIntegral off) str) $
+        tokens = map (\(str, (off,_)) -> mkChunk str (fromIntegral off)) $
                     concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putMsgLnVerbose 2 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."

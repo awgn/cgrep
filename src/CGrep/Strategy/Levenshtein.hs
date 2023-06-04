@@ -34,7 +34,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
-import CGrep.Chunk ( Chunk(..) )
+import CGrep.Chunk ( Chunk(..), cToken )
 import CGrep.Parser.Chunk ( parseChunks )
 import CGrep.Language ( Language )
 import CGrep.LanguagesMap
@@ -71,7 +71,7 @@ search info f patterns = do
     -- filter tokens...
 
         patterns' = map C.unpack patterns
-        matches  = filter (\t -> any (\p -> p ~== C.unpack (cStr t)) patterns') (toList tokens')
+        matches  = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
 
     putMsgLnVerbose 2 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"

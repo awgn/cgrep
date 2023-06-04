@@ -63,7 +63,7 @@ import Data.MonoTraversable ( MonoFoldable(oforM_) )
 import Data.Word (Word8)
 
 import qualified ByteString.StrictBuilder as B
-import CGrep.Chunk (Chunk(cOffset))
+import CGrep.Chunk
 
 import GHC.Exts ( inline )
 

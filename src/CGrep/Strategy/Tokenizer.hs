@@ -53,7 +53,7 @@ import Options
     ( Options(identifier, keyword, string, number, operator, edit_dist,
               word_match, prefix_match, suffix_match) )
 import Verbose ( putMsgLnVerbose )
-import CGrep.Chunk (Chunk (..))
+import CGrep.Chunk (Chunk (..), mkChunk)
 import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
 
@@ -103,7 +103,7 @@ search info f ps = do
 
         -- convert matching tokens to chunks
 
-            matches = {-# SCC tok_3 #-} map (\t -> let off = fromIntegral (toOffset t) in Chunk off (toString t)) tokens'' :: [Chunk]
+            matches = {-# SCC tok_3 #-} map (\t -> let off = fromIntegral (toOffset t) in mkChunk (toString t) off) tokens'' :: [Chunk]
 
         putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
         putMsgLnVerbose 2 stderr $ "tokens'   : " <> show tokens'

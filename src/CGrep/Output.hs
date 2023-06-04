@@ -55,7 +55,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, Offset )
-import CGrep.Chunk ( MatchingLine(..), Chunk(..) )
+import CGrep.Chunk ( MatchingLine(..), Chunk(..), mkChunk, cToken, cOffset )
 
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( ReaderIO, Env(..) )
@@ -113,7 +113,7 @@ mkOutputElements lineOffsets f text multi ts = do
 mkMatchingLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchingLine]
 mkMatchingLines lineOffsets _ [] = []
 mkMatchingLines lineOffsets text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
-    (\Chunk{..} -> let (# r, c #) = getLineNumberAndOffset lineOffsets cOffset in MatchingLine (fromIntegral r) [Chunk c cStr]) <$> ts
+    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchingLine (fromIntegral r) [mkChunk (cToken chunk) c]) <$> ts
         where mergeGroup :: [MatchingLine] -> MatchingLine
               mergeGroup ls = MatchingLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
 
@@ -174,7 +174,7 @@ jsonOutput outs = pure $ mconcat . intersperse (B.char8 '\n') $
         [B.byteString "{ \"file\":\"" <> B.byteString fname <> B.byteString "\", \"matches\":["] <>
         [ mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs) ] <> [B.byteString "]}"]
      where fname | (Output f _ _ _) <- head outs = f
-           mkJToken (Chunk n xs) = B.byteString "{ \"col\":" <> B.int64Dec n <> B.byteString ", \"token\":\"" <> B.byteString xs <> B.byteString "\" }"
+           mkJToken chunk = B.byteString "{ \"col\":" <> B.int64Dec (cOffset chunk) <> B.byteString ", \"token\":\"" <> B.byteString (cToken chunk) <> B.byteString "\" }"
            mkMatch xs (Output _ n _ ts) =
                xs <> [B.byteString "{ \"row\": " <> B.int64Dec n <> B.byteString ", \"tokens\":[" <>
                         mconcat (intersperse (B.byteString ",") (map mkJToken ts)) <> B.byteString "] }" ]
@@ -224,13 +224,13 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = boldBuilder <> mconcat (B.byteString . cStr <$> outChunks out) <> resetBuilder <> B.char8 ':'
+    | st        = boldBuilder <> mconcat (B.byteString . cToken <$> outChunks out) <> resetBuilder <> B.char8 ':'
     | otherwise = mempty
 
 
 buildLine :: Config -> Options -> Output -> B.Builder
 buildLine conf Options { color = c, no_color = c' } out
-    | c && not c'= highlightLine conf (sortBy (flip compare `on` (C.length . cStr)) (outChunks out)) (outLine out)
+    | c && not c'= highlightLine conf (sortBy (flip compare `on` (C.length . cToken)) (outChunks out)) (outLine out)
     | otherwise  = B.byteString $ outLine out
 {-# INLINE buildLine #-}
 
@@ -274,5 +274,5 @@ highlightLine conf ts =  highlightLine' (highlightIndexes ts, 0, 0)
 
 
 highlightIndexes :: [Chunk] -> [(Int64, Int64)]
-highlightIndexes = foldr (\Chunk{..} a -> let b = cOffset in (fromIntegral b, b + fromIntegral (C.length cStr) - 1) : a) [] . filter (not. B.null.cStr)
+highlightIndexes = foldr (\chunk a -> let b = cOffset chunk in (fromIntegral b, b + fromIntegral (C.length (cToken chunk)) - 1) : a) [] . filter (not. B.null.cToken)
 {-# INLINE highlightIndexes #-}

@@ -55,7 +55,7 @@ import Data.Maybe ( mapMaybe )
 import Reader ( ReaderIO, Env (..) )
 import Verbose ( putMsgLnVerbose )
 import Util ( rmQuote8 )
-import CGrep.Chunk (Chunk (..))
+import CGrep.Chunk (Chunk (..), mkChunk)
 
 import System.Posix.FilePath ( RawFilePath, takeBaseName )
 
@@ -118,7 +118,7 @@ search info f ps = do
 
         -- convert Tokens to Chunks
 
-        let matches = map (\t -> let n = fromIntegral (toOffset t) in Chunk n (toString t)) tokens' :: [Chunk]
+        let matches = map (\t -> let n = fromIntegral (toOffset t) in mkChunk (toString t) n) tokens' :: [Chunk]
 
         putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
         putMsgLnVerbose 2 stderr $ "matches   : " <> show matches

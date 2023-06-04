@@ -20,7 +20,10 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module CGrep.Chunk ( Chunk(..)
+module CGrep.Chunk ( Chunk
+                   , mkChunk
+                   , cOffset
+                   , cToken
                    , MatchingLine(..)
                    ) where
 
@@ -31,9 +34,23 @@ import CGrep.Types ( Offset, Text8 )
 import GHC.Generics ( Generic )
 
 data Chunk = Chunk {
-    cOffset :: {-# UNPACK #-} !Offset,
-    cStr    :: {-# UNPACK #-} !Text8
+     typ    :: {-# UNPACK #-} !Int
+  ,  token  :: {-# UNPACK #-} !Text8
+  ,  offset :: {-# UNPACK #-} !Offset
 } deriving (Eq, Show, Generic, DS.NFData)
+
+
+mkChunk :: Text8 -> Offset -> Chunk
+mkChunk = Chunk 0
+{-# INLINE mkChunk #-}
+
+cOffset :: Chunk -> Offset
+cOffset = offset
+{-# INLINE cOffset #-}
+
+cToken :: Chunk -> Text8
+cToken = token
+{-# INLINE cToken #-}
 
 
 data MatchingLine = MatchingLine {

@@ -47,7 +47,7 @@ import CGrep.Parser.Chunk ( parseChunks )
 import Reader ( ReaderIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putMsgLnVerbose )
-import CGrep.Chunk (Chunk(..))
+import CGrep.Chunk (Chunk(..), mkChunk, cOffset, cToken)
 import Data.Int ( Int64 )
 
 import System.Posix.FilePath ( RawFilePath )
@@ -83,7 +83,7 @@ search info f patterns = do
 
     -- search for matching tokens
 
-    let chunks = concat $ zipWith (\p xs -> (`Chunk` p) <$> xs ) patterns indices'''
+    let chunks = concat $ zipWith (\p xs -> (p `mkChunk`) <$> xs ) patterns indices'''
 
     -- filter exact/partial matching tokens
 
@@ -103,10 +103,10 @@ search info f patterns = do
 
 
 checkChunk :: Options -> UV.Vector Int64 -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool
-checkChunk opt vec info text c@Chunk{..}
-     | word_match    opt = let !off = cOffset - off' in any (\(Chunk o s) -> o == off && s == cStr) cs
-     | prefix_match  opt = any (\(Chunk o s) -> cStr `C.isPrefixOf` s && o + off' == cOffset) cs
-     | suffix_match  opt = any (\(Chunk o s) -> cStr `C.isSuffixOf` s && o + off' + fromIntegral (C.length s - C.length cStr) == cOffset) cs
+checkChunk opt vec info text chunk
+     | word_match    opt = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
+     | prefix_match  opt = any (\chunk' -> cToken chunk `C.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
+     | suffix_match  opt = any (\chunk' -> cToken chunk `C.isSuffixOf` cToken chunk' && cOffset chunk' + off' + fromIntegral (C.length (cToken chunk') - C.length (cToken chunk)) == cOffset chunk) cs
      | otherwise         = undefined
-     where (# line',off' #) = getLineByOffset cOffset text vec
+     where (# line',off' #) = getLineByOffset (cOffset chunk) text vec
            cs               = parseChunks info line'

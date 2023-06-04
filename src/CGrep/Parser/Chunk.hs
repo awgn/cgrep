@@ -32,7 +32,7 @@ import CGrep.Types ( Text8, Offset )
 import Data.List (genericLength)
 import CGrep.LanguagesMap
 
-import CGrep.Chunk ( Chunk(..), MatchingLine(..) )
+import CGrep.Chunk ( Chunk(..), MatchingLine(..), mkChunk )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as LB
@@ -90,28 +90,28 @@ parseChunks l t = runST $ case l >>= \LanguageInfo {..} -> langIdentifierChars o
                        | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x
                 StateAlpha ->
                     if | isAlphaN   x     ->  do stateR <~ StateAlpha   ; accR <~ (acc <> B.asciiChar x)
-                       | isSpace x        ->  do stateR <~ StateSpace   ; accR <~ mempty         ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isBracket'  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> mkChunk off acc)
+                       | isSpace x        ->  do stateR <~ StateSpace   ; accR <~ mempty         ; tokensR <~ (tokens |> toChunk off acc)
+                       | isBracket'  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> toChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> toChunk off acc)
                 StateDigit ->
                     if | isCharNumber   x ->  do stateR <~ StateDigit   ; accR <~ (acc <> B.asciiChar x)
-                       | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~  mempty        ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isAlpha1    x    ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isBracket'  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> mkChunk off acc)
+                       | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~  mempty        ; tokensR <~ (tokens |> toChunk off acc)
+                       | isAlpha1    x    ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> toChunk off acc)
+                       | isBracket'  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> toChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> toChunk off acc)
                 StateBracket ->
-                    if | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~  mempty       ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isAlpha1    x    ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isDigit  x       ->  do stateR <~ StateDigit   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isBracket' x     ->  do stateR <~ StateBracket ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> mkChunk off acc)
+                    if | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~  mempty       ; tokensR <~ (tokens |> toChunk off acc)
+                       | isAlpha1    x    ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> toChunk off acc)
+                       | isDigit  x       ->  do stateR <~ StateDigit   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> toChunk off acc)
+                       | isBracket' x     ->  do stateR <~ StateBracket ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> toChunk off acc)
+                       | otherwise        ->  do stateR <~ StateOther   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> toChunk off acc)
                 StateOther ->
-                    if | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~ mempty        ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isAlpha1   x     ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> mkChunk off acc)
+                    if | isSpace  x       ->  do stateR <~ StateSpace   ; accR <~ mempty        ; tokensR <~ (tokens |> toChunk off acc)
+                       | isAlpha1   x     ->  do stateR <~ StateAlpha   ; accR <~ B.asciiChar x ; tokensR <~ (tokens |> toChunk off acc)
                        | isDigit  x       ->  if B.builderBytes acc == "."
                                                 then do stateR <~ StateDigit ; accR <~ (acc <> B.asciiChar x)
-                                                else do stateR <~ StateDigit ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> mkChunk off acc)
-                       | isBracket'  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar x       ; tokensR <~ (tokens |> mkChunk off acc)
+                                                else do stateR <~ StateDigit ; accR <~ B.asciiChar  x ; tokensR <~ (tokens |> toChunk off acc)
+                       | isBracket'  x    ->  do stateR <~ StateBracket ; accR <~ B.asciiChar x       ; tokensR <~ (tokens |> toChunk off acc)
                        | otherwise        ->  do stateR <~ StateOther   ; accR <~ (acc <> B.asciiChar x)
             offR <~ (off+1)
 
@@ -123,10 +123,10 @@ parseChunks l t = runST $ case l >>= \LanguageInfo {..} -> langIdentifierChars o
               else do
                 state   <- readSTRef stateR
                 off     <- readSTRef offR
-                return $ tokens |> mkChunk off lastAcc
+                return $ tokens |> toChunk off lastAcc
 
 
-mkChunk :: Offset -> B.Builder -> Chunk
-mkChunk off b =  Chunk (off - fromIntegral (B.builderLength b)) str
+toChunk :: Offset -> B.Builder -> Chunk
+toChunk off b =  mkChunk str (off - fromIntegral (B.builderLength b))
     where str = B.builderBytes b
-{-# INLINE mkChunk #-}
+{-# INLINE toChunk #-}
