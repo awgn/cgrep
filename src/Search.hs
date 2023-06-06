@@ -150,7 +150,7 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited cnt action = do
 
     -- process dirs recursively
 
-    forM_ dirs' $ \dirPath -> do
+    forConcurrently_ dirs' $ \dirPath -> do
         unless (isPrunableDir dirPath pdirs) $ -- this is a good directory (unless already visited)!
                  -- this is a good directory (unless already visited)!
                 makeRawAbsolute dirPath >>= \cpath ->
