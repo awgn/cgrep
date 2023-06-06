@@ -309,6 +309,17 @@ languagesMap = Map.fromList
             "library", "mixin", "operator", "part", "set", "static", "typedef",  "await", "yield"
         ]
     })
+    ,  (Dhall,   LanguageInfo {
+        langExtensions = [Ext "dhall"]
+    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = [ ]
+    ,   langIdentifierChars = Just (isAlpha_', isAlphaNum_')
+    ,   langResKeywords = keywords [
+            "if", "then", "else", "toMap", "with", "merge", "showConstructor", "missing", "as", "using", "let", "assert"
+        ]
+    })
     ,  (Elixir,    LanguageInfo {
         langExtensions = [Ext "ex", Ext "exs"]
     ,   langComment = ["#" ~~ "\n"]

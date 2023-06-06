@@ -30,7 +30,7 @@ import System.Posix.FilePath (RawFilePath)
 
 
 data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css | Cql |
-                D | Dart | Elm | Elixir | Erlang | Fortran | Fsharp | Go | GoMod | Haskell | Html | Idris | Java | Javascript | Json | Julia | Kotlin |
+                D | Dart | Dhall | Elm | Elixir | Erlang | Fortran | Fsharp | Go | GoMod | Haskell | Html | Idris | Java | Javascript | Json | Julia | Kotlin |
                 Latex | Lisp | Lua | Make | Nim | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Sql | Tcl |
                 Text | VHDL | Verilog | Yaml | Toml | Ini | Zig
                 deriving (Read, Show, Eq, Ord, Bounded)
