@@ -30,11 +30,10 @@ charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
 
 getLineOffsets :: Int64 -> Text8 -> UV.Vector Offset
 getLineOffsets maxOff text =
-    let l = C.length text
-        idx = nlOffsets (fromIntegral maxOff) text
+    let idx = nlOffsets (fromIntegral maxOff) text
     in if UV.null idx
         then idx
-        else if UV.last idx == fromIntegral (l-1)
+        else if UV.last idx == fromIntegral (C.length text -1)
             then UV.init idx
             else idx
     where {-# INLINE nlOffsets #-}
