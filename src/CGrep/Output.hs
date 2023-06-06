@@ -87,13 +87,12 @@ outTokens (Output fp ln l cs) = cToken <$> cs
 
 insertIndex :: UV.Vector Offset -> Offset -> Int
 insertIndex vs x = search vs 0 (UV.length vs)
-    where
-        search xs !lo !hi
+    where search xs !lo !hi
             | lo == hi = lo
             | otherwise = let !mid = (lo + hi) `quot` 2
-                        in if x < VU.unBox(xs `GV.basicUnsafeIndexM` mid)
-                                then search xs lo mid
-                                else search xs (mid+1) hi
+                    in if x < VU.unBox(xs `GV.basicUnsafeIndexM` mid)
+                        then search xs lo mid
+                        else search xs (mid+1) hi
 
 
 getLineNumberAndOffset :: UV.Vector Offset -> Offset -> (# Int, Offset #)
@@ -106,16 +105,16 @@ getLineNumberAndOffset xs x =
 mkOutputElements :: UV.Vector Int64 -> RawFilePath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
 mkOutputElements lineOffsets f text multi ts = do
     invert <- invert_match <$> reader opt
-    return $ if invert then map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines lineOffsets multi ts
-                       else map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines lineOffsets multi ts
+    return $ if invert then map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchLines lineOffsets multi ts
+                       else map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchLines lineOffsets multi ts
     where ls = C.lines text
 {-# INLINE mkOutputElements #-}
 
 
-mkMatchingLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchLine]
-mkMatchingLines lineOffsets _ [] = []
-mkMatchingLines lineOffsets text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
-    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> ts
+mkMatchLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchLine]
+mkMatchLines lineOffsets _ [] = []
+mkMatchLines lineOffsets text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
+    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> traceShowId ts
         where mergeGroup :: [MatchLine] -> MatchLine
               mergeGroup ls = MatchLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
 

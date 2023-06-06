@@ -24,7 +24,7 @@ charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
   where findOffsets :: Int64 -> Maybe (Int64, Int64)
         findOffsets i
           | i >= maxOff = Nothing
-          | BU.unsafeIndex bs (fromIntegral i) == (c2w c)= Just (fromIntegral i, i + 1)
+          | BU.unsafeIndex bs (fromIntegral i) == c2w c = Just (fromIntegral i, i + 1)
           | otherwise = findOffsets (i + 1)
 
 
