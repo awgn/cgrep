@@ -897,6 +897,37 @@ languagesMap = Map.fromList
     ,   langIdentifierChars = Just (const False, const False)
     ,   langResKeywords = keywords []
     })
+    ,  (Toml,      LanguageInfo {
+        langExtensions = [Ext "toml", Name "Cargo.lock"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\"", "\"\"\"" ~~ "\"\"\""]
+    ,   langRawString = ["'" ~~ "'", "'''" ~~ "'''"]
+    ,   langIdentifierChars = Just (const False, const False)
+    ,   langResKeywords = keywords []
+    })
+    ,  (Ini,      LanguageInfo {
+        langExtensions = [Ext "ini"]
+    ,   langComment = [";" ~~ "\n", "#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Just (const False, const False)
+    ,   langResKeywords = keywords []
+    })
+    ,  (Zig,    LanguageInfo {
+        langExtensions = [Ext "zig"]
+    ,   langComment = ["//" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\""]
+    ,   langRawString = ["\\" ~~ "\n"]
+    ,   langIdentifierChars = Nothing
+    ,   langResKeywords = keywords [
+            "addrspace", "align", "allowzero", "and", "anyframe", "anytype", "asm", "async", "await", "break", "catch", "comptime", "const", "continue", "defer", "else",
+            "enum", "errdefer", "error", "export", "extern", "fn", "for", "if", "inline", "linksection", "noalias", "noinline", "nosuspend", "or", "orelse", "packed", "pub",
+            "resume", "return", "struct", "suspend", "switch", "test", "threadlocal", "try", "union", "unreachable", "usingnamespace", "var", "volatile", "while"
+        ]
+    })
     ]
 
 

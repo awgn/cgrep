@@ -5,7 +5,7 @@
 languages:   [ Agda , Assembly , Awk  , C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csharp , Css ,
                 D , Dart , Elm , Elixir , Erlang , Fortran , Fsharp , Go , GoMod, Haskell , Html , Idris , Java , Javascript , Json , Kotlin ,
                 Latex , Lisp , Lua , Make , Nmap , OCaml , ObjectiveC , PHP , Perl , Python , R , Ruby , Rust , Scala , SmallTalk , Shell , Swift , Tcl,
-                    Text , VHDL , Verilog , Yaml ]
+                    Text , VHDL , Verilog , Yaml, Toml, Ini, Zig ]
 
 prune_dirs       : [".svn", ".git", "CMakeFiles", ".stack-work" ]
 
