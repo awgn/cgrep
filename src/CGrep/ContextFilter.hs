@@ -172,9 +172,10 @@ getContext (ChrState _)   = Literal
 
 type ParData = ( Text8, ParState )
 
+{-# INLINE nextContextState #-}
 runContextFilter :: ParConfig -> ContextFilter -> Text8 -> Text8
-runContextFilter conf@ParConfig{..} f txt | alterBoundary = fst $ C.unfoldrN (C.length txt) (contextFilter' conf) ( txt, ParState CodeState CodeState (codeFilter f) 0 )
-                                             | otherwise     = fst $ C.unfoldrN (C.length txt) (contextFilter'' conf) ( txt, ParState CodeState CodeState (codeFilter f) 0 )
+runContextFilter conf@ParConfig{..} f txt | alterBoundary = fst $ C.unfoldrN (C.length txt) (contextFilter'  conf) ( txt, ParState CodeState CodeState (codeFilter f) 0 )
+                                          |    otherwise  = fst $ C.unfoldrN (C.length txt) (contextFilter'' conf) ( txt, ParState CodeState CodeState (codeFilter f) 0 )
     where contextFilter' :: ParConfig -> ParData ->  Maybe (Char, ParData)
           contextFilter' c (txt@(C.uncons -> Just (x,xs)), s) = Just (x', (xs', s'))
               where s' = nextContextState c s txt f

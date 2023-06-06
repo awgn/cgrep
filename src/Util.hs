@@ -82,3 +82,11 @@ rmQuote8 b | C.length b < 2 = b
         Just (x,xs) -> if (x == '"' || x == '\'') && (x == C.last b) then C.init xs else b
         _ -> b
 {-# INLINE  rmQuote8 #-}
+
+
+mapMaybe' :: Foldable f => (a -> Maybe b) -> f a -> [b]
+mapMaybe' f = foldr g []
+  where
+    g x rest
+      | Just y <- f x = y : rest
+      | otherwise     = rest

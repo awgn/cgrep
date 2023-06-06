@@ -61,6 +61,9 @@ import Data.Foldable ( Foldable(toList) )
 import CGrep.Types (Offset)
 import Debug.Trace
 
+import qualified Data.Sequence as S
+import Util
+
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
 
@@ -89,25 +92,22 @@ search info f ps = do
 
         -- parse source code, get the token list...
 
-        let tokens = {-# SCC tok_0 #-} toList $ parseTokens (snd <$> info) (subText indices' text''')
+        let tokens = {-# SCC tok_0 #-} parseTokens (snd <$> info) (subText indices' text''')
 
         -- filter the tokens...
 
-            tokens'= {-# SCC tok_1 #-} filter (filterToken TokenFilter { filtIdentifier = identifier opt,
-                                                                         filtKeyword    = keyword opt,
-                                                                         filtString     = string opt,
-                                                                         filtNumber     = number opt,
-                                                                         filtOperator   = operator opt}) tokens
+            tokens'= {-# SCC tok_1 #-} S.filter (filterToken TokenFilter { filtIdentifier = identifier opt,
+                                                                           filtKeyword    = keyword opt,
+                                                                           filtString     = string opt,
+                                                                           filtNumber     = number opt,
+                                                                           filtOperator   = operator opt}) tokens
 
-            tokens'' = {-# SCC tok_2 #-} genericTokenFilter opt ps tokens'
+        -- filter tokens and make chunks
 
-        -- convert matching tokens to chunks
-
-            matches = {-# SCC tok_3 #-} map (\t -> let off = fromIntegral (toOffset t) in mkChunk (toString t) off) tokens'' :: [Chunk]
+            matches = {-# SCC tok_3 #-} mapMaybe' (genericTokenFilter opt ps) tokens'
 
         putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
         putMsgLnVerbose 2 stderr $ "tokens'   : " <> show tokens'
-        putMsgLnVerbose 2 stderr $ "tokens''  : " <> show tokens''
         putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text
@@ -115,10 +115,17 @@ search info f ps = do
         mkOutputElements lineOffsets filename text text''' matches
 
 
-genericTokenFilter :: Options -> [C.ByteString] -> [Token] -> [Token]
+genericTokenPredicate :: Options -> [C.ByteString] -> Token -> Bool
+genericTokenPredicate opt patterns tokens
+    | edit_dist    opt = (\t -> any (\p -> C.unpack p ~==  (C.unpack .toString) t) patterns) tokens
+    | word_match   opt = ((`elem` patterns) . toString) tokens
+    | prefix_match opt = ((\t -> any (`C.isPrefixOf`t) patterns) . toString) tokens
+    | suffix_match opt = ((\t -> any (`C.isSuffixOf`t) patterns) . toString) tokens
+    | otherwise        = ((\t -> any (`C.isInfixOf` t) patterns) . toString) tokens
+
+
+genericTokenFilter :: Options -> [C.ByteString] -> Token -> Maybe Chunk
 genericTokenFilter opt patterns tokens
-    | edit_dist    opt = filter (\t -> any (\p -> C.unpack p ~==  (C.unpack .toString) t) patterns) tokens
-    | word_match   opt = filter ((`elem` patterns) . toString) tokens
-    | prefix_match opt = filter ((\t -> any (`C.isPrefixOf`t) patterns) . toString) tokens
-    | suffix_match opt = filter ((\t -> any (`C.isSuffixOf`t) patterns) . toString) tokens
-    | otherwise        = filter ((\t -> any (`C.isInfixOf` t) patterns) . toString) tokens
+    | genericTokenPredicate opt patterns tokens = Just $ mkChunk (toString tokens) (fromIntegral (toOffset tokens))
+    | otherwise = Nothing
+{-# INLINE genericTokenFilter #-}

@@ -90,12 +90,13 @@ combineAtoms [m1]    =  [m1]
 combineAtoms []      =  []
 
 
+{-# INLINE filterTokensWithAtoms #-}
 filterTokensWithAtoms :: Options -> [Atoms] -> [T.Token] -> [T.Token]
-filterTokensWithAtoms opt ws = filterTokensWithAtoms' opt (spanOptionalCards ws)
-    where filterTokensWithAtoms' :: Options -> [[Atoms]] -> [T.Token] -> [T.Token]
-          filterTokensWithAtoms' _ [] _ = []
-          filterTokensWithAtoms' opt (g:gs) ts =
-              {-# SCC "atomConcatMap" #-} concatMap (take grpLen . (`drop` ts)) ({-# SCC "atomicFindIndices" #-} findIndices (wildCardsCompare opt g) grp) <> filterTokensWithAtoms' opt gs ts
+filterTokensWithAtoms opt ws ts = go opt (spanOptionalCards ws) ts
+    where go  :: Options -> [[Atoms]] -> [T.Token] -> [T.Token]
+          go  _ [] _ = []
+          go opt (g:gs) ts =
+              {-# SCC "atomConcatMap" #-} concatMap (take grpLen . (`drop` ts)) ({-# SCC "atomicFindIndices" #-} findIndices (wildCardsCompare opt g) grp) <> go opt gs ts
               where grp    = {-# SCC "atomSpanGroup" #-} spanGroup grpLen ts
                     grpLen = length g
 
@@ -116,7 +117,7 @@ filterCardIndices ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
 
 wildCardsCompare :: Options -> [Atoms] -> [T.Token] -> Bool
 wildCardsCompare opt l r =
-    wildCardsCompareAll ts && wildCardsCheckOccurences ts
+    wildCardsCompareAll ts && wildCardsCheckOccurrences ts
         where ts = wildCardsGroupCompare opt l r
 {-# INLINE wildCardsCompare #-}
 
@@ -143,8 +144,8 @@ wildCardsCompareAll = all fst
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
 --       that must compare equal in the respective occurrences
 
-wildCardsCheckOccurences :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
-wildCardsCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
+wildCardsCheckOccurrences :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
+wildCardsCheckOccurrences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True m
     where m =  M.mapWithKey (\k xs ->
                 case k of
                     [Identifier "_0"]  -> xs
@@ -169,7 +170,7 @@ wildCardsCheckOccurences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True 
                     [Identifier "$9"]  -> xs
                     _                  -> []
                 ) $ M.fromListWith (<>) (map snd ts)
-{-# INLINE wildCardsCheckOccurences #-}
+{-# INLINE wildCardsCheckOccurrences #-}
 
 
 wildCardsGroupCompare :: Options -> [Atoms] -> [T.Token] -> [(Bool, (Atoms, [C.ByteString]))]
