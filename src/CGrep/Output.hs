@@ -114,7 +114,7 @@ mkOutputElements lineOffsets f text multi ts = do
 mkMatchLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchLine]
 mkMatchLines lineOffsets _ [] = []
 mkMatchLines lineOffsets text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
-    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> traceShowId ts
+    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> ts
         where mergeGroup :: [MatchLine] -> MatchLine
               mergeGroup ls = MatchLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
 
