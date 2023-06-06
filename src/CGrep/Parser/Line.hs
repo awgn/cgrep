@@ -38,10 +38,10 @@ getLineOffsets maxOff text =
             else idx
     where {-# INLINE nlOffsets #-}
           nlOffsets :: Int -> Text8 -> UV.Vector Int64
-          nlOffsets maxOff bs = UV.unfoldrN maxOff (findOffsets maxOff bs) 0
+          nlOffsets maxOff bs = UV.unfoldrN maxOff (findOffsets maxOff bs) (-1)
           findOffsets :: Int -> Text8 -> Int -> Maybe (Int64, Int)
           findOffsets max ts !i
-              | i == 0 = Just (0, 1)
+              | i == -1 = Just (0, 0)
               | i >= max = Nothing
               | BU.unsafeIndex ts (fromIntegral i) == c2w '\n' = Just (fromIntegral i + 1, i + 1)
               | otherwise = findOffsets max ts (i + 1)
