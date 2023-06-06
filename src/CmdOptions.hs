@@ -49,7 +49,7 @@ options = cmdArgsMode $ Options
           ,     code = False                &= groupname "\nContext filters" &= help "Enable search in source code"     &= explicit &= name "c" &= name "code"
           ,     comment = False             &= help "Enable search in comments"        &= explicit &= name "m" &= name "comment"
           ,     literal = False             &= help "Enable search in string literals" &= explicit &= name "l" &= name "literal"
-          ,     identifier = False          &= groupname "\nToken filters" &= help "Identifiers" &= explicit &= name "identifier"
+          ,     identifier = False          &= groupname "\nToken filters" &= help "Identifiers" &= explicit &= name "identifier" &= name "name"
           ,     keyword = False             &= help "Keywords" &= explicit &= name "keyword"
           ,     number = False              &= help "Literal numbers" &= explicit &= name "number"
           ,     string = False              &= help "Literal strings" &= explicit &= name "string"
