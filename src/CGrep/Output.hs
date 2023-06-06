@@ -21,8 +21,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module CGrep.Output ( Output(..)
                     , mkOutputElements
@@ -55,7 +54,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, Offset )
-import CGrep.Chunk ( MatchingLine(..), Chunk(..), mkChunk, cToken, cOffset )
+import CGrep.Parser.Chunk
 
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( ReaderIO, Env(..) )
@@ -66,13 +65,13 @@ import qualified Data.Vector.Fusion.Util as VU (Box(..))
 
 import System.Posix.FilePath (RawFilePath)
 
-import qualified Control.DeepSeq as DS
-import Control.DeepSeq (NFData)
-import GHC.Generics ( Generic )
 import qualified Data.Vector.Generic as GV
-import qualified Data.Char as CGrep.Parser
 import CGrep.Parser.Line ( getLineOffsets )
 import Options
+    ( Options(Options, invert_match, json, filename_only, no_shallow,
+              no_filename, count, no_color, no_numbers, no_column, show_match,
+              color) )
+import CGrep.Parser.Token
 
 data Output = Output
     { outFilePath :: RawFilePath
@@ -80,7 +79,10 @@ data Output = Output
     , outLine     :: {-# UNPACK #-} !Text8
     , outChunks   :: ![Chunk]
     }
-    deriving (Show, Generic, NFData)
+
+outTokens :: Output -> [Text8]
+outTokens (Output fp ln l cs) = cToken <$> cs
+{-# INLINE  outTokens #-}
 
 
 insertIndex :: UV.Vector Offset -> Offset -> Int
@@ -104,22 +106,22 @@ getLineNumberAndOffset xs x =
 mkOutputElements :: UV.Vector Int64 -> RawFilePath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
 mkOutputElements lineOffsets f text multi ts = do
     invert <- invert_match <$> reader opt
-    return $ if invert then map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines lineOffsets multi ts
-                       else map (\(MatchingLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines lineOffsets multi ts
+    return $ if invert then map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) . invertLines (length ls) $ mkMatchingLines lineOffsets multi ts
+                       else map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n-1)) xs) $ mkMatchingLines lineOffsets multi ts
     where ls = C.lines text
 {-# INLINE mkOutputElements #-}
 
 
-mkMatchingLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchingLine]
+mkMatchingLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchLine]
 mkMatchingLines lineOffsets _ [] = []
 mkMatchingLines lineOffsets text ts = map mergeGroup $ groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
-    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchingLine (fromIntegral r) [mkChunk (cToken chunk) c]) <$> ts
-        where mergeGroup :: [MatchingLine] -> MatchingLine
-              mergeGroup ls = MatchingLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
+    (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> ts
+        where mergeGroup :: [MatchLine] -> MatchLine
+              mergeGroup ls = MatchLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
 
 
-invertLines :: Int -> [MatchingLine] -> [MatchingLine]
-invertLines n xs =  filter (\(MatchingLine i _) ->  i `notElem` idx ) $ take n [ MatchingLine i [] | i <- [1..]]
+invertLines :: Int -> [MatchLine] -> [MatchLine]
+invertLines n xs =  filter (\(MatchLine i _) ->  i `notElem` idx ) $ take n [ MatchLine i [] | i <- [1..]]
     where idx = lOffset <$> xs
 {-# INLINE invertLines #-}
 
@@ -140,13 +142,13 @@ runSearch :: Options
 runSearch opt filename eligible doSearch =
     if eligible || no_shallow opt
         then doSearch
-        else mkOutputElements UV.empty filename C.empty C.empty []
+        else mkOutputElements UV.empty filename C.empty C.empty ([] :: [Chunk])
 
 
 defaultOutput :: [Output] -> ReaderIO B.Builder
 defaultOutput xs = do
     Env{..} <- ask
-    if |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
+    if  |  Options{ no_filename = False, no_numbers = False , count = False } <- opt
                 -> pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
 
         |  Options{ no_filename = False, no_numbers = True  , count = False } <- opt
@@ -224,7 +226,7 @@ buildLineCol Options{no_numbers = False, no_column = False } (Output _ n _ ts) =
 
 buildTokens :: Options -> Output -> B.Builder
 buildTokens Options { show_match = st } out
-    | st        = boldBuilder <> mconcat (B.byteString . cToken <$> outChunks out) <> resetBuilder <> B.char8 ':'
+    | st        = boldBuilder <> mconcat (B.byteString <$> outTokens out) <> resetBuilder <> B.char8 ':'
     | otherwise = mempty
 
 

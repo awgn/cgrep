@@ -17,14 +17,13 @@
 --
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module CGrep.Strategy.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
 
 import CGrep.Parser.Token
-    ( Token(TokenIdentifier, TokenString, toOffset, toString),
-      parseTokens )
 
 import CGrep.ContextFilter
 import CGrep.Common
@@ -55,7 +54,7 @@ import Data.Maybe ( mapMaybe )
 import Reader ( ReaderIO, Env (..) )
 import Verbose ( putMsgLnVerbose )
 import Util ( rmQuote8 )
-import CGrep.Chunk (Chunk (..), mkChunk)
+import CGrep.Parser.Chunk
 
 import System.Posix.FilePath ( RawFilePath, takeBaseName )
 
@@ -67,6 +66,7 @@ import System.IO ( stderr )
 import qualified Data.Sequence as S
 import Data.Foldable ( Foldable(toList) )
 import Debug.Trace
+import Data.Coerce
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
@@ -92,9 +92,9 @@ search info f ps = do
 
         identifiers = mapMaybe
           (\case
-             Token (TokenString xs _) -> Just (rmQuote8 $ trim8 xs)
-             Token (TokenIdentifier "OR" _) -> Nothing
-             Token t -> Just (toString t)
+             Raw (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
+             Raw (Token (Chunk ChunkIdentifier "OR" _)) -> Nothing
+             Raw t -> Just (tToken t)
              _ -> Nothing)
           (concatMap toList patterns')
 
@@ -114,11 +114,11 @@ search info f ps = do
 
         -- get matching tokens ...
 
-        let tokens' = sortBy (compare `on` toOffset) $ nub $ concatMap (\ms -> filterTokensWithAtoms opt ms tokens) patterns''
+        let tokens' = sortBy (compare `on` tOffset) $ nub $ concatMap (\ms -> filterTokensWithAtoms opt ms tokens) patterns''
 
         -- convert Tokens to Chunks
 
-        let matches = map (\t -> let n = fromIntegral (toOffset t) in mkChunk (toString t) n) tokens' :: [Chunk]
+        let matches = coerce tokens' :: [Chunk]
 
         putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
         putMsgLnVerbose 2 stderr $ "matches   : " <> show matches

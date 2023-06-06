@@ -42,12 +42,10 @@ import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
 import CGrep.Types ( Offset )
 import CGrep.Search
 
-import CGrep.Parser.Chunk ( parseChunks )
-
 import Reader ( ReaderIO, Env(..) )
 import Options ( Options(word_match, prefix_match, suffix_match) )
 import Verbose ( putMsgLnVerbose )
-import CGrep.Chunk (Chunk(..), mkChunk, cOffset, cToken)
+import CGrep.Parser.Chunk
 import Data.Int ( Int64 )
 
 import System.Posix.FilePath ( RawFilePath )
@@ -83,7 +81,9 @@ search info f patterns = do
 
     -- search for matching tokens
 
-    let chunks = concat $ zipWith (\p xs -> (p `mkChunk`) <$> xs ) patterns indices'''
+    let ctor = Chunk ChunkUnspec
+
+    let chunks = concat $ zipWith (\p xs -> (p `ctor` ) <$> xs ) patterns indices'''
 
     -- filter exact/partial matching tokens
 

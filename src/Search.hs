@@ -120,9 +120,9 @@ import CGrep.LanguagesMap
     ( languageInfoLookup, languageLookup, LanguageInfo )
 
 import Control.Monad.Loops ( whileM_ )
-import Control.DeepSeq as DS ( force )
 import Verbose (putMsgLnVerbose, putMsgLn)
 import Control.Concurrent.MVar ( newMVar, takeMVar )
+import CGrep.Parser.Token
 
 withRecursiveContents :: Options
                       -> RawFilePath

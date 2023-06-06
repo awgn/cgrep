@@ -21,13 +21,11 @@ import Data.Int ( Int64 )
 -- Returns a vector of offsets for a given character in a ByteString, up to the given maximum offset.
 charOffsets :: Char -> Int64 -> C.ByteString -> UV.Vector Int64
 charOffsets c maxOff bs = UV.unfoldrN (fromIntegral maxOff) findOffsets 0
-  where
-    !target = c2w c
-    findOffsets :: Int64 -> Maybe (Int64, Int64)
-    findOffsets i
-      | i >= maxOff = Nothing
-      | BU.unsafeIndex bs (fromIntegral i) == target = Just (fromIntegral i, i + 1)
-      | otherwise = findOffsets (i + 1)
+  where findOffsets :: Int64 -> Maybe (Int64, Int64)
+        findOffsets i
+          | i >= maxOff = Nothing
+          | BU.unsafeIndex bs (fromIntegral i) == (c2w c)= Just (fromIntegral i, i + 1)
+          | otherwise = findOffsets (i + 1)
 
 
 getLineOffsets :: Int64 -> Text8 -> UV.Vector Offset
@@ -39,15 +37,15 @@ getLineOffsets maxOff text =
         else if UV.last idx == fromIntegral (l-1)
             then UV.init idx
             else idx
-    where nlOffsets :: Int -> Text8 -> UV.Vector Int64
-          nlOffsets maxOff bs = UV.unfoldrN maxOff findOffsets 0
-            where
-              findOffsets :: Int -> Maybe (Int64, Int)
-              findOffsets !i
-                | i == 0 = Just (0, 1)
-                | i >= maxOff = Nothing
-                | BU.unsafeIndex bs (fromIntegral i) == c2w '\n' = Just (fromIntegral i + 1, i + 1)
-                | otherwise = findOffsets (i + 1)
+    where {-# INLINE nlOffsets #-}
+          nlOffsets :: Int -> Text8 -> UV.Vector Int64
+          nlOffsets maxOff bs = UV.unfoldrN maxOff (findOffsets maxOff bs) 0
+          findOffsets :: Int -> Text8 -> Int -> Maybe (Int64, Int)
+          findOffsets max ts !i
+              | i == 0 = Just (0, 1)
+              | i >= max = Nothing
+              | BU.unsafeIndex ts (fromIntegral i) == c2w '\n' = Just (fromIntegral i + 1, i + 1)
+              | otherwise = findOffsets max ts (i + 1)
 
 
 getAllLineOffsets :: Text8 -> UV.Vector Offset

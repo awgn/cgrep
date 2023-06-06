@@ -41,22 +41,21 @@ import Util ( spanGroup, rmQuote8 )
 
 import qualified CGrep.Parser.Token as T
 import qualified Data.ByteString.Char8 as C
+import qualified CGrep.Parser.Chunk as T
 
 data Atom =
-    Token T.Token  |
-    Any            |
-    Keyword        |
-    Number         |
-    Oct            |
-    Hex            |
-    String         |
-    Literal        |
-    Identifier  C.ByteString
-        deriving (Show, Eq, Ord)
-
+    Any                         |
+    Keyword                     |
+    Number                      |
+    Oct                         |
+    Hex                         |
+    String                      |
+    Literal                     |
+    Identifier  C.ByteString    |
+    Raw T.Token
+        deriving (Eq, Ord, Show)
 
 type Atoms = [Atom]
-
 
 wildCardMap :: M.Map C.ByteString Atom
 wildCardMap = M.fromList
@@ -70,20 +69,19 @@ wildCardMap = M.fromList
                 ("LIT", String  )
             ]
 
-
 mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
     | T.isIdentifier t = case () of
         _ | Just wc <- M.lookup str wildCardMap -> wc
           | isAtomIdentifier str                -> Identifier str
-          | otherwise                           -> Token $ T.TokenIdentifier (rmAtomEscape str) (T.toOffset t)
-            where str = T.toString t
-    | otherwise = Token t
+          | otherwise                           -> Raw $ T.mkTokenIdentifier (rmAtomEscape str) (T.tOffset t)
+            where str = T.tToken t
+    | otherwise = Raw t
 
 
 combineAtoms :: [Atoms] -> [Atoms]
 combineAtoms (m1:r@(m2:m3:ms))
-    | [Token b] <- m2, T.toString b == "OR" = combineAtoms $ (m1<>m3):ms
+    | [Raw b] <- m2, T.tToken b == "OR" = combineAtoms $ (m1<>m3):ms
     | otherwise      =  m1 : combineAtoms r
 combineAtoms [m1,m2] =  [m1,m2]
 combineAtoms [m1]    =  [m1]
@@ -96,7 +94,7 @@ filterTokensWithAtoms opt ws ts = go opt (spanOptionalCards ws) ts
     where go  :: Options -> [[Atoms]] -> [T.Token] -> [T.Token]
           go  _ [] _ = []
           go opt (g:gs) ts =
-              {-# SCC "atomConcatMap" #-} concatMap (take grpLen . (`drop` ts)) ({-# SCC "atomicFindIndices" #-} findIndices (wildCardsCompare opt g) grp) <> go opt gs ts
+              {-# SCC "atom_find_total" #-} concatMap (take grpLen . (`drop` ts)) ({-# SCC "atom_find_indices" #-} findIndices (wildCardsCompare opt g) grp) <> {-# SCC atom_find_req #-} go opt gs ts
               where grp    = {-# SCC "atomSpanGroup" #-} spanGroup grpLen ts
                     grpLen = length g
 
@@ -140,6 +138,7 @@ rmAtomEscape xs = xs
 wildCardsCompareAll :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
 wildCardsCompareAll = all fst
 {-# INLINE wildCardsCompareAll #-}
+{-# SCC wildCardsCompareAll #-}
 
 -- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
 --       that must compare equal in the respective occurrences
@@ -171,6 +170,7 @@ wildCardsCheckOccurrences ts =  M.foldr (\xs r -> r && all (== head xs) xs) True
                     _                  -> []
                 ) $ M.fromListWith (<>) (map snd ts)
 {-# INLINE wildCardsCheckOccurrences #-}
+{-# SCC wildCardsCheckOccurrences #-}
 
 
 wildCardsGroupCompare :: Options -> [Atoms] -> [T.Token] -> [(Bool, (Atoms, [C.ByteString]))]
@@ -178,41 +178,47 @@ wildCardsGroupCompare opt ls rs
     | length rs >= length ls = zipWith (tokensZip opt) ls rs
     | otherwise              = [ (False, ([Any], [])) ]
 {-# INLINE wildCardsGroupCompare #-}
+{-# SCC wildCardsGroupCompare #-}
 
 
 tokensZip :: Options -> Atoms -> T.Token -> (Bool, (Atoms, [C.ByteString]))
 tokensZip opt l r
-    |  wildCardsMatch opt l r = (True,  (l, [T.toString r]))
+    |  wildCardsMatch opt l r = (True,  (l, [T.tToken r]))
     |  otherwise              = (False, ([Any],[] ))
 {-# INLINE tokensZip #-}
+{-# SCC tokensZip #-}
 
 
 wildCardsMatch :: Options ->  Atoms -> T.Token -> Bool
 wildCardsMatch opt m t = any (\w -> wildCardMatch opt w t) m
 {-# INLINE wildCardsMatch #-}
+{-# SCC wildCardsMatch #-}
 
+
+{-# SCC wildCardMatch #-}
 wildCardMatch :: Options -> Atom -> T.Token -> Bool
-wildCardMatch _  Any _          = True
-wildCardMatch _  (Identifier _) t  = T.isIdentifier t
-wildCardMatch _  Keyword     t  = T.isKeyword t
-wildCardMatch _  String      t  = T.isString t
-wildCardMatch _  Literal     t  = T.isString t
-wildCardMatch _  Number      t  = T.isNumber t
-wildCardMatch _  Oct         t  = T.isNumber t && case C.uncons (T.toString t) of Just ('0', C.uncons -> Just (d, _))  -> isDigit d; _ -> False
-wildCardMatch _  Hex         t  = T.isNumber t && case C.uncons (T.toString t) of Just ('0', C.uncons -> Just ('x',_)) -> True; _      -> False
-wildCardMatch opt (Token l) r
-    | T.isIdentifier l && T.isIdentifier r =
-        if | edit_dist  opt   -> (C.unpack . T.toString) l ~== C.unpack (T.toString r)
-           | word_match opt   -> T.toString l ==  T.toString r
-           | prefix_match opt -> T.toString l `C.isPrefixOf`  T.toString r
-           | suffix_match opt -> T.toString l `C.isSuffixOf`  T.toString r
-           | otherwise        -> T.toString l `C.isInfixOf` T.toString r
-    | T.isString l && T.isString r = case () of
-        _ | edit_dist  opt   -> C.unpack ls ~== C.unpack rs
-          | word_match opt   -> ls ==  rs
-          | prefix_match opt -> ls `C.isPrefixOf` rs
-          | suffix_match opt -> ls `C.isSuffixOf` rs
-          | otherwise        -> ls `C.isInfixOf`  rs
-            where ls = rmQuote8 $ trim8 (T.toString l)
-                  rs = rmQuote8 $ trim8 (T.toString r)
-    | otherwise  = l `T.tokenEqual` r
+wildCardMatch opt (Raw l) r
+    | T.isIdentifier l && T.isIdentifier r = {-# SCC wildcard_raw_0 #-}
+        if | word_match opt   -> T.tToken l ==  T.tToken r
+           | prefix_match opt -> T.tToken l `C.isPrefixOf`  T.tToken r
+           | suffix_match opt -> T.tToken l `C.isSuffixOf`  T.tToken r
+           | edit_dist  opt   -> (C.unpack . T.tToken) l ~== C.unpack (T.tToken r)
+           | otherwise        -> T.tToken l `C.isInfixOf` T.tToken r
+    | T.isString l && T.isString r = {-# SCC wildcard_raw_1 #-}
+        if | word_match opt   -> ls == rs
+           | prefix_match opt -> ls `C.isPrefixOf` rs
+           | suffix_match opt -> ls `C.isSuffixOf` rs
+           | edit_dist  opt   -> C.unpack ls ~== C.unpack rs
+           | otherwise        -> ls `C.isInfixOf`  rs
+    | otherwise  = {-# SCC wildcard_raw_2 #-} l `T.eqToken` r
+            where ls = rmQuote8 $ trim8 (T.tToken l)
+                  rs = rmQuote8 $ trim8 (T.tToken r)
+
+wildCardMatch _  Any _             = {-# SCC wildcard_any #-} True
+wildCardMatch _  (Identifier _) t  = {-# SCC wildcard_identifier #-} T.isIdentifier t
+wildCardMatch _  Keyword        t  = {-# SCC wildcard_keyword #-} T.isKeyword t
+wildCardMatch _  String         t  = {-# SCC wildcard_string #-} T.isString t
+wildCardMatch _  Literal        t  = {-# SCC wildcard_lit #-} T.isString t
+wildCardMatch _  Number         t  = {-# SCC wildcard_number #-} T.isNumber t
+wildCardMatch _  Oct            t  = {-# SCC wildcard_octal #-} T.isNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just (d, _))  -> isDigit d; _ -> False
+wildCardMatch _  Hex            t  = {-# SCC wildcard_hex #-} T.isNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just ('x',_)) -> True; _      -> False

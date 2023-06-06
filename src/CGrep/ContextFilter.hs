@@ -58,8 +58,8 @@ data Context = Code | Comment | Literal
     deriving (Eq, Show)
 
 newtype ContextBit = ContextBit Int32
-    deriving stock (Eq, Show)
-    deriving newtype (Bits)
+    deriving stock (Show)
+    deriving newtype (Eq, Bits)
 
 
 contextBitEmpty :: ContextBit
@@ -88,8 +88,8 @@ a ~! b = ContextFilter $ unFilter a .&. complement b
 
 
 newtype ContextFilter = ContextFilter { unFilter :: ContextBit }
-    deriving stock (Eq, Show)
-    deriving newtype (Bits)
+    deriving stock (Show)
+    deriving newtype (Eq, Bits)
 
 contextFilterAll :: ContextFilter
 contextFilterAll = ContextFilter (contextBitCode .|. contextBitComment .|. contextBitLiteral)

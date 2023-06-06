@@ -23,7 +23,6 @@ module CGrep.Strategy.Tokenizer (search) where
 import qualified Data.ByteString.Char8 as C
 
 import CGrep.Parser.Token
-    ( Token(..), TokenFilter(..), parseTokens, filterToken )
 
 import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
@@ -40,7 +39,11 @@ import CGrep.Common
       )
 import CGrep.Output ( Output, mkOutputElements, runSearch )
 import CGrep.Distance ( (~==) )
+
 import CGrep.Parser.Line
+import CGrep.Parser.Chunk
+import CGrep.Parser.Token
+
 import CGrep.Language ( Language )
 import CGrep.LanguagesMap
     ( languageLookup, LanguageInfo, contextFilter )
@@ -53,13 +56,16 @@ import Options
     ( Options(identifier, keyword, string, number, operator, edit_dist,
               word_match, prefix_match, suffix_match) )
 import Verbose ( putMsgLnVerbose )
-import CGrep.Chunk (Chunk (..), mkChunk)
+
+import CGrep.Parser.Chunk (Chunk(..))
 import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
 
 import Data.Foldable ( Foldable(toList) )
 import CGrep.Types (Offset)
 import Debug.Trace
+import CGrep.Parser.Atom
+import Data.Coerce
 
 import qualified Data.Sequence as S
 import Util
@@ -117,15 +123,15 @@ search info f ps = do
 
 genericTokenPredicate :: Options -> [C.ByteString] -> Token -> Bool
 genericTokenPredicate opt patterns tokens
-    | edit_dist    opt = (\t -> any (\p -> C.unpack p ~==  (C.unpack .toString) t) patterns) tokens
-    | word_match   opt = ((`elem` patterns) . toString) tokens
-    | prefix_match opt = ((\t -> any (`C.isPrefixOf`t) patterns) . toString) tokens
-    | suffix_match opt = ((\t -> any (`C.isSuffixOf`t) patterns) . toString) tokens
-    | otherwise        = ((\t -> any (`C.isInfixOf` t) patterns) . toString) tokens
+    | edit_dist    opt = (\t -> any (\p -> C.unpack p ~==  (C.unpack . tToken) t) patterns) tokens
+    | word_match   opt = ((`elem` patterns) . tToken) tokens
+    | prefix_match opt = ((\t -> any (`C.isPrefixOf`t) patterns) . tToken) tokens
+    | suffix_match opt = ((\t -> any (`C.isSuffixOf`t) patterns) . tToken) tokens
+    | otherwise        = ((\t -> any (`C.isInfixOf` t) patterns) . tToken) tokens
 
 
 genericTokenFilter :: Options -> [C.ByteString] -> Token -> Maybe Chunk
-genericTokenFilter opt patterns tokens
-    | genericTokenPredicate opt patterns tokens = Just $ mkChunk (toString tokens) (fromIntegral (toOffset tokens))
+genericTokenFilter opt patterns token
+    | genericTokenPredicate opt patterns token = Just $ coerce token
     | otherwise = Nothing
 {-# INLINE genericTokenFilter #-}

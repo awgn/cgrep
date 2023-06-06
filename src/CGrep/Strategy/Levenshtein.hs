@@ -34,8 +34,7 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
-import CGrep.Chunk ( Chunk(..), cToken )
-import CGrep.Parser.Chunk ( parseChunks )
+import CGrep.Parser.Chunk ( Chunk, cToken, parseChunks )
 import CGrep.Language ( Language )
 import CGrep.LanguagesMap
     ( languageLookup, LanguageInfo, contextFilter )

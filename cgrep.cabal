@@ -60,7 +60,6 @@ Executable cgrep
                        CGrep.Distance
                        CGrep.Search
                        CGrep.Common
-                       CGrep.Chunk
                        CGrep.Boundary
                        CGrep.Parser.Char
                        CGrep.Parser.Chunk
