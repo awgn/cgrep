@@ -196,21 +196,6 @@ runContextFilter conf@ParConfig{..} f txt | alterBoundary = fst $ C.unfoldrN (C.
           contextFilterImpl _ (C.uncons -> Nothing, _) = Nothing
 
 
-displayContext :: ContextState -> ContextFilter -> Bool
-displayContext  CodeState     cf = cf ~? contextBitCode
-displayContext  (CommState _) cf = cf ~? contextBitComment
-displayContext  (LitrState _) cf = cf ~? contextBitLiteral
-displayContext  (RawState _)  cf = cf ~? contextBitLiteral
-displayContext  (ChrState _)  cf = cf ~? contextBitLiteral
-{-# INLINE displayContext #-}
-
-
-transState :: ParState -> ParState
-transState s@ParState {..} | skip == 0 = s{ ctxState = nextState }
-                           | otherwise = s
-{-# INLINE transState #-}
-
-
 nextContextState :: ParConfig -> ParState -> Text8 -> ContextFilter -> ParState
 nextContextState c s@ParState{..} txt f
     | skip > 0   = {-# SCC skip #-} transState s{ skip = skip - 1 }
@@ -250,6 +235,21 @@ nextContextState c s@ParState{..} txt f
             in {-# SCC next_raw #-} if e `C.isPrefixOf` txt
                 then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter f, skip = C.length e - 1}
                 else s{ display = literalFilter f , skip = 0}
+
+
+displayContext :: ContextState -> ContextFilter -> Bool
+displayContext  CodeState     cf = cf ~? contextBitCode
+displayContext  (CommState _) cf = cf ~? contextBitComment
+displayContext  (LitrState _) cf = cf ~? contextBitLiteral
+displayContext  (RawState _)  cf = cf ~? contextBitLiteral
+displayContext  (ChrState _)  cf = cf ~? contextBitLiteral
+{-# INLINE displayContext #-}
+
+
+transState :: ParState -> ParState
+transState s@ParState {..} | skip == 0 = s{ ctxState = nextState }
+                           | otherwise = s
+{-# INLINE transState #-}
 
 
 findPrefixBoundary :: Text8 -> V.Vector Boundary -> Maybe Int
