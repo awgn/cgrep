@@ -122,7 +122,7 @@ import CGrep.LanguagesMap
 import Control.Monad.Loops ( whileM_ )
 import Verbose (putMsgLnVerbose, putMsgLn)
 import Control.Concurrent.MVar ( newMVar, takeMVar )
-import CGrep.Parser.Token
+import Data.IORef.Extra (atomicWriteIORef')
 
 withRecursiveContents :: Options
                       -> RawFilePath
@@ -130,69 +130,66 @@ withRecursiveContents :: Options
                       -> [RawFilePath]
                       -> Set.Set RawFilePath
                       -> IORef Int
+                      -> IORef Int
                       -> ([RawFilePath] -> IO ()) -> IO ()
-withRecursiveContents opt@Options{..} dir langs pdirs visited cnt action = do
+withRecursiveContents opt@Options{..} dir langs pdirs visited cnt walkers action = do
     xs <- getDirectoryContents dir
-
     let (dirs, files) = partition ((== dtDir) . fst) xs
 
     -- filter the list of files
-
     let files' = (dir </>) . snd <$> filter (\f -> fileFilter opt langs (snd f) && (not skip_test || isNotTestFile (snd f))) files
     let dirs'  = (dir </>) . snd <$> dirs
 
-    -- run action
+    -- run IO action
+    blen <- batchLen cnt 64
+    mapM_ action (chunksOf blen files')
 
-    blen <- batchLen cnt 256
+    -- process directories recursively...
+    foreach <- atomicModifyIORef' walkers (\n -> (n+1, n+1)) >>= \tot -> do
+        if tot < 64 then pure (forConcurrently_ @[])
+                  else pure forM_
 
-    unless (null files') $ do
-        mapM_ action (chunksOf blen files')
+    foreach dirs' $ \dirPath -> do
+        unless (isPrunableDir dirPath pdirs) $
+             -- this is a good directory, unless already visited...
 
-    -- process dirs recursively
+             -- this is a good directory, unless already visited...
+            makeRawAbsolute dirPath >>= \cpath ->
+                unless (cpath `Set.member` visited) $
+                    withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) cnt walkers action
 
-    forConcurrently_ dirs' $ \dirPath -> do
-        unless (isPrunableDir dirPath pdirs) $ -- this is a good directory (unless already visited)!
-                 -- this is a good directory (unless already visited)!
-                makeRawAbsolute dirPath >>= \cpath ->
-                    unless (cpath `Set.member` visited) $
-                        withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) cnt action
-
+    atomicModifyIORef' walkers (\n -> (n-1, ()))
 
 parallelSearch :: [RawFilePath] -> [C.ByteString] -> [Language] -> Bool -> ReaderIO ()
 parallelSearch paths patterns langs isTermIn = do
-
     Env{..} <- ask
 
     let Config{..} = conf
         Options{..} = opt
 
     -- create channels ...
-
-    fileCh <- liftIO $ newChan 8192
-    outCh  <- liftIO $ newChan 8192
+    (fileCh, outCh) <- liftIO $ newChan 8192 >>= \i -> newChan 8192 >>= \o -> pure (i, o)
 
     -- recursively traverse the filesystem ...
-
     _ <- liftIO . forkIO $ do
         cnt <- newIORef (0 :: Int)
-
+        walkers <- newIORef (0 :: Int)
         if recursive || follow
             then forM_ (if null paths then ["."] else paths) $ \p ->
-                    doesDirectoryExist p >>= \case
-                        True -> withRecursiveContents opt p langs
-                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p) cnt $ do
-                                    (\a -> writeChan (fst fileCh) a *> atomicModifyIORef' cnt (\x -> (x+1, ())))
-                        _     ->  writeChan (fst fileCh) [p] *> atomicModifyIORef' cnt (\x -> (x+1, ()))
+                doesDirectoryExist p >>= \case
+                    True -> withRecursiveContents opt p langs
+                            (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p) cnt walkers $ do
+                                (\a -> writeChan (fst fileCh) a *> atomicModifyIORef' cnt (\x -> (x+1, ())))
+                    _     ->  writeChan (fst fileCh) [p] *> atomicModifyIORef' cnt (\x -> (x+1, ()))
             else forM_ (if null paths && not isTermIn
-                        then [("", 0)]
-                        else paths `zip` [0..]) (\(p, idx) -> writeChan (fst fileCh) [p] )
+                    then [("", 0)]
+                    else paths `zip` [0..]) (\(p, idx) -> writeChan (fst fileCh) [p])
 
         -- enqueue EOF messages...
         forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
         when (verbose > 0) $ putMsgLn @Text8 stderr "filesystem traversal completed!"
 
     -- launch the worker threads...
-
     matchingFiles <- liftIO $ newIORef Set.empty
 
     let env = Env conf opt
@@ -223,16 +220,13 @@ parallelSearch paths patterns langs isTermIn = do
                 throwE ()
 
     -- dump output until workers are done
-
     liftIO $  do
         totalDone <- newIORef (0 :: Int)
         whileM_ (readIORef totalDone >>= \n -> pure (n < jobs)) $
             readChan (snd outCh) *> modifyIORef' totalDone (+1)
 
     -- run editor...
-
     when (vim || editor ) $ liftIO $ do
-
         editor' <- if vim
                     then return (Just "vim")
                     else lookupEnv "EDITOR"
@@ -305,9 +299,11 @@ mkPrunableDirName xs | "/" `C.isSuffixOf` xs = xs
 v .!. i = v ! (i `mod` V.length v)
 {-# INLINE  (.!.) #-}
 
+
 hasLanguage :: RawFilePath -> Options -> [Language] -> Bool
 hasLanguage path opt xs = isJust $ languageLookup opt path >>= (`elemIndex` xs)
 {-# INLINE hasLanguage #-}
+
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options{..} =
@@ -316,6 +312,7 @@ hasTokenizerOpt Options{..} =
   number     ||
   string     ||
   operator
+
 
 isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
