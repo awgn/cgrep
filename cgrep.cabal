@@ -115,7 +115,8 @@ Executable cgrep
                        text,
                        extra
 
-  Ghc-options:  -O2 -j -funbox-strict-fields
+  Ghc-options:  -O2 -optc-O3 -j 
+                -funbox-strict-fields
                 -fwrite-ide-info
                 -hiedir=.hie
                 -threaded
