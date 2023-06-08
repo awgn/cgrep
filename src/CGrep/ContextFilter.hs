@@ -143,7 +143,12 @@ data ParState =  ParState
     } deriving (Show)
 
 
-data ContextState = CodeState | CommState {-# UNPACK #-} !Int | ChrState {-# UNPACK #-} !Int | LitrState {-# UNPACK #-} !Int | RawState {-# UNPACK #-} !Int
+data ContextState =
+        CodeState1 | CodeStateN |
+        CommState1 {-# UNPACK #-} !Int | CommStateN {-# UNPACK #-} !Int |
+        ChrState {-# UNPACK #-} !Int   |
+        LitrState1 {-# UNPACK #-} !Int | LitrStateN {-# UNPACK #-} !Int |
+        RawState {-# UNPACK #-} !Int
     deriving (Show, Eq, Ord)
 
 
@@ -160,11 +165,14 @@ unpackBoundary (Boundary a b) = (C.unpack a, C.unpack b)
 
 
 getContext :: ContextState -> Context
-getContext CodeState = Code
-getContext (CommState _ ) = Comment
-getContext (LitrState _)  = Literal
-getContext (RawState _)   = Literal
-getContext (ChrState _)   = Literal
+getContext CodeState1 = Code
+getContext CodeStateN = Code
+getContext (CommState1 _ ) = Comment
+getContext (CommStateN _ ) = Comment
+getContext (LitrState1 _)  = Literal
+getContext (LitrStateN _)  = Literal
+getContext (RawState _)    = Literal
+getContext (ChrState _)    = Literal
 {-# INLINE  getContext #-}
 
 -- contextFilterFun:
@@ -174,8 +182,8 @@ type ParData = ( Text8, ParState )
 
 {-# INLINE nextContextState #-}
 runContextFilter :: ParConfig -> ContextFilter -> Text8 -> Text8
-runContextFilter conf@ParConfig{..} f txt | alterBoundary = fst $ C.unfoldrN (C.length txt) (contextFilter'  conf) ( txt, ParState CodeState CodeState (codeFilter f) 0 )
-                                          |    otherwise  = fst $ C.unfoldrN (C.length txt) (contextFilter'' conf) ( txt, ParState CodeState CodeState (codeFilter f) 0 )
+runContextFilter conf@ParConfig{..} f txt | alterBoundary = fst $ C.unfoldrN (C.length txt) (contextFilter'  conf) ( txt, ParState CodeState1 CodeState1 (codeFilter f) 0 )
+                                          |    otherwise  = fst $ C.unfoldrN (C.length txt) (contextFilter'' conf) ( txt, ParState CodeState1 CodeState1 (codeFilter f) 0 )
     where contextFilter' :: ParConfig -> ParData ->  Maybe (Char, ParData)
           contextFilter' c (txt@(C.uncons -> Just (x,xs)), s) = Just (x', (xs', s'))
               where s' = nextContextState c s txt f
@@ -200,47 +208,80 @@ nextContextState :: ParConfig -> ParState -> Text8 -> ContextFilter -> ParState
 nextContextState c s@ParState{..} txt f
     | skip > 0   = {-# SCC skip #-} transState s{ skip = skip - 1 }
 
-    |  CodeState  <- ctxState = {-# SCC next_code #-} if (fromIntegral . ord) (C.head txt) `B.elem` inits c
-        then if | Just i <-    {-# SCC next_code_1 #-} findPrefixBoundary  txt (commBound c) -> transState s{ nextState = CommState i, display = commentFilter f, skip = C.length (bBegin (commBound c `V.unsafeIndex` i)) - 1 }
-                | Just i <-    {-# SCC next_code_2 #-} findPrefixBoundary  txt (litrBound c) -> transState s{ nextState = LitrState i, display = codeFilter f,    skip = C.length (bBegin (litrBound c `V.unsafeIndex` i)) - 1 }
-                | Just i <-    {-# SCC next_code_3 #-} findPrefixBoundary  txt (rawBound  c) -> transState s{ nextState = RawState  i, display = codeFilter f,    skip = C.length (bBegin (rawBound c  `V.unsafeIndex` i)) - 1 }
-                | Just i <-    {-# SCC next_code_4 #-} findPrefixBoundary' txt (chrBound  c) -> transState s{ nextState = ChrState  i, display = codeFilter f, skip = C.length (bBegin (chrBound c  `V.unsafeIndex` i)) - 1 }
-                | otherwise -> {-# SCC next_code_5 #-} s{ display = codeFilter f, skip = 0 }
-        else {-# SCC next_code_0 #-} s{ display = codeFilter f, skip = 0 }
+    |  CodeState1 <- ctxState = {-# SCC next_code1 #-} if (fromIntegral . ord) (C.head txt) `B.elem` inits c
+        then case findPrefixBoundary txt (commBound c) of
+                (Just i)  -> {-# SCC next_code1_1 #-} transState s{ nextState = CommState1 i, display = commentFilter f, skip = C.length (bBegin (commBound c `V.unsafeIndex` i)) - 1 }
+                _         -> case findPrefixBoundary  txt (litrBound c) of
+                    Just i  -> {-# SCC next_code1_2 #-} transState s{ nextState = LitrState1 i, display = codeFilter f, skip = C.length (bBegin (litrBound c `V.unsafeIndex` i)) - 1 }
+                    _       -> case findPrefixBoundary  txt (rawBound  c) of
+                        Just i -> {-# SCC next_code1_3 #-} transState s{ nextState = RawState  i, display = codeFilter f, skip = C.length (bBegin (rawBound c  `V.unsafeIndex` i)) - 1 }
+                        _      -> case findPrefixBoundary' txt (chrBound  c) of
+                            Just i -> transState s{ nextState = ChrState  i, display = codeFilter f, skip = C.length (bBegin (chrBound c  `V.unsafeIndex` i)) - 1 }
+                            _      -> {-# SCC next_code1_5 #-} s{ ctxState = CodeStateN, nextState = CodeStateN, display = codeFilter f, skip = 0 }
+        else {-# SCC next_code1_0 #-} s{ ctxState = CodeStateN, nextState = CodeStateN, display = codeFilter f, skip = 0 }
 
-    | CommState n <- ctxState =
+    |  CodeStateN <- ctxState = {-# SCC next_code #-} if (fromIntegral . ord) (C.head txt) `B.elem` inits c
+        then case findPrefixBoundary txt (commBound c) of
+                Just i  -> {-# SCC next_code1_1 #-} transState s{ nextState = CommState1 i, display = commentFilter f, skip = C.length (bBegin (commBound c `V.unsafeIndex` i)) - 1 }
+                _       -> case findPrefixBoundary  txt (litrBound c) of
+                    Just i  -> {-# SCC next_code1_2 #-} transState s{ nextState = LitrState1 i, display = codeFilter f, skip = C.length (bBegin (litrBound c `V.unsafeIndex` i)) - 1 }
+                    _       -> case findPrefixBoundary  txt (rawBound  c) of
+                        Just i -> {-# SCC next_code1_3 #-} transState s{ nextState = RawState  i, display = codeFilter f, skip = C.length (bBegin (rawBound c  `V.unsafeIndex` i)) - 1 }
+                        _      -> case findPrefixBoundary' txt (chrBound  c) of
+                            Just i -> transState s{ nextState = ChrState  i, display = codeFilter f, skip = C.length (bBegin (chrBound c  `V.unsafeIndex` i)) - 1 }
+                            _      -> {-# SCC next_code_5 #-} s
+        else {-# SCC next_code_0 #-} s
+
+    | CommState1 n <- ctxState =
+        let Boundary _ e = commBound c `V.unsafeIndex` n
+            in {-# SCC next_comm1 #-} if e `C.isPrefixOf` txt
+                then transState $ s{ nextState = CodeState1, display = commentFilter f, skip = C.length e - 1}
+                else s{ ctxState = CommStateN n, nextState = CommStateN n, display = commentFilter f, skip = 0 }
+
+    | CommStateN n <- ctxState =
         let Boundary _ e = commBound c `V.unsafeIndex` n
             in {-# SCC next_comm #-} if e `C.isPrefixOf` txt
-                then transState $ s{ nextState = CodeState, display = commentFilter f, skip = C.length e - 1}
-                else s { display = commentFilter f, skip = 0 }
+                then transState $ s{ nextState = CodeState1, display = commentFilter f, skip = C.length e - 1}
+                else s
 
-    | LitrState n <- ctxState  =
+    | LitrState1 n <- ctxState  =
         if C.head txt == '\\'
         then s { display = displayContext ctxState f, skip = 1 }
         else let Boundary _ e = litrBound c `V.unsafeIndex` n
                in {-# SCC next_liter #-} if e `C.isPrefixOf` txt
-                    then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter f, skip = C.length e - 1}
-                    else s{ display = literalFilter f, skip = 0 }
+                    then s{ ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = C.length e - 1}
+                    else s{ ctxState = LitrStateN n, nextState = LitrStateN n, display = literalFilter f, skip = 0 }
+
+    | LitrStateN n <- ctxState  =
+        if C.head txt == '\\'
+        then s { display = displayContext ctxState f, skip = 1 }
+        else let Boundary _ e = litrBound c `V.unsafeIndex` n
+               in {-# SCC next_liter #-} if e `C.isPrefixOf` txt
+                    then s{ ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = C.length e - 1}
+                    else s
 
     | ChrState n <- ctxState  =
         if C.head txt == '\\'
         then s { display = displayContext ctxState f, skip = 1 }
         else let Boundary _ e = chrBound c `V.unsafeIndex` n
                 in {-# SCC next_chr #-} if e `C.isPrefixOf` txt
-                    then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter f, skip = C.length e - 1}
+                    then s{ ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = C.length e - 1}
                     else s{ display = literalFilter f , skip = 0}
 
     | RawState n <- ctxState  =
         let Boundary _ e = rawBound c `V.unsafeIndex` n
             in {-# SCC next_raw #-} if e `C.isPrefixOf` txt
-                then s{ ctxState = CodeState, nextState = CodeState, display = codeFilter f, skip = C.length e - 1}
+                then s{ ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = C.length e - 1}
                 else s{ display = literalFilter f , skip = 0}
 
 
 displayContext :: ContextState -> ContextFilter -> Bool
-displayContext  CodeState     cf = cf ~? contextBitCode
-displayContext  (CommState _) cf = cf ~? contextBitComment
-displayContext  (LitrState _) cf = cf ~? contextBitLiteral
+displayContext  CodeState1     cf = cf ~? contextBitCode
+displayContext  CodeStateN     cf = cf ~? contextBitCode
+displayContext  (CommState1 _) cf = cf ~? contextBitComment
+displayContext  (CommStateN _) cf = cf ~? contextBitComment
+displayContext  (LitrState1 _) cf = cf ~? contextBitLiteral
+displayContext  (LitrStateN _) cf = cf ~? contextBitLiteral
 displayContext  (RawState _)  cf = cf ~? contextBitLiteral
 displayContext  (ChrState _)  cf = cf ~? contextBitLiteral
 {-# INLINE displayContext #-}
