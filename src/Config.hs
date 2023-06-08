@@ -20,7 +20,11 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Config where
+module Config (
+    Config(..)
+  , dumpPalette
+  , getConfig
+) where
 
 import Control.Monad ( MonadPlus(mzero), filterM, forM_ )
 import System.Directory ( doesFileExist, getHomeDirectory )
@@ -66,6 +70,7 @@ data Config = Config
   ,   configColorFile  :: [SGR]
   ,   configColorMatch :: [SGR]
   ,   configFileLine   :: Bool
+  ,   configJobs       :: Maybe Int
   } deriving (Show, Read)
 
 
@@ -77,6 +82,7 @@ defaultConfig = Config
   ,   configColorFile   = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Blue]
   ,   configColorMatch  = [SetConsoleIntensity BoldIntensity]
   ,   configFileLine    = False
+  ,   configJobs        = Nothing
   }
 
 
@@ -88,6 +94,7 @@ mkConfig YamlConfig{..} =
        configColorFile  = fromMaybe [] (yamlColorFileName >>= readColor)
        configColorMatch = fromMaybe [] (yamlColorMatch >>= readColor)
        configFileLine   = yamlFileLine
+       configJobs       = yamlJobs
     in Config {..}
 
 
@@ -98,6 +105,7 @@ data YamlConfig = YamlConfig
   ,   yamlColorFileName :: Maybe String
   ,   yamlColorMatch    :: Maybe String
   ,   yamlFileLine      :: Bool
+  ,   yamlJobs          :: Maybe Int
   } deriving (Show, Generic)
 
 
@@ -109,6 +117,7 @@ instance Y.FromJSON YamlConfig where
                <*> v .:? "color_filename"   .!= Nothing
                <*> v .:? "color_match"      .!= Nothing
                <*> v .:? "file_line"        .!= False
+               <*> v .:? "jobs"             .!= Nothing
  parseJSON _ = mzero
 
 

@@ -31,7 +31,7 @@ module Search (
 import Data.List ( isPrefixOf, isSuffixOf, partition, elemIndex, intersperse )
 import Data.List.Split ( chunksOf )
 import qualified Data.Map as M
-import Data.Maybe ( fromJust, isJust, catMaybes )
+import Data.Maybe ( fromJust, isJust, catMaybes, fromMaybe )
 import Data.Function ( fix )
 import qualified Data.Set as Set
 
@@ -146,8 +146,8 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited cnt walkers action
 
     -- process directories recursively...
     foreach <- atomicModifyIORef' walkers (\n -> (n+1, n+1)) >>= \tot -> do
-        if tot < 64 then pure (forConcurrently_ @[])
-                  else pure forM_
+        if tot < 4 then pure (forConcurrently_ @[])
+                        else pure forM_
 
     foreach dirs' $ \dirPath -> do
         unless (isPrunableDir dirPath pdirs) $
@@ -166,6 +166,8 @@ parallelSearch paths patterns langs isTermIn = do
 
     let Config{..} = conf
         Options{..} = opt
+
+    let jobs' = fromMaybe 1 jobs
 
     -- create channels ...
     (fileCh, outCh) <- liftIO $ newChan 8192 >>= \i -> newChan 8192 >>= \o -> pure (i, o)
@@ -186,7 +188,7 @@ parallelSearch paths patterns langs isTermIn = do
                     else paths `zip` [0..]) (\(p, idx) -> writeChan (fst fileCh) [p])
 
         -- enqueue EOF messages...
-        forM_ ([0..jobs-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
+        forM_ ([0..jobs'*2-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
         when (verbose > 0) $ putMsgLn @Text8 stderr "filesystem traversal completed!"
 
     -- launch the worker threads...
@@ -195,7 +197,7 @@ parallelSearch paths patterns langs isTermIn = do
     let env = Env conf opt
         runSearch = getSearcher env
 
-    forM_ ([0 .. jobs-1] :: [Int]) $ \idx -> liftIO . forkIO $ void . runExceptT $ do
+    forM_ ([0 .. jobs'*2-1] :: [Int]) $ \idx -> liftIO . forkIO $ void . runExceptT $ do
         asRef <- liftIO $ newIORef ([] :: [Async ()])
         forever $ do
             fs <- liftIO $ readChan (snd fileCh)
@@ -222,7 +224,7 @@ parallelSearch paths patterns langs isTermIn = do
     -- dump output until workers are done
     liftIO $  do
         totalDone <- newIORef (0 :: Int)
-        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs)) $
+        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs')) $
             readChan (snd outCh) *> modifyIORef' totalDone (+1)
 
     -- run editor...

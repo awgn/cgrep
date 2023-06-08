@@ -120,6 +120,6 @@ Executable cgrep
                 -fwrite-ide-info
                 -hiedir=.hie
                 -threaded
-                -rtsopts "-with-rtsopts=-maxN16 -H1g -qn2"
+                -rtsopts "-with-rtsopts=-N -H1g -qn2"
 
   Default-language:    Haskell2010

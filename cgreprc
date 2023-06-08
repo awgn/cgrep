@@ -13,6 +13,8 @@ colors           : True
 color_filename   : "2:3:5"
 color_match      : "5:0:1"
 
+jobs: 12
+
 #
 # file_line option: enable edit for file:line
 # vim: see 'file-line' plugin

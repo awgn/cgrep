@@ -69,7 +69,7 @@ data Options = Options
     ,   editor              :: Bool
     ,   fileline            :: Bool
     -- Parallel:
-    ,   jobs                :: Int
+    ,   jobs                :: Maybe Int
     -- Misc:
     ,   verbose             :: Int
     ,   no_shallow          :: Bool

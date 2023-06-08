@@ -35,7 +35,7 @@ import Control.Monad.Trans.Reader ( ReaderT(runReaderT), ask )
 import Control.Monad ( when, void )
 
 import qualified Data.Map as M
-import GHC.Conc ( getNumCapabilities )
+import GHC.Conc ( getNumCapabilities, setNumCapabilities )
 import GHC.IO.Handle ( hIsTerminalDevice )
 
 import System.IO ( stdin, stdout, stderr )
@@ -53,18 +53,19 @@ import Paths_cgrep ( version )
 import CmdOptions ( options )
 import Options ( Options(..) )
 import Config
-    ( dumpPalette, getConfig, Config(configLanguages, configColors) )
+    ( dumpPalette, getConfig, Config(configLanguages, configColors, configJobs) )
 import Util ( partitionM)
 import Reader ( ReaderIO, Env (..) )
 import Search ( parallelSearch, isRegexp )
 import System.Posix.FilePath (RawFilePath)
 
 import Data.List.Extra (notNull)
+import Data.Functor
+import Control.Applicative
 
 main :: IO ()
 main = do
     -- check whether this is a terminal device
-
     isTermIn  <- hIsTerminalDevice stdin
     isTermOut <- hIsTerminalDevice stdout
 
@@ -121,12 +122,12 @@ main = do
         ) (Env conf opt)
 
     -- specify number of cores
-    njobs <- if jobs /= 0
-                then return jobs
-                else getNumCapabilities
+    cap <- case jobs <|> configJobs conf of
+            (Just j) ->  setNumCapabilities j $> j
+            Nothing  ->  getNumCapabilities
 
     -- run search
-    runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt { jobs = njobs})
+    runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt {jobs = Just cap})
 
 
 readPatternsFromFile :: RawFilePath -> IO [C.ByteString]
