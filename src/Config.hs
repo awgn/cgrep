@@ -117,7 +117,7 @@ instance Y.FromJSON YamlConfig where
                <*> v .:? "color_filename"   .!= Nothing
                <*> v .:? "color_match"      .!= Nothing
                <*> v .:? "file_line"        .!= False
-               <*> v .:? "jobs"             .!= Nothing
+               <*> v .:? "threads"          .!= Nothing
  parseJSON _ = mzero
 
 
