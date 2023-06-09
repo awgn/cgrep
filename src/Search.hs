@@ -224,7 +224,7 @@ parallelSearch paths patterns langs isTermIn = do
     -- dump output until workers are done
     liftIO $  do
         totalDone <- newIORef (0 :: Int)
-        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs')) $
+        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs'*2)) $
             readChan (snd outCh) *> modifyIORef' totalDone (+1)
 
     -- run editor...
