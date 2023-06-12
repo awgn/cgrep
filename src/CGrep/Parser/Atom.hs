@@ -71,7 +71,7 @@ wildCardMap = M.fromList
 
 mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
-    | T.isIdentifier t = case () of
+    | T.isTokenIdentifier t = case () of
         _ | Just wc <- M.lookup str wildCardMap -> wc
           | isAtomIdentifier str                -> Identifier str
           | otherwise                           -> Raw $ T.mkTokenIdentifier (rmAtomEscape str) (T.tOffset t)
@@ -198,13 +198,13 @@ wildCardsMatch opt m t = any (\w -> wildCardMatch opt w t) m
 {-# SCC wildCardMatch #-}
 wildCardMatch :: Options -> Atom -> T.Token -> Bool
 wildCardMatch opt (Raw l) r
-    | T.isIdentifier l && T.isIdentifier r = {-# SCC wildcard_raw_0 #-}
+    | T.isTokenIdentifier l && T.isTokenIdentifier r = {-# SCC wildcard_raw_0 #-}
         if | word_match opt   -> T.tToken l ==  T.tToken r
            | prefix_match opt -> T.tToken l `C.isPrefixOf`  T.tToken r
            | suffix_match opt -> T.tToken l `C.isSuffixOf`  T.tToken r
            | edit_dist  opt   -> (C.unpack . T.tToken) l ~== C.unpack (T.tToken r)
            | otherwise        -> T.tToken l `C.isInfixOf` T.tToken r
-    | T.isString l && T.isString r = {-# SCC wildcard_raw_1 #-}
+    | T.isTokenString l && T.isTokenString r = {-# SCC wildcard_raw_1 #-}
         if | word_match opt   -> ls == rs
            | prefix_match opt -> ls `C.isPrefixOf` rs
            | suffix_match opt -> ls `C.isSuffixOf` rs
@@ -215,10 +215,10 @@ wildCardMatch opt (Raw l) r
                   rs = rmQuote8 $ trim8 (T.tToken r)
 
 wildCardMatch _  Any _             = {-# SCC wildcard_any #-} True
-wildCardMatch _  (Identifier _) t  = {-# SCC wildcard_identifier #-} T.isIdentifier t
-wildCardMatch _  Keyword        t  = {-# SCC wildcard_keyword #-} T.isKeyword t
-wildCardMatch _  String         t  = {-# SCC wildcard_string #-} T.isString t
-wildCardMatch _  Literal        t  = {-# SCC wildcard_lit #-} T.isString t
-wildCardMatch _  Number         t  = {-# SCC wildcard_number #-} T.isNumber t
-wildCardMatch _  Oct            t  = {-# SCC wildcard_octal #-} T.isNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just (d, _))  -> isDigit d; _ -> False
-wildCardMatch _  Hex            t  = {-# SCC wildcard_hex #-} T.isNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just ('x',_)) -> True; _      -> False
+wildCardMatch _  (Identifier _) t  = {-# SCC wildcard_identifier #-} T.isTokenIdentifier t
+wildCardMatch _  Keyword        t  = {-# SCC wildcard_keyword #-} T.isTokenKeyword t
+wildCardMatch _  String         t  = {-# SCC wildcard_string #-} T.isTokenString t
+wildCardMatch _  Literal        t  = {-# SCC wildcard_lit #-} T.isTokenString t
+wildCardMatch _  Number         t  = {-# SCC wildcard_number #-} T.isTokenNumber t
+wildCardMatch _  Oct            t  = {-# SCC wildcard_octal #-} T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just (d, _))  -> isDigit d; _ -> False
+wildCardMatch _  Hex            t  = {-# SCC wildcard_hex #-} T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just ('x',_)) -> True; _      -> False

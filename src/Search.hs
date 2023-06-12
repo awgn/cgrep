@@ -36,9 +36,9 @@ import Data.Function ( fix )
 import qualified Data.Set as Set
 
 import Control.Exception as E ( catch, SomeException )
-import Control.Concurrent ( forkIO, MVar, putMVar )
+import Control.Concurrent ( forkIO, MVar, putMVar, forkOn, threadDelay )
 
-import Control.Monad ( when, forM_, forever, unless, void, forM )
+import Control.Monad ( when, forM_, forever, unless, void, forM, replicateM_ )
 import Control.Monad.Trans ( MonadIO(liftIO) )
 import Control.Monad.Trans.Except ( runExceptT, throwE )
 import Control.Monad.Trans.Reader
@@ -87,7 +87,6 @@ import qualified Data.ByteString.Char8 as C
 import qualified Codec.Binary.UTF8.String as UC
 
 import Data.Tuple.Extra ( )
-import GHC.Conc ( forkIO )
 import qualified Data.Bifunctor
 
 import qualified Data.Vector as V hiding ((!))
@@ -105,7 +104,7 @@ import System.Directory (makeAbsolute, canonicalizePath)
 import Data.Functor ( void, (<&>), ($>))
 import RawFilePath.Directory (doesDirectoryExist)
 import Control.Arrow ( Arrow((&&&)) )
-import Control.Concurrent.Async (forConcurrently, forConcurrently_, mapConcurrently_, async, Async, wait)
+import Control.Concurrent.Async (forConcurrently, forConcurrently_, mapConcurrently_, async, Async, wait, asyncOn)
 
 import qualified CGrep.Strategy.BoyerMoore       as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein      as Levenshtein
@@ -130,9 +129,8 @@ withRecursiveContents :: Options
                       -> [RawFilePath]
                       -> Set.Set RawFilePath
                       -> IORef Int
-                      -> IORef Int
                       -> ([RawFilePath] -> IO ()) -> IO ()
-withRecursiveContents opt@Options{..} dir langs pdirs visited cnt walkers action = do
+withRecursiveContents opt@Options{..} dir langs pdirs visited walkers action = do
     xs <- getDirectoryContents dir
     let (dirs, files) = partition ((== dtDir) . fst) xs
 
@@ -141,24 +139,22 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited cnt walkers action
     let dirs'  = (dir </>) . snd <$> dirs
 
     -- run IO action
-    blen <- batchLen cnt 64
-    mapM_ action (chunksOf blen files')
+    mapM_ action (chunksOf 8 files')
 
     -- process directories recursively...
-    foreach <- atomicModifyIORef' walkers (\n -> (n+1, n+1)) >>= \tot -> do
-        if tot < 4 then pure (forConcurrently_ @[])
-                        else pure forM_
+    foreach <- readIORef walkers >>= \tot -> do
+        if tot < 64 then pure (forConcurrently_ @[])
+                    else pure forM_
 
     foreach dirs' $ \dirPath -> do
         unless (isPrunableDir dirPath pdirs) $
              -- this is a good directory, unless already visited...
-
-             -- this is a good directory, unless already visited...
             makeRawAbsolute dirPath >>= \cpath ->
-                unless (cpath `Set.member` visited) $
-                    withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) cnt walkers action
+                unless (cpath `Set.member` visited) $ incrRef walkers *>
+                    withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) walkers action
 
-    atomicModifyIORef' walkers (\n -> (n-1, ()))
+    decrRef walkers
+
 
 parallelSearch :: [RawFilePath] -> [C.ByteString] -> [Language] -> Bool -> ReaderIO ()
 parallelSearch paths patterns langs isTermIn = do
@@ -167,29 +163,31 @@ parallelSearch paths patterns langs isTermIn = do
     let Config{..} = conf
         Options{..} = opt
 
-    let jobs' = fromMaybe 1 jobs
+    let multiplier = 4
+        jobs' = fromMaybe 1 jobs
+        totalJobs = jobs' * multiplier
 
     -- create channels ...
-    (fileCh, outCh) <- liftIO $ newChan 8192 >>= \i -> newChan 8192 >>= \o -> pure (i, o)
+    fileCh <- liftIO $ newChan 65536
 
     -- recursively traverse the filesystem ...
-    _ <- liftIO . forkIO $ do
-        cnt <- newIORef (0 :: Int)
+    _ <- liftIO . forkOn 0 $ do
         walkers <- newIORef (0 :: Int)
         if recursive || follow
             then forM_ (if null paths then ["."] else paths) $ \p ->
                 doesDirectoryExist p >>= \case
-                    True -> withRecursiveContents opt p langs
-                            (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p) cnt walkers $ do
-                                (\a -> writeChan (fst fileCh) a *> atomicModifyIORef' cnt (\x -> (x+1, ())))
-                    _     ->  writeChan (fst fileCh) [p] *> atomicModifyIORef' cnt (\x -> (x+1, ()))
+                    True -> incrRef walkers *>
+                            withRecursiveContents opt p langs
+                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p) walkers (do
+                                    writeChan (fst fileCh))
+                    _     ->  writeChan (fst fileCh) [p]
             else forM_ (if null paths && not isTermIn
                     then [("", 0)]
                     else paths `zip` [0..]) (\(p, idx) -> writeChan (fst fileCh) [p])
 
         -- enqueue EOF messages...
-        forM_ ([0..jobs'*2-1] :: [Int]) $ \idx -> writeChan (fst fileCh) []
         when (verbose > 0) $ putMsgLn @Text8 stderr "filesystem traversal completed!"
+        replicateM_ totalJobs $ writeChan (fst fileCh) []
 
     -- launch the worker threads...
     matchingFiles <- liftIO $ newIORef Set.empty
@@ -197,35 +195,34 @@ parallelSearch paths patterns langs isTermIn = do
     let env = Env conf opt
         runSearch = getSearcher env
 
-    forM_ ([0 .. jobs'*2-1] :: [Int]) $ \idx -> liftIO . forkIO $ void . runExceptT $ do
-        asRef <- liftIO $ newIORef ([] :: [Async ()])
-        forever $ do
-            fs <- liftIO $ readChan (snd fileCh)
-            liftIO $ E.catch (
-                case fs of
-                    [] -> liftIO $ readIORef asRef >>= \as -> mapM_ wait as *> writeChan (fst outCh) ()
-                    fs -> runReaderT (do
-                        out <- catMaybes <$> forM fs (\f -> do
-                                out' <- take max_count <$> runSearch (languageInfoLookup opt f) f patterns
-                                when (vim || editor) $
-                                    liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
-                                putOutputElements out')
-                        liftIO $ unless (null out) $ do
-                            async (do
-                                let !dump = LB.toStrict $ B.toLazyByteString (mconcat ((<> B.char8 '\n') <$> out))
-                                B.hPut stdout dump) >>= \a -> atomicModifyIORef' asRef (\xs -> (a:xs, ()))
-                        ) env
-                ) (\e -> let msg = show (e :: SomeException) in C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 120 msg)))
+    workers <- forM ([0 .. totalJobs-1] :: [Int]) $ \idx -> do
+        let processor = 1 + idx `div` multiplier
+        liftIO . asyncOn processor $ void . runExceptT $ do
+            asRef <- liftIO $ newIORef ([] :: [Async ()])
+            forever $ do
+                fs <- liftIO $ readChan (snd fileCh)
+                liftIO $ E.catch (
+                    case fs of
+                        [] -> liftIO $ readIORef asRef >>= mapM_ wait
+                        fs -> runReaderT (do
+                            out <- catMaybes <$> forM fs (\f -> do
+                                    out' <- take max_count <$> runSearch (languageInfoLookup opt f) f patterns
+                                    when (vim || editor) $
+                                        liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
+                                    putOutputElements out')
+                            unless (null out) $
+                                liftIO $ async (do
+                                    let !dump = LB.toStrict $ B.toLazyByteString (mconcat ((<> B.char8 '\n') <$> out))
+                                    B.hPut stdout dump) >>= \a -> modifyIORef' asRef (a:)
+                            ) env
+                    ) (\e -> let msg = show (e :: SomeException) in
+                            C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 120 msg)))
+                when (null fs) $ do
+                    when (verbose > 0) $ putMsgLn stderr $ "[" <> C.pack (show idx) <> "]@" <> C.pack(show processor) <>" searcher done!"
+                    throwE ()
 
-            when (null fs) $ do
-                when (verbose > 0) $ putMsgLn stderr $ "[" <> C.pack (show idx) <> "] searcher done!"
-                throwE ()
-
-    -- dump output until workers are done
-    liftIO $  do
-        totalDone <- newIORef (0 :: Int)
-        whileM_ (readIORef totalDone >>= \n -> pure (n < jobs'*2)) $
-            readChan (snd outCh) *> modifyIORef' totalDone (+1)
+    -- wait workers to complete the job
+    liftIO $ mapM_ wait workers
 
     -- run editor...
     when (vim || editor ) $ liftIO $ do
@@ -250,7 +247,6 @@ parallelSearch paths patterns langs isTermIn = do
                           (Just stdout)
                           (Just stderr) >>= waitForProcess
 
-
 getSearcher :: Env -> (Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output])
 getSearcher Env{..} = do
   if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
@@ -265,12 +261,13 @@ makeRawAbsolute :: RawFilePath -> IO RawFilePath
 makeRawAbsolute p = makeAbsolute (C.unpack p) <&> C.pack
 {-# INLINE makeRawAbsolute #-}
 
+incrRef  :: IORef Int -> IO ()
+incrRef ref = atomicModifyIORef' ref (\n -> (n+1, ()))
+{-# INLINE incrRef #-}
 
-batchLen :: IORef Int -> Int -> IO Int
-batchLen cnt maxblen =
-    readIORef cnt >>=
-        \round -> modifyIORef' cnt (+1) $> min maxblen (1 + round)
-{-# INLINE  batchLen #-}
+decrRef :: IORef Int -> IO ()
+decrRef ref = atomicModifyIORef' ref (\n -> (n-1, ()))
+{-# INLINE decrRef #-}
 
 
 fileFilter :: Options -> [Language] -> RawFilePath -> Bool

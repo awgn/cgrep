@@ -67,6 +67,7 @@ import qualified Data.Sequence as S
 import Data.Foldable ( Foldable(toList) )
 import Debug.Trace
 import Data.Coerce
+import Options
 
 search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
@@ -86,7 +87,15 @@ search info f ps = do
 
     -- pre-process patterns
 
-        patterns   = map (parseTokens (snd <$> info) . contextFilter (languageLookup opt filename) filt True) ps
+        pfilter = TokenFilter {
+                tfIdentifier = True,
+                tfKeyword    = True,
+                tfString     = True,
+                tfNumber     = True,
+                tfOperator   = True,
+                tfBracket    = True}
+
+        patterns   = map (parseTokens pfilter (snd <$> info) . contextFilter (languageLookup opt filename) filt True) ps
         patterns'  = map (mkAtomFromToken <$>) patterns
         patterns'' = map (combineAtoms . map (:[])) (toList <$> patterns')
 
@@ -110,7 +119,9 @@ search info f ps = do
 
         -- parse source code, get the Generic.Chunk list...
 
-        let tokens = toList $ parseTokens (snd <$> info) (subText indices' text''')
+        let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns
+
+        let tokens = toList $ parseTokens tfilter (snd <$> info) (subText indices' text''')
 
         -- get matching tokens ...
 

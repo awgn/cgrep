@@ -32,8 +32,8 @@ searchStringIndices ps text =  ps >>= \p -> [fromIntegral <$> p `findIndices` te
 
 
 data TaggedIx a = TaggedIx {
-      index :: Int
-    , tags :: [a]
+      index :: {-# UNPACK #-} !Int
+    , tags  :: [a]
 } deriving stock (Show)
 
 instance Eq (TaggedIx a) where

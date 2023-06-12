@@ -98,22 +98,21 @@ search info f ps = do
 
         -- parse source code, get the token list...
 
-        let tokens = {-# SCC tok_0 #-} parseTokens (snd <$> info) (subText indices' text''')
+        let tfilter = TokenFilter {
+                tfIdentifier = identifier opt,
+                tfKeyword    = keyword opt,
+                tfString     = string opt,
+                tfNumber     = number opt,
+                tfOperator   = operator opt,
+                tfBracket    = False }
 
-        -- filter the tokens...
-
-            tokens'= {-# SCC tok_1 #-} S.filter (filterToken TokenFilter { filtIdentifier = identifier opt,
-                                                                           filtKeyword    = keyword opt,
-                                                                           filtString     = string opt,
-                                                                           filtNumber     = number opt,
-                                                                           filtOperator   = operator opt}) tokens
+        let tokens = {-# SCC tok_0 #-} parseTokens tfilter (snd <$> info) (subText indices' text''')
 
         -- filter tokens and make chunks
 
-            matches = {-# SCC tok_3 #-} mapMaybe' (genericTokenFilter opt ps) tokens'
+            matches = {-# SCC tok_3 #-} mapMaybe' (tokenizerFilter opt ps) tokens
 
         putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
-        putMsgLnVerbose 2 stderr $ "tokens'   : " <> show tokens'
         putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text
@@ -121,17 +120,18 @@ search info f ps = do
         mkOutputElements lineOffsets filename text text''' matches
 
 
-genericTokenPredicate :: Options -> [C.ByteString] -> Token -> Bool
-genericTokenPredicate opt patterns tokens
+tokenizerFilter :: Options -> [C.ByteString] -> Token -> Maybe Chunk
+tokenizerFilter opt patterns token
+    | isTokenUnspecified token = Nothing
+    | tokenPredicate opt patterns token = Just $ coerce token
+    | otherwise = Nothing
+{-# INLINE tokenizerFilter #-}
+
+
+tokenPredicate :: Options -> [C.ByteString] -> Token -> Bool
+tokenPredicate opt patterns tokens
     | edit_dist    opt = (\t -> any (\p -> C.unpack p ~==  (C.unpack . tToken) t) patterns) tokens
     | word_match   opt = ((`elem` patterns) . tToken) tokens
     | prefix_match opt = ((\t -> any (`C.isPrefixOf`t) patterns) . tToken) tokens
     | suffix_match opt = ((\t -> any (`C.isSuffixOf`t) patterns) . tToken) tokens
     | otherwise        = ((\t -> any (`C.isInfixOf` t) patterns) . tToken) tokens
-
-
-genericTokenFilter :: Options -> [C.ByteString] -> Token -> Maybe Chunk
-genericTokenFilter opt patterns token
-    | genericTokenPredicate opt patterns token = Just $ coerce token
-    | otherwise = Nothing
-{-# INLINE genericTokenFilter #-}

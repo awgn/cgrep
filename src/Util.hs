@@ -15,6 +15,8 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 module Util where
 
@@ -90,3 +92,13 @@ mapMaybe' f = foldr g []
     g x rest
       | Just y <- f x = y : rest
       | otherwise     = rest
+
+
+findWithIndex :: forall a. (a -> Bool) -> [a] -> (# Int, Maybe a #)
+findWithIndex predicate = go predicate 0
+  where
+    go :: forall a. (a -> Bool) -> Int -> [a] -> (# Int, Maybe a #)
+    go p _ [] = (# 0, Nothing #)
+    go p !index (x:xs)
+      | p x = (# index, Just x #)
+      | otherwise = go p (index + 1) xs

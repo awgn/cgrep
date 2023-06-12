@@ -123,7 +123,7 @@ main = do
 
     -- specify number of cores
     cap <- case jobs <|> configJobs conf of
-            (Just j) ->  setNumCapabilities j $> j
+            (Just j) ->  setNumCapabilities (j+1) $> j
             Nothing  ->  getNumCapabilities
 
     -- run search

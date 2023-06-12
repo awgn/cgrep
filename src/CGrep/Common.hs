@@ -78,8 +78,6 @@ getTargetContents xs = mmapFileByteString (C.unpack xs) Nothing
 {-# INLINE getTargetContents #-}
 
 
-
-
 expandMultiline :: Options -> Text8 -> Text8
 expandMultiline Options { multiline = n } xs
     | n == 1 = xs
