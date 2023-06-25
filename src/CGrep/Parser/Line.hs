@@ -36,15 +36,17 @@ getLineOffsets maxOff text =
         else if UV.last idx == fromIntegral (C.length text -1)
             then UV.init idx
             else idx
-    where {-# INLINE nlOffsets #-}
-          nlOffsets :: Int -> Text8 -> UV.Vector Int64
-          nlOffsets maxOff' bs' = UV.unfoldrN maxOff' (findOffsets maxOff' bs') (-1)
-          findOffsets :: Int -> Text8 -> Int -> Maybe (Int64, Int)
-          findOffsets max ts !i
-              | i == -1 = Just (0, 0)
-              | i >= max = Nothing
-              | BU.unsafeIndex ts (fromIntegral i) == c2w '\n' = Just (fromIntegral i + 1, i + 1)
-              | otherwise = findOffsets max ts (i + 1)
+
+{-# INLINE nlOffsets #-}
+nlOffsets :: Int -> Text8 -> UV.Vector Int64
+nlOffsets maxOff' bs' = UV.unfoldrN maxOff' (findOffsets maxOff' bs') (-1)
+
+findOffsets :: Int -> Text8 -> Int -> Maybe (Int64, Int)
+findOffsets max ts !i
+    | i == -1 = Just (0, 0)
+    | i >= max = Nothing
+    | BU.unsafeIndex ts (fromIntegral i) == c2w '\n' = Just (fromIntegral i + 1, i + 1)
+    | otherwise = findOffsets max ts (i + 1)
 
 
 getAllLineOffsets :: Text8 -> UV.Vector Offset
@@ -53,14 +55,15 @@ getAllLineOffsets ts = getLineOffsets (fromIntegral $ C.length ts) ts
 
 
 lowerBound :: UV.Vector Int64 -> Int64 -> Int64
-lowerBound vec v = go 0 (UV.length vec-1)
-  where
-   go !left !right
-      | left > right = if right >= 0 then vec `UV.unsafeIndex` right else -1
-      | otherwise = case v `compare` midValue of
-          LT -> go left (mid - 1)
+lowerBound vec v = lowerBoundGo vec v 0 (UV.length vec-1)
+
+lowerBoundGo :: UV.Vector Int64 -> Int64 -> Int -> Int -> Int64
+lowerBoundGo vec v !left !right
+    | left > right = if right >= 0 then vec `UV.unsafeIndex` right else -1
+    | otherwise = case v `compare` midValue of
+          LT -> lowerBoundGo vec v left (mid - 1)
           EQ -> midValue
-          _  -> go (mid + 1) right
+          _  -> lowerBoundGo vec v (mid + 1) right
       where
         mid = (left + right) `div` 2
         midValue = vec `UV.unsafeIndex` mid
