@@ -714,12 +714,17 @@ languagesMap = Map.fromList
     ,   langRawString = ["r##\"" ~~ "\"##",  "r#\"" ~~ "\"#", "r\"" ~~ "\""]
     ,   langIdentifierChars = Just (isAlpha_, isAlphaNum_and "#")
     ,   langResKeywords = keywords [
-            "as", "use", "extern crate", "break", "const", "continue", "crate", "else", "if", "if let",
+            "as", "use", "extern", "crate", "break", "const", "continue", "crate", "else", "if", "let",
             "enum", "extern", "false", "fn", "for", "if", "impl", "in", "for", "let", "loop", "match",
             "mod", "move", "mut", "pub", "impl", "ref", "return", "Self", "self", "static", "struct",
             "super", "trait", "true", "type", "unsafe", "use", "where", "while", "abstract", "alignof",
             "become", "box", "do", "final", "macro", "offsetof", "override", "priv", "proc", "pure",
-            "sizeof", "typeof", "unsized", "virtual", "yield"
+            "sizeof", "typeof", "unsized", "virtual", "yield", "async", "await", "dyn",
+            -- weak keywords
+            "macro_rules", "union", "'static",
+            -- reserved for future use
+            "abstract", "become", "box", "do", "final", "macro",  "override", "priv", "typeof", "unsized",
+            "virtual", "yield", "try"
         ]
     })
    ,  (Scala,     LanguageInfo {
