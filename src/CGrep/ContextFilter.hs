@@ -209,7 +209,6 @@ runContextFilter conf@ParConfig{..} f txt | alterBoundary = fst $ C.unfoldrN (C.
                     then Just (x, ParData xs s')
                     else Just (' ', ParData xs s')
 
-          contextFilterImpl _ (C.uncons -> Nothing, _) = Nothing
 
 {-# INLINE nextContextState #-}
 nextContextState :: ParConfig -> ParState -> Text8 -> ContextFilter -> ParState
