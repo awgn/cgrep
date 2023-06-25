@@ -869,6 +869,19 @@ languagesMap = Map.fromList
    ,   langIdentifierChars = Just (const False, const False)
    ,   langResKeywords = keywords []
    })
+    ,  (Unison,   LanguageInfo {
+        langExtensions = [Ext "u"]
+    ,   langComment = ["{-" ~~ "-}", "--" ~~ "\n"]
+    ,   langChar = ["'" ~~ "'"]
+    ,   langString = ["\"" ~~ "\"", "\"\"\"" ~~ "\"\"\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Just (isAlpha_', isAlphaNum_and ['!', '\''])
+    ,   langResKeywords = keywords [
+            "type", "ability", "structural", "unique", "if",  "then", "else", "forall", "handle",
+            "with", "where", "use", "true", "false",  "alias", "typeLink",  "termLink", "let",
+            "namespace", "match", "cases"
+        ]
+    })
     ,  (VHDL,      LanguageInfo {
         langExtensions = [Ext "vhd", Ext "vhdl"]
     ,   langComment = ["--" ~~ "\n"]
