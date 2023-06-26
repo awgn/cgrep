@@ -109,6 +109,18 @@ languagesMap = Map.fromList
             "BEGIN", "END", "if", "else", "while", "do", "for", "in", "break", "continue",
                 "delete", "next", "nextfile", "function", "func", "exit"]
     })
+    ,  (Bash,     LanguageInfo {
+        langExtensions = [Ext "sh", Ext "bash"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Nothing
+    ,   langResKeywords = keywords [
+            "if", "then", "elif", "else", "fi", "time", "for", "in", "until", "while", "do", "done",
+            "case", "esac", "coproc", "select", "function"
+        ]
+    })
     ,  (C,         LanguageInfo {
         langExtensions = [Ext "c", Ext "C", Ext "inc"]
     ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
@@ -242,6 +254,22 @@ languagesMap = Map.fromList
             "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
         ]
     })
+    ,  (Csh,     LanguageInfo {
+        langExtensions = [Ext "csh", Ext "tcsh"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Nothing
+    ,   langResKeywords = keywords [
+            "alias", "alloc", "bg", "bindkey", "break", "breaksw", "built-ins", "bye", "case", "cd", "chdir", "complete",
+            "continue", "default", "dirs", "echo", "echotc", "else", "end", "endif", "endsw", "eval", "exec", "exit", "fg",
+            "filetest", "foreach", "glob", "goto", "hashstat", "history", "hup", "if", "jobs", "kill", "limit", "log", "login",
+            "logout", "ls-F", "newgrp", "nice", "nohup", "notify", "onintr", "popd", "printenv", "pushd", "rehash", "repeat", "sched",
+            "set", "setenv", "settc", "setty", "shift", "source", "stop", "suspend", "switch", "telltc", "time", "umask",
+            "unalias", "uncomplete", "unhash", "unlimit", "unset", "unsetenv", "wait", "watchlog", "where", "which", "while"
+        ]
+    })
     ,  (Css,       LanguageInfo {
         langExtensions = [Ext "css"]
     ,   langComment = ["/*" ~~ "*/"]
@@ -355,6 +383,20 @@ languagesMap = Map.fromList
            "div", "end", "fun", "if", "let", "not", "of", "or", "orelse", "receive", "rem", "try", "when", "xor"
        ]
    })
+    ,  (Fish,     LanguageInfo {
+        langExtensions = [Ext "fish"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Nothing
+    ,   langResKeywords = keywords [
+            "and", "argparse", "begin", "break", "builtin", "case",
+            "command", "continue", "else", "end", "eval", "exec", "for",
+            "function", "if", "not", "or", "read", "return", "set", "status",
+            "string", "switch", "test", "time", "while"
+        ]
+    })
     ,  (Fortran,   LanguageInfo {
         langExtensions = [Ext "f", Ext "for", Ext "ftn",
                     Ext "F", Ext "FOR", Ext "FTN", Ext "fpp", Ext "FPP",
@@ -534,6 +576,18 @@ languagesMap = Map.fromList
         "final", "infix", "inline", "inner", "internal", "lateinit", "noinline", "open", "operator", "out", "override",
         "private", "protected", "public", "reified", "sealed", "suspend", "tailrec", "vararg",
         "field", "it"
+        ]
+    })
+    ,  (Ksh,     LanguageInfo {
+        langExtensions = [Ext "ksh"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Nothing
+    ,   langResKeywords = keywords [
+            "case", "do", "done", "elif", "else", "esac",
+            "fi", "for", "function", "if", "in", "select", "then", "time", "until", "while"
         ]
     })
     ,  (Latex,     LanguageInfo {
@@ -752,18 +806,6 @@ languagesMap = Map.fromList
             "true", "false", "nil", "self", "super", "thisContext"
         ]
     })
-    ,  (Shell,     LanguageInfo {
-        langExtensions = [Ext "sh", Ext "bash", Ext "csh", Ext "tcsh", Ext "ksh", Ext "zsh"]
-    ,   langComment = ["#" ~~ "\n"]
-    ,   langChar = []
-    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
-    ,   langRawString = []
-    ,   langIdentifierChars = Nothing
-    ,   langResKeywords = keywords [
-            "if", "then", "elif", "else", "fi", "time", "for", "in", "until", "while", "do", "done",
-            "case", "esac", "coproc", "select", "function"
-        ]
-    })
     ,  (Swift,     LanguageInfo {
         langExtensions = [Ext "swift"]
     ,   langComment = ["/*" ~~ "*/", "//" ~~ "\n"]
@@ -955,6 +997,20 @@ languagesMap = Map.fromList
             "addrspace", "align", "allowzero", "and", "anyframe", "anytype", "asm", "async", "await", "break", "catch", "comptime", "const", "continue", "defer", "else",
             "enum", "errdefer", "error", "export", "extern", "fn", "for", "if", "inline", "linksection", "noalias", "noinline", "nosuspend", "or", "orelse", "packed", "pub",
             "resume", "return", "struct", "suspend", "switch", "test", "threadlocal", "try", "union", "unreachable", "usingnamespace", "var", "volatile", "while"
+        ]
+    })
+    ,  (Zsh,     LanguageInfo {
+        langExtensions = [Ext "zsh"]
+    ,   langComment = ["#" ~~ "\n"]
+    ,   langChar = []
+    ,   langString = ["'" ~~ "'", "\"" ~~ "\""]
+    ,   langRawString = []
+    ,   langIdentifierChars = Nothing
+    ,   langResKeywords = keywords [
+            "do", "done", "esac", "then", "elif", "else",
+            "fi", "for", "case", "if", "while", "function",
+            "repeat", "time", "until", "select", "coproc", "nocorrect",
+            "foreach", "end"
         ]
     })
     ]

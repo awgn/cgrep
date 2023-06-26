@@ -29,10 +29,10 @@ import Util ( prettyRead )
 import System.Posix.FilePath (RawFilePath)
 
 
-data Language = Agda | Assembly | Awk  | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csharp | Css | Cql |
-                D | Dart | Dhall | Elm | Elixir | Erlang | Fortran | Fsharp | Go | GoMod | Haskell | Html | Idris | Java | Javascript | Json | Julia | Kotlin |
-                Latex | Lisp | Lua | Make | Nim | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Shell | Swift | Sql | Tcl |
-                Text | Unison | VHDL | Verilog | Yaml | Toml | Ini | Zig
+data Language = Agda | Assembly | Awk  | Bash | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csh | Csharp | Css | Cql |
+                D | Dart | Dhall | Elm | Elixir | Erlang | Fish | Fortran | Fsharp | Go | GoMod | Haskell | Html | Idris | Java | Javascript | Json | Julia | Kotlin |
+                Ksh | Latex | Lisp | Lua | Make | Nim | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Swift | Sql | Tcl |
+                Text | Unison | VHDL | Verilog | Yaml | Toml | Ini | Zig | Zsh
                 deriving (Read, Show, Eq, Ord, Bounded)
 
 
