@@ -34,6 +34,7 @@ module CGrep.Parser.Chunk (
   , pattern ChunkDigit
   , pattern ChunkBracket
   , pattern ChunkString
+  , pattern ChunkNativeType
   , pattern ChunkOperator
   , pattern ChunkUnspec
   ) where
@@ -54,7 +55,7 @@ import CGrep.Parser.Char
 
 import CGrep.Types ( Text8, Offset )
 import Data.List (genericLength)
-import CGrep.LanguagesMap ( LanguageInfo(..) )
+import CGrep.FileTypeMap ( FileTypeInfo(..) )
 
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as LB
@@ -84,6 +85,7 @@ instance Show ChunkType where
     show ChunkBracket    = "bracket"
     show ChunkOperator   = "operator"
     show ChunkString     = "string"
+    show ChunkNativeType = "native-type"
     {-# INLINE show #-}
 
 
@@ -108,7 +110,10 @@ pattern ChunkOperator = ChunkType 5
 pattern ChunkString :: ChunkType
 pattern ChunkString = ChunkType 6
 
-{-# COMPLETE ChunkIdentifier, ChunkKeyword, ChunkDigit, ChunkBracket, ChunkOperator, ChunkString, ChunkUnspec #-}
+pattern ChunkNativeType :: ChunkType
+pattern ChunkNativeType = ChunkType 7
+
+{-# COMPLETE ChunkIdentifier, ChunkKeyword, ChunkDigit, ChunkBracket, ChunkOperator, ChunkString, ChunkNativeType, ChunkUnspec #-}
 
 data Chunk = Chunk {
      cTyp    :: {-# UNPACK #-} !ChunkType
@@ -158,8 +163,8 @@ ref <~ !x = writeSTRef ref x
 
 
 {-# INLINE parseChunks #-}
-parseChunks :: Maybe LanguageInfo -> Text8 -> S.Seq Chunk
-parseChunks l t = runST $ case l >>= \LanguageInfo {..} -> langIdentifierChars of
+parseChunks :: Maybe FileTypeInfo -> Text8 -> S.Seq Chunk
+parseChunks l t = runST $ case l >>= \FileTypeInfo {..} -> ftIdentifierChars of
         Just (isAlpha1, isAlphaN) -> parseChunks' isAlpha_ isAlphaNum_ t
         _                         -> parseChunks' isAlpha_ isAlphaNum_ t
   where parseChunks' :: (Char->Bool) -> (Char -> Bool) -> C.ByteString -> ST s (S.Seq Chunk)

@@ -17,7 +17,6 @@
 --
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE MultiWayIf #-}
 
 module CGrep.Strategy.Semantic (search) where
 
@@ -58,18 +57,16 @@ import CGrep.Parser.Chunk
 
 import System.Posix.FilePath ( RawFilePath, takeBaseName )
 
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap
-    ( languageLookup, LanguageInfo, contextFilter )
+import CGrep.FileType ( FileType )
+import CGrep.FileTypeMap
+    ( fileTypeLookup, FileTypeInfo, contextFilter )
 import System.IO ( stderr )
 
 import qualified Data.Sequence as S
 import Data.Foldable ( Foldable(toList) )
-import Debug.Trace
-import Data.Coerce
-import Options
+import Data.Coerce ( coerce )
 
-search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
 
     Env{..} <- ask
@@ -79,7 +76,7 @@ search info f ps = do
     let filename = getTargetName f
 
     let [text''', _, text', _ ] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (languageLookup opt filename) filt True
+                                                 , contextFilter (fst <$> fileTypeLookup opt filename) filt True
                                                  , ignoreCase opt
                                                  ]
 
@@ -90,12 +87,13 @@ search info f ps = do
         pfilter = TokenFilter {
                 tfIdentifier = True,
                 tfKeyword    = True,
+                tfNativeType = True,
                 tfString     = True,
                 tfNumber     = True,
                 tfOperator   = True,
                 tfBracket    = True}
 
-        patterns   = map (parseTokens pfilter (snd <$> info) . contextFilter (languageLookup opt filename) filt True) ps
+        patterns   = map (parseTokens pfilter (snd <$> info) . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
         patterns'  = map (mkAtomFromToken <$>) patterns
         patterns'' = map (combineAtoms . map (:[])) (toList <$> patterns')
 

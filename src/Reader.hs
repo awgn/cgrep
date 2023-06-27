@@ -22,8 +22,6 @@ import Control.Monad.Trans.Reader ( ReaderT )
 
 import Config ( Config )
 import Options ( Options )
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap ( LanguageInfo )
 
 data Env = Env {
     conf :: Config

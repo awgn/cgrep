@@ -38,6 +38,7 @@ data Options = Options
     ,   literal             :: Bool
     -- Tokenizer:
     ,   identifier          :: Bool
+    ,   nativeType          :: Bool
     ,   keyword             :: Bool
     ,   number              :: Bool
     ,   string              :: Bool
@@ -46,9 +47,10 @@ data Options = Options
     ,   semantic            :: Bool
     -- Output control:
     ,   max_count           :: Int
-    ,   language_filter     :: [String]
-    ,   language_force      :: Maybe String
-    ,   language_map        :: Bool
+    ,   type_filter         :: [String]
+    ,   kind_filter         :: [String]
+    ,   type_force          :: Maybe String
+    ,   type_map            :: Bool
     ,   invert_match        :: Bool
     ,   multiline           :: Int
     ,   recursive           :: Bool

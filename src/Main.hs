@@ -43,9 +43,9 @@ import System.Console.CmdArgs ( cmdArgsRun )
 import System.Exit ( exitSuccess )
 import System.Environment ( withArgs )
 
-import CGrep.LanguagesMap ( dumpLanguagesMap, languagesMap )
+import CGrep.FileType ( readTypeList, readKindList )
+import CGrep.FileTypeMap ( dumpFileTypeInfoMap, fileTypeInfoMap )
 import CGrep.Parser.Atom ( wildCardMap )
-import CGrep.Language ( splitLanguagesList )
 import CGrep.Common ( trim8 )
 
 import Verbose ( putMsgLnVerbose )
@@ -53,15 +53,16 @@ import Paths_cgrep ( version )
 import CmdOptions ( options )
 import Options ( Options(..) )
 import Config
-    ( dumpPalette, getConfig, Config(configLanguages, configColors, configJobs) )
+    ( dumpPalette, getConfig, Config(configFileTypes, configColors, configJobs, configFileKinds) )
+
 import Util ( partitionM)
 import Reader ( ReaderIO, Env (..) )
 import Search ( parallelSearch, isRegexp )
 import System.Posix.FilePath (RawFilePath)
 
 import Data.List.Extra (notNull)
-import Data.Functor
-import Control.Applicative
+import Data.Functor ( ($>), void )
+import Control.Applicative ( Alternative((<|>)) )
 
 main :: IO ()
 main = do
@@ -82,8 +83,8 @@ main = do
         error "Cgrep: you can use one back-end at time!"
 
     -- display lang-map and exit...
-    when language_map $
-        dumpLanguagesMap languagesMap >> exitSuccess
+    when type_map $
+        dumpFileTypeInfoMap fileTypeInfoMap >> exitSuccess
 
     -- display color palette and exit...
     when show_palette $
@@ -113,12 +114,17 @@ main = do
     let paths = getFilePaths (notNull file) others'
 
     -- parse cmd line language list:
-    let (l0, l1, l2) = splitLanguagesList language_filter
+    let (l0, l1, l2) = readTypeList type_filter
 
-    -- language enabled:
-    let langs = (if null l0 then configLanguages conf else l0 `union` l1) \\ l2
+    -- file type enabled:
+    let types = (if null l0 then configFileTypes conf else l0 `union` l1) \\ l2
+        kinds = if null kind_filter then configFileKinds conf else readKindList kind_filter
 
-    runReaderT (do putMsgLnVerbose 1 stderr $ "cgrep " <> showVersion version <> "!"
+
+    runReaderT (do
+        putMsgLnVerbose 1 stderr $ "cgrep " <> showVersion version <> "!"
+        putMsgLnVerbose 1 stderr $ "File types: " <> show type_filter
+        putMsgLnVerbose 1 stderr $ "File kinds: " <> show kinds
         ) (Env conf opt)
 
     -- specify number of cores
@@ -127,7 +133,7 @@ main = do
             Nothing  ->  getNumCapabilities
 
     -- run search
-    runReaderT (parallelSearch paths patterns' langs isTermIn) (Env conf opt {jobs = Just cap})
+    runReaderT (parallelSearch paths patterns' types kinds isTermIn) (Env conf opt {jobs = Just cap})
 
 
 readPatternsFromFile :: RawFilePath -> IO [C.ByteString]

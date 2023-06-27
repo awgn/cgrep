@@ -46,13 +46,11 @@ import Data.Bits ( Bits((.|.), complement, (.&.), xor, shiftL, shiftR) )
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as UV
 
-import Unsafe.Coerce
 import Data.HashMap.Internal.Strict (alter)
 import Data.Word (Word64)
-import Debug.Trace
 import qualified Data.ByteString.Unsafe as U
 
-import Util
+import Util ( findWithIndex )
 
 type FilterFunction = ContextFilter -> Text8 -> Text8
 

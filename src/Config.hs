@@ -48,8 +48,7 @@ import Data.Aeson ( (.!=), (.:?), FromJSON(parseJSON) )
 import Data.Maybe ( fromMaybe, mapMaybe )
 
 import GHC.Generics ( Generic )
-import CGrep.Language ( Language )
-import Util (readMaybe )
+import CGrep.FileType ( FileType )
 
 import Data.List.Split ( splitOn )
 import qualified Data.ByteString as B
@@ -58,13 +57,16 @@ import Data.ByteString.RawFilePath (RawFilePath)
 import qualified Data.ByteString.Char8 as C
 
 import Data.List.Extra (notNull)
+import CGrep.FileKind (FileKind)
+import Text.Read (readMaybe)
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"
 
 
 data Config = Config
-  {   configLanguages  :: [Language]
+  {   configFileTypes  :: [FileType]
+  ,   configFileKinds  :: [FileKind]
   ,   configPruneDirs  :: [RawFilePath]
   ,   configColors     :: Bool
   ,   configColorFile  :: [SGR]
@@ -76,7 +78,8 @@ data Config = Config
 
 defaultConfig :: Config
 defaultConfig = Config
-  {   configLanguages   = []
+  {   configFileTypes   = []
+  ,   configFileKinds   = []
   ,   configPruneDirs   = []
   ,   configColors      = False
   ,   configColorFile   = [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Blue]
@@ -88,7 +91,8 @@ defaultConfig = Config
 
 mkConfig :: YamlConfig -> Config
 mkConfig YamlConfig{..} =
-   let configLanguages  = mapMaybe readMaybe yamlLanguages
+   let configFileTypes  = mapMaybe readMaybe yamlFileTypes
+       configFileKinds  = mapMaybe readMaybe yamlFileKinds
        configPruneDirs  = C.pack <$> yamlPruneDirs
        configColors     = yamlColors
        configColorFile  = fromMaybe [] (yamlColorFileName >>= readColor)
@@ -99,7 +103,8 @@ mkConfig YamlConfig{..} =
 
 
 data YamlConfig = YamlConfig
-  {   yamlLanguages     :: [String]
+  {   yamlFileTypes     :: [String]
+  ,   yamlFileKinds     :: [String]
   ,   yamlPruneDirs     :: [String]
   ,   yamlColors        :: Bool
   ,   yamlColorFileName :: Maybe String
@@ -111,7 +116,8 @@ data YamlConfig = YamlConfig
 
 instance Y.FromJSON YamlConfig where
  parseJSON (Y.Object v) =
-    YamlConfig <$> v .:? "languages"        .!= []
+    YamlConfig <$> v .:? "file_types"       .!= []
+               <*> v .:? "file_kinds"       .!= []
                <*> v .:? "prune_dirs"       .!= []
                <*> v .:? "colors"           .!= False
                <*> v .:? "color_filename"   .!= Nothing

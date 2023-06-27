@@ -24,9 +24,9 @@ import Data.Maybe ( listToMaybe )
 import Data.Char ( toLower )
 
 import qualified Data.ByteString.Char8 as C
-
 import qualified Data.Sequence as S
 import Data.Sequence ((|>), Seq((:<|), (:|>), Empty))
+import Text.Read (readMaybe)
 
 partitionM :: Monad m => (a -> m Bool) -> [a] -> m ([a], [a])
 partitionM _ [] = return ([], [])
@@ -41,16 +41,12 @@ xor :: Bool -> Bool -> Bool
 a `xor` b = a && not b || not a && b
 {-# INLINE xor #-}
 
+
 prettyRead :: Read a => String -> String -> a
 prettyRead xs err =
     case readMaybe xs of
         Just v -> v
-        _      -> error $ err <> ": parse error near " <> show (take 40 xs)
-
-
-readMaybe :: Read a => String -> Maybe a
-readMaybe = fmap fst . listToMaybe . reads
-{-# INLINE readMaybe #-}
+        _      -> error $ err <> ": parse error near '" <> take 40 xs <> "'"
 
 
 spanGroup :: Int -> [a] -> [[a]]

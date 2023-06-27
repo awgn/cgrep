@@ -37,8 +37,8 @@ import CGrep.Common
       ignoreCase)
 import CGrep.Output ( Output, mkOutputElements, runSearch )
 import CGrep.ContextFilter ( mkContextFilter)
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap ( languageLookup, contextFilter, LanguageInfo )
+import CGrep.FileType ( FileType )
+import CGrep.FileTypeMap ( fileTypeLookup, contextFilter, FileTypeInfo )
 import CGrep.Types ( Offset )
 import CGrep.Search
 
@@ -56,7 +56,7 @@ import qualified Data.Vector.Unboxed as UV
 import Data.Array (indices)
 
 
-search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
 
     Env{..} <- ask
@@ -102,7 +102,7 @@ search info f patterns = do
         mkOutputElements lineOffsets filename text text''' chunks'
 
 
-checkChunk :: Options -> UV.Vector Int64 -> Maybe LanguageInfo -> Text8 -> Chunk -> Bool
+checkChunk :: Options -> UV.Vector Int64 -> Maybe FileTypeInfo -> Text8 -> Chunk -> Bool
 checkChunk opt vec info text chunk
      | word_match    opt = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
      | prefix_match  opt = any (\chunk' -> cToken chunk `C.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs

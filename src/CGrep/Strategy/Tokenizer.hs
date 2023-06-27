@@ -22,8 +22,6 @@ module CGrep.Strategy.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import CGrep.Parser.Token
-
 import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
@@ -41,12 +39,11 @@ import CGrep.Output ( Output, mkOutputElements, runSearch )
 import CGrep.Distance ( (~==) )
 
 import CGrep.Parser.Line
-import CGrep.Parser.Chunk
 import CGrep.Parser.Token
 
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap
-    ( languageLookup, LanguageInfo, contextFilter )
+import CGrep.FileType ( FileType )
+import CGrep.FileTypeMap
+    ( fileTypeLookup, FileTypeInfo, contextFilter )
 
 import CGrep.Search
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
@@ -54,7 +51,7 @@ import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 import Reader ( ReaderIO, Env (..) )
 import Options
     ( Options(identifier, keyword, string, number, operator, edit_dist,
-              word_match, prefix_match, suffix_match) )
+              word_match, prefix_match, suffix_match, nativeType) )
 import Verbose ( putMsgLnVerbose )
 
 import CGrep.Parser.Chunk (Chunk(..))
@@ -63,14 +60,12 @@ import System.IO (stderr)
 
 import Data.Foldable ( Foldable(toList) )
 import CGrep.Types (Offset)
-import Debug.Trace
-import CGrep.Parser.Atom
-import Data.Coerce
+import Data.Coerce ( coerce )
 
 import qualified Data.Sequence as S
-import Util
+import Util ( mapMaybe' )
 
-search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
 
     Env{..} <- ask
@@ -84,7 +79,7 @@ search info f ps = do
     let filt = mkContextFilter opt ~! contextBitComment
 
     let [text''', _ , text', _] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (languageLookup opt filename) filt True
+                                                 , contextFilter (fst <$> fileTypeLookup opt filename) filt True
                                                  , ignoreCase opt
                                                  ]
 
@@ -101,6 +96,7 @@ search info f ps = do
         let tfilter = TokenFilter {
                 tfIdentifier = identifier opt,
                 tfKeyword    = keyword opt,
+                tfNativeType = nativeType opt,
                 tfString     = string opt,
                 tfNumber     = number opt,
                 tfOperator   = operator opt,

@@ -42,8 +42,8 @@ import CGrep.Common
       ignoreCase )
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.ContextFilter ( mkContextFilter)
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap ( LanguageInfo(..), languageLookup, contextFilter )
+import CGrep.FileType ( FileType )
+import CGrep.FileTypeMap ( FileTypeInfo(..), fileTypeLookup, contextFilter )
 
 import Reader ( ReaderIO, Env (..) )
 import Options ( Options(regex_pcre) )
@@ -55,7 +55,7 @@ import CGrep.Parser.Line ( getAllLineOffsets )
 import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
 
-search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
 
     Env{..} <- ask
@@ -69,7 +69,7 @@ search info f patterns = do
     let ctxFilter = mkContextFilter opt
 
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (languageLookup opt filename) ctxFilter False
+                                              , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
                                               , ignoreCase opt
                                               ]
 

@@ -75,10 +75,11 @@ import CGrep.Parser.Char
 import CGrep.Types (Offset, Text8)
 import Data.List (genericLength)
 
-import CGrep.LanguagesMap
+import CGrep.FileTypeMap
     ( CharIdentifierF,
-      LanguageInfo(langResKeywords, langIdentifierChars) )
-import qualified Data.Set as Set
+      FileTypeInfo(ftKeywords, ftIdentifierChars), WordType (..) )
+
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Sequence as S
 import Data.Sequence ((|>), Seq((:<|), (:|>), Empty))
 
@@ -93,7 +94,6 @@ import CGrep.Parser.Chunk
 import GHC.Exts ( inline )
 import Data.Coerce ( coerce )
 import Data.Text.Internal.Read (T)
-import Control.Monad
 
 newtype TokenState = TokenState { unTokenState :: Int }
     deriving newtype (Eq)
@@ -164,19 +164,24 @@ mkTokenString :: C.ByteString -> Offset -> Token
 mkTokenString bs off = Token $ Chunk ChunkString bs off
 {-# INLINE mkTokenString #-}
 
+mkTokenNativeType :: C.ByteString -> Offset -> Token
+mkTokenNativeType bs off = Token $ Chunk ChunkNativeType bs off
+{-# INLINE mkTokenNativeType #-}
 
-mkTokenIdentifierOrKeyword :: Maybe LanguageInfo -> C.ByteString -> Offset -> Token
-mkTokenIdentifierOrKeyword Nothing txt off = mkTokenIdentifier txt off
-mkTokenIdentifierOrKeyword (Just info) txt off =
-    if Set.member txt (langResKeywords info)
-        then mkTokenKeyword txt off
-        else mkTokenIdentifier txt off
-{-# INLINABLE mkTokenIdentifierOrKeyword #-}
+mkTokenFromWord :: Maybe FileTypeInfo -> C.ByteString -> Offset -> Token
+mkTokenFromWord Nothing txt off = mkTokenIdentifier txt off
+mkTokenFromWord (Just info) txt off =
+    case HM.lookup txt (ftKeywords info) of
+        Just typ  -> case typ of
+            Keyword    -> mkTokenKeyword txt off
+            NativeType -> mkTokenNativeType txt off
+        _  -> mkTokenIdentifier txt off
+{-# INLINABLE mkTokenFromWord #-}
 
 
-mkToken :: Maybe LanguageInfo -> TokenState -> C.ByteString -> Offset -> Token
+mkToken :: Maybe FileTypeInfo -> TokenState -> C.ByteString -> Offset -> Token
 mkToken _ StateSpace         = mkTokenOperator
-mkToken info StateIdentifier = mkTokenIdentifierOrKeyword info
+mkToken info StateIdentifier = mkTokenFromWord info
 mkToken _ StateDigit         = mkTokenDigit
 mkToken _ StateBracket       = mkTokenBracket
 mkToken _ StateLiteral       = mkTokenString
@@ -220,6 +225,10 @@ isTokenString :: Token -> Bool
 isTokenString t = cTyp (coerce t) == ChunkString
 {-# INLINE isTokenString #-}
 
+isTokenNativeType :: Token -> Bool
+isTokenNativeType t = cTyp (coerce t) == ChunkNativeType
+{-# INLINE isTokenNativeType #-}
+
 isTokenUnspecified :: Token -> Bool
 isTokenUnspecified t = cTyp (coerce t) == ChunkUnspec
 {-# INLINE isTokenUnspecified #-}
@@ -228,6 +237,7 @@ isTokenUnspecified t = cTyp (coerce t) == ChunkUnspec
 data TokenFilter = TokenFilter
     {   tfIdentifier :: !Bool
     ,   tfKeyword    :: !Bool
+    ,   tfNativeType :: !Bool
     ,   tfString     :: !Bool
     ,   tfNumber     :: !Bool
     ,   tfOperator   :: !Bool
@@ -242,15 +252,17 @@ filterToken f t = case cTyp (coerce t :: Chunk) of
     ChunkDigit      -> tfNumber     f
     ChunkOperator   -> tfOperator   f
     ChunkString     -> tfString     f
+    ChunkNativeType -> tfNativeType f
     ChunkBracket    -> tfBracket    f
     ChunkUnspec     -> False
 
 
 mkTokenFilter :: (Traversable t) => t ChunkType -> TokenFilter
-mkTokenFilter = foldr go (TokenFilter False False False False False False)
+mkTokenFilter = foldr go (TokenFilter False False False False False False False)
     where
         go ChunkIdentifier f = f { tfIdentifier = True }
         go ChunkKeyword    f = f { tfKeyword    = True }
+        go ChunkNativeType f = f { tfNativeType = True }
         go ChunkDigit      f = f { tfNumber     = True }
         go ChunkOperator   f = f { tfOperator   = True }
         go ChunkString     f = f { tfString     = True }
@@ -287,11 +299,11 @@ ref <<~ Append cur = modifySTRef' ref $ \case
 
 
 {-# INLINE parseTokens #-}
-parseTokens :: TokenFilter -> Maybe LanguageInfo -> C.ByteString -> S.Seq Token
-parseTokens f@TokenFilter{..} l t = runST (case l >>= langIdentifierChars of
+parseTokens :: TokenFilter -> Maybe FileTypeInfo -> C.ByteString -> S.Seq Token
+parseTokens f@TokenFilter{..} l t = runST (case l >>= ftIdentifierChars of
         Nothing                   -> parseToken' isAlpha_ isAlphaNum_ l t
         Just (isAlpha1, isAlphaN) -> parseToken' isAlpha1 isAlphaN l t)
-  where parseToken' :: CharIdentifierF -> CharIdentifierF -> Maybe LanguageInfo -> C.ByteString -> ST a (S.Seq Token)
+  where parseToken' :: CharIdentifierF -> CharIdentifierF -> Maybe FileTypeInfo -> C.ByteString -> ST a (S.Seq Token)
         parseToken' isAlpha1 isAlphaN info txt  = do
 
           stateR  <- newSTRef StateSpace
@@ -320,10 +332,10 @@ parseTokens f@TokenFilter{..} l t = runST (case l >>= langIdentifierChars of
                         else do
                             acc    <- readSTRef accR
                             tokens <- readSTRef tokensR
-                            if | isSpace  x      ->  do stateR <~ StateSpace     ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword (mkTokenIdentifierOrKeyword info) acc txt)
-                               | x == chr 2      ->  do stateR <~ StateLiteral   ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword (mkTokenIdentifierOrKeyword info) acc txt)
-                               | isBracket' x    ->  do stateR <~ StateBracket   ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword (mkTokenIdentifierOrKeyword info) acc txt)
-                               | otherwise       ->  do stateR <~ StateOther     ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword (mkTokenIdentifierOrKeyword info) acc txt)
+                            if | isSpace  x      ->  do stateR <~ StateSpace     ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
+                               | x == chr 2      ->  do stateR <~ StateLiteral   ; accR <<~ Reset      ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
+                               | isBracket' x    ->  do stateR <~ StateBracket   ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
+                               | otherwise       ->  do stateR <~ StateOther     ; accR <<~ Start cur  ; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
 
                 StateDigit -> {-# SCC "StateDigit" #-}
                     if isCharNumber x
@@ -393,17 +405,21 @@ buildToken False f (TokenIdx start len) txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
 
-buildToken_ :: Bool -> Bool -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
-buildToken_ True  True  f (TokenIdx start len) txt = f (subByteString start len txt) (fromIntegral start)
-buildToken_ False False f (TokenIdx start len) txt = unspecifiedToken
-buildToken_ True  False f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
+buildToken_ :: Bool -> Bool -> Bool -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
+buildToken_ True  True True  f (TokenIdx start len) txt = f (subByteString start len txt) (fromIntegral start)
+buildToken_ True False False f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
     if isTokenIdentifier t
         then t
         else unspecifiedToken
-buildToken_ False True f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
+buildToken_ False True False f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
     if isTokenKeyword t
         then t
         else unspecifiedToken
+buildToken_ False False True f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
+    if isTokenNativeType t
+        then t
+        else unspecifiedToken
+buildToken_ _ _ _ f (TokenIdx start len) txt = unspecifiedToken
 
 
 subByteString :: Int -> Int -> C.ByteString -> C.ByteString

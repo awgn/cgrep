@@ -33,7 +33,7 @@ import Data.List.Split ( chunksOf )
 import qualified Data.Map as M
 import Data.Maybe ( fromJust, isJust, catMaybes, fromMaybe )
 import Data.Function ( fix )
-import qualified Data.Set as Set
+import qualified Data.Set as S
 
 import Control.Exception as E ( catch, SomeException )
 import Control.Concurrent ( forkIO, MVar, putMVar, forkOn, threadDelay )
@@ -70,7 +70,7 @@ import CGrep.Output
 import CGrep.Common ( takeN, getTargetName, Text8, takeN )
 import Options ( Options(..) )
 import Config
-    ( Config(Config, configLanguages, configFileLine, configColorMatch,
+    ( Config(Config, configFileTypes, configFileLine, configColorMatch,
              configColorFile, configColors, configPruneDirs),
       dumpPalette )
 import Reader
@@ -114,28 +114,32 @@ import qualified CGrep.Strategy.Semantic         as Semantic
 import Control.Monad.Catch ( SomeException, MonadCatch(catch) )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap
-    ( languageInfoLookup, languageLookup, LanguageInfo )
+import CGrep.FileType ( FileType )
+import CGrep.FileTypeMap
+    ( fileTypeInfoLookup, fileTypeLookup, FileTypeInfo )
 
 import Control.Monad.Loops ( whileM_ )
 import Verbose (putMsgLnVerbose, putMsgLn)
 import Control.Concurrent.MVar ( newMVar, takeMVar )
 import Data.IORef.Extra (atomicWriteIORef')
+import CGrep.FileKind ( FileKind )
+import qualified Data.List.NonEmpty as NE (unzip)
+
 
 withRecursiveContents :: Options
                       -> RawFilePath
-                      -> [Language]
+                      -> [FileType]
+                      -> [FileKind]
                       -> [RawFilePath]
-                      -> Set.Set RawFilePath
+                      -> S.Set RawFilePath
                       -> IORef Int
                       -> ([RawFilePath] -> IO ()) -> IO ()
-withRecursiveContents opt@Options{..} dir langs pdirs visited walkers action = do
+withRecursiveContents opt@Options{..} dir fTypes fKinds pdirs visited walkers action = do
     xs <- getDirectoryContents dir
     let (dirs, files) = partition ((== dtDir) . fst) xs
 
     -- filter the list of files
-    let files' = (dir </>) . snd <$> filter (\f -> fileFilter opt langs (snd f) && (not skip_test || isNotTestFile (snd f))) files
+    let files' = (dir </>) . snd <$> filter (\f -> fileFilter opt fTypes  fKinds (snd f) && (not skip_test || isNotTestFile (snd f))) files
     let dirs'  = (dir </>) . snd <$> dirs
 
     -- run IO action
@@ -149,15 +153,27 @@ withRecursiveContents opt@Options{..} dir langs pdirs visited walkers action = d
     foreach dirs' $ \dirPath -> do
         unless (isPrunableDir dirPath pdirs) $
              -- this is a good directory, unless already visited...
+             -- this is a good directory, unless already visited...
+             -- this is a good directory, unless already visited...
+             -- this is a good directory, unless already visited...
+
+             -- this is a good directory, unless already visited...
+
+             -- this is a good directory, unless already visited...
+
+             -- this is a good directory, unless already visited...
+             -- this is a good directory, unless already visited...
+
+             -- this is a good directory, unless already visited...
             makeRawAbsolute dirPath >>= \cpath ->
-                unless (cpath `Set.member` visited) $ incrRef walkers *>
-                    withRecursiveContents opt dirPath langs pdirs (Set.insert cpath visited) walkers action
+                unless (cpath `S.member` visited) $ incrRef walkers *>
+                    withRecursiveContents opt dirPath fTypes fKinds pdirs (S.insert cpath visited) walkers action
 
     decrRef walkers
 
 
-parallelSearch :: [RawFilePath] -> [C.ByteString] -> [Language] -> Bool -> ReaderIO ()
-parallelSearch paths patterns langs isTermIn = do
+parallelSearch :: [RawFilePath] -> [C.ByteString] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
+parallelSearch paths patterns fTypes fKinds isTermIn = do
     Env{..} <- ask
 
     let Config{..} = conf
@@ -177,8 +193,8 @@ parallelSearch paths patterns langs isTermIn = do
             then forM_ (if null paths then ["."] else paths) $ \p ->
                 doesDirectoryExist p >>= \case
                     True -> incrRef walkers *>
-                            withRecursiveContents opt p langs
-                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (Set.singleton p) walkers (do
+                            withRecursiveContents opt p fTypes fKinds
+                                (mkPrunableDirName <$> configPruneDirs <> (C.pack <$> prune_dir)) (S.singleton p) walkers (do
                                     writeChan (fst fileCh))
                     _     ->  writeChan (fst fileCh) [p]
             else forM_ (if null paths && not isTermIn
@@ -190,7 +206,7 @@ parallelSearch paths patterns langs isTermIn = do
         replicateM_ totalJobs $ writeChan (fst fileCh) []
 
     -- launch the worker threads...
-    matchingFiles <- liftIO $ newIORef Set.empty
+    matchingFiles <- liftIO $ newIORef S.empty
 
     let env = Env conf opt
         runSearch = getSearcher env
@@ -206,9 +222,9 @@ parallelSearch paths patterns langs isTermIn = do
                         [] -> liftIO $ readIORef asRef >>= mapM_ wait
                         fs -> runReaderT (do
                             out <- catMaybes <$> forM fs (\f -> do
-                                    out' <- take max_count <$> runSearch (languageInfoLookup opt f) f patterns
+                                    out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns
                                     when (vim || editor) $
-                                        liftIO $ mapM_ (modifyIORef matchingFiles . Set.insert . (outFilePath &&& outLineNumb)) out'
+                                        liftIO $ mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
                                     putOutputElements out')
                             unless (null out) $
                                 liftIO $ async (do
@@ -218,7 +234,7 @@ parallelSearch paths patterns langs isTermIn = do
                     ) (\e -> let msg = show (e :: SomeException) in
                             C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 120 msg)))
                 when (null fs) $ do
-                    when (verbose > 0) $ putMsgLn stderr $ "[" <> C.pack (show idx) <> "]@" <> C.pack(show processor) <>" searcher done!"
+                    when (verbose > 0) $ putMsgLn stderr $ "[" <> C.pack (show idx) <> "]@" <> C.pack (show processor) <>" searcher done!"
                     throwE ()
 
     -- wait workers to complete the job
@@ -230,7 +246,7 @@ parallelSearch paths patterns langs isTermIn = do
                     then return (Just "vim")
                     else lookupEnv "EDITOR"
 
-        files <- Set.toList <$> readIORef matchingFiles
+        files <- S.toList <$> readIORef matchingFiles
         let filesUnpacked = Data.Bifunctor.first C.unpack <$> files
 
         let editFiles = (if fileline || configFileLine
@@ -247,7 +263,7 @@ parallelSearch paths patterns langs isTermIn = do
                           (Just stdout)
                           (Just stderr) >>= waitForProcess
 
-getSearcher :: Env -> (Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output])
+getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output])
 getSearcher Env{..} = do
   if | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
      | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt)                  -> BoyerMoore.search
@@ -270,9 +286,11 @@ decrRef ref = atomicModifyIORef' ref (\n -> (n-1, ()))
 {-# INLINE decrRef #-}
 
 
-fileFilter :: Options -> [Language] -> RawFilePath -> Bool
-fileFilter opt langs filename = maybe False (liftA2 (||) (const $ null langs) (`elem` langs)) (languageLookup opt filename)
-{-# INLINE fileFilter #-}
+fileFilter :: Options -> [FileType] -> [FileKind] -> RawFilePath -> Bool
+fileFilter opt fTypes fKinds filename = fileFilterTypes typ && fileFilterKinds kin
+    where (typ, kin) = NE.unzip $ fileTypeLookup opt filename
+          fileFilterTypes = maybe False (liftA2 (||) (const $ null fTypes) (`elem` fTypes))
+          fileFilterKinds = maybe False (liftA2 (||) (const $ null fKinds) (`elem` fKinds))
 
 
 isNotTestFile :: RawFilePath -> Bool
@@ -299,14 +317,15 @@ v .!. i = v ! (i `mod` V.length v)
 {-# INLINE  (.!.) #-}
 
 
-hasLanguage :: RawFilePath -> Options -> [Language] -> Bool
-hasLanguage path opt xs = isJust $ languageLookup opt path >>= (`elemIndex` xs)
-{-# INLINE hasLanguage #-}
+hasFileType :: RawFilePath -> Options -> [FileType] -> Bool
+hasFileType path opt xs = isJust $ fileTypeLookup opt path >>= (\(typ, _) -> typ `elemIndex` xs)
+{-# INLINE hasFileType #-}
 
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options{..} =
   identifier ||
+  nativeType ||
   keyword    ||
   number     ||
   string     ||

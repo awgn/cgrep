@@ -52,8 +52,9 @@ Executable cgrep
                        Config
                        Reader
                        Search
-                       CGrep.Language
-                       CGrep.LanguagesMap
+                       CGrep.FileType
+                       CGrep.FileKind
+                       CGrep.FileTypeMap
                        CGrep.ContextFilter
                        CGrep.Types
                        CGrep.Output
@@ -115,7 +116,7 @@ Executable cgrep
                        text,
                        extra
 
-  Ghc-options:  -O2 -optc-O3 -j 
+  Ghc-options:  -O2 -optc-O3 -j
                 -funbox-strict-fields
                 -fwrite-ide-info
                 -hiedir=.hie

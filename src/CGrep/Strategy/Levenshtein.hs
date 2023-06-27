@@ -35,9 +35,9 @@ import CGrep.Common
 import CGrep.Output ( Output, mkOutputElements )
 import CGrep.Distance ( (~==) )
 import CGrep.Parser.Chunk ( Chunk, cToken, parseChunks )
-import CGrep.Language ( Language )
-import CGrep.LanguagesMap
-    ( languageLookup, LanguageInfo, contextFilter )
+import CGrep.FileType ( FileType )
+import CGrep.FileTypeMap
+    ( fileTypeLookup, FileTypeInfo, contextFilter )
 
 import Reader ( ReaderIO, Env (..) )
 import Verbose ( putMsgLnVerbose )
@@ -45,7 +45,7 @@ import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
 import Data.Foldable
 
-search :: Maybe (Language, LanguageInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
 
     Env{..} <- ask
@@ -59,7 +59,7 @@ search info f patterns = do
     let ctxFilter = mkContextFilter opt
 
     let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (languageLookup opt filename) ctxFilter False
+                                              , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
                                               , ignoreCase opt
                                               ]
 

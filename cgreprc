@@ -2,7 +2,7 @@
 # cgrep YAML config file...
 #
 
-languages:   [ Agda , Assembly , Awk , Bash, C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csh, Csharp , Css ,
+file_types:   [ Agda , Assembly , Awk , Bash, C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csh, Csharp , Css ,
                 D , Dart , Dhall, Elm , Elixir , Erlang , Fish, Fortran , Fsharp , Go , GoMod, Haskell , Html , Idris , Java , Javascript , Json , Ksh, Kotlin ,
                 Latex , Lisp , Lua , Make , Nmap , OCaml , ObjectiveC , PHP , Perl , Python , R , Ruby , Rust , Scala , SmallTalk , Shell , Swift , Tcl,
                     Text , Unison, VHDL , Verilog , Yaml, Toml, Ini, Zig, Zsh ]
