@@ -84,6 +84,8 @@ Executable cgrep
                        CGrep.Strategy.BoyerMoore
                        CGrep.Strategy.Regex
                        Paths_cgrep
+  Autogen-modules:     Paths_cgrep
+
   Build-Depends:       base < 5.0,
                        cmdargs,
                        bytestring,
@@ -127,7 +129,7 @@ Executable cgrep
                        text,
                        extra
 
-  Ghc-options:  -O2 -optc-O3 -j
+  Ghc-options:  -O2 -optc-O3 
                 -funbox-strict-fields
                 -fwrite-ide-info
                 -hiedir=.hie
