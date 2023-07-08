@@ -1,0 +1,7 @@
+-- this is an hello world!
+
+helloWorld : '{IO, Exception} ()
+helloWorld = do
+  use Text ++
+  name = !readLine
+  printLine ("Hello " ++ name)
