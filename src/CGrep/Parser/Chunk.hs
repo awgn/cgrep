@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -15,14 +15,6 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE DerivingStrategies #-}
 
 module CGrep.Parser.Chunk (
     parseChunks
@@ -77,6 +69,7 @@ import Data.Word ( Word8 )
 newtype ChunkType = ChunkType {unChunkType :: Word8}
     deriving newtype (Eq, Ord)
 
+
 instance Show ChunkType where
     show ChunkUnspec     = "*"
     show ChunkIdentifier = "identifier"
@@ -119,13 +112,13 @@ data Chunk = Chunk {
      cTyp    :: {-# UNPACK #-} !ChunkType
   ,  cToken  :: {-# UNPACK #-} !Text8
   ,  cOffset :: {-# UNPACK #-} !Offset
-} deriving (Eq, Show, Ord)
+} deriving stock (Eq, Show, Ord)
 
 
 data MatchLine = MatchLine {
     lOffset :: {-# UNPACK #-} !Offset,
     lChunks :: [Chunk]
-} deriving (Eq, Show)
+} deriving stock (Eq, Show)
 
 
 newtype ChunkState = ChunkState { unChunkState :: Word8 }

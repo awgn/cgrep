@@ -7,7 +7,7 @@ Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2.0-or-later
 License-file:        LICENSE
 Author:              Nicola Bonelli
-Maintainer:          Nicola Bonelli <nicola@pfq.io>
+Maintainer:          Nicola Bonelli <nicola@larthia.com>
 Category:            Utils
 Build-type:          Simple
 Stability:           Experimental
@@ -36,15 +36,26 @@ Common common-options
 Executable cgrep
   Main-Is:             Main.hs
   Hs-Source-Dirs:      src
-  Default-Extensions:  CPP,
-                       LambdaCase,
-                       UnboxedTuples,
-                       DeriveDataTypeable,
-                       ViewPatterns,
-                       MagicHash,
-                       BangPatterns,
-                       FlexibleInstances,
-                       FlexibleContexts
+  Default-Extensions: FlexibleContexts
+                      FlexibleInstances
+                      GeneralisedNewtypeDeriving
+                      DerivingStrategies
+                      MultiWayIf
+                      LambdaCase
+                      OverloadedLists
+                      OverloadedRecordDot
+                      OverloadedStrings
+                      PatternSynonyms
+                      RecordWildCards
+                      ScopedTypeVariables
+                      TupleSections
+                      TypeApplications
+                      UnboxedSums
+                      UnboxedTuples
+                      ViewPatterns
+                      BangPatterns
+                      MagicHash
+
   Other-Modules:       Options
                        Verbose
                        CmdOptions

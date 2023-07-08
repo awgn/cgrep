@@ -1,5 +1,5 @@
---
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+---
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -32,18 +32,17 @@ import qualified Data.ByteString.Char8 as C
 import Options ( Options(Options, type_force) )
 import Util ( prettyRead )
 import System.Posix.FilePath (RawFilePath)
-import CGrep.FileKind
+import CGrep.FileKind ( FileKind )
 
 
 data FileType = Agda | Assembly | Awk  | Bash | C | CMake | Cabal | Chapel | Clojure | Coffee | Conf | Cpp  | Csh | Csharp | Css | Cql |
                 D | Dart | Dhall | Elm | Elixir | Erlang | Fish | Fortran | Fsharp | Go | GoMod | Haskell | Html | Idris | Java | Javascript | Json | Julia | Kotlin |
                 Ksh | Latex | Lisp | Lua | Make | Nim | Nmap | OCaml | ObjectiveC | PHP | Perl | Python | R | Ruby | Rust | Scala | SmallTalk | Swift | Sql | Tcl |
                 Text | Unison | VHDL | Verilog | Yaml | Toml | Ini | Zig | Zsh
-                deriving (Read, Show, Eq, Ord, Bounded)
-
+                deriving stock (Read, Show, Eq, Ord, Bounded)
 
 data FileSelector = Name RawFilePath| Ext C.ByteString
-    deriving (Eq, Ord)
+    deriving stock (Eq, Ord)
 
 
 instance Show FileSelector where

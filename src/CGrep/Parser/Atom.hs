@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -15,9 +15,6 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns #-}
 
 module CGrep.Parser.Atom (Atom(..), Atoms,
                                 mkAtomFromToken,
@@ -53,7 +50,7 @@ data Atom =
     Literal                     |
     Identifier  C.ByteString    |
     Raw T.Token
-        deriving (Eq, Ord, Show)
+        deriving stock (Eq, Ord, Show)
 
 type Atoms = [Atom]
 

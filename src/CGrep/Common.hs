@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -16,10 +16,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE  ViewPatterns #-}
-{-# LANGUAGE  OverloadedStrings #-}
-{-# LANGUAGE  DerivingStrategies #-}
-
 module CGrep.Common ( Text8
                     , getTargetName
                     , getTargetContents
@@ -30,10 +26,8 @@ module CGrep.Common ( Text8
                     , trim8
                     , takeN) where
 
-
 import Data.Char (toLower)
 import CGrep.Parser.Char (isSpace)
-
 import CGrep.Types ( Offset, Text8 )
 
 import Options
@@ -99,5 +93,4 @@ subText indices txt = case C.elemIndex '\n' (C.drop maxOff txt) of
         (Just n) -> C.take (maxOff + n) txt
     where maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
           lastDef def xs = if null xs then def else last xs
-
 {-# INLINE subText #-}

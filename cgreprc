@@ -1,5 +1,5 @@
 #
-# cgrep YAML config file...
+# Cgrep config file
 #
 
 file_types:   [ Agda , Assembly , Awk , Bash, C , CMake , Cabal , Chapel , Clojure , Coffee , Conf , Cpp  , Csh, Csharp , Css ,

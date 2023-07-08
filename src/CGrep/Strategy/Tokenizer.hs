@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -15,13 +15,10 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Tokenizer (search) where
 
 import qualified Data.ByteString.Char8 as C
-
 import Control.Monad.Trans.Reader ( reader, ask )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
 
@@ -45,7 +42,7 @@ import CGrep.FileType ( FileType )
 import CGrep.FileTypeMap
     ( fileTypeLookup, FileTypeInfo, contextFilter )
 
-import CGrep.Search
+import CGrep.Search ( eligibleForSearch, searchStringIndices )
 import Data.List ( isSuffixOf, isInfixOf, isPrefixOf )
 
 import Reader ( ReaderIO, Env (..) )

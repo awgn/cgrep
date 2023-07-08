@@ -1,5 +1,5 @@
-
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+--
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -16,17 +16,9 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE UnboxedTuples #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module CGrep.ContextFilter where
 
 import CGrep.Types ( Text8 )
-
 import CGrep.Parser.Char ( chr, isSpace, ord )
 
 import qualified Data.ByteString.Char8 as C
@@ -55,7 +47,7 @@ import Util ( findWithIndex )
 type FilterFunction = ContextFilter -> Text8 -> Text8
 
 data Context = Code | Comment | Literal
-    deriving (Eq, Show)
+    deriving stock (Eq, Show)
 
 newtype ContextBit = ContextBit Int32
     deriving stock (Show)
@@ -140,16 +132,18 @@ data ParState =  ParState
     ,   nextState :: !ContextState
     ,   display   :: !Bool
     ,   skip      :: {-# UNPACK #-} !Int
-    } deriving (Show)
+    } deriving stock (Show)
 
 
 data ContextState =
         CodeState1 | CodeStateN |
-        CommState1 {-# UNPACK #-} !Int | CommStateN {-# UNPACK #-} !Int |
+        CommState1 {-# UNPACK #-} !Int |
+        CommStateN {-# UNPACK #-} !Int |
         ChrState {-# UNPACK #-} !Int   |
-        LitrState1 {-# UNPACK #-} !Int | LitrStateN {-# UNPACK #-} !Int |
+        LitrState1 {-# UNPACK #-} !Int |
+        LitrStateN {-# UNPACK #-} !Int |
         RawState {-# UNPACK #-} !Int
-    deriving (Show, Eq, Ord)
+    deriving stock (Show, Eq, Ord)
 
 
 mkContextFilter :: Options -> ContextFilter
@@ -313,4 +307,3 @@ findPrefixBoundary' txt bs =
                                 in if end `C.isPrefixOf` C.drop skip ys then elm else (#0, Nothing #)
                         _ -> (# 0, Nothing #)
         _ -> (# 0, Nothing #)
-{-# INLINEABLE findPrefixBoundary' #-}

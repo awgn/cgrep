@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -15,16 +15,14 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Semantic (search) where
 
 import qualified Data.ByteString.Char8 as C
-
 import CGrep.Parser.Token
 
 import CGrep.ContextFilter
+    ( contextBitComment, mkContextFilter, (~!) )
 import CGrep.Common
     ( Text8,
       trim,
@@ -33,9 +31,9 @@ import CGrep.Common
       expandMultiline,
       ignoreCase, trim8, subText )
 
-import CGrep.Search
+import CGrep.Search ( eligibleForSearch, searchStringIndices )
 import CGrep.Output ( Output, mkOutputElements, runSearch )
-import CGrep.Parser.Line
+import CGrep.Parser.Line ( getAllLineOffsets )
 
 import CGrep.Parser.Atom
     ( Atom(..),

@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -16,16 +16,8 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE UnboxedSums #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module CGrep.Parser.Token (
       parseTokens
@@ -56,7 +48,6 @@ module CGrep.Parser.Token (
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Internal as BI
-
 import qualified Data.DList as DL
 
 import CGrep.Parser.Char
@@ -242,7 +233,7 @@ data TokenFilter = TokenFilter
     ,   tfNumber     :: !Bool
     ,   tfOperator   :: !Bool
     ,   tfBracket    :: !Bool
-    } deriving (Eq, Show)
+    } deriving stock (Eq, Show)
 
 
 filterToken :: TokenFilter -> Token -> Bool

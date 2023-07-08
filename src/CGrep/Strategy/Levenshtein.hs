@@ -1,4 +1,5 @@
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+--
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -14,11 +15,9 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module CGrep.Strategy.Levenshtein (search) where
-import CGrep.Parser.Line
+import CGrep.Parser.Line ( getAllLineOffsets )
 
 import qualified Data.ByteString.Char8 as C
 
@@ -43,7 +42,7 @@ import Reader ( ReaderIO, Env (..) )
 import Verbose ( putMsgLnVerbose )
 import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
-import Data.Foldable
+import Data.Foldable ( Foldable(toList) )
 
 search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do

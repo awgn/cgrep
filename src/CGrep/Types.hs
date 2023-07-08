@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -16,8 +16,11 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-
-module CGrep.Types where
+module CGrep.Types (
+    Offset
+  , Text8
+  , LText8
+) where
 
 import Data.ByteString.Char8 as C ( ByteString )
 import Data.ByteString.Lazy.Char8 as LC ( ByteString )

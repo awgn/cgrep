@@ -1,4 +1,5 @@
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+--
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -15,12 +16,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module CGrep.Output ( Output(..)
@@ -54,7 +49,7 @@ import Data.List
 import Data.Function ( on )
 
 import CGrep.Types ( Text8, Offset )
-import CGrep.Parser.Chunk
+import CGrep.Parser.Chunk ( Chunk(..), MatchLine(..) )
 
 import Config ( Config(configColorFile, configColorMatch) )
 import Reader ( ReaderIO, Env(..) )
@@ -71,7 +66,6 @@ import Options
     ( Options(Options, invert_match, json, filename_only, no_shallow,
               no_filename, count, no_color, no_numbers, no_column, show_match,
               color) )
-import CGrep.Parser.Token
 
 data Output = Output
     { outFilePath :: RawFilePath
@@ -275,5 +269,5 @@ highlightLine conf ts =  highlightLine' (highlightIndexes ts, 0, 0)
 
 
 highlightIndexes :: [Chunk] -> [(Int64, Int64)]
-highlightIndexes = foldr (\chunk a -> let b = cOffset chunk in (fromIntegral b, b + fromIntegral (C.length (cToken chunk)) - 1) : a) [] . filter (not. B.null.cToken)
+highlightIndexes = foldr (\chunk a -> let b = cOffset chunk in (fromIntegral b, b + fromIntegral (C.length (cToken chunk)) - 1) : a) [] . filter (not. B.null . cToken)
 {-# INLINE highlightIndexes #-}

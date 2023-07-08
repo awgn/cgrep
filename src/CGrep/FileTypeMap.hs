@@ -1,6 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -16,7 +15,7 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE RecordWildCards #-}
+
 {-# LANGUAGE TupleSections #-}
 
 module CGrep.FileTypeMap (
@@ -62,7 +61,7 @@ import CGrep.Parser.Char (
     isAlpha_',
     isAlpha_and,
  )
-import Data.Char (isAlpha, isAlphaNum)
+import CGrep.Parser.Char (isAlpha, isAlphaNum)
 
 import System.Posix.FilePath (RawFilePath, takeBaseName, takeExtension, takeFileName)
 
@@ -84,7 +83,7 @@ newtype FileTypeMap = FileTypeMap {
 type CharIdentifierF = (Char -> Bool)
 
 data WordType = Keyword | NativeType
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 data FileTypeInfo = FileTypeInfo
     { ftSelector :: [FileSelector]

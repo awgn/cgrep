@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2022 Nicola Bonelli <nicola@pfq.io>
+-- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -17,8 +17,6 @@
 --
 
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Config (
     Config(..)
@@ -73,7 +71,7 @@ data Config = Config
   ,   configColorMatch :: [SGR]
   ,   configFileLine   :: Bool
   ,   configJobs       :: Maybe Int
-  } deriving (Show, Read)
+  } deriving stock (Show, Read)
 
 
 defaultConfig :: Config
@@ -111,7 +109,7 @@ data YamlConfig = YamlConfig
   ,   yamlColorMatch    :: Maybe String
   ,   yamlFileLine      :: Bool
   ,   yamlJobs          :: Maybe Int
-  } deriving (Show, Generic)
+  } deriving stock (Show, Generic)
 
 
 instance Y.FromJSON YamlConfig where
