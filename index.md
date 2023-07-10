@@ -6,7 +6,7 @@
 
 * **Fine-grained Multi-threading** with configurable number of threads.
 
-* **Blazing fast**: Running on a single core, it is nearly as fast as GNU grep, and up to 6 times faster than [ack](http://beyondgrep.com/).
+* **Blazing fast**: cgrep outperforms most grep tools and now its performance is more comparable to that of ripgrep (although still slightly inferior)
 
 * **Multi-line pattern searches**.
 
@@ -22,17 +22,17 @@
 
 * **Semantic searches** using wildcards and combinators: _, _1, _2..., $, $1, $2..., ANY, KEY, STR, CHR, NUM, HEX, OCT, OR. For example, "_1(_1 && $)" searches for C++ move constructors, and "struct OR class _ { OR :" searches for class declarations.
 
-* **Customizable** output with format string, XML, or JSON.
+* **Customizable** output with a format string, XML, or JSON.
 
 ### What's new in v8.0.0
 
-- **Performance Enhancements:** in this release, significant improvements have been made to enhance the performance of cgrep. The performance is now more on par with ripgrep, with search speeds ranging from 3 times to 13 times faster than the previous release.
+- **Performance Enhancements:** In this release, significant improvements have been made to enhance the performance of cgrep. The performance is now more on par with ripgrep, with search speeds ranging from 3 to 13 times faster than the previous release.
 
 - **Expanded Language and Configuration Support:** We have expanded the language and configuration support in cgrep. Starting from this version, it includes support for searching within Zig, Union, Dhall, Fish shell, Toml, and Ini config files. This means you can now easily search for patterns and text within files of these formats.
 
 - **New Semantic Token Filter:** A new semantic token filter has been introduced in this release. This filter is designed to identify and filter out specific native types present in different file types. This enhances the search results by providing more precise and relevant matches based on the semantic meaning of the tokens.
 
-- **Kind Filter Selector:** We have introduced a new feature called the Kind Filter Selector. With this filter selector, users can now specify the kind of files they want to search within. The available options for the filter include Text, Config, Language, Data, Markup, and Script. This allows for more focused and targeted searches based on the desired file type, especially useful in large codebases.
+- **Kind Filter Selector:** We have introduced a new feature called the Kind Filter Selector. With this filter selector, users can now specify the kind of files they want to search within. The available options for the filter include Text, Config, Language, Data, Markup, and Script. This allows for more focused and targeted searches based on the desired file type, which is especially useful in large codebases.
 
 ### Installation
 
