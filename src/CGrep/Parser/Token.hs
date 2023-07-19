@@ -386,7 +386,9 @@ parseTokens f@TokenFilter{..} l t = runST (case l >>= ftIdentifierChars of
 buildFilteredToken :: TokenFilter -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
 buildFilteredToken tf f (TokenIdx start len) txt =
     let t = f (subByteString start len txt) (fromIntegral start)
-        in if filterToken tf t then t else unspecifiedToken
+        in if filterToken tf t
+            then t
+            else unspecifiedToken
 {-# INLINE buildFilteredToken #-}
 
 
@@ -395,22 +397,12 @@ buildToken True  f (TokenIdx start len) txt = f (subByteString start len txt) (f
 buildToken False f (TokenIdx start len) txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
-
 buildToken_ :: Bool -> Bool -> Bool -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
-buildToken_ True  True True  f (TokenIdx start len) txt = f (subByteString start len txt) (fromIntegral start)
-buildToken_ True False False f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
-    if isTokenIdentifier t
-        then t
-        else unspecifiedToken
-buildToken_ False True False f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
-    if isTokenKeyword t
-        then t
-        else unspecifiedToken
-buildToken_ False False True f (TokenIdx start len) txt = let t = f (subByteString start len txt) (fromIntegral start) in
-    if isTokenNativeType t
-        then t
-        else unspecifiedToken
-buildToken_ _ _ _ f (TokenIdx start len) txt = unspecifiedToken
+buildToken_ i k t f (TokenIdx start len) txt =
+    if i && isTokenIdentifier tok || k && isTokenKeyword tok || t && isTokenNativeType tok
+          then tok
+          else unspecifiedToken
+    where tok = f (subByteString start len txt) (fromIntegral start)
 
 
 subByteString :: Int -> Int -> C.ByteString -> C.ByteString
