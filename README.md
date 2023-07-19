@@ -8,7 +8,7 @@ Usage
 -----
 
 ```
-Cgrep 8.0.0. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 8.1.0. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
