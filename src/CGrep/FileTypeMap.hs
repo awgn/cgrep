@@ -3058,7 +3058,7 @@ fileTypeInfoMap =  FileTypeInfoMap $
         ,
             ( Rust
             , FileTypeInfo
-                { ftSelector = [Ext "rs", Ext "rlib"]
+                { ftSelector = [Ext "rs"]
                 , ftKind = KindLanguage
                 , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                 , ftChar = ["'" ~~ "'"]
