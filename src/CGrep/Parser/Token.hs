@@ -60,6 +60,7 @@ import CGrep.Parser.Char
       isSpace,
       isCharNumber,
       isBracket',
+      isPunctuation,
       isAlpha_,
       isAlphaNum_ )
 
@@ -368,6 +369,7 @@ parseTokens f@TokenFilter{..} l t = runST (case l >>= ftIdentifierChars of
                                                 else do stateR <~ StateDigit ; accR <<~ Start cur   ; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                        | isBracket' x       ->  do stateR <~ StateBracket    ; accR <<~ Append cur  ; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                        | x == chr 2         ->  do stateR <~ StateLiteral    ; accR <<~ Reset       ; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket  acc txt)
+                       | isPunctuation x    ->  do accR <<~ Start cur        ; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                        | otherwise          ->  do accR <<~ Append cur
 
             curR <~ (cur + 1)

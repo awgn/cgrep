@@ -30,6 +30,7 @@ module CGrep.Parser.Char (
     ,   isAlpha_'
     ,   isAlphaNum_'
     ,   isBracket'
+    ,   isPunctuation
     ,   isAlpha_and
     ,   isAlphaNum_and
 ) where
@@ -118,6 +119,10 @@ isAlphaNum_' c = isAlphaNum_ c || c == '_' || c == '\''
 isBracket' :: Char -> Bool
 isBracket' c = c `elem` ("[]{}()" :: String)
 {-# INLINE isBracket' #-}
+
+isPunctuation :: Char -> Bool
+isPunctuation c = c `elem` (":;,." :: String)
+{-# INLINE isPunctuation #-}
 
 
 isAlpha_and :: String -> Char -> Bool
