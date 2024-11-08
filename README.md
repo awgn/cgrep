@@ -8,7 +8,7 @@ Usage
 -----
 
 ```
-Cgrep 8.1.0. Usage: cgrep [OPTION] [PATTERN] files...
+Cgrep 8.1.3. Usage: cgrep [OPTION] [PATTERN] files...
 
 cgrep [OPTIONS] [ITEM]
 
@@ -35,24 +35,29 @@ Token filters:
      --string             Literal strings
      --op                 Operators
 
+File filters:
+  -t --type-filter=ITEM   Specify file types. ie: Cpp, +Haskell, -Makefile
+  -k --kind-filter=ITEM   Specify file kinds. Text, Config, Language, Data,
+                          Markup or Script
+     --code-only          Parse code modules only (skip headers/interfaces)
+     --hdr-only           Parse headers/interfaces only (skip modules)
+  -T --skip-test          Skip files that have 'test' in the name
+     --prune-dir=ITEM     Do not descend into dir
+  -r --recursive          Enable recursive search (don't follow symlinks)
+  -L --follow             Follow symlinks
+
 Semantic:
   -S --semantic           "code" pattern: _, _1, _2... (identifiers), $, $1,
                           $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT,
                           OR
 
-Output control:
+Control:
      --max-count=INT      Stop search in files after INT matches
-  -t --type-filter=ITEM   Specify file types. ie: Cpp, +Haskell, -Makefile
-  -k --kind-filter=ITEM   Specify file kinds. Text, Config, Language, Data,
-                          Markup or Script
      --force-type=ITEM    Force the type of file
      --type-list          List the supported file types
   -v --invert-match       Select non-matching lines
      --multiline=INT      Enable multi-line matching
-  -r --recursive          Enable recursive search (don't follow symlinks)
-  -T --skip-test          Skip files that have 'test' in the name
-     --prune-dir=ITEM     Do not descend into dir
-  -L --follow             Follow symlinks
+  -j --threads=INT        Number threads to run in parallel
 
 Output format:
      --show-match         Show list of matching tokens
@@ -70,9 +75,6 @@ Output format:
      --fileline           When edit option is specified, pass the list of
                           matching files in file:line format (e.g. vim
                           'file-line' plugin)
-
-Concurrency:
-  -j --threads=INT        Number threads to run in parallel
 
 Miscellaneous:
      --verbose=INT        Verbose level: 1, 2 or 3
