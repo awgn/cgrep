@@ -17,36 +17,40 @@
 --
 
 module CGrep.Strategy.Levenshtein (search) where
-import CGrep.Parser.Line ( getAllLineOffsets )
+
+import CGrep.Parser.Line (getAllLineOffsets)
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader ( reader, ask )
-import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Reader (ask, reader)
 
-import CGrep.ContextFilter ( mkContextFilter )
-import CGrep.Common
-    ( Text8,
-      getTargetName,
-      getTargetContents,
-      expandMultiline,
-      ignoreCase )
-import CGrep.Output ( Output, mkOutputElements )
-import CGrep.Distance ( (~==) )
-import CGrep.Parser.Chunk ( Chunk, cToken, parseChunks )
-import CGrep.FileType ( FileType )
-import CGrep.FileTypeMap
-    ( fileTypeLookup, FileTypeInfo, contextFilter )
+import CGrep.Common (
+    Text8,
+    expandMultiline,
+    getTargetContents,
+    getTargetName,
+    ignoreCase,
+ )
+import CGrep.ContextFilter (mkContextFilter)
+import CGrep.Distance ((~==))
+import CGrep.FileType (FileType)
+import CGrep.FileTypeMap (
+    FileTypeInfo,
+    contextFilter,
+    fileTypeLookup,
+ )
+import CGrep.Output (Output, mkOutputElements)
+import CGrep.Parser.Chunk (Chunk, cToken, parseChunks)
 
-import Reader ( ReaderIO, Env (..) )
-import Verbose ( putMsgLnVerbose )
-import System.Posix.FilePath (RawFilePath)
+import Data.Foldable (Foldable (toList))
+import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
-import Data.Foldable ( Foldable(toList) )
+import System.Posix.FilePath (RawFilePath)
+import Verbose (putMsgLnVerbose)
 
 search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
-
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -57,19 +61,23 @@ search info f patterns = do
 
     let ctxFilter = mkContextFilter opt
 
-    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
-                                              , ignoreCase opt
-                                              ]
+    let [text''', _, _, _] =
+            scanr
+                ($)
+                text
+                [ expandMultiline opt
+                , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
+                , ignoreCase opt
+                ]
 
-    -- parse source code, get the Cpp.Token list...
+        -- parse source code, get the Cpp.Token list...
 
         tokens' = parseChunks (snd <$> info) text'''
 
-    -- filter tokens...
+        -- filter tokens...
 
         patterns' = map C.unpack patterns
-        matches  = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
+        matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
 
     putMsgLnVerbose 2 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"

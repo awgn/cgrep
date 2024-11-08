@@ -18,14 +18,14 @@
 
 module Reader where
 
-import Control.Monad.Trans.Reader ( ReaderT )
+import Control.Monad.Trans.Reader (ReaderT)
 
-import Config ( Config )
-import Options ( Options )
+import Config (Config)
+import Options (Options)
 
-data Env = Env {
-    conf :: Config
- ,  opt  :: Options
-}
+data Env = Env
+    { conf :: Config
+    , opt :: Options
+    }
 
 type ReaderIO = ReaderT Env IO

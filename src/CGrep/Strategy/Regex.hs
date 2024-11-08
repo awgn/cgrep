@@ -20,40 +20,42 @@ module CGrep.Strategy.Regex (search) where
 
 import qualified Data.ByteString.Char8 as C
 
-import Control.Monad.Trans.Reader ( reader, ask )
-import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Reader (ask, reader)
 
-import Text.Regex.Base
-    ( AllTextMatches(getAllTextMatches), MatchText )
-import Text.Regex.Posix ( (=~) )
-import Text.Regex.PCRE ( (=~) )
+import Text.Regex.Base (
+    AllTextMatches (getAllTextMatches),
+    MatchText,
+ )
+import Text.Regex.PCRE ((=~))
+import Text.Regex.Posix ((=~))
 
-import Data.Array ( Array, elems )
+import Data.Array (Array, elems)
 
-import CGrep.Common
-    ( Text8,
-      getTargetName,
-      getTargetContents,
-      expandMultiline,
-      ignoreCase )
-import CGrep.Output ( Output, mkOutputElements )
-import CGrep.ContextFilter ( mkContextFilter)
-import CGrep.FileType ( FileType )
-import CGrep.FileTypeMap ( FileTypeInfo(..), fileTypeLookup, contextFilter )
+import CGrep.Common (
+    Text8,
+    expandMultiline,
+    getTargetContents,
+    getTargetName,
+    ignoreCase,
+ )
+import CGrep.ContextFilter (mkContextFilter)
+import CGrep.FileType (FileType)
+import CGrep.FileTypeMap (FileTypeInfo (..), contextFilter, fileTypeLookup)
+import CGrep.Output (Output, mkOutputElements)
 
-import Reader ( ReaderIO, Env (..) )
-import Options ( Options(regex_pcre) )
-import Verbose ( putMsgLnVerbose )
+import Options (Options (regex_pcre))
+import Reader (Env (..), ReaderIO)
+import Verbose (putMsgLnVerbose)
 
 import CGrep.Parser.Chunk
-import CGrep.Parser.Line ( getAllLineOffsets )
+import CGrep.Parser.Line (getAllLineOffsets)
 
-import System.Posix.FilePath (RawFilePath)
 import System.IO (stderr)
+import System.Posix.FilePath (RawFilePath)
 
 search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
-
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -64,17 +66,23 @@ search info f patterns = do
 
     let ctxFilter = mkContextFilter opt
 
-    let [text''', _ , _ , _] = scanr ($) text [ expandMultiline opt
-                                              , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
-                                              , ignoreCase opt
-                                              ]
+    let [text''', _, _, _] =
+            scanr
+                ($)
+                text
+                [ expandMultiline opt
+                , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
+                , ignoreCase opt
+                ]
 
-    -- search for matching tokens
+        -- search for matching tokens
 
         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
 
-        tokens = map (\(str, (off,_)) -> Chunk ChunkUnspec str (fromIntegral off)) $
-                    concatMap elems $ patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
+        tokens =
+            map (\(str, (off, _)) -> Chunk ChunkUnspec str (fromIntegral off)) $
+                concatMap elems $
+                    patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putMsgLnVerbose 2 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"

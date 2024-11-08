@@ -18,90 +18,107 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import qualified Data.ByteString.Char8 as C
 import CGrep.Parser.Token
+import qualified Data.ByteString.Char8 as C
 
-import CGrep.ContextFilter
-    ( contextBitComment, mkContextFilter, (~!) )
-import CGrep.Common
-    ( Text8,
-      trim,
-      getTargetName,
-      getTargetContents,
-      expandMultiline,
-      ignoreCase, trim8, subText )
+import CGrep.Common (
+    Text8,
+    expandMultiline,
+    getTargetContents,
+    getTargetName,
+    ignoreCase,
+    subText,
+    trim,
+    trim8,
+ )
+import CGrep.ContextFilter (
+    contextBitComment,
+    mkContextFilter,
+    (~!),
+ )
 
-import CGrep.Search ( eligibleForSearch, searchStringIndices )
-import CGrep.Output ( Output, mkOutputElements, runSearch )
-import CGrep.Parser.Line ( getAllLineOffsets )
+import CGrep.Output (Output, mkOutputElements, runSearch)
+import CGrep.Parser.Line (getAllLineOffsets)
+import CGrep.Search (eligibleForSearch, searchStringIndices)
 
-import CGrep.Parser.Atom
-    ( Atom(..),
-      mkAtomFromToken,
-      combineAtoms,
-      filterTokensWithAtoms)
+import CGrep.Parser.Atom (
+    Atom (..),
+    combineAtoms,
+    filterTokensWithAtoms,
+    mkAtomFromToken,
+ )
 
-import Control.Monad.Trans.Reader ( reader, ask )
-import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Reader (ask, reader)
 
-import Data.List ( sortBy, nub )
-import Data.Function ( on )
-import Data.Maybe ( mapMaybe )
+import Data.Function (on)
+import Data.List (nub, sortBy)
+import Data.Maybe (mapMaybe)
 
-import Reader ( ReaderIO, Env (..) )
-import Verbose ( putMsgLnVerbose )
-import Util ( rmQuote8 )
 import CGrep.Parser.Chunk
+import Reader (Env (..), ReaderIO)
+import Util (rmQuote8)
+import Verbose (putMsgLnVerbose)
 
-import System.Posix.FilePath ( RawFilePath, takeBaseName )
+import System.Posix.FilePath (RawFilePath, takeBaseName)
 
-import CGrep.FileType ( FileType )
-import CGrep.FileTypeMap
-    ( fileTypeLookup, FileTypeInfo, contextFilter )
-import System.IO ( stderr )
+import CGrep.FileType (FileType)
+import CGrep.FileTypeMap (
+    FileTypeInfo,
+    contextFilter,
+    fileTypeLookup,
+ )
+import System.IO (stderr)
 
+import Data.Coerce (coerce)
+import Data.Foldable (Foldable (toList))
 import qualified Data.Sequence as S
-import Data.Foldable ( Foldable(toList) )
-import Data.Coerce ( coerce )
 
 search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
-
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
 
     let filename = getTargetName f
 
-    let [text''', _, text', _ ] = scanr ($) text [ expandMultiline opt
-                                                 , contextFilter (fst <$> fileTypeLookup opt filename) filt True
-                                                 , ignoreCase opt
-                                                 ]
+    let [text''', _, text', _] =
+            scanr
+                ($)
+                text
+                [ expandMultiline opt
+                , contextFilter (fst <$> fileTypeLookup opt filename) filt True
+                , ignoreCase opt
+                ]
 
         filt = mkContextFilter opt ~! contextBitComment
 
-    -- pre-process patterns
+        -- pre-process patterns
 
-        pfilter = TokenFilter {
-                tfIdentifier = True,
-                tfKeyword    = True,
-                tfNativeType = True,
-                tfString     = True,
-                tfNumber     = True,
-                tfOperator   = True,
-                tfBracket    = True}
+        pfilter =
+            TokenFilter
+                { tfIdentifier = True
+                , tfKeyword = True
+                , tfNativeType = True
+                , tfString = True
+                , tfNumber = True
+                , tfOperator = True
+                , tfBracket = True
+                }
 
-        patterns   = map (parseTokens pfilter (snd <$> info) . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
-        patterns'  = map (mkAtomFromToken <$>) patterns
-        patterns'' = map (combineAtoms . map (:[])) (toList <$> patterns')
+        patterns = map (parseTokens pfilter (snd <$> info) . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
+        patterns' = map (mkAtomFromToken <$>) patterns
+        patterns'' = map (combineAtoms . map (: [])) (toList <$> patterns')
 
-        identifiers = mapMaybe
-          (\case
-             Raw (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
-             Raw (Token (Chunk ChunkIdentifier "OR" _)) -> Nothing
-             Raw t -> Just (tToken t)
-             _ -> Nothing)
-          (concatMap toList patterns')
+        identifiers =
+            mapMaybe
+                ( \case
+                    Raw (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
+                    Raw (Token (Chunk ChunkIdentifier "OR" _)) -> Nothing
+                    Raw t -> Just (tToken t)
+                    _ -> Nothing
+                )
+                (concatMap toList patterns')
 
     -- put banners...
 
@@ -112,7 +129,6 @@ search info f ps = do
     let indices' = searchStringIndices identifiers text'
 
     runSearch opt filename (eligibleForSearch identifiers indices') $ do
-
         -- parse source code, get the Generic.Chunk list...
 
         let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns

@@ -16,40 +16,43 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Common ( Text8
-                    , getTargetName
-                    , getTargetContents
-                    , expandMultiline
-                    , ignoreCase
-                    , subText
-                    , trim
-                    , trim8
-                    , takeN) where
+module CGrep.Common (
+    Text8,
+    getTargetName,
+    getTargetContents,
+    expandMultiline,
+    ignoreCase,
+    subText,
+    trim,
+    trim8,
+    takeN,
+) where
 
-import Data.Char (toLower)
 import CGrep.Parser.Char (isSpace)
-import CGrep.Types ( Offset, Text8 )
+import CGrep.Types (Offset, Text8)
+import Data.Char (toLower)
 
-import Options
-    ( Options(Options, no_shallow, multiline, ignore_case) )
+import Options (
+    Options (Options, ignore_case, multiline, no_shallow),
+ )
 
-import Util ( spanGroup )
 import Data.Int (Int64)
-import System.IO.MMap ( mmapFileByteString )
+import System.IO.MMap (mmapFileByteString)
+import Util (spanGroup)
 
-import System.Posix.FilePath ( RawFilePath )
+import Data.List (group, groupBy, sort, sortOn)
 import qualified Data.Vector.Unboxed as UV
-import Data.List (groupBy, group, sortOn, sort)
+import System.Posix.FilePath (RawFilePath)
 
-import GHC.Exts ( groupWith )
+import GHC.Exts (groupWith)
 
 import qualified Data.ByteString.Char8 as C
 
 takeN :: Int -> String -> String
-takeN n xs | length xs > n = take n xs <> "..."
-          | otherwise     = xs
+takeN n xs
+    | length xs > n = take n xs <> "..."
+    | otherwise = xs
 {-# INLINE takeN #-}
-
 
 trim :: String -> String
 trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
@@ -59,38 +62,34 @@ trim8 :: Text8 -> Text8
 trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 {-# INLINE trim8 #-}
 
-
 getTargetName :: RawFilePath -> RawFilePath
-getTargetName (C.null -> True )= "<STDIN>"
+getTargetName (C.null -> True) = "<STDIN>"
 getTargetName name = name
 {-# INLINE getTargetName #-}
-
 
 getTargetContents :: RawFilePath -> IO Text8
 getTargetContents (C.null -> True) = C.getContents
 getTargetContents xs = mmapFileByteString (C.unpack xs) Nothing
 {-# INLINE getTargetContents #-}
 
-
 expandMultiline :: Options -> Text8 -> Text8
-expandMultiline Options { multiline = n } xs
+expandMultiline Options{multiline = n} xs
     | n == 1 = xs
     | otherwise = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
 {-# INLINE expandMultiline #-}
 
-
 ignoreCase :: Options -> Text8 -> Text8
 ignoreCase opt
-    | ignore_case opt =  C.map toLower
+    | ignore_case opt = C.map toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}
-
 
 subText :: [[Offset]] -> Text8 -> Text8
 subText [] txt = txt
 subText indices txt = case C.elemIndex '\n' (C.drop maxOff txt) of
-        Nothing  -> txt
-        (Just n) -> C.take (maxOff + n) txt
-    where maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
-          lastDef def xs = if null xs then def else last xs
+    Nothing -> txt
+    (Just n) -> C.take (maxOff + n) txt
+  where
+    maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
+    lastDef def xs = if null xs then def else last xs
 {-# INLINE subText #-}

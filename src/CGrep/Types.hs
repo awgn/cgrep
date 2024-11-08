@@ -17,15 +17,15 @@
 --
 
 module CGrep.Types (
-    Offset
-  , Text8
-  , LText8
+    Offset,
+    Text8,
+    LText8,
 ) where
 
-import Data.ByteString.Char8 as C ( ByteString )
-import Data.ByteString.Lazy.Char8 as LC ( ByteString )
-import Data.Int ( Int64 )
+import Data.ByteString.Char8 as C (ByteString)
+import Data.ByteString.Lazy.Char8 as LC (ByteString)
+import Data.Int (Int64)
 
-type Offset     = Int64
-type Text8     = C.ByteString
-type LText8    = LC.ByteString
+type Offset = Int64
+type Text8 = C.ByteString
+type LText8 = LC.ByteString

@@ -17,21 +17,22 @@
 --
 
 module CGrep.Boundary (
-     Boundary(..)
-    , BoundaryType(..)
-    , pattern Begin
-    , pattern End) where
+    Boundary (..),
+    BoundaryType (..),
+    pattern Begin,
+    pattern End,
+) where
 
 import qualified Data.ByteString.Char8 as C
-import Data.Word ( Word8 )
+import Data.Word (Word8)
 
-data Boundary = Boundary {
-    bBegin :: C.ByteString
- ,  bEnd :: C.ByteString
-} deriving stock (Show, Eq)
+data Boundary = Boundary
+    { bBegin :: C.ByteString
+    , bEnd :: C.ByteString
+    }
+    deriving stock (Show, Eq)
 
-
-newtype BoundaryType = BoundaryType { unpackBoundaryType :: Word8 }
+newtype BoundaryType = BoundaryType {unpackBoundaryType :: Word8}
     deriving newtype (Eq, Ord)
 
 instance Show BoundaryType where
