@@ -60,7 +60,7 @@ import Reader (Env (..), ReaderIO)
 import Util (rmQuote8)
 import Verbose (putMsgLnVerbose)
 
-import System.Posix.FilePath (RawFilePath, takeBaseName)
+import System.OsPath (OsPath, takeBaseName)
 
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
@@ -73,8 +73,10 @@ import System.IO (stderr)
 import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
 import qualified Data.Sequence as S
+import qualified Data.Vector.Unboxed as UV
+import Control.Monad (when)
 
-search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
     Env{..} <- ask
 
@@ -110,7 +112,7 @@ search info f ps = do
         patterns' = map (mkAtomFromToken <$>) patterns
         patterns'' = map (combineAtoms . map (: [])) (toList <$> patterns')
 
-        identifiers =
+        matchers =
             mapMaybe
                 ( \case
                     Raw (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
@@ -122,18 +124,22 @@ search info f ps = do
 
     -- put banners...
 
-    putMsgLnVerbose 2 stderr $ "strategy  : running generic semantic search on " <> filename <> "..."
-    putMsgLnVerbose 2 stderr $ "atoms     : " <> show patterns'' <> " -> identifiers: " <> show identifiers
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMsgLnVerbose 2 stderr $ "strategy  : running generic semantic search on " <> show filename
+    putMsgLnVerbose 2 stderr $ "atoms     : " <> show patterns''
+    putMsgLnVerbose 2 stderr $ "matchers  : " <> show matchers
 
-    let indices' = searchStringIndices identifiers text'
+    -- parse source code, get the Generic.Chunk list...
+    let indices' = searchStringIndices matchers text'
 
-    runSearch opt filename (eligibleForSearch identifiers indices') $ do
-        -- parse source code, get the Generic.Chunk list...
+    let eligible_for_search = eligibleForSearch matchers indices'
+    runSearch opt filename eligible_for_search $ do
 
         let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns
+        putMsgLnVerbose 3 stderr $ "filter    : " <> show tfilter
 
         let tokens = toList $ parseTokens tfilter (snd <$> info) (subText indices' text''')
+        putMsgLnVerbose 3 stderr $ "tokens    : " <> show tokens
 
         -- get matching tokens ...
 
@@ -143,7 +149,6 @@ search info f ps = do
 
         let matches = coerce tokens' :: [Chunk]
 
-        putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
         putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text

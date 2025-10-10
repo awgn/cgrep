@@ -21,6 +21,9 @@ module CGrep.FileType (
     FileSelector (..),
     readTypeList,
     readKindList,
+    ext,
+    hdr,
+    name
 )
 where
 
@@ -32,8 +35,9 @@ import Data.Maybe (fromJust)
 import CGrep.FileKind (FileKind)
 import qualified Data.ByteString.Char8 as C
 import Options (Options (Options, type_force))
-import System.Posix.FilePath (RawFilePath)
 import Util (prettyRead)
+import System.OsPath (OsPath)
+import qualified System.OsPath as OS
 
 data FileType
     = Agda
@@ -102,13 +106,25 @@ data FileType
     | Zsh
     deriving stock (Read, Show, Eq, Ord, Bounded)
 
-data FileSelector = Name RawFilePath | Ext C.ByteString | Hdr C.ByteString
+data FileSelector = Name OsPath | Ext OsPath | Hdr OsPath
     deriving stock (Eq, Ord)
 
+ext :: String -> FileSelector
+ext = Ext . OS.unsafeEncodeUtf
+{-# INLINE ext #-}
+
+hdr :: String -> FileSelector
+hdr = Hdr . OS.unsafeEncodeUtf
+{-# INLINE hdr #-}
+
+name :: String -> FileSelector
+name = Name . OS.unsafeEncodeUtf
+{-# INLINE name #-}
+
 instance Show FileSelector where
-    show (Name x) = C.unpack x
-    show (Ext e) = "*." <> C.unpack e
-    show (Hdr e) = "*." <> C.unpack e
+    show (Name x) = show x
+    show (Ext e) = "*." <> show e
+    show (Hdr e) = "*." <> show e
 
 -- utility functions
 

@@ -52,13 +52,13 @@ import GHC.Generics (Generic)
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import Data.ByteString.RawFilePath (RawFilePath)
 import Data.List.Split (splitOn)
 import System.FilePath ((</>))
 
 import CGrep.FileKind (FileKind)
 import Data.List.Extra (notNull)
 import Text.Read (readMaybe)
+import System.OsPath (OsPath)
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"
@@ -66,7 +66,7 @@ cgreprc = "cgreprc"
 data Config = Config
     { configFileTypes :: [FileType]
     , configFileKinds :: [FileKind]
-    , configPruneDirs :: [RawFilePath]
+    , configPruneDirs :: [String]
     , configColors :: Bool
     , configColorFile :: [SGR]
     , configColorMatch :: [SGR]
@@ -92,7 +92,7 @@ mkConfig :: YamlConfig -> Config
 mkConfig YamlConfig{..} =
     let configFileTypes = mapMaybe readMaybe yamlFileTypes
         configFileKinds = mapMaybe readMaybe yamlFileKinds
-        configPruneDirs = C.pack <$> yamlPruneDirs
+        configPruneDirs = yamlPruneDirs
         configColors = yamlColors
         configColorFile = fromMaybe [] (yamlColorFileName >>= readColor)
         configColorMatch = fromMaybe [] (yamlColorMatch >>= readColor)

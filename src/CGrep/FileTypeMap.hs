@@ -36,14 +36,14 @@ import CGrep.ContextFilter (
     mkParConfig,
     runContextFilter,
  )
-import CGrep.FileType (FileSelector (..), FileType (..))
+import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
 
 import CGrep.Types (Text8)
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (fromJust, isJust, fromMaybe)
 import Options (Options (Options, code_only, hdr_only, keyword, type_force))
 
 import qualified Data.Array.BitArray as BA
@@ -54,7 +54,6 @@ import qualified Data.Set as S
 import CGrep.Boundary (Boundary (Boundary))
 import CGrep.Parser.Char (isAlpha, isAlphaNum, isAlphaNum_, isAlphaNum_', isAlphaNum_and, isAlpha_, isAlpha_', isAlpha_and)
 
-import System.Posix.FilePath (RawFilePath, takeBaseName, takeExtension, takeFileName)
 
 import CGrep.FileKind
 import Data.Aeson (Value (Bool, String))
@@ -62,6 +61,9 @@ import Data.Bits (Bits (isSigned))
 import qualified Data.HashMap.Strict as HM
 import Data.MonoTraversable (WrappedPoly)
 import GHC.Conc (BlockReason (BlockedOnBlackHole))
+import System.OsPath (OsPath, takeFileName, takeExtension, takeBaseName)
+import qualified System.OsPath as OS
+import System.OsPath.Types (OsString)
 
 newtype FileTypeInfoMap = FileTypeInfoMap
     { unMapInfo :: Map.Map FileType FileTypeInfo
@@ -94,7 +96,7 @@ fileTypeInfoMap =
             [
                 ( Agda
                 , FileTypeInfo
-                    { ftSelector = [Ext "agda", Ext "lagda"]
+                    { ftSelector = [ext ".agda", ext ".lagda"]
                     , ftKind = KindLanguage
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -145,7 +147,7 @@ fileTypeInfoMap =
             ,
                 ( Assembly
                 , FileTypeInfo
-                    { ftSelector = [Ext "s", Ext "S", Ext "asm", Ext "ASM"]
+                    { ftSelector = [ext ".s", ext ".S", ext ".asm", ext ".ASM"]
                     , ftKind = KindLanguage
                     , ftComment = ["#" ~~ "\n", ";" ~~ "\n", "|" ~~ "\n", "!" ~~ "\n", "/*" ~~ "*/"]
                     , ftChar = []
@@ -158,7 +160,7 @@ fileTypeInfoMap =
             ,
                 ( Awk
                 , FileTypeInfo
-                    { ftSelector = [Ext "awk", Ext "mawk", Ext "gawk"]
+                    { ftSelector = [ext ".awk", ext ".mawk", ext ".gawk"]
                     , ftKind = KindScript
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
                     , ftChar = []
@@ -189,7 +191,7 @@ fileTypeInfoMap =
             ,
                 ( Bash
                 , FileTypeInfo
-                    { ftSelector = [Ext "sh", Ext "bash"]
+                    { ftSelector = [ext ".sh", ext ".bash"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -221,7 +223,7 @@ fileTypeInfoMap =
             ,
                 ( C
                 , FileTypeInfo
-                    { ftSelector = [Ext "c", Ext "C", Hdr "inc"]
+                    { ftSelector = [ext ".c", ext ".C", hdr ".inc"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -331,7 +333,7 @@ fileTypeInfoMap =
             ,
                 ( CMake
                 , FileTypeInfo
-                    { ftSelector = [Name "CMakeLists.txt", Ext "cmake"]
+                    { ftSelector = [name "CMakeLists.txt", ext ".cmake"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -344,7 +346,7 @@ fileTypeInfoMap =
             ,
                 ( Cabal
                 , FileTypeInfo
-                    { ftSelector = [Ext "cabal"]
+                    { ftSelector = [ext ".cabal"]
                     , ftKind = KindConfig
                     , ftComment = ["--" ~~ "\n"]
                     , ftChar = []
@@ -357,7 +359,7 @@ fileTypeInfoMap =
             ,
                 ( Chapel
                 , FileTypeInfo
-                    { ftSelector = [Ext "chpl"]
+                    { ftSelector = [ext ".chpl"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = []
@@ -469,7 +471,7 @@ fileTypeInfoMap =
             ,
                 ( Clojure
                 , FileTypeInfo
-                    { ftSelector = [Ext "clj", Ext "cljs", Ext "cljc", Ext "edn"]
+                    { ftSelector = [ext ".clj", ext ".cljs", ext ".cljc", ext ".edn"]
                     , ftKind = KindLanguage
                     , ftComment = [";" ~~ "\n"]
                     , ftChar = []
@@ -511,7 +513,7 @@ fileTypeInfoMap =
             ,
                 ( Coffee
                 , FileTypeInfo
-                    { ftSelector = [Ext "coffee"]
+                    { ftSelector = [ext ".coffee"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n", "###" ~~ "###"]
                     , ftChar = []
@@ -596,7 +598,7 @@ fileTypeInfoMap =
             ,
                 ( Conf
                 , FileTypeInfo
-                    { ftSelector = [Ext "config", Ext "conf", Ext "cfg", Ext "doxy"]
+                    { ftSelector = [ext ".config", ext ".conf", ext ".cfg", ext ".doxy"]
                     , ftKind = KindConfig
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -610,24 +612,24 @@ fileTypeInfoMap =
                 ( Cpp
                 , FileTypeInfo
                     { ftSelector =
-                        [ Ext "cpp"
-                        , Ext "CPP"
-                        , Ext "cxx"
-                        , Ext "cc"
-                        , Ext "cp"
-                        , Ext "c++"
-                        , Ext "cu"
-                        , Ext "cuh"
-                        , Hdr "tcc"
-                        , Hdr "h"
-                        , Hdr "H"
-                        , Hdr "hpp"
-                        , Hdr "ipp"
-                        , Hdr "HPP"
-                        , Hdr "hxx"
-                        , Hdr "hh"
-                        , Hdr "hp"
-                        , Hdr "h++"
+                        [ ext ".cpp"
+                        , ext ".CPP"
+                        , ext ".cxx"
+                        , ext ".cc"
+                        , ext ".cp"
+                        , ext ".c++"
+                        , ext ".cu"
+                        , ext ".cuh"
+                        , hdr ".tcc"
+                        , hdr ".h"
+                        , hdr ".H"
+                        , hdr ".hpp"
+                        , hdr ".ipp"
+                        , hdr ".HPP"
+                        , hdr ".hxx"
+                        , hdr ".hh"
+                        , hdr ".hp"
+                        , hdr ".h++"
                         ]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
@@ -790,7 +792,7 @@ fileTypeInfoMap =
             ,
                 ( Csharp
                 , FileTypeInfo
-                    { ftSelector = [Ext "cs", Ext "CS"]
+                    { ftSelector = [ext ".cs", ext ".CS"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -886,7 +888,7 @@ fileTypeInfoMap =
             ,
                 ( Csh
                 , FileTypeInfo
-                    { ftSelector = [Ext "csh", Ext "tcsh"]
+                    { ftSelector = [ext ".csh", ext ".tcsh"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -975,7 +977,7 @@ fileTypeInfoMap =
             ,
                 ( Css
                 , FileTypeInfo
-                    { ftSelector = [Ext "css"]
+                    { ftSelector = [ext ".css"]
                     , ftKind = KindMarkup
                     , ftComment = ["/*" ~~ "*/"]
                     , ftChar = []
@@ -988,7 +990,7 @@ fileTypeInfoMap =
             ,
                 ( Cql
                 , FileTypeInfo
-                    { ftSelector = [Ext "cql"]
+                    { ftSelector = [ext ".cql"]
                     , ftKind = KindLanguage
                     , ftComment = ["--" ~~ "\n"]
                     , ftChar = []
@@ -1113,7 +1115,7 @@ fileTypeInfoMap =
             ,
                 ( D
                 , FileTypeInfo
-                    { ftSelector = [Ext "d", Ext "D", Hdr "di"]
+                    { ftSelector = [ext ".d", ext ".D", hdr ".di"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -1240,7 +1242,7 @@ fileTypeInfoMap =
             ,
                 ( Dart
                 , FileTypeInfo
-                    { ftSelector = [Ext "dart"]
+                    { ftSelector = [ext ".dart"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = []
@@ -1316,7 +1318,7 @@ fileTypeInfoMap =
             ,
                 ( Dhall
                 , FileTypeInfo
-                    { ftSelector = [Ext "dhall"]
+                    { ftSelector = [ext ".dhall"]
                     , ftKind = KindConfig
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
                     , ftChar = []
@@ -1344,7 +1346,7 @@ fileTypeInfoMap =
             ,
                 ( Elixir
                 , FileTypeInfo
-                    { ftSelector = [Ext "ex", Ext "exs"]
+                    { ftSelector = [ext ".ex", ext ".exs"]
                     , ftKind = KindLanguage
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -1385,7 +1387,7 @@ fileTypeInfoMap =
             ,
                 ( Elm
                 , FileTypeInfo
-                    { ftSelector = [Ext "elm"]
+                    { ftSelector = [ext ".elm"]
                     , ftKind = KindLanguage
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -1441,7 +1443,7 @@ fileTypeInfoMap =
             ,
                 ( Erlang
                 , FileTypeInfo
-                    { ftSelector = [Ext "erl", Ext "ERL", Ext "hrl", Ext "HRL"]
+                    { ftSelector = [ext ".erl", ext ".ERL", ext ".hrl", ext ".HRL"]
                     , ftKind = KindLanguage
                     , ftComment = ["%" ~~ "\n"]
                     , ftChar = []
@@ -1498,7 +1500,7 @@ fileTypeInfoMap =
             ,
                 ( Fish
                 , FileTypeInfo
-                    { ftSelector = [Ext "fish"]
+                    { ftSelector = [ext ".fish"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -1540,22 +1542,22 @@ fileTypeInfoMap =
                 ( Fortran
                 , FileTypeInfo
                     { ftSelector =
-                        [ Ext "f"
-                        , Ext "for"
-                        , Ext "ftn"
-                        , Ext "F"
-                        , Ext "FOR"
-                        , Ext "FTN"
-                        , Ext "fpp"
-                        , Ext "FPP"
-                        , Ext "f90"
-                        , Ext "f95"
-                        , Ext "f03"
-                        , Ext "f08"
-                        , Ext "F90"
-                        , Ext "F95"
-                        , Ext "F03"
-                        , Ext "F08"
+                        [ ext ".f"
+                        , ext ".for"
+                        , ext ".ftn"
+                        , ext ".F"
+                        , ext ".FOR"
+                        , ext ".FTN"
+                        , ext ".fpp"
+                        , ext ".FPP"
+                        , ext ".f90"
+                        , ext ".f95"
+                        , ext ".f03"
+                        , ext ".f08"
+                        , ext ".F90"
+                        , ext ".F95"
+                        , ext ".F03"
+                        , ext ".F08"
                         ]
                     , ftKind = KindLanguage
                     , ftComment = ["!" ~~ "\n"]
@@ -1687,7 +1689,7 @@ fileTypeInfoMap =
             ,
                 ( Fsharp
                 , FileTypeInfo
-                    { ftSelector = [Ext "fs", Ext "fsx", Ext "fsi"]
+                    { ftSelector = [ext ".fs", ext ".fsx", ext ".fsi"]
                     , ftKind = KindLanguage
                     , ftComment = ["(*" ~~ "*)", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -1819,7 +1821,7 @@ fileTypeInfoMap =
             ,
                 ( Go
                 , FileTypeInfo
-                    { ftSelector = [Ext "go"]
+                    { ftSelector = [ext ".go"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -1900,7 +1902,7 @@ fileTypeInfoMap =
             ,
                 ( GoMod
                 , FileTypeInfo
-                    { ftSelector = [Name "go.mod"]
+                    { ftSelector = [name "go.mod"]
                     , ftKind = KindConfig
                     , ftComment = ["//" ~~ "\n"]
                     , ftChar = []
@@ -1921,7 +1923,7 @@ fileTypeInfoMap =
             ,
                 ( Haskell
                 , FileTypeInfo
-                    { ftSelector = [Ext "hs", Ext "lhs", Ext "hsc"]
+                    { ftSelector = [ext ".hs", ext ".lhs", ext ".hsc"]
                     , ftKind = KindLanguage
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2003,7 +2005,7 @@ fileTypeInfoMap =
             ,
                 ( Html
                 , FileTypeInfo
-                    { ftSelector = [Ext "htm", Ext "html"]
+                    { ftSelector = [ext ".htm", ext ".html"]
                     , ftKind = KindMarkup
                     , ftComment = ["<!--" ~~ "-->"]
                     , ftChar = []
@@ -2016,7 +2018,7 @@ fileTypeInfoMap =
             ,
                 ( Idris
                 , FileTypeInfo
-                    { ftSelector = [Ext "idr", Ext "lidr"]
+                    { ftSelector = [ext ".idr", ext ".lidr"]
                     , ftKind = KindLanguage
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n", "|||" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2082,7 +2084,7 @@ fileTypeInfoMap =
             ,
                 ( Java
                 , FileTypeInfo
-                    { ftSelector = [Ext "java"]
+                    { ftSelector = [ext ".java"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2157,7 +2159,7 @@ fileTypeInfoMap =
             ,
                 ( Javascript
                 , FileTypeInfo
-                    { ftSelector = [Ext "js"]
+                    { ftSelector = [ext ".js"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2234,7 +2236,7 @@ fileTypeInfoMap =
             ,
                 ( Json
                 , FileTypeInfo
-                    { ftSelector = [Ext "json", Ext "ndjson"]
+                    { ftSelector = [ext ".json", ext ".ndjson"]
                     , ftKind = KindData
                     , ftComment = []
                     , ftChar = []
@@ -2247,7 +2249,7 @@ fileTypeInfoMap =
             ,
                 ( Julia
                 , FileTypeInfo
-                    { ftSelector = [Ext "jl"]
+                    { ftSelector = [ext ".jl"]
                     , ftKind = KindLanguage
                     , ftComment = ["#" ~~ "\n", "#-" ~~ "-#"]
                     , ftChar = ["'" ~~ "'"]
@@ -2314,7 +2316,7 @@ fileTypeInfoMap =
             ,
                 ( Kotlin
                 , FileTypeInfo
-                    { ftSelector = [Ext "kt", Ext "kts", Ext "ktm"]
+                    { ftSelector = [ext ".kt", ext ".kts", ext ".ktm"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2420,7 +2422,7 @@ fileTypeInfoMap =
             ,
                 ( Ksh
                 , FileTypeInfo
-                    { ftSelector = [Ext "ksh"]
+                    { ftSelector = [ext ".ksh"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -2451,7 +2453,7 @@ fileTypeInfoMap =
             ,
                 ( Latex
                 , FileTypeInfo
-                    { ftSelector = [Ext "latex", Ext "tex"]
+                    { ftSelector = [ext ".latex", ext ".tex"]
                     , ftKind = KindMarkup
                     , ftComment = ["%" ~~ "\n"]
                     , ftChar = []
@@ -2464,7 +2466,7 @@ fileTypeInfoMap =
             ,
                 ( Lisp
                 , FileTypeInfo
-                    { ftSelector = [Ext "lisp", Ext "cl"]
+                    { ftSelector = [ext ".lisp", ext ".cl"]
                     , ftKind = KindLanguage
                     , ftComment = [";" ~~ "\n", "#|" ~~ "|#"]
                     , ftChar = []
@@ -2521,7 +2523,7 @@ fileTypeInfoMap =
             ,
                 ( Lua
                 , FileTypeInfo
-                    { ftSelector = [Ext "lua"]
+                    { ftSelector = [ext ".lua"]
                     , ftKind = KindLanguage
                     , ftComment = ["--[[" ~~ "--]]", "--" ~~ "\n"]
                     , ftChar = []
@@ -2557,7 +2559,7 @@ fileTypeInfoMap =
             ,
                 ( Make
                 , FileTypeInfo
-                    { ftSelector = [Name "Makefile", Name "makefile", Name "GNUmakefile", Ext "mk", Ext "mak", Ext "make"]
+                    { ftSelector = [name "Makefile", name "makefile", name "GNUmakefile", ext ".mk", ext ".mak", ext ".make"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -2570,7 +2572,7 @@ fileTypeInfoMap =
             ,
                 ( Nmap
                 , FileTypeInfo
-                    { ftSelector = [Ext "nse"]
+                    { ftSelector = [ext ".nse"]
                     , ftKind = KindScript
                     , ftComment = ["--" ~~ "\n", "[[" ~~ "]]"]
                     , ftChar = []
@@ -2583,7 +2585,7 @@ fileTypeInfoMap =
             ,
                 ( Nim
                 , FileTypeInfo
-                    { ftSelector = [Ext "nim"]
+                    { ftSelector = [ext ".nim"]
                     , ftKind = KindLanguage
                     , ftComment = ["#[" ~~ "#]", "#" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2682,7 +2684,7 @@ fileTypeInfoMap =
             ,
                 ( OCaml
                 , FileTypeInfo
-                    { ftSelector = [Ext "ml", Hdr "mli"]
+                    { ftSelector = [ext ".ml", hdr ".mli"]
                     , ftKind = KindLanguage
                     , ftComment = ["(*" ~~ "*)"]
                     , ftChar = ["'" ~~ "'"]
@@ -2766,7 +2768,7 @@ fileTypeInfoMap =
             ,
                 ( ObjectiveC
                 , FileTypeInfo
-                    { ftSelector = [Ext "m", Ext "mi"]
+                    { ftSelector = [ext ".m", ext ".mi"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2814,7 +2816,7 @@ fileTypeInfoMap =
             ,
                 ( PHP
                 , FileTypeInfo
-                    { ftSelector = [Ext "php", Ext "php3", Ext "php4", Ext "php5", Ext "phtml"]
+                    { ftSelector = [ext ".php", ext ".php3", ext ".php4", ext ".php5", ext ".phtml"]
                     , ftKind = KindScript
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n", "#" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -2901,7 +2903,7 @@ fileTypeInfoMap =
             ,
                 ( Perl
                 , FileTypeInfo
-                    { ftSelector = [Ext "pl", Ext "pm", Ext "pm6", Ext "plx", Ext "perl"]
+                    { ftSelector = [ext ".pl", ext ".pm", ext ".pm6", ext ".plx", ext ".perl"]
                     , ftKind = KindScript
                     , ftComment = ["=pod" ~~ "=cut", "#" ~~ "\n"]
                     , ftChar = []
@@ -2914,7 +2916,7 @@ fileTypeInfoMap =
             ,
                 ( Python
                 , FileTypeInfo
-                    { ftSelector = [Ext "py", Ext "pyx", Ext "pxd", Ext "pxi", Ext "scons"]
+                    { ftSelector = [ext ".py", ext ".pyx", ext ".pxd", ext ".pxi", ext ".scons"]
                     , ftKind = KindLanguage
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -2964,7 +2966,7 @@ fileTypeInfoMap =
             ,
                 ( R
                 , FileTypeInfo
-                    { ftSelector = [Ext "r", Ext "rdata", Ext "rds", Ext "rda"]
+                    { ftSelector = [ext ".r", ext ".rdata", ext ".rds", ext ".rda"]
                     , ftKind = KindLanguage
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -2999,7 +3001,7 @@ fileTypeInfoMap =
             ,
                 ( Ruby
                 , FileTypeInfo
-                    { ftSelector = [Ext "rb", Ext "ruby"]
+                    { ftSelector = [ext ".rb", ext ".ruby"]
                     , ftKind = KindLanguage
                     , ftComment = ["=begin" ~~ "=end", "#" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -3050,7 +3052,7 @@ fileTypeInfoMap =
             ,
                 ( Rust
                 , FileTypeInfo
-                    { ftSelector = [Ext "rs"]
+                    { ftSelector = [ext ".rs"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -3163,7 +3165,7 @@ fileTypeInfoMap =
             ,
                 ( Scala
                 , FileTypeInfo
-                    { ftSelector = [Ext "scala"]
+                    { ftSelector = [ext ".scala"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -3233,7 +3235,7 @@ fileTypeInfoMap =
             ,
                 ( SmallTalk
                 , FileTypeInfo
-                    { ftSelector = [Ext "st", Ext "gst"]
+                    { ftSelector = [ext ".st", ext ".gst"]
                     , ftKind = KindLanguage
                     , ftComment = ["\"" ~~ "\""]
                     , ftChar = ["$" ~~ ""]
@@ -3254,7 +3256,7 @@ fileTypeInfoMap =
             ,
                 ( Swift
                 , FileTypeInfo
-                    { ftSelector = [Ext "swift"]
+                    { ftSelector = [ext ".swift"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = []
@@ -3398,7 +3400,7 @@ fileTypeInfoMap =
             ,
                 ( Sql
                 , FileTypeInfo
-                    { ftSelector = [Ext "sql"]
+                    { ftSelector = [ext ".sql"]
                     , ftKind = KindLanguage
                     , ftComment = ["--" ~~ "\n"]
                     , ftChar = []
@@ -4330,7 +4332,7 @@ fileTypeInfoMap =
             ,
                 ( Tcl
                 , FileTypeInfo
-                    { ftSelector = [Ext "tcl", Ext "tk"]
+                    { ftSelector = [ext ".tcl", ext ".tk"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -4344,23 +4346,23 @@ fileTypeInfoMap =
                 ( Text
                 , FileTypeInfo
                     { ftSelector =
-                        [ Ext "txt"
-                        , Ext "md"
-                        , Ext "markdown"
-                        , Ext "mdown"
-                        , Ext "mkdn"
-                        , Ext "mkd"
-                        , Ext "mdwn"
-                        , Ext "mdtxt"
-                        , Ext "mdtext"
-                        , Ext "text"
-                        , Name "README"
-                        , Name "INSTALL"
-                        , Name "VERSION"
-                        , Name "LICENSE"
-                        , Name "AUTHORS"
-                        , Name "CHANGELOG"
-                        , Name "go.sum"
+                        [ ext ".txt"
+                        , ext ".md"
+                        , ext ".markdown"
+                        , ext ".mdown"
+                        , ext ".mkdn"
+                        , ext ".mkd"
+                        , ext ".mdwn"
+                        , ext ".mdtxt"
+                        , ext ".mdtext"
+                        , ext ".text"
+                        , name "README"
+                        , name "INSTALL"
+                        , name "VERSION"
+                        , name "LICENSE"
+                        , name "AUTHORS"
+                        , name "CHANGELOG"
+                        , name "go.sum"
                         ]
                     , ftKind = KindText
                     , ftComment = []
@@ -4374,7 +4376,7 @@ fileTypeInfoMap =
             ,
                 ( Unison
                 , FileTypeInfo
-                    { ftSelector = [Ext "u"]
+                    { ftSelector = [ext ".u"]
                     , ftKind = KindLanguage
                     , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -4421,7 +4423,7 @@ fileTypeInfoMap =
             ,
                 ( VHDL
                 , FileTypeInfo
-                    { ftSelector = [Ext "vhd", Ext "vhdl"]
+                    { ftSelector = [ext ".vhd", ext ".vhdl"]
                     , ftKind = KindLanguage
                     , ftComment = ["--" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -4545,7 +4547,7 @@ fileTypeInfoMap =
             ,
                 ( Verilog
                 , FileTypeInfo
-                    { ftSelector = [Ext "v", Ext "vh", Ext "sv"]
+                    { ftSelector = [ext ".v", ext ".vh", ext ".sv"]
                     , ftKind = KindLanguage
                     , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                     , ftChar = []
@@ -4666,7 +4668,7 @@ fileTypeInfoMap =
             ,
                 ( Yaml
                 , FileTypeInfo
-                    { ftSelector = [Ext "yaml", Ext "yml"]
+                    { ftSelector = [ext ".yaml", ext ".yml"]
                     , ftKind = KindConfig
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -4679,7 +4681,7 @@ fileTypeInfoMap =
             ,
                 ( Toml
                 , FileTypeInfo
-                    { ftSelector = [Ext "toml", Name "Cargo.lock"]
+                    { ftSelector = [ext ".toml", name "Cargo.lock"]
                     , ftKind = KindConfig
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -4692,7 +4694,7 @@ fileTypeInfoMap =
             ,
                 ( Ini
                 , FileTypeInfo
-                    { ftSelector = [Ext "ini"]
+                    { ftSelector = [ext ".ini"]
                     , ftKind = KindConfig
                     , ftComment = [";" ~~ "\n", "#" ~~ "\n"]
                     , ftChar = []
@@ -4705,7 +4707,7 @@ fileTypeInfoMap =
             ,
                 ( Zig
                 , FileTypeInfo
-                    { ftSelector = [Ext "zig"]
+                    { ftSelector = [ext ".zig"]
                     , ftKind = KindLanguage
                     , ftComment = ["//" ~~ "\n"]
                     , ftChar = ["'" ~~ "'"]
@@ -4803,7 +4805,7 @@ fileTypeInfoMap =
             ,
                 ( Zsh
                 , FileTypeInfo
-                    { ftSelector = [Ext "zsh"]
+                    { ftSelector = [ext ".zsh"]
                     , ftKind = KindScript
                     , ftComment = ["#" ~~ "\n"]
                     , ftChar = []
@@ -4861,19 +4863,26 @@ contextFilter (Just ftype) filt alterBoundary txt
     parFunc = mkFilterFunction alterBoundary =<< Map.lookup ftype (unMapInfo fileTypeInfoMap)
 {-# INLINE contextFilter #-}
 
-fileTypeLookup :: Options -> RawFilePath -> Maybe (FileType, FileKind)
+fileTypeLookup :: Options -> OsPath -> Maybe (FileType, FileKind)
 fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (hdr_only opts)
   where
-    lookupFileType :: RawFilePath -> Bool -> Bool -> Maybe (FileType, FileKind)
-    lookupFileType f False False = Map.lookup (Name $ takeFileName f) m <|> Map.lookup (Ext ext) m <|> Map.lookup (Hdr ext) m
-    lookupFileType f True False = Map.lookup (Name $ takeFileName f) m <|> Map.lookup (Ext ext) m
-    lookupFileType f False True = Map.lookup (Name $ takeFileName f) m <|> Map.lookup (Hdr ext) m
+    lookupFileType :: OsPath -> Bool -> Bool -> Maybe (FileType, FileKind)
+    lookupFileType f False False = Map.lookup (Name $ OS.takeFileName f) m <|> Map.lookup (Ext ext) m <|> Map.lookup (Hdr ext) m
+    lookupFileType f True False = Map.lookup (Name $ OS.takeFileName f) m <|> Map.lookup (Ext ext) m
+    lookupFileType f False True = Map.lookup (Name $ OS.takeFileName f) m <|> Map.lookup (Hdr ext) m
     lookupFileType f True True = errorWithoutStackTrace "CGrep: code-only and hdr-only are mutually exclusive!"
-    ext = C.dropWhile (== '.') $ takeExtension f
+    ext = OS.takeExtension f
     m = unMap fileTypeMap
 {-# INLINE fileTypeLookup #-}
 
-fileTypeInfoLookup :: Options -> RawFilePath -> Maybe (FileType, FileTypeInfo)
+
+osStringToByteStringUTF8 :: OsString -> Maybe C.ByteString
+osStringToByteStringUTF8 os = do
+    str <- OS.decodeUtf os
+    return $ C.pack str
+{-# INLINE osStringToByteStringUTF8 #-}
+
+fileTypeInfoLookup :: Options -> OsPath -> Maybe (FileType, FileTypeInfo)
 fileTypeInfoLookup opts f = fileTypeLookup opts f >>= \(typ, kid) -> (typ,) <$> Map.lookup typ (unMapInfo fileTypeInfoMap)
 {-# INLINE fileTypeInfoLookup #-}
 
@@ -4891,7 +4900,7 @@ dumpFileTypeMap m = forM_ (Map.toList (unMap m)) $ \(ext, l) ->
 
 forcedType :: Options -> Maybe (FileType, FileKind)
 forcedType Options{type_force = l}
-    | Just typ <- l = Map.lookup (Ext $ C.pack typ) m <|> Map.lookup (Name $ C.pack typ) m
+    | Just typ <- l = Map.lookup (ext typ) m <|> Map.lookup (name typ) m
     | otherwise = Nothing
   where
     m = unMap fileTypeMap

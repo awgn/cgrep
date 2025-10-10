@@ -168,6 +168,12 @@ getContext (ChrState _) = Literal
 -- contextFilterFun:
 --
 
+start_literal :: Char
+start_literal = chr 2
+
+end_literal :: Char
+end_literal = chr 3
+
 data ParData = ParData
     { pdText :: {-# UNPACK #-} !Text8
     , pdState :: !ParState
@@ -183,8 +189,8 @@ runContextFilter conf@ParConfig{..} f txt
         let !s' = nextContextState c s txt f
          in if display s'
                 then case (# getContext (ctxState s), getContext (ctxState s') #) of
-                    (# Code, Literal #) -> Just (chr 2, ParData xs s')
-                    (# Literal, Code #) -> Just (chr 3, ParData xs s')
+                    (# Code, Literal #) -> Just (start_literal, ParData xs s')
+                    (# Literal, Code #) -> Just (end_literal, ParData xs s')
                     _ -> Just (x, ParData xs s')
                 else
                     if isSpace x

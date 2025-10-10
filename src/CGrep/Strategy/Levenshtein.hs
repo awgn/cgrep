@@ -46,10 +46,10 @@ import CGrep.Parser.Chunk (Chunk, cToken, parseChunks)
 import Data.Foldable (Foldable (toList))
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath (OsPath)
 import Verbose (putMsgLnVerbose)
 
-search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
     Env{..} <- ask
 
@@ -79,9 +79,8 @@ search info f patterns = do
         patterns' = map C.unpack patterns
         matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
 
-    putMsgLnVerbose 2 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-
+    putMsgLnVerbose 2 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
     putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens'
     putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 
