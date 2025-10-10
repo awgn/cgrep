@@ -68,7 +68,8 @@ import qualified Data.Vector.Fusion.Util as VU (Box (..))
 import Data.Word (Word8)
 import Reader (Env (..), ReaderIO)
 
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath (OsPath, decodeUtf)
+import System.OsString.Internal.Types
 
 import CGrep.Parser.Line (getLineOffsets)
 import qualified Data.Vector.Generic as GV
@@ -88,9 +89,12 @@ import Options (
         show_match
     ),
  )
+import Data.ByteString.Short (ShortByteString)
+import System.OsString.Data.ByteString.Short (fromShort)
+import OsPath (toShortByteString)
 
 data Output = Output
-    { outFilePath :: RawFilePath
+    { outFilePath :: OsPath
     , outLineNumb :: {-# UNPACK #-} !Int64
     , outLine :: {-# UNPACK #-} !Text8
     , outChunks :: ![Chunk]
@@ -117,7 +121,7 @@ getLineNumberAndOffset xs x =
      in (# idx, x - xs `UV.unsafeIndex` (idx - 1) #)
 {-# INLINE getLineNumberAndOffset #-}
 
-mkOutputElements :: UV.Vector Int64 -> RawFilePath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
+mkOutputElements :: UV.Vector Int64 -> OsPath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
 mkOutputElements lineOffsets f text multi ts = do
     invert <- invert_match <$> reader opt
     return $
@@ -155,7 +159,7 @@ putOutputElements out = do
 
 runSearch ::
     Options ->
-    RawFilePath ->
+    OsPath ->
     Bool ->
     ReaderIO [Output] ->
     ReaderIO [Output]
@@ -187,10 +191,11 @@ defaultOutput xs = do
 
 jsonOutput :: [Output] -> ReaderIO B.Builder
 jsonOutput [] = pure mempty
-jsonOutput outs =
+jsonOutput outs = do
+    strname <- liftIO $ decodeUtf fname
     pure $
         mconcat . intersperse (B.char8 '\n') $
-            [B.byteString "{ \"file\":\"" <> B.byteString fname <> B.byteString "\", \"matches\":["]
+            [B.byteString "{ \"file\":\"" <> B.string8 strname <> B.byteString "\", \"matches\":["]
                 <> [mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs)]
                 <> [B.byteString "]}"]
   where
@@ -206,7 +211,7 @@ jsonOutput outs =
                ]
 
 filenameOutput :: [Output] -> ReaderIO B.Builder
-filenameOutput outs = return $ mconcat . intersperse (B.char8 '\n') $ B.byteString <$> nub ((\(Output fname _ _ _) -> fname) <$> outs)
+filenameOutput outs = return $ mconcat . intersperse (B.char8 '\n') $ B.shortByteString <$> nub ((\(Output fname _ _ _) -> (toShortByteString fname)) <$> outs)
 {-# INLINE filenameOutput #-}
 
 bold, reset :: C.ByteString
@@ -224,16 +229,18 @@ resetBuilder = B.byteString reset
 type ColorString = C.ByteString
 
 buildFileName :: Config -> Options -> Output -> B.Builder
-buildFileName conf opt = buildFileName' conf opt . outFilePath
+buildFileName conf opt out =
+    let str = toShortByteString (outFilePath out)
+    in buildFileName' conf opt $ str
   where
-    buildFileName' :: Config -> Options -> B.ByteString -> B.Builder
+    buildFileName' :: Config -> Options -> ShortByteString -> B.Builder
     buildFileName' conf opt = buildColoredAs opt $ C.pack (setSGRCode (configColorFile conf))
 {-# INLINE buildFileName #-}
 
-buildColoredAs :: Options -> ColorString -> B.ByteString -> B.Builder
+buildColoredAs :: Options -> ColorString -> ShortByteString -> B.Builder
 buildColoredAs Options{color = c, no_color = c'} colorCode str
-    | c && not c' = B.byteString colorCode <> B.byteString str <> resetBuilder
-    | otherwise = B.byteString str
+    | c && not c' = B.byteString colorCode <> B.shortByteString str <> resetBuilder
+    | otherwise = B.shortByteString str
 {-# INLINE buildColoredAs #-}
 
 buildLineCol :: Options -> Output -> B.Builder
@@ -254,8 +261,8 @@ buildLine conf Options{color = c, no_color = c'} out
     | otherwise = B.byteString $ outLine out
 {-# INLINE buildLine #-}
 
-showFileName :: Config -> Options -> RawFilePath -> RawFilePath
-showFileName conf opt = showColoredAs opt $ C.pack (setSGRCode (configColorFile conf))
+showFileName :: Config -> Options -> OsPath -> C.ByteString
+showFileName conf opt path = showColoredAs opt (C.pack (setSGRCode (configColorFile conf))) ((fromShort . toShortByteString) path)
 {-# INLINE showFileName #-}
 
 showBold :: Options -> C.ByteString -> C.ByteString

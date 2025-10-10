@@ -1,7 +1,7 @@
 Cabal-version:       2.2
 Name:                cgrep
 Description:         Cgrep: a context-aware grep for source codes
-Version:             8.1.3
+Version:             8.2.0
 Synopsis:            Command line tool
 Homepage:            http://awgn.github.io/cgrep/
 License:             GPL-2.0-or-later
@@ -63,6 +63,7 @@ Executable cgrep
                        Config
                        Reader
                        Search
+                       OsPath
                        CGrep.FileType
                        CGrep.FileKind
                        CGrep.FileTypeMap
@@ -121,8 +122,8 @@ Executable cgrep
                        bitwise,
                        mmap,
                        unagi-chan,
-                       posix-paths,
-                       rawfilepath,
+                       filepath,
+                       os-string,
                        monad-loops,
                        deepseq,
                        bitarray,

@@ -46,13 +46,13 @@ import Reader (Env (..), ReaderIO)
 import Verbose (putMsgLnVerbose)
 
 import System.IO (stderr)
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath (OsPath)
 
 import CGrep.Parser.Line (getLineByOffset, getLineOffsets)
 import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
 
-search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
     Env{..} <- ask
 
@@ -93,8 +93,8 @@ search info f patterns = do
                 then filter (checkChunk opt lineOffsets (snd <$> info) text''') chunks
                 else chunks
 
-    putMsgLnVerbose 2 stderr $ "strategy  : running Boyer-Moore search on " <> filename
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMsgLnVerbose 2 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt filename (eligibleForSearch patterns indices') $ do
         putMsgLnVerbose 2 stderr $ "chunks'   : " <> show chunks'

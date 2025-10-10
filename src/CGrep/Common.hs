@@ -42,7 +42,8 @@ import Util (spanGroup)
 
 import Data.List (group, groupBy, sort, sortOn)
 import qualified Data.Vector.Unboxed as UV
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath
+import qualified System.OsString as OS
 
 import GHC.Exts (groupWith)
 
@@ -62,14 +63,14 @@ trim8 :: Text8 -> Text8
 trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
 {-# INLINE trim8 #-}
 
-getTargetName :: RawFilePath -> RawFilePath
-getTargetName (C.null -> True) = "<STDIN>"
+getTargetName :: OsPath -> OsPath
+getTargetName (OS.null -> True) = unsafeEncodeUtf "<STDIN>"
 getTargetName name = name
 {-# INLINE getTargetName #-}
 
-getTargetContents :: RawFilePath -> IO Text8
-getTargetContents (C.null -> True) = C.getContents
-getTargetContents xs = mmapFileByteString (C.unpack xs) Nothing
+getTargetContents :: OsPath -> IO Text8
+getTargetContents (OS.null -> True) = C.getContents
+getTargetContents xs = decodeUtf xs >>= \fp -> mmapFileByteString fp Nothing
 {-# INLINE getTargetContents #-}
 
 expandMultiline :: Options -> Text8 -> Text8

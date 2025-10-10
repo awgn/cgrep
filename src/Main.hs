@@ -55,12 +55,15 @@ import Verbose (putMsgLnVerbose)
 
 import Reader (Env (..), ReaderIO)
 import Search (isRegexp, parallelSearch)
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath (OsPath)
 import Util (partitionM)
 
 import Control.Applicative (Alternative ((<|>)))
 import Data.Functor (void, ($>))
 import Data.List.Extra (notNull)
+import System.OsPath (unsafeEncodeUtf)
+import OsPath (toByteString, toFilePath, fromByteString)
+import qualified System.OsString as OS
 
 main :: IO ()
 main = do
@@ -102,7 +105,7 @@ main = do
     patterns <-
         if null file
             then pure $ readPatternsFromCommandLine others'
-            else readPatternsFromFile (C.pack file)
+            else readPatternsFromFile (unsafeEncodeUtf file)
 
     let patterns' = map (if ignore_case then ic else id) patterns
           where
@@ -118,7 +121,7 @@ main = do
     --    hPutStrLn stderr $ showBold opt ("Using '" <> fromJust confpath <> "' configuration file...")
 
     -- load files to parse:
-    let paths = getFilePaths (notNull file) others'
+    let paths = getFilePaths (notNull file) (others')
 
     -- parse cmd line language list:
     let (l0, l1, l2) = readTypeList type_filter
@@ -143,9 +146,9 @@ main = do
     -- run search
     runReaderT (parallelSearch paths patterns' types kinds isTermIn) (Env conf opt{jobs = Just cap})
 
-readPatternsFromFile :: RawFilePath -> IO [C.ByteString]
-readPatternsFromFile "" = return []
-readPatternsFromFile f = map trim8 . C.lines <$> C.readFile (C.unpack f)
+readPatternsFromFile :: OsPath -> IO [C.ByteString]
+readPatternsFromFile f | OS.null f = return []
+                       | otherwise = map trim8 . C.lines <$> C.readFile (toFilePath f)
 
 readPatternsFromCommandLine :: [C.ByteString] -> [C.ByteString]
 readPatternsFromCommandLine [] = []
@@ -153,8 +156,9 @@ readPatternsFromCommandLine xs
     | ":" `elem` xs = takeWhile (/= ":") xs
     | otherwise = [head xs]
 
-getFilePaths :: Bool -> [RawFilePath] -> [RawFilePath]
+
+getFilePaths :: Bool -> [C.ByteString] -> [OsPath]
 getFilePaths False xs = case ":" `elemIndex` xs of
-    Nothing -> if null xs then [] else tail xs
-    (Just n) -> drop (n + 1) xs
-getFilePaths True xs = xs
+    Nothing -> fromByteString <$> if null xs then [] else tail xs
+    (Just n) -> fromByteString <$> drop (n + 1) xs
+getFilePaths True xs = fromByteString <$> xs

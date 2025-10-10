@@ -70,7 +70,7 @@ import Verbose (putMsgLnVerbose)
 
 import CGrep.Parser.Chunk (Chunk (..))
 import System.IO (stderr)
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath (OsPath)
 
 import CGrep.Types (Offset)
 import Data.Coerce (coerce)
@@ -79,7 +79,7 @@ import Data.Foldable (Foldable (toList))
 import qualified Data.Sequence as S
 import Util (mapMaybe')
 
-search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
     Env{..} <- ask
 
@@ -100,7 +100,7 @@ search info f ps = do
                 , ignoreCase opt
                 ]
 
-    putMsgLnVerbose 2 stderr $ "strategy: running token search on " <> filename <> "..."
+    putMsgLnVerbose 2 stderr $ "strategy: running token search on " <> show filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
 
     let indices' = searchStringIndices ps text'

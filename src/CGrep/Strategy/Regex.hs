@@ -52,9 +52,9 @@ import CGrep.Parser.Chunk
 import CGrep.Parser.Line (getAllLineOffsets)
 
 import System.IO (stderr)
-import System.Posix.FilePath (RawFilePath)
+import System.OsPath (OsPath)
 
-search :: Maybe (FileType, FileTypeInfo) -> RawFilePath -> [Text8] -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
     Env{..} <- ask
 
@@ -84,8 +84,8 @@ search info f patterns = do
                 concatMap elems $
                     patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putMsgLnVerbose 2 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMsgLnVerbose 2 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
     putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
 
     let lineOffsets = getAllLineOffsets text
