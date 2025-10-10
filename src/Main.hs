@@ -54,7 +54,7 @@ import Paths_cgrep (version)
 import Verbose (putMsgLnVerbose)
 
 import Reader (Env (..), ReaderIO)
-import Search (isRegexp, parallelSearch)
+import Search (isRegexp, startSearch)
 import System.OsPath (OsPath)
 import Util (partitionM)
 
@@ -144,7 +144,7 @@ main = do
         Nothing -> getNumCapabilities
 
     -- run search
-    runReaderT (parallelSearch paths patterns' types kinds isTermIn) (Env conf opt{jobs = Just cap})
+    runReaderT (startSearch paths patterns' types kinds isTermIn) (Env conf opt{jobs = Just cap})
 
 readPatternsFromFile :: OsPath -> IO [C.ByteString]
 readPatternsFromFile f | OS.null f = return []

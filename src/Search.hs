@@ -18,7 +18,7 @@
 --
 
 module Search
-  ( parallelSearch,
+  ( startSearch,
     isRegexp,
   )
 where
@@ -109,6 +109,7 @@ import qualified Data.Set as S
 import Data.Tuple.Extra ()
 import Data.Vector ((!))
 import qualified Data.Vector as V hiding ((!))
+import Debug.Trace
 import Options (Options (..))
 import OsPath (toByteString)
 import Reader
@@ -136,7 +137,7 @@ import System.PosixCompat.Files as PC
   )
 import System.Process (runProcess, waitForProcess)
 import Verbose (putMsgLn, putMsgLnVerbose)
-import Debug.Trace
+import GHC.Conc (getNumCapabilities)
 
 isDot :: OsPath -> Bool
 isDot p = let n = toByteString p in n == "." || n == ".."
@@ -150,9 +151,10 @@ withRecursiveContents ::
   [OsPath] ->
   S.Set OsPath ->
   IORef Int ->
+  Bool ->
   ([OsPath] -> IO ()) ->
   IO ()
-withRecursiveContents opt@Options {..} dir fTypes fKinds pdirs visited walkers action = do
+withRecursiveContents opt@Options {..} dir fTypes fKinds pdirs visited walkers parallel action = do
   xs <- getDirectoryContents dir
   (dirs, files) <- partitionM (\p -> doesDirectoryExist (dir </> p)) xs
   -- putStrLn $ "CURRENT DIR:" <> show dir <> " CONTENT:" <> show xs <>  " SUBDIR:" <> show dirs <> " FILES:" <> show files
@@ -177,24 +179,25 @@ withRecursiveContents opt@Options {..} dir fTypes fKinds pdirs visited walkers a
       makeAbsolute dirPath >>= \cpath -> do
         unless (cpath `S.member` visited) $ do
           incrRef walkers
-            *> withRecursiveContents opt dirPath fTypes fKinds pdirs (S.insert cpath visited) walkers action
+            *> withRecursiveContents opt dirPath fTypes fKinds pdirs (S.insert cpath visited) walkers parallel action
 
   decrRef walkers
 
-
-parallelSearch :: [OsPath] -> [C.ByteString] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
-parallelSearch paths patterns fTypes fKinds isTermIn = do
+startSearch :: [OsPath] -> [C.ByteString] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
+startSearch paths patterns fTypes fKinds isTermIn = do
   Env {..} <- ask
 
   let Config {..} = conf
       Options {..} = opt
 
-  let multiplier = 4
-      jobs' = fromMaybe 1 jobs
-      totalJobs = jobs' * multiplier
+  numCaps <- liftIO getNumCapabilities
+
+  let !parallelSearch = maybe True (>1) jobs
+  let multiplier = if parallelSearch then 4 else 1
+  let totalJobs = multiplier * fromMaybe (numCaps - 1) jobs
 
   -- create channels ...
-  fileCh <- liftIO $ newChan 65536
+  fileCh <- liftIO $ newChan 4096
 
   -- recursively traverse the filesystem ...
   _ <- liftIO . forkOn 0 $ do
@@ -212,6 +215,7 @@ parallelSearch paths patterns fTypes fKinds isTermIn = do
                 (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
                 (S.singleton p)
                 walkers
+                parallelSearch
                 ( \file -> do
                     writeChan (fst fileCh) file
                 )
@@ -225,7 +229,9 @@ parallelSearch paths patterns fTypes fKinds isTermIn = do
           (\(p, idx) -> writeChan (fst fileCh) [p])
 
     -- enqueue EOF messages...
-    when (verbose > 0) $ putMsgLn @Text8 stderr "filesystem traversal completed!"
+    when (verbose > 0) $
+      putMsgLn @Text8 stderr "filesystem traversal completed!"
+
     replicateM_ totalJobs $ writeChan (fst fileCh) []
 
   -- launch the worker threads...
@@ -234,8 +240,10 @@ parallelSearch paths patterns fTypes fKinds isTermIn = do
   let env = Env conf opt
       runSearch = getSearcher env
 
+  let firstProcessor = if numCaps > 1 then 1 else 0
+
   workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
-    let processor = 1 + idx `div` multiplier
+    let processor = firstProcessor + idx `div` multiplier
     liftIO . asyncOn processor $ void . runExceptT $ do
       asRef <- liftIO $ newIORef ([] :: [Async ()])
       forever $ do
