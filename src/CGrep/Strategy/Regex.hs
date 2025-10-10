@@ -85,7 +85,7 @@ search info f patterns = do
                     patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 2 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
+    putMsgLnVerbose 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
     putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
 
     let lineOffsets = getAllLineOffsets text

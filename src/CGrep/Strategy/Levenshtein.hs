@@ -80,7 +80,7 @@ search info f patterns = do
         matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
 
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 2 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
+    putMsgLnVerbose 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
     putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens'
     putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
 

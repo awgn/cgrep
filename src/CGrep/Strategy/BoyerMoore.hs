@@ -94,7 +94,7 @@ search info f patterns = do
                 else chunks
 
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 2 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
+    putMsgLnVerbose 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt filename (eligibleForSearch patterns indices') $ do
         putMsgLnVerbose 2 stderr $ "chunks'   : " <> show chunks'

@@ -100,7 +100,7 @@ search info f ps = do
                 , ignoreCase opt
                 ]
 
-    putMsgLnVerbose 2 stderr $ "strategy: running token search on " <> show filename <> "..."
+    putMsgLnVerbose 1 stderr $ "strategy: running token search on " <> show filename <> "..."
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
 
     let indices' = searchStringIndices ps text'

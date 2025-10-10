@@ -125,7 +125,7 @@ search info f ps = do
     -- put banners...
 
     putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 2 stderr $ "strategy  : running generic semantic search on " <> show filename
+    putMsgLnVerbose 1 stderr $ "strategy  : running generic semantic search on " <> show filename
     putMsgLnVerbose 2 stderr $ "atoms     : " <> show patterns''
     putMsgLnVerbose 2 stderr $ "matchers  : " <> show matchers
 
