@@ -27,8 +27,11 @@ import Text.Regex.Base (
     AllTextMatches (getAllTextMatches),
     MatchText,
  )
-import Text.Regex.PCRE ((=~))
-import Text.Regex.Posix ((=~))
+
+#ifdef ENABLE_PCRE
+import qualified Text.Regex.PCRE ((=~))
+#endif
+import qualified Text.Regex.Posix ((=~))
 
 import Data.Array (Array, elems)
 
@@ -44,7 +47,10 @@ import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo (..), contextFilter, fileTypeLookup)
 import CGrep.Output (Output, mkOutputElements)
 
+#ifdef ENABLE_PCRE
 import Options (Options (regex_pcre))
+#endif
+
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 
@@ -76,16 +82,22 @@ search info f patterns = do
                 ]
 
         -- search for matching tokens
-
+#ifdef ENABLE_PCRE
         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
-
+#else
+        (=~~~) = (Text.Regex.Posix.=~)
+#endif
         tokens =
             map (\(str, (off, _)) -> Chunk ChunkUnspec str (fromIntegral off)) $
                 concatMap elems $
                     patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
     putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    #ifdef ENABLE_PCRE
     putMessageLnVerb 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
+    #else
+    putMessageLnVerb 1 stderr $ "strategy  : running regex (posix) search on " <> show filename
+    #endif
     putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
 
     let lineOffsets = getAllLineOffsets text

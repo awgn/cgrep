@@ -26,7 +26,9 @@ data Options = Options
     , suffix_match :: Bool
     , edit_dist :: Bool
     , regex_posix :: Bool
+#ifdef ENABLE_PCRE
     , regex_pcre :: Bool
+#endif
     , ignore_case :: Bool
     , -- Context:
       code :: Bool

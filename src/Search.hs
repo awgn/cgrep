@@ -377,6 +377,11 @@ hasTokenizerOpt Options{..} =
         || string
         || operator
 
+#ifdef ENABLE_PCRE
 isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt || regex_pcre opt
+#else
+isRegexp :: Options -> Bool
+isRegexp opt = regex_posix opt
+#endif
 {-# INLINE isRegexp #-}

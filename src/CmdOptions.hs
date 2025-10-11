@@ -57,7 +57,7 @@ options = Options
        <> value ""
        <> help "Read PATTERNs from file (one per line)" )
     <*> switch
-        ( long "word" 
+        ( long "word"
        <> short 'w'
        <> help "Force word matching" )
     <*> switch
@@ -76,10 +76,12 @@ options = Options
         ( long "regex"
        <> short 'G'
        <> help "Use regex matching (posix)" )
+#ifdef ENABLE_PCRE
     <*> switch
         ( long "pcre"
        <> short 'P'
        <> help "Use regex matching (pcre)" )
+#endif
     <*> switch
         ( long "ignore-case"
        <> short 'i'

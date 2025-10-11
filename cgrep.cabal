@@ -13,6 +13,11 @@ build-type: Simple
 stability: Experimental
 extra-source-files: README.md
 
+flag enable_pcre {
+    Description: "Use PCRE regex engine (default: disabled)"
+    Default: False
+}
+
 common common-options
   build-depends: base ^>=4.15.0.0
   ghc-options:
@@ -41,6 +46,7 @@ executable cgrep
   main-is: Main.hs
   hs-source-dirs: src
   default-extensions:
+    CPP
     BangPatterns
     DerivingStrategies
     FlexibleContexts
@@ -120,7 +126,6 @@ executable cgrep
     os-string,
     process,
     regex-base,
-    regex-pcre,
     regex-posix,
     safe,
     split,
@@ -145,5 +150,10 @@ executable cgrep
     -threaded
     -rtsopts
     "-with-rtsopts=-N -H1g -qn2"
+
+  if flag (enable_pcre) {
+     build-depends: regex-pcre
+     cpp-options: -DENABLE_PCRE
+  }
 
   default-language: Haskell2010
