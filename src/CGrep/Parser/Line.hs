@@ -83,7 +83,10 @@ lowerBoundGo vec v !left !right
     midValue = vec `UV.unsafeIndex` mid
 
 getLineByOffset :: Offset -> Text8 -> UV.Vector Int64 -> (# Text8, Offset #)
-getLineByOffset off text vec = (# (head . C.lines) (C.drop (fromIntegral lb) text), lb #)
+getLineByOffset off text vec = (# getFirstLine (C.drop (fromIntegral lb) text), lb #)
   where
     lb = lowerBound vec off
+    getFirstLine bs = case C.lines bs of
+        [] -> C.empty
+        (line:_) -> line
 {-# INLINE getLineByOffset #-}

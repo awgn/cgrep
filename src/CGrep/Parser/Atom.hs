@@ -155,8 +155,11 @@ wildCardsCompareAll = all fst
 --       that must compare equal in the respective occurrences
 
 wildCardsCheckOccurrences :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
-wildCardsCheckOccurrences ts = M.foldr (\xs r -> r && all (== head xs) xs) True m
+wildCardsCheckOccurrences ts = M.foldr checkAndFold True m
   where
+    checkAndFold xs acc = acc && case xs of
+        []     -> True
+        (y:ys) -> all (== y) ys
     m =
         M.mapWithKey
             ( \k xs ->

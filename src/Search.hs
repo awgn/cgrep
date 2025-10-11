@@ -101,7 +101,7 @@ import Data.IORef (
 import Data.IORef.Extra (atomicWriteIORef')
 import Data.Int (Int64)
 import Data.List (elemIndex, intersperse, isPrefixOf, isSuffixOf, partition)
-import qualified Data.List.NonEmpty as NE (unzip)
+import Data.Functor as F (unzip)
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
@@ -248,39 +248,40 @@ startSearch paths patterns fTypes fKinds isTermIn = do
             asRef <- liftIO $ newIORef ([] :: [Async ()])
             forever $ do
                 fs <- liftIO $ readChan (snd fileCh)
-                liftIO $
-                    E.catch
-                        ( case fs of
-                            [] -> liftIO $ readIORef asRef >>= mapM_ wait
-                            fs ->
-                                runReaderT
-                                    ( do
-                                        out <-
-                                            catMaybes
-                                                <$> forM
-                                                    fs
-                                                    ( \f -> do
-                                                        out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
-                                                        when (vim || editor) $
-                                                            liftIO $
-                                                                mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
-                                                        putOutputElements out'
-                                                    )
-                                        unless (null out) $
-                                            liftIO $
-                                                async
-                                                    ( do
-                                                        let !dump = LB.toStrict $ B.toLazyByteString (mconcat ((<> B.char8 '\n') <$> out))
-                                                        B.hPut stdout dump
-                                                    )
-                                                    >>= \a -> modifyIORef' asRef (a :)
+                case fs of
+                    [] -> liftIO $ readIORef asRef >>= mapM_ wait
+                    fs -> do
+                        out <- liftIO $ runReaderT
+                            ( catMaybes
+                                <$> forM
+                                    fs
+                                    ( \f -> liftIO $ E.catch
+                                        ( runReaderT
+                                            ( do
+                                                out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
+                                                when (vim || editor) $
+                                                    liftIO $
+                                                        mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
+                                                putOutputElements out'
+                                            )
+                                            env
+                                        )
+                                        ( \e -> do
+                                            let msg = show (e :: SomeException)
+                                            C.hPutStrLn stderr (showFileName conf opt (getTargetName f) <> ": error: " <> C.pack (takeN 120 msg))
+                                            return Nothing
+                                        )
                                     )
-                                    env
-                        )
-                        ( \e ->
-                            let msg = show (e :: SomeException)
-                             in C.hPutStrLn stderr (showFileName conf opt (getTargetName (head fs)) <> ": error: " <> C.pack (takeN 120 msg))
-                        )
+                            )
+                            env
+                        unless (null out) $
+                            liftIO $
+                                async
+                                    ( do
+                                        let !dump = LB.toStrict $ B.toLazyByteString (mconcat ((<> B.char8 '\n') <$> out))
+                                        B.hPut stdout dump
+                                    )
+                                    >>= \a -> modifyIORef' asRef (a :)
                 when (null fs) $ do
                     when (verbose > 3) $ putMessageLn stderr $ "[" <> C.pack (show idx) <> "]@" <> C.pack (show processor) <> " searcher terminated!"
                     throwE ()
@@ -337,7 +338,7 @@ decrRef ref = atomicModifyIORef' ref (\n -> (n - 1, ()))
 fileFilter :: Options -> [FileType] -> [FileKind] -> OsPath -> Bool
 fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKinds kin)
   where
-    (typ, kin) = NE.unzip $ fileTypeLookup opt filename
+    (typ, kin) = F.unzip $ fileTypeLookup opt filename
     fileFilterTypes typ = maybe False (liftA2 (||) (const $ null fTypes) (`elem` fTypes)) typ
     fileFilterKinds typ = maybe False (liftA2 (||) (const $ null fKinds) (`elem` fKinds)) typ
 

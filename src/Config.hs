@@ -44,7 +44,7 @@ import System.Console.ANSI.Types (
  )
 
 import Data.Aeson (FromJSON (parseJSON), (.!=), (.:?))
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
 import qualified Data.Yaml as Y
 
 import CGrep.FileType (FileType)
@@ -129,13 +129,13 @@ getConfig :: IO (Config, Maybe FilePath)
 getConfig = do
     home <- getHomeDirectory
     confs <- filterM doesFileExist [cgreprc, "." <> cgreprc, home </> "." <> cgreprc, "/etc" </> cgreprc]
-    if notNull confs
-        then do
-            conf <- Y.decodeFileEither (head confs)
+    case (listToMaybe confs) of
+        Just fp -> do
+            conf <- Y.decodeFileEither fp
             case conf of
                 Left e -> errorWithoutStackTrace $ "CGrep:" <> Y.prettyPrintParseException e
-                Right yconf -> return (mkConfig yconf, Just (head confs))
-        else return (defaultConfig, Nothing)
+                Right yconf -> return (mkConfig yconf, Just fp)
+        Nothing -> return (defaultConfig, Nothing)
 
 readColor :: String -> Maybe [SGR]
 readColor "Bold" = Just [SetConsoleIntensity BoldIntensity]

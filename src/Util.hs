@@ -46,7 +46,7 @@ prettyRead xs err =
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup _ [] = []
 spanGroup 1 xs = map (: []) xs
-spanGroup n xs = take n xs : spanGroup n (tail xs)
+spanGroup n l@(x : xs) = take n l : spanGroup n xs
 {-# INLINE spanGroup #-}
 
 spanGroupSeq :: Int -> S.Seq a -> [S.Seq a]

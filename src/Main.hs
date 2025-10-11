@@ -153,12 +153,13 @@ readPatternsFromFile f
 
 readPatternsFromCommandLine :: [C.ByteString] -> [C.ByteString]
 readPatternsFromCommandLine [] = []
-readPatternsFromCommandLine xs
+readPatternsFromCommandLine xs@(x:_)
     | ":" `elem` xs = takeWhile (/= ":") xs
-    | otherwise = [head xs]
+    | otherwise = [x]
 
 getFilePaths :: Bool -> [C.ByteString] -> [OsPath]
-getFilePaths False xs = case ":" `elemIndex` xs of
-    Nothing -> fromByteString <$> if null xs then [] else tail xs
-    (Just n) -> fromByteString <$> drop (n + 1) xs
 getFilePaths True xs = fromByteString <$> xs
+getFilePaths False [] = []
+getFilePaths False xs = fromByteString <$> case span (/= ":") xs of
+    (patterns, [])        -> drop 1 patterns
+    (patterns, _:files)   -> files

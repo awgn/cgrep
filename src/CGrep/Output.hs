@@ -140,7 +140,8 @@ mkMatchLines lineOffsets text ts =
             (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> ts
   where
     mergeGroup :: [MatchLine] -> MatchLine
-    mergeGroup ls = MatchLine ((mlOffset . head) ls) (foldl' (\l m -> l <> mlChunks m) [] ls)
+    mergeGroup [] = error "mergeGroup: empty list"
+    mergeGroup ls@(x : _) = MatchLine (mlOffset x) (foldl' (\l m -> l <> mlChunks m) [] ls)
 
 invertLines :: Int -> [MatchLine] -> [MatchLine]
 invertLines n xs = filter (\(MatchLine i _) -> i `notElem` idx) $ take n [MatchLine i [] | i <- [1 ..]]
@@ -191,7 +192,7 @@ defaultOutput xs = do
 
 jsonOutput :: [Output] -> ReaderIO B.Builder
 jsonOutput [] = pure mempty
-jsonOutput outs = do
+jsonOutput outs@(Output fname _ _ _ : _) = do
     strname <- liftIO $ decodeUtf fname
     pure $
         mconcat . intersperse (B.char8 '\n') $
@@ -199,7 +200,6 @@ jsonOutput outs = do
                 <> [mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs)]
                 <> [B.byteString "]}"]
   where
-    fname | (Output f _ _ _) <- head outs = f
     mkJToken chunk = B.byteString "{ \"col\":" <> B.int64Dec (cOffset chunk) <> B.byteString ", \"token\":\"" <> B.byteString (cToken chunk) <> B.byteString "\" }"
     mkMatch xs (Output _ n _ ts) =
         xs
@@ -247,7 +247,7 @@ buildLineCol :: Options -> Output -> B.Builder
 buildLineCol Options{no_numbers = True} _ = mempty
 buildLineCol Options{no_numbers = False, no_column = True} (Output _ n _ _) = B.int64Dec n
 buildLineCol Options{no_numbers = False, no_column = False} (Output _ n _ []) = B.int64Dec n
-buildLineCol Options{no_numbers = False, no_column = False} (Output _ n _ ts) = B.int64Dec n <> B.char8 ':' <> B.int64Dec ((+ 1) . cOffset . head $ ts)
+buildLineCol Options{no_numbers = False, no_column = False} (Output _ n _ (t:_)) = B.int64Dec n <> B.char8 ':' <> B.int64Dec ((+ 1) . cOffset $ t)
 {-# INLINE buildLineCol #-}
 
 buildTokens :: Options -> Output -> B.Builder
@@ -295,8 +295,8 @@ highlightLine conf ts = highlightLine' (highlightIndexes ts, 0, 0)
         plain = nub . sort $ foldr (\(a, b) acc -> a : b : acc) [] ns
         nn
             | check = 1
-            | null plain' = fromIntegral (C.length s)
-            | otherwise = head plain' - n
+            | [] <- plain' = fromIntegral (C.length s)
+            | (p:_) <- plain' = p - n
           where
             plain' = dropWhile (<= n) plain
         (next, rest) = C.splitAt (fromIntegral nn) s

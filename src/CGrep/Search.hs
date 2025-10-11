@@ -34,6 +34,7 @@ import qualified Data.ByteString.Search.DFA as DFA
 import qualified Data.ByteString.Lazy.Search as LBM
 import qualified Data.ByteString.Lazy.Search.DFA as LDFA
 import Data.List.Extra (notNull)
+import Data.Maybe (mapMaybe)
 
 findIndices :: Text8 -> Text8 -> [Int]
 findIndices p =
@@ -58,9 +59,6 @@ instance Eq (TaggedIx a) where
 instance Ord (TaggedIx a) where
     compare (TaggedIx i1 _) (TaggedIx i2 _) = compare i1 i2
 
--- >>> searchStringTaggedIndices [("a",2),("b",1),("a",0), ("he", 42)] "aheba"
--- [TaggedIx {index = 0, tags = [2,0]},TaggedIx {index = 1, tags = [42]},TaggedIx {index = 3, tags = [1]},TaggedIx {index = 4, tags = [2,0]}]
-
 searchStringTaggedIndices :: [(Text8, a)] -> Text8 -> [TaggedIx a]
 searchStringTaggedIndices ps text =
     let res =
@@ -69,11 +67,12 @@ searchStringTaggedIndices ps text =
                     tag = snd p
                     ids = findIndices pat text
                  in (\i -> TaggedIx (fromIntegral i) [tag]) <$> ids
-     in fuseGroup <$> groupWith index res
+     in mapMaybe fuseGroup (groupWith index res)
   where
     {-# INLINE fuseGroup #-}
-    fuseGroup :: [TaggedIx a] -> TaggedIx a
-    fuseGroup xs = TaggedIx (index $ head xs) $ concatMap tags xs
+    fuseGroup :: [TaggedIx a] -> Maybe (TaggedIx a)
+    fuseGroup [] = Nothing
+    fuseGroup (x:xs) = Just $ TaggedIx (index x) $ concatMap tags (x:xs)
 
 eligibleForSearch :: [a] -> [[Int64]] -> Bool
 eligibleForSearch [_] = all notNull
