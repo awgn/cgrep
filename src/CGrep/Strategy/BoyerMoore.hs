@@ -52,8 +52,8 @@ import CGrep.Parser.Line (getLineByOffset, getLineOffsets)
 import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
-search info f patterns = do
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search info f patterns strict = do
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f

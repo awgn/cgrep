@@ -52,6 +52,7 @@ data Options = Options
     , follow :: Bool
     , -- Semantic:
       semantic :: Bool
+    , strict :: Bool
     , -- Control:
       max_count :: Int
     , type_force :: Maybe String

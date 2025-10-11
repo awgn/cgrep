@@ -120,7 +120,7 @@ isBracket' c = c `elem` ("[]{}()" :: String)
 {-# INLINE isBracket' #-}
 
 isPunctuation :: Char -> Bool
-isPunctuation c = c `elem` (":;,." :: String)
+isPunctuation c = c `elem` (";,." :: String)
 {-# INLINE isPunctuation #-}
 
 isAlpha_and :: String -> Char -> Bool

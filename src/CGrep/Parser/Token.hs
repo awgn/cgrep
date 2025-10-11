@@ -279,16 +279,16 @@ ref <<~ Append cur = modifySTRef' ref $ \case
 {-# INLINE (<<~) #-}
 
 {-# INLINE parseTokens #-}
-parseTokens :: TokenFilter -> Maybe FileTypeInfo -> C.ByteString -> S.Seq Token
-parseTokens f@TokenFilter{..} l t =
+parseTokens :: TokenFilter -> Maybe FileTypeInfo -> Bool -> C.ByteString -> S.Seq Token
+parseTokens f@TokenFilter{..} info strict txt =
     runST
-        ( case l >>= ftIdentifierChars of
-            Nothing -> parseToken' isAlpha_ isAlphaNum_ l t
-            Just (isAlpha1, isAlphaN) -> parseToken' isAlpha1 isAlphaN l t
+        ( case info >>= ftIdentifierChars of
+            Nothing -> parseToken' isAlpha_ isAlphaNum_ info strict txt
+            Just (isAlpha1, isAlphaN) -> parseToken' isAlpha1 isAlphaN info strict txt
         )
   where
-    parseToken' :: CharIdentifierF -> CharIdentifierF -> Maybe FileTypeInfo -> C.ByteString -> ST a (S.Seq Token)
-    parseToken' isAlpha1 isAlphaN info txt = do
+    parseToken' :: CharIdentifierF -> CharIdentifierF -> Maybe FileTypeInfo -> Bool -> C.ByteString -> ST a (S.Seq Token)
+    parseToken' isAlpha1 isAlphaN info strict txt = do
         stateR <- newSTRef StateSpace
         accR <- newSTRef (TokenIdx (-1) (-1))
         tokensR <- newSTRef S.empty
@@ -371,7 +371,9 @@ parseTokens f@TokenFilter{..} l t =
                             | isBracket' x -> do stateR <~ StateBracket; accR <<~ Append cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                             | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                             | isPunctuation x -> do accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
-                            | otherwise -> do accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
+                            | otherwise -> if strict
+                                            then do accR <<~ Append cur
+                                            else do accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
 
             curR <~ (cur + 1)
 

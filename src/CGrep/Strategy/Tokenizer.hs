@@ -71,8 +71,8 @@ import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (mapMaybe')
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
-search info f ps = do
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search info f ps strict = do
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -111,7 +111,7 @@ search info f ps = do
                     , tfBracket = False
                     }
 
-        let tokens = {-# SCC "tok_0" #-} parseTokens tfilter (snd <$> info) (subText indices' text''')
+        let tokens = {-# SCC "tok_0" #-} parseTokens tfilter (snd <$> info) strict (subText indices' text''')
 
             -- filter tokens and make chunks
 

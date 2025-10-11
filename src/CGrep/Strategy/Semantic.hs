@@ -67,8 +67,8 @@ import System.IO (stderr)
 import System.OsPath (OsPath, takeBaseName)
 import Util (rmQuote8)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
-search info f ps = do
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search info f ps strict = do
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -99,7 +99,8 @@ search info f ps = do
                 , tfBracket = True
                 }
 
-        patterns = map (parseTokens pfilter (snd <$> info) . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
+
+        patterns = map (parseTokens pfilter (snd <$> info) strict . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
         patterns' = map (mkAtomFromToken <$>) patterns
         patterns'' = map (combineAtoms . map (: [])) (toList <$> patterns')
 
@@ -128,7 +129,7 @@ search info f ps = do
         let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns
         putMessageLnVerb 3 stderr $ "filter    : " <> show tfilter
 
-        let tokens = toList $ parseTokens tfilter (snd <$> info) (subText indices' text''')
+        let tokens = toList $ parseTokens tfilter (snd <$> info) strict (subText indices' text''')
         putMessageLnVerb 3 stderr $ "tokens    : " <> show tokens
 
         -- get matching tokens ...

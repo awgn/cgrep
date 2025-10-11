@@ -156,6 +156,9 @@ options = Options
         ( long "semantic"
        <> short 'S'
        <> help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT, OR" )
+    <*> switch
+        ( long "strict"
+           <> help "Enable strict semantic for operators" )
     -- Control
     <*> option auto
         ( long "max-count"

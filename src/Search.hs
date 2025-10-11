@@ -260,7 +260,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                 <$> forM
                                                     fs
                                                     ( \f -> do
-                                                        out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns
+                                                        out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
                                                         when (vim || editor) $
                                                             liftIO $
                                                                 mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
@@ -316,7 +316,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 (Just stderr)
                 >>= waitForProcess
 
-getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output])
+getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output])
 getSearcher Env{..} = do
     if
         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
