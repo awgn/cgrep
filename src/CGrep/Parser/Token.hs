@@ -1,4 +1,3 @@
-{-# LANGUAGE DuplicateRecordFields #-}
 --
 -- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
@@ -16,7 +15,6 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE OverloadedRecordDot #-}
 
 module CGrep.Parser.Token (
     parseTokens,
@@ -84,6 +82,7 @@ import Data.Coerce (coerce)
 import Data.Text.Internal.Read (T)
 import GHC.Exts (inline)
 import CGrep.ContextFilter
+import Debug.Trace
 
 newtype TokenState = TokenState {unTokenState :: Int}
     deriving newtype (Eq)
@@ -379,7 +378,6 @@ parseTokens f@TokenFilter{..} info strict txt =
 
         lastAcc <- readSTRef accR
         tokens <- readSTRef tokensR
-
         if lastAcc.len == 0
             then return tokens
             else do

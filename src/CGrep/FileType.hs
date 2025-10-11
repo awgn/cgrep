@@ -33,7 +33,7 @@ import Control.Monad (forM_)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Options (Options (Options, type_force))
+import Options (Options (Options, force_type))
 import System.OsPath (OsPath)
 import qualified System.OsPath as OS
 import Util (prettyRead)

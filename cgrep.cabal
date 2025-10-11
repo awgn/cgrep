@@ -1,7 +1,7 @@
 cabal-version: 2.2
 name: cgrep
 description: Cgrep: a context-aware grep for source codes
-version: 8.2.0
+version: 9.0.0
 synopsis: Command line tool
 homepage: http://awgn.github.io/cgrep/
 license: GPL-2.0-or-later
@@ -49,6 +49,9 @@ executable cgrep
     CPP
     BangPatterns
     DerivingStrategies
+    DuplicateRecordFields
+    DeriveGeneric
+    ExistentialQuantification
     FlexibleContexts
     FlexibleInstances
     GeneralisedNewtypeDeriving

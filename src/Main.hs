@@ -101,27 +101,19 @@ main = do
 
     let others' = C.pack <$> others
 
-    -- load patterns
-    patterns <-
-        if null file
-            then pure $ readPatternsFromCommandLine others'
-            else readPatternsFromFile (unsafeEncodeUtf file)
+    -- load patterns and filepaths:
+
+    (patterns, paths) <- case file of
+        Nothing -> do
+            pure $ splitPatternsAndFiles others'
+        Just f -> do
+            readPatternsFromFile (unsafeEncodeUtf f) >>= \ps -> pure (ps, fromByteString <$> others')
 
     let patterns' = map (if ignore_case then ic else id) patterns
           where
             ic
-                | (not . isRegexp) opt && semantic = C.unwords . map (\p -> if p `elem` wildCardTokens then p else C.map toLower p) . C.words
+                | (not . isRegexp) opt && semantic = C.unwords . map (\p -> if p `elem` (M.keys wildCardMap) then p else C.map toLower p) . C.words
                 | otherwise = C.map toLower
-              where
-                wildCardTokens = "OR" : M.keys wildCardMap -- "OR" is not included in wildCardMap
-
-    -- display the configuration in use
-
-    -- when (isJust confpath) $
-    --    hPutStrLn stderr $ showBold opt ("Using '" <> fromJust confpath <> "' configuration file...")
-
-    -- load files to parse:
-    let paths = getFilePaths (notNull file) (others')
 
     -- parse cmd line language list:
     let (l0, l1, l2) = readTypeList type_filter
@@ -151,15 +143,8 @@ readPatternsFromFile f
     | OS.null f = return []
     | otherwise = map trim8 . C.lines <$> C.readFile (toFilePath f)
 
-readPatternsFromCommandLine :: [C.ByteString] -> [C.ByteString]
-readPatternsFromCommandLine [] = []
-readPatternsFromCommandLine xs@(x:_)
-    | ":" `elem` xs = takeWhile (/= ":") xs
-    | otherwise = [x]
-
-getFilePaths :: Bool -> [C.ByteString] -> [OsPath]
-getFilePaths True xs = fromByteString <$> xs
-getFilePaths False [] = []
-getFilePaths False xs = fromByteString <$> case span (/= ":") xs of
-    (patterns, [])        -> drop 1 patterns
-    (patterns, _:files)   -> files
+splitPatternsAndFiles :: [C.ByteString] -> ([C.ByteString], [OsPath])
+splitPatternsAndFiles args =
+    case break (== "") args of
+        (patterns, []) -> (patterns, [])
+        (patterns, _ : files) -> (patterns, fromByteString <$> files)

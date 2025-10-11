@@ -42,7 +42,6 @@ import CGrep.FileTypeMap (
 import CGrep.Output (Output, mkOutputElements, runSearch)
 import CGrep.Parser.Atom (
     Atom (..),
-    combineAtoms,
     filterTokensWithAtoms,
     mkAtomFromToken,
  )
@@ -102,13 +101,12 @@ search info f ps strict = do
 
         patterns = map (parseTokens pfilter (snd <$> info) strict . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
         patterns' = map (mkAtomFromToken <$>) patterns
-        patterns'' = map (combineAtoms . map (: [])) (toList <$> patterns')
+        patterns'' = map (\ps -> [toList ps] ) patterns'
 
         matchers =
             mapMaybe
                 ( \case
                     Raw (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
-                    Raw (Token (Chunk ChunkIdentifier "OR" _)) -> Nothing
                     Raw t -> Just (tToken t)
                     _ -> Nothing
                 )

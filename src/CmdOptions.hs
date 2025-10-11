@@ -51,11 +51,10 @@ import Paths_cgrep (version)
 -- Parser per le opzioni
 options :: Parser Options
 options = Options
-    <$> strOption
+    <$> optional(strOption
         ( long "file"
        <> metavar "FILE"
-       <> value ""
-       <> help "Read PATTERNs from file (one per line)" )
+       <> help "Read PATTERNs from file (one per line)" ))
     <*> switch
         ( long "word"
        <> short 'w'
@@ -155,7 +154,7 @@ options = Options
     <*> switch
         ( long "semantic"
        <> short 'S'
-       <> help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT, OR" )
+       <> help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT" )
     <*> switch
         ( long "strict"
            <> help "Enable strict semantic for operators" )
@@ -236,7 +235,7 @@ options = Options
     <*> switch
         ( long "palette"
        <> help "Show color palette" )
-    <*> many (argument str (metavar "PATTERN|FILES..."))
+    <*> many (argument str (metavar "PATTERN FILES..."))
 
 -- Informazioni del parser principale
 parserInfo :: ParserInfo Options

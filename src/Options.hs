@@ -19,8 +19,7 @@
 module Options where
 
 data Options = Options
-    -- Pattern:
-    { file :: String
+    { file :: Maybe String
     , word_match :: Bool
     , prefix_match :: Bool
     , suffix_match :: Bool
@@ -55,7 +54,7 @@ data Options = Options
     , strict :: Bool
     , -- Control:
       max_count :: Int
-    , type_force :: Maybe String
+    , force_type :: Maybe String
     , type_map :: Bool
     , invert_match :: Bool
     , multiline :: Int

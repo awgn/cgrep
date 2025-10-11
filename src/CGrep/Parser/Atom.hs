@@ -20,7 +20,6 @@ module CGrep.Parser.Atom (
     Atom (..),
     Atoms,
     mkAtomFromToken,
-    combineAtoms,
     filterTokensWithAtoms,
     wildCardMap,
     wildCardMatch,
@@ -87,13 +86,6 @@ mkAtomFromToken t
             str = T.tToken t
     | otherwise = Raw t
 
-combineAtoms :: [Atoms] -> [Atoms]
-combineAtoms (m1 : r@(m2 : m3 : ms))
-    | [Raw b] <- m2, T.tToken b == "OR" = combineAtoms $ (m1 <> m3) : ms
-    | otherwise = m1 : combineAtoms r
-combineAtoms [m1, m2] = [m1, m2]
-combineAtoms [m1] = [m1]
-combineAtoms [] = []
 
 {-# INLINE filterTokensWithAtoms #-}
 filterTokensWithAtoms :: Options -> [Atoms] -> [T.Token] -> [T.Token]

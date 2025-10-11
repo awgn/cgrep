@@ -15,7 +15,6 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE TupleSections #-}
 
 module CGrep.FileTypeMap (
     FileTypeInfo (..),
@@ -44,7 +43,7 @@ import Control.Monad (forM_)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, fromMaybe, isJust)
-import Options (Options (Options, code_only, hdr_only, keyword, type_force))
+import Options (Options (Options, code_only, hdr_only, keyword, force_type))
 
 import qualified Data.Array.BitArray as BA
 
@@ -4897,8 +4896,8 @@ dumpFileTypeMap m = forM_ (Map.toList (unMap m)) $ \(ext, l) ->
     putStrLn $ show ext <> [' ' | _ <- [length (show ext) .. 12]] <> "-> " <> show l
 
 forcedType :: Options -> Maybe (FileType, FileKind)
-forcedType Options{type_force = l}
-    | Just typ <- l = Map.lookup (ext typ) m <|> Map.lookup (name typ) m
+forcedType Options{..}
+    | Just typ <- force_type = Map.lookup (ext typ) m <|> Map.lookup (name typ) m
     | otherwise = Nothing
   where
     m = unMap fileTypeMap
