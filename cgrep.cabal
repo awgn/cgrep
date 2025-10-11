@@ -1,140 +1,149 @@
-Cabal-version:       2.2
-Name:                cgrep
-Description:         Cgrep: a context-aware grep for source codes
-Version:             8.2.0
-Synopsis:            Command line tool
-Homepage:            http://awgn.github.io/cgrep/
-License:             GPL-2.0-or-later
-License-file:        LICENSE
-Author:              Nicola Bonelli
-Maintainer:          Nicola Bonelli <nicola@larthia.com>
-Category:            Utils
-Build-type:          Simple
-Stability:           Experimental
-Extra-source-files:  README.md
+cabal-version: 2.2
+name: cgrep
+description: Cgrep: a context-aware grep for source codes
+version: 8.2.0
+synopsis: Command line tool
+homepage: http://awgn.github.io/cgrep/
+license: GPL-2.0-or-later
+license-file: LICENSE
+author: Nicola Bonelli
+maintainer: Nicola Bonelli <nicola@larthia.com>
+category: Utils
+build-type: Simple
+stability: Experimental
+extra-source-files: README.md
 
-Common common-options
-  build-depends:       base ^>= 4.15.0.0
+common common-options
+  build-depends: base ^>=4.15.0.0
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-uni-patterns
+    -Wincomplete-record-updates
 
-  ghc-options:         -Wall
-                       -Wcompat
-                       -Widentities
-                       -Wincomplete-uni-patterns
-                       -Wincomplete-record-updates
-  if impl(ghc >= 8.0)
-    ghc-options:       -Wredundant-constraints
-  if impl(ghc >= 8.2)
-    ghc-options:       -fhide-source-paths
-  if impl(ghc >= 8.4)
-    ghc-options:       -Wmissing-export-lists
-                       -Wpartial-fields
-  if impl(ghc >= 8.8)
-    ghc-options:       -Wmissing-deriving-strategies
+  if impl(ghc >=8.0)
+    ghc-options: -Wredundant-constraints
 
-  default-language:    Haskell2010
+  if impl(ghc >=8.2)
+    ghc-options: -fhide-source-paths
 
-Executable cgrep
-  Main-Is:             Main.hs
-  Hs-Source-Dirs:      src
-  Default-Extensions: FlexibleContexts
-                      FlexibleInstances
-                      GeneralisedNewtypeDeriving
-                      DerivingStrategies
-                      MultiWayIf
-                      LambdaCase
-                      OverloadedLists
-                      OverloadedRecordDot
-                      OverloadedStrings
-                      PatternSynonyms
-                      RecordWildCards
-                      ScopedTypeVariables
-                      TupleSections
-                      TypeApplications
-                      UnboxedSums
-                      UnboxedTuples
-                      ViewPatterns
-                      BangPatterns
-                      MagicHash
+  if impl(ghc >=8.4)
+    ghc-options:
+      -Wmissing-export-lists
+      -Wpartial-fields
 
-  Other-Modules:       Options
-                       PutMessage
-                       CmdOptions
-                       Util
-                       Config
-                       Reader
-                       Search
-                       OsPath
-                       CGrep.FileType
-                       CGrep.FileKind
-                       CGrep.FileTypeMap
-                       CGrep.ContextFilter
-                       CGrep.Types
-                       CGrep.Output
-                       CGrep.Distance
-                       CGrep.Search
-                       CGrep.Common
-                       CGrep.Boundary
-                       CGrep.Parser.Char
-                       CGrep.Parser.Chunk
-                       CGrep.Parser.Token
-                       CGrep.Parser.Atom
-                       CGrep.Parser.Line
-                       CGrep.Strategy.Semantic
-                       CGrep.Strategy.Tokenizer
-                       CGrep.Strategy.Levenshtein
-                       CGrep.Strategy.BoyerMoore
-                       CGrep.Strategy.Regex
-                       Paths_cgrep
-  Autogen-modules:     Paths_cgrep
+  if impl(ghc >=8.8)
+    ghc-options: -Wmissing-deriving-strategies
+  default-language: Haskell2010
 
-  Build-Depends:       base < 5.0,
-                       optparse-applicative,
-                       bytestring,
-                       directory,
-                       filepath,
-                       stm,
-                       containers,
-                       vector,
-                       array,
-                       ghc-prim,
-                       dlist,
-                       ansi-terminal,
-                       split,
-                       safe,
-                       stringsearch,
-                       unordered-containers,
-                       regex-base,
-                       regex-posix,
-                       regex-pcre,
-                       either,
-                       mtl,
-                       unix-compat,
-                       async,
-                       utf8-string,
-                       unicode-show,
-                       transformers,
-                       process,
-                       aeson,
-                       yaml,
-                       exceptions,
-                       mono-traversable,
-                       bytestring-strict-builder,
-                       bitwise,
-                       mmap,
-                       unagi-chan,
-                       filepath,
-                       os-string,
-                       monad-loops,
-                       deepseq,
-                       bitarray,
-                       text,
-                       extra
+executable cgrep
+  main-is: Main.hs
+  hs-source-dirs: src
+  default-extensions:
+    BangPatterns
+    DerivingStrategies
+    FlexibleContexts
+    FlexibleInstances
+    GeneralisedNewtypeDeriving
+    LambdaCase
+    MagicHash
+    MultiWayIf
+    OverloadedLists
+    OverloadedRecordDot
+    OverloadedStrings
+    PatternSynonyms
+    RecordWildCards
+    ScopedTypeVariables
+    TupleSections
+    TypeApplications
+    UnboxedSums
+    UnboxedTuples
+    ViewPatterns
 
-  Ghc-options:  -O2 -optc-O3
-                -funbox-strict-fields
-                -fwrite-ide-info
-                -hiedir=.hie
-                -threaded
-                -rtsopts "-with-rtsopts=-N -H1g -qn2"
+  other-modules:
+    CGrep.Boundary
+    CGrep.Common
+    CGrep.ContextFilter
+    CGrep.Distance
+    CGrep.FileKind
+    CGrep.FileType
+    CGrep.FileTypeMap
+    CGrep.Output
+    CGrep.Parser.Atom
+    CGrep.Parser.Char
+    CGrep.Parser.Chunk
+    CGrep.Parser.Line
+    CGrep.Parser.Token
+    CGrep.Search
+    CGrep.Strategy.BoyerMoore
+    CGrep.Strategy.Levenshtein
+    CGrep.Strategy.Regex
+    CGrep.Strategy.Semantic
+    CGrep.Strategy.Tokenizer
+    CGrep.Types
+    CmdOptions
+    Config
+    Options
+    OsPath
+    Paths_cgrep
+    PutMessage
+    Reader
+    Search
+    Util
 
-  Default-language:    Haskell2010
+  autogen-modules: Paths_cgrep
+  build-depends:
+    aeson,
+    ansi-terminal,
+    array,
+    async,
+    base <5.0,
+    bitarray,
+    bitwise,
+    bytestring,
+    bytestring-strict-builder,
+    containers,
+    deepseq,
+    directory,
+    dlist,
+    either,
+    exceptions,
+    extra,
+    filepath,
+    ghc-prim,
+    mmap,
+    monad-loops,
+    mono-traversable,
+    mtl,
+    optparse-applicative,
+    os-string,
+    process,
+    regex-base,
+    regex-pcre,
+    regex-posix,
+    safe,
+    split,
+    stm,
+    stringsearch,
+    text,
+    transformers,
+    unagi-chan,
+    unicode-show,
+    unix-compat,
+    unordered-containers,
+    utf8-string,
+    vector,
+    yaml,
+
+  ghc-options:
+    -O2
+    -optc-O3
+    -funbox-strict-fields
+    -fwrite-ide-info
+    -hiedir=.hie
+    -threaded
+    -rtsopts
+    "-with-rtsopts=-N -H1g -qn2"
+
+  default-language: Haskell2010
