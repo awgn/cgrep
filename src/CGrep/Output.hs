@@ -72,6 +72,7 @@ import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Internal.Types
 
 import CGrep.Parser.Line (getLineOffsets)
+import Data.ByteString.Short (ShortByteString)
 import qualified Data.Vector.Generic as GV
 import Options (
     Options (
@@ -89,9 +90,8 @@ import Options (
         show_match
     ),
  )
-import Data.ByteString.Short (ShortByteString)
-import System.OsString.Data.ByteString.Short (fromShort)
 import OsPath (toShortByteString)
+import System.OsString.Data.ByteString.Short (fromShort)
 
 data Output = Output
     { outFilePath :: OsPath
@@ -136,16 +136,16 @@ mkMatchLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchLine]
 mkMatchLines lineOffsets _ [] = []
 mkMatchLines lineOffsets text ts =
     map mergeGroup $
-        groupBy ((==) `on` lOffset) . sortBy (compare `on` lOffset) $
+        groupBy ((==) `on` mlOffset) . sortBy (compare `on` mlOffset) $
             (\chunk -> let (# r, c #) = getLineNumberAndOffset lineOffsets (cOffset chunk) in MatchLine (fromIntegral r) [Chunk (cTyp chunk) (cToken chunk) c]) <$> ts
   where
     mergeGroup :: [MatchLine] -> MatchLine
-    mergeGroup ls = MatchLine ((lOffset . head) ls) (foldl' (\l m -> l <> lChunks m) [] ls)
+    mergeGroup ls = MatchLine ((mlOffset . head) ls) (foldl' (\l m -> l <> mlChunks m) [] ls)
 
 invertLines :: Int -> [MatchLine] -> [MatchLine]
 invertLines n xs = filter (\(MatchLine i _) -> i `notElem` idx) $ take n [MatchLine i [] | i <- [1 ..]]
   where
-    idx = lOffset <$> xs
+    idx = mlOffset <$> xs
 {-# INLINE invertLines #-}
 
 putOutputElements :: [Output] -> ReaderIO (Maybe B.Builder)
@@ -231,7 +231,7 @@ type ColorString = C.ByteString
 buildFileName :: Config -> Options -> Output -> B.Builder
 buildFileName conf opt out =
     let str = toShortByteString (outFilePath out)
-    in buildFileName' conf opt $ str
+     in buildFileName' conf opt $ str
   where
     buildFileName' :: Config -> Options -> ShortByteString -> B.Builder
     buildFileName' conf opt = buildColoredAs opt $ C.pack (setSGRCode (configColorFile conf))

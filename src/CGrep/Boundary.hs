@@ -21,7 +21,8 @@ module CGrep.Boundary (
     BoundaryType (..),
     pattern Begin,
     pattern End,
-) where
+)
+where
 
 import qualified Data.ByteString.Char8 as C
 import Data.Word (Word8)
@@ -41,6 +42,7 @@ instance Show BoundaryType where
 
 pattern Begin :: BoundaryType
 pattern Begin = BoundaryType 0
+
 pattern End :: BoundaryType
 pattern End = BoundaryType 1
 

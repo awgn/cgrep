@@ -42,8 +42,8 @@ import CGrep.Types (Offset)
 import CGrep.Parser.Chunk
 import Data.Int (Int64)
 import Options (Options (prefix_match, suffix_match, word_match))
+import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
-import Verbose (putMsgLnVerbose)
 
 import System.IO (stderr)
 import System.OsPath (OsPath)
@@ -93,11 +93,11 @@ search info f patterns = do
                 then filter (checkChunk opt lineOffsets (snd <$> info) text''') chunks
                 else chunks
 
-    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
+    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt filename (eligibleForSearch patterns indices') $ do
-        putMsgLnVerbose 2 stderr $ "chunks'   : " <> show chunks'
+        putMessageLnVerb 2 stderr $ "chunks'   : " <> show chunks'
         mkOutputElements lineOffsets filename text text''' chunks'
 
 checkChunk :: Options -> UV.Vector Int64 -> Maybe FileTypeInfo -> Text8 -> Chunk -> Bool

@@ -57,8 +57,8 @@ import System.FilePath ((</>))
 
 import CGrep.FileKind (FileKind)
 import Data.List.Extra (notNull)
-import Text.Read (readMaybe)
 import System.OsPath (OsPath)
+import Text.Read (readMaybe)
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"

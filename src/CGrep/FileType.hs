@@ -23,21 +23,20 @@ module CGrep.FileType (
     readKindList,
     ext,
     hdr,
-    name
+    name,
 )
 where
 
+import CGrep.FileKind (FileKind)
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
+import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-
-import CGrep.FileKind (FileKind)
-import qualified Data.ByteString.Char8 as C
 import Options (Options (Options, type_force))
-import Util (prettyRead)
 import System.OsPath (OsPath)
 import qualified System.OsPath as OS
+import Util (prettyRead)
 
 data FileType
     = Agda

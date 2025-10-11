@@ -44,10 +44,10 @@ import CGrep.Output (Output, mkOutputElements)
 import CGrep.Parser.Chunk (Chunk, cToken, parseChunks)
 
 import Data.Foldable (Foldable (toList))
+import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
-import Verbose (putMsgLnVerbose)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f patterns = do
@@ -79,10 +79,10 @@ search info f patterns = do
         patterns' = map C.unpack patterns
         matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
 
-    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
-    putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens'
-    putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
+    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMessageLnVerb 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
+    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens'
+    putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
     let lineOffsets = getAllLineOffsets text
 

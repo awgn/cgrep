@@ -18,9 +18,6 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Parser.Token
-import qualified Data.ByteString.Char8 as C
-
 import CGrep.Common (
     Text8,
     expandMultiline,
@@ -36,45 +33,39 @@ import CGrep.ContextFilter (
     mkContextFilter,
     (~!),
  )
-
-import CGrep.Output (Output, mkOutputElements, runSearch)
-import CGrep.Parser.Line (getAllLineOffsets)
-import CGrep.Search (eligibleForSearch, searchStringIndices)
-
-import CGrep.Parser.Atom (
-    Atom (..),
-    combineAtoms,
-    filterTokensWithAtoms,
-    mkAtomFromToken,
- )
-
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ask, reader)
-
-import Data.Function (on)
-import Data.List (nub, sortBy)
-import Data.Maybe (mapMaybe)
-
-import CGrep.Parser.Chunk
-import Reader (Env (..), ReaderIO)
-import Util (rmQuote8)
-import Verbose (putMsgLnVerbose)
-
-import System.OsPath (OsPath, takeBaseName)
-
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
     contextFilter,
     fileTypeLookup,
  )
-import System.IO (stderr)
-
+import CGrep.Output (Output, mkOutputElements, runSearch)
+import CGrep.Parser.Atom (
+    Atom (..),
+    combineAtoms,
+    filterTokensWithAtoms,
+    mkAtomFromToken,
+ )
+import CGrep.Parser.Chunk
+import CGrep.Parser.Line (getAllLineOffsets)
+import CGrep.Parser.Token
+import CGrep.Search (eligibleForSearch, searchStringIndices)
+import Control.Monad (when)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Reader (ask, reader)
+import qualified Data.ByteString.Char8 as C
 import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
+import Data.Function (on)
+import Data.List (nub, sortBy)
+import Data.Maybe (mapMaybe)
 import qualified Data.Sequence as S
 import qualified Data.Vector.Unboxed as UV
-import Control.Monad (when)
+import PutMessage (putMessageLnVerb)
+import Reader (Env (..), ReaderIO)
+import System.IO (stderr)
+import System.OsPath (OsPath, takeBaseName)
+import Util (rmQuote8)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
 search info f ps = do
@@ -124,22 +115,21 @@ search info f ps = do
 
     -- put banners...
 
-    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 1 stderr $ "strategy  : running generic semantic search on " <> show filename
-    putMsgLnVerbose 2 stderr $ "atoms     : " <> show patterns''
-    putMsgLnVerbose 2 stderr $ "matchers  : " <> show matchers
+    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMessageLnVerb 1 stderr $ "strategy  : running generic semantic search on " <> show filename
+    putMessageLnVerb 2 stderr $ "atoms     : " <> show patterns''
+    putMessageLnVerb 2 stderr $ "matchers  : " <> show matchers
 
     -- parse source code, get the Generic.Chunk list...
     let indices' = searchStringIndices matchers text'
 
     let eligible_for_search = eligibleForSearch matchers indices'
     runSearch opt filename eligible_for_search $ do
-
         let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns
-        putMsgLnVerbose 3 stderr $ "filter    : " <> show tfilter
+        putMessageLnVerb 3 stderr $ "filter    : " <> show tfilter
 
         let tokens = toList $ parseTokens tfilter (snd <$> info) (subText indices' text''')
-        putMsgLnVerbose 3 stderr $ "tokens    : " <> show tokens
+        putMessageLnVerb 3 stderr $ "tokens    : " <> show tokens
 
         -- get matching tokens ...
 
@@ -149,7 +139,7 @@ search info f ps = do
 
         let matches = coerce tokens' :: [Chunk]
 
-        putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
+        putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text
 

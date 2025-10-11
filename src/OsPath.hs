@@ -1,16 +1,15 @@
-module OsPath
-  ( toShortByteString
-  , toByteString
-  , toFilePath
-  , fromByteString
-  )  where
+module OsPath (
+    toShortByteString,
+    toByteString,
+    toFilePath,
+    fromByteString,
+) where
 
-import System.OsPath (OsPath, decodeUtf)
-import System.OsString.Internal.Types
 import Data.ByteString (ByteString)
-import Data.ByteString.Short (ShortByteString)
+import Data.ByteString.Short (ShortByteString, toShort)
+import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Data.ByteString.Short (fromShort)
-import Data.ByteString.Short (toShort)
+import System.OsString.Internal.Types
 
 toShortByteString :: OsString -> ShortByteString
 toShortByteString = getPosixString . getOsString

@@ -43,7 +43,7 @@ import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, isJust, fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Options (Options (Options, code_only, hdr_only, keyword, type_force))
 
 import qualified Data.Array.BitArray as BA
@@ -54,14 +54,13 @@ import qualified Data.Set as S
 import CGrep.Boundary (Boundary (Boundary))
 import CGrep.Parser.Char (isAlpha, isAlphaNum, isAlphaNum_, isAlphaNum_', isAlphaNum_and, isAlpha_, isAlpha_', isAlpha_and)
 
-
 import CGrep.FileKind
 import Data.Aeson (Value (Bool, String))
 import Data.Bits (Bits (isSigned))
 import qualified Data.HashMap.Strict as HM
 import Data.MonoTraversable (WrappedPoly)
 import GHC.Conc (BlockReason (BlockedOnBlackHole))
-import System.OsPath (OsPath, takeFileName, takeExtension, takeBaseName)
+import System.OsPath (OsPath, takeBaseName, takeExtension, takeFileName)
 import qualified System.OsPath as OS
 import System.OsPath.Types (OsString)
 
@@ -4874,7 +4873,6 @@ fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (h
     ext = OS.takeExtension f
     m = unMap fileTypeMap
 {-# INLINE fileTypeLookup #-}
-
 
 osStringToByteStringUTF8 :: OsString -> Maybe C.ByteString
 osStringToByteStringUTF8 os = do

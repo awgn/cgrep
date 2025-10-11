@@ -18,9 +18,8 @@
 
 module Reader where
 
-import Control.Monad.Trans.Reader (ReaderT)
-
 import Config (Config)
+import Control.Monad.Trans.Reader (ReaderT)
 import Options (Options)
 
 data Env = Env

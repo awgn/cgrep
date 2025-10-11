@@ -26,28 +26,24 @@ module CGrep.Common (
     trim,
     trim8,
     takeN,
-) where
+)
+where
 
 import CGrep.Parser.Char (isSpace)
 import CGrep.Types (Offset, Text8)
+import qualified Data.ByteString.Char8 as C
 import Data.Char (toLower)
-
+import Data.Int (Int64)
+import Data.List (group, groupBy, sort, sortOn)
+import qualified Data.Vector.Unboxed as UV
+import GHC.Exts (groupWith)
 import Options (
     Options (Options, ignore_case, multiline, no_shallow),
  )
-
-import Data.Int (Int64)
 import System.IO.MMap (mmapFileByteString)
-import Util (spanGroup)
-
-import Data.List (group, groupBy, sort, sortOn)
-import qualified Data.Vector.Unboxed as UV
 import System.OsPath
 import qualified System.OsString as OS
-
-import GHC.Exts (groupWith)
-
-import qualified Data.ByteString.Char8 as C
+import Util (spanGroup)
 
 takeN :: Int -> String -> String
 takeN n xs

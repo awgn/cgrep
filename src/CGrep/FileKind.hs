@@ -18,7 +18,8 @@
 
 module CGrep.FileKind (
     FileKind (..),
-) where
+)
+where
 
 data FileKind = KindText | KindConfig | KindLanguage | KindData | KindMarkup | KindScript
     deriving stock (Eq, Ord, Enum, Bounded)

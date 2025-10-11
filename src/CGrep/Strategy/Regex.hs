@@ -45,8 +45,8 @@ import CGrep.FileTypeMap (FileTypeInfo (..), contextFilter, fileTypeLookup)
 import CGrep.Output (Output, mkOutputElements)
 
 import Options (Options (regex_pcre))
+import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
-import Verbose (putMsgLnVerbose)
 
 import CGrep.Parser.Chunk
 import CGrep.Parser.Line (getAllLineOffsets)
@@ -84,9 +84,9 @@ search info f patterns = do
                 concatMap elems $
                     patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
 
-    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMsgLnVerbose 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
-    putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
+    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMessageLnVerb 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
+    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
 
     let lineOffsets = getAllLineOffsets text
 

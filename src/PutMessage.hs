@@ -16,24 +16,20 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module Verbose where
+module PutMessage where
 
-import Control.Monad.Trans.Reader ( reader )
-import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import Control.Monad ( when )
-
-import Options ( Options(verbose) )
-import Reader ( ReaderIO, Env(..) )
-
-import qualified Data.ByteString as C (hPutStr, hPut)
-import GHC.IO.Handle ( Handle )
-import System.IO ( Handle, hPutStrLn, hPutStr )
-import Data.String ( IsString )
-
+import Control.Monad (when)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Reader (reader)
+import qualified Data.ByteString as C (hPut, hPutStr)
 import qualified Data.ByteString.Char8 as C
+import Data.String (IsString)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-
+import GHC.IO.Handle (Handle)
+import Options (Options (verbose))
+import Reader (Env (..), ReaderIO)
+import System.IO (Handle, hPutStr, hPutStrLn)
 
 class (IsString a) => PutStr a where
     putStringLn :: Handle -> a -> IO ()
@@ -51,16 +47,15 @@ instance PutStr T.Text where
     putStringLn = T.hPutStrLn
     putString = T.hPutStr
 
-
-putMsgLnVerbose :: (PutStr a) => Int -> Handle -> a -> ReaderIO ()
-putMsgLnVerbose l h xs = do
+putMessageLnVerb :: (PutStr a) => Int -> Handle -> a -> ReaderIO ()
+putMessageLnVerb l h xs = do
     n <- reader $ verbose . opt
     when (n >= l) $
-        liftIO $ putStringLn h xs
-{-# INLINE putMsgLnVerbose #-}
+        liftIO $
+            putStringLn h xs
+{-# INLINE putMessageLnVerb #-}
 
-
-putMsgLn :: (PutStr a, MonadIO m) => Handle -> a -> m ()
-putMsgLn h xs =
+putMessageLn :: (PutStr a, MonadIO m) => Handle -> a -> m ()
+putMessageLn h xs =
     liftIO $ putStringLn h xs
-{-# INLINE putMsgLn #-}
+{-# INLINE putMessageLn #-}

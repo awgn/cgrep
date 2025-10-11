@@ -57,7 +57,7 @@ Executable cgrep
                       MagicHash
 
   Other-Modules:       Options
-                       Verbose
+                       PutMessage
                        CmdOptions
                        Util
                        Config

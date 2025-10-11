@@ -51,7 +51,7 @@ import Config (
  )
 import Options (Options (..))
 import Paths_cgrep (version)
-import Verbose (putMsgLnVerbose)
+import PutMessage (putMessageLnVerb)
 
 import Reader (Env (..), ReaderIO)
 import Search (isRegexp, startSearch)
@@ -61,8 +61,8 @@ import Util (partitionM)
 import Control.Applicative (Alternative ((<|>)))
 import Data.Functor (void, ($>))
 import Data.List.Extra (notNull)
+import OsPath (fromByteString, toByteString, toFilePath)
 import System.OsPath (unsafeEncodeUtf)
-import OsPath (toByteString, toFilePath, fromByteString)
 import qualified System.OsString as OS
 
 main :: IO ()
@@ -77,9 +77,9 @@ main = do
     -- read command-line options
     opt@Options{..} <-
         ( if isTermOut
-                then \o -> o{color = color o || configColors conf}
-                else id
-            )
+            then \o -> o{color = color o || configColors conf}
+            else id
+        )
             <$> cmdArgsRun options
 
     -- check for multiple backends...
@@ -132,9 +132,9 @@ main = do
 
     runReaderT
         ( do
-            putMsgLnVerbose 1 stderr $ "cgrep " <> showVersion version <> "!"
-            putMsgLnVerbose 1 stderr $ "File types: " <> show type_filter
-            putMsgLnVerbose 1 stderr $ "File kinds: " <> show kinds
+            putMessageLnVerb 1 stderr $ "cgrep " <> showVersion version <> "!"
+            putMessageLnVerb 1 stderr $ "File types: " <> show type_filter
+            putMessageLnVerb 1 stderr $ "File kinds: " <> show kinds
         )
         (Env conf opt)
 
@@ -147,15 +147,15 @@ main = do
     runReaderT (startSearch paths patterns' types kinds isTermIn) (Env conf opt{jobs = Just cap})
 
 readPatternsFromFile :: OsPath -> IO [C.ByteString]
-readPatternsFromFile f | OS.null f = return []
-                       | otherwise = map trim8 . C.lines <$> C.readFile (toFilePath f)
+readPatternsFromFile f
+    | OS.null f = return []
+    | otherwise = map trim8 . C.lines <$> C.readFile (toFilePath f)
 
 readPatternsFromCommandLine :: [C.ByteString] -> [C.ByteString]
 readPatternsFromCommandLine [] = []
 readPatternsFromCommandLine xs
     | ":" `elem` xs = takeWhile (/= ":") xs
     | otherwise = [head xs]
-
 
 getFilePaths :: Bool -> [C.ByteString] -> [OsPath]
 getFilePaths False xs = case ":" `elemIndex` xs of

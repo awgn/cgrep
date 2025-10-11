@@ -18,10 +18,6 @@
 
 module CGrep.Strategy.Tokenizer (search) where
 
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ask, reader)
-import qualified Data.ByteString.Char8 as C
-
 import CGrep.Common (
     Text8,
     expandMultiline,
@@ -36,21 +32,25 @@ import CGrep.ContextFilter (
     (~!),
  )
 import CGrep.Distance ((~==))
-import CGrep.Output (Output, mkOutputElements, runSearch)
-
-import CGrep.Parser.Line
-import CGrep.Parser.Token
-
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
     contextFilter,
     fileTypeLookup,
  )
-
+import CGrep.Output (Output, mkOutputElements, runSearch)
+import CGrep.Parser.Chunk (Chunk (..))
+import CGrep.Parser.Line
+import CGrep.Parser.Token
 import CGrep.Search (eligibleForSearch, searchStringIndices)
+import CGrep.Types (Offset)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Trans.Reader (ask, reader)
+import qualified Data.ByteString.Char8 as C
+import Data.Coerce (coerce)
+import Data.Foldable (Foldable (toList))
 import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
-
+import qualified Data.Sequence as S
 import Options (
     Options (
         edit_dist,
@@ -65,18 +65,10 @@ import Options (
         word_match
     ),
  )
+import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
-import Verbose (putMsgLnVerbose)
-
-import CGrep.Parser.Chunk (Chunk (..))
 import System.IO (stderr)
 import System.OsPath (OsPath)
-
-import CGrep.Types (Offset)
-import Data.Coerce (coerce)
-import Data.Foldable (Foldable (toList))
-
-import qualified Data.Sequence as S
 import Util (mapMaybe')
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> ReaderIO [Output]
@@ -100,8 +92,8 @@ search info f ps = do
                 , ignoreCase opt
                 ]
 
-    putMsgLnVerbose 1 stderr $ "strategy: running token search on " <> show filename <> "..."
-    putMsgLnVerbose 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMessageLnVerb 1 stderr $ "strategy: running token search on " <> show filename <> "..."
+    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
 
     let indices' = searchStringIndices ps text'
 
@@ -119,14 +111,14 @@ search info f ps = do
                     , tfBracket = False
                     }
 
-        let tokens = {-# SCC tok_0 #-} parseTokens tfilter (snd <$> info) (subText indices' text''')
+        let tokens = {-# SCC "tok_0" #-} parseTokens tfilter (snd <$> info) (subText indices' text''')
 
             -- filter tokens and make chunks
 
-            matches = {-# SCC tok_3 #-} mapMaybe' (tokenizerFilter opt ps) tokens
+            matches = {-# SCC "tok_3" #-} mapMaybe' (tokenizerFilter opt ps) tokens
 
-        putMsgLnVerbose 2 stderr $ "tokens    : " <> show tokens
-        putMsgLnVerbose 2 stderr $ "matches   : " <> show matches
+        putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
+        putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text
 

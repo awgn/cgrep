@@ -108,8 +108,8 @@ data Chunk = Chunk
     deriving stock (Eq, Show, Ord)
 
 data MatchLine = MatchLine
-    { lOffset :: {-# UNPACK #-} !Offset
-    , lChunks :: [Chunk]
+    { mlOffset :: {-# UNPACK #-} !Offset
+    , mlChunks :: [Chunk]
     }
     deriving stock (Eq, Show)
 

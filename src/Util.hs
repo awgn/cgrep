@@ -18,10 +18,9 @@
 
 module Util where
 
+import qualified Data.ByteString.Char8 as C
 import Data.Char (toLower)
 import Data.Maybe (listToMaybe)
-
-import qualified Data.ByteString.Char8 as C
 import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
 import qualified Data.Sequence as S
 import Text.Read (readMaybe)
