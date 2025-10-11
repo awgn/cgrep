@@ -89,6 +89,7 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Function (fix)
 import Data.Functor (void, ($>), (<&>))
+import Data.Functor as F (unzip)
 import Data.IORef (
     IORef,
     atomicModifyIORef,
@@ -101,7 +102,6 @@ import Data.IORef (
 import Data.IORef.Extra (atomicWriteIORef')
 import Data.Int (Int64)
 import Data.List (elemIndex, intersperse, isPrefixOf, isSuffixOf, partition)
-import Data.Functor as F (unzip)
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
@@ -143,24 +143,28 @@ isDot :: OsPath -> Bool
 isDot p = let n = toByteString p in n == "." || n == ".."
 {-# INLINE isDot #-}
 
+data RecursiveContext = RecursiveContext
+    { rcFileTypes :: [FileType]
+    , rcFileKinds :: [FileKind]
+    , rcPrunableDirs :: [OsPath]
+    , rcWalkers :: IORef Int
+    , rcParallel :: Bool
+    }
+
 withRecursiveContents ::
+    RecursiveContext ->
     Options ->
     OsPath ->
-    [FileType] ->
-    [FileKind] ->
-    [OsPath] ->
     S.Set OsPath ->
-    IORef Int ->
-    Bool ->
     ([OsPath] -> IO ()) ->
     IO ()
-withRecursiveContents opt@Options{..} dir fTypes fKinds pdirs visited walkers parallel action = do
+withRecursiveContents ctx@RecursiveContext{..} opt@Options{..} dir visited action = do
     xs <- getDirectoryContents dir
     (dirs, files) <- partitionM (\p -> doesDirectoryExist (dir </> p)) xs
     -- putStrLn $ "CURRENT DIR:" <> show dir <> " CONTENT:" <> show xs <>  " SUBDIR:" <> show dirs <> " FILES:" <> show files
 
     -- filter the list of files
-    let files' :: [OsPath] = (dir </>) <$> filter (\f -> fileFilter opt fTypes fKinds f && (not skip_test || isNotTestFile f)) files
+    let files' :: [OsPath] = (dir </>) <$> filter (\f -> fileFilter opt rcFileTypes rcFileKinds f && (not skip_test || isNotTestFile f)) files
     let dirs' :: [OsPath] = (dir </>) <$> filter (\d -> not $ isDot d) dirs
 
     -- run IO action
@@ -168,20 +172,20 @@ withRecursiveContents opt@Options{..} dir fTypes fKinds pdirs visited walkers pa
 
     -- process directories recursively...
     foreach <-
-        readIORef walkers >>= \tot -> do
+        readIORef rcWalkers >>= \tot -> do
             if tot < 64
                 then pure (forConcurrently_ @[])
                 else pure forM_
 
     foreach dirs' $ \dirPath -> do
-        unless (isPrunableDir dirPath pdirs) $
+        unless (isPrunableDir dirPath rcPrunableDirs) $
             -- this is a good directory, unless already visited...
             makeAbsolute dirPath >>= \cpath -> do
                 unless (cpath `S.member` visited) $ do
-                    incrRef walkers
-                        *> withRecursiveContents opt dirPath fTypes fKinds pdirs (S.insert cpath visited) walkers parallel action
+                    incrRef rcWalkers
+                        *> withRecursiveContents ctx opt dirPath (S.insert cpath visited) action
 
-    decrRef walkers
+    decrRef rcWalkers
 
 startSearch :: [OsPath] -> [C.ByteString] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
 startSearch paths patterns fTypes fKinds isTermIn = do
@@ -203,23 +207,25 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     _ <- liftIO . forkOn 0 $ do
         walkers <- newIORef (0 :: Int)
         if recursive || follow
-            then forM_ (if null paths then [unsafeEncodeUtf "."] else paths) $ \p ->
-                doesDirectoryExist p >>= \case
+            then forM_ (if null paths then [unsafeEncodeUtf "."] else paths) $ \path ->
+                doesDirectoryExist path >>= \case
                     True ->
                         incrRef walkers
                             *> withRecursiveContents
+                                RecursiveContext
+                                    { rcFileTypes = fTypes
+                                    , rcFileKinds = fKinds
+                                    , rcPrunableDirs = (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
+                                    , rcWalkers = walkers
+                                    , rcParallel = parallelSearch
+                                    }
                                 opt
-                                p
-                                fTypes
-                                fKinds
-                                (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
-                                (S.singleton p)
-                                walkers
-                                parallelSearch
+                                path
+                                (S.singleton path)
                                 ( \file -> do
                                     writeChan (fst fileCh) file
                                 )
-                    _ -> writeChan (fst fileCh) [p]
+                    _ -> writeChan (fst fileCh) [path]
             else
                 forM_
                     ( if null paths && not isTermIn
@@ -251,29 +257,33 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 case fs of
                     [] -> liftIO $ readIORef asRef >>= mapM_ wait
                     fs -> do
-                        out <- liftIO $ runReaderT
-                            ( catMaybes
-                                <$> forM
-                                    fs
-                                    ( \f -> liftIO $ E.catch
-                                        ( runReaderT
-                                            ( do
-                                                out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
-                                                when (vim || editor) $
-                                                    liftIO $
-                                                        mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
-                                                putOutputElements out'
+                        out <-
+                            liftIO $
+                                runReaderT
+                                    ( catMaybes
+                                        <$> forM
+                                            fs
+                                            ( \f ->
+                                                liftIO $
+                                                    E.catch
+                                                        ( runReaderT
+                                                            ( do
+                                                                out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
+                                                                when (vim || editor) $
+                                                                    liftIO $
+                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
+                                                                putOutputElements out'
+                                                            )
+                                                            env
+                                                        )
+                                                        ( \e -> do
+                                                            let msg = show (e :: SomeException)
+                                                            C.hPutStrLn stderr (showFileName conf opt (getTargetName f) <> ": error: " <> C.pack (takeN 120 msg))
+                                                            return Nothing
+                                                        )
                                             )
-                                            env
-                                        )
-                                        ( \e -> do
-                                            let msg = show (e :: SomeException)
-                                            C.hPutStrLn stderr (showFileName conf opt (getTargetName f) <> ": error: " <> C.pack (takeN 120 msg))
-                                            return Nothing
-                                        )
                                     )
-                            )
-                            env
+                                    env
                         unless (null out) $
                             liftIO $
                                 async
