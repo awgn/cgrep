@@ -33,7 +33,7 @@ import qualified Data.Map as M
 import GHC.Conc (getNumCapabilities, setNumCapabilities)
 import GHC.IO.Handle (hIsTerminalDevice)
 
-import System.Console.CmdArgs (cmdArgsRun)
+import Options.Applicative (execParser)
 import System.Environment (withArgs)
 import System.Exit (exitSuccess)
 import System.IO (stderr, stdin, stdout)
@@ -43,7 +43,7 @@ import CGrep.FileType (readKindList, readTypeList)
 import CGrep.FileTypeMap (dumpFileTypeInfoMap, fileTypeInfoMap)
 import CGrep.Parser.Atom (wildCardMap)
 
-import CmdOptions (options)
+import CmdOptions (parserInfo)
 import Config (
     Config (configColors, configFileKinds, configFileTypes, configJobs),
     dumpPalette,
@@ -80,7 +80,7 @@ main = do
             then \o -> o{color = color o || configColors conf}
             else id
         )
-            <$> cmdArgsRun options
+            <$> execParser parserInfo
 
     -- check for multiple backends...
     when (length (catMaybes [if json then Just "" else Nothing]) > 1) $
@@ -97,7 +97,7 @@ main = do
     -- check whether the pattern list is empty, display help message if it's the case
     when (null others && isTermIn && null file) $
         withArgs ["--help"] $
-            void (cmdArgsRun options)
+            void (execParser parserInfo)
 
     let others' = C.pack <$> others
 

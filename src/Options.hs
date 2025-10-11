@@ -15,11 +15,8 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE DeriveDataTypeable #-}
 
 module Options where
-
-import Data.Data (Data, Typeable)
 
 data Options = Options
     -- Pattern:
@@ -79,4 +76,4 @@ data Options = Options
     , show_palette :: Bool
     , others :: [String]
     }
-    deriving stock (Data, Typeable, Show)
+    deriving stock (Show)

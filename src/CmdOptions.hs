@@ -17,80 +17,225 @@
 --
 
 module CmdOptions (
-    options,
+    parserInfo,
 ) where
 
 import Data.Version (showVersion)
-import System.Console.CmdArgs (
-    CmdArgs,
-    Mode,
-    args,
-    cmdArgsMode,
-    explicit,
-    groupname,
+import Options.Applicative (
+    Parser,
+    ParserInfo,
+    argument,
+    auto,
+    fullDesc,
+    header,
     help,
-    name,
-    program,
-    summary,
-    typ,
-    (&=),
+    helper,
+    info,
+    long,
+    many,
+    metavar,
+    optional,
+    option,
+    progDesc,
+    short,
+    str,
+    strOption,
+    switch,
+    value,
+    (<**>),
  )
 
 import Options (Options (..))
 import Paths_cgrep (version)
 
-options :: Mode (CmdArgs Options)
-options =
-    cmdArgsMode $
-        Options
-            { file = "" &= typ "FILE" &= groupname "Pattern" &= help "Read PATTERNs from file (one per line)"
-            , word_match = False &= help "Force word matching" &= explicit &= name "word" &= name "w"
-            , prefix_match = False &= help "Force prefix matching" &= explicit &= name "prefix" &= name "p"
-            , suffix_match = False &= help "Force suffix matching" &= explicit &= name "suffix" &= name "s"
-            , edit_dist = False &= help "Use edit distance" &= explicit &= name "edit" &= name "e"
-            , regex_posix = False &= help "Use regex matching (posix)" &= explicit &= name "G" &= name "regex"
-            , regex_pcre = False &= help "Use regex matching (pcre)" &= explicit &= name "P" &= name "pcre"
-            , ignore_case = False &= help "Ignore case distinctions"
-            , code = False &= groupname "\nContext filters" &= help "Enable search in source code" &= explicit &= name "c" &= name "code"
-            , comment = False &= help "Enable search in comments" &= explicit &= name "m" &= name "comment"
-            , literal = False &= help "Enable search in string literals" &= explicit &= name "l" &= name "literal"
-            , identifier = False &= groupname "\nToken filters" &= help "Identifiers" &= explicit &= name "identifier" &= name "name"
-            , nativeType = False &= help "Native Types" &= explicit &= name "native" &= name "type"
-            , keyword = False &= help "Keywords" &= explicit &= name "keyword"
-            , number = False &= help "Literal numbers" &= explicit &= name "number"
-            , string = False &= help "Literal strings" &= explicit &= name "string"
-            , operator = False &= help "Operators" &= explicit &= name "op"
-            , type_filter = [] &= groupname "\nFile filters" &= help "Specify file types. ie: Cpp, +Haskell, -Makefile"
-            , kind_filter = [] &= help "Specify file kinds. Text, Config, Language, Data, Markup or Script"
-            , code_only = False &= help "Parse code modules only (skip headers/interfaces)" &= explicit &= name "code-only"
-            , hdr_only = False &= help "Parse headers/interfaces only (skip modules)" &= explicit &= name "hdr-only"
-            , skip_test = False &= help "Skip files that have 'test' in the name" &= explicit &= name "skip-test" &= name "T"
-            , prune_dir = [] &= help "Do not descend into dir" &= explicit &= name "prune-dir"
-            , recursive = False &= help "Enable recursive search (don't follow symlinks)" &= explicit &= name "recursive" &= name "r"
-            , follow = False &= help "Follow symlinks" &= explicit &= name "follow" &= name "L"
-            , semantic = False &= groupname "\nSemantic" &= help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT, OR" &= explicit &= name "S" &= name "semantic"
-            , max_count = maxBound &= groupname "\nControl" &= help "Stop search in files after INT matches" &= explicit &= name "max-count"
-            , type_force = Nothing &= help "Force the type of file" &= explicit &= name "force-type"
-            , type_map = False &= help "List the supported file types" &= explicit &= name "type-list"
-            , invert_match = False &= help "Select non-matching lines" &= explicit &= name "invert-match" &= name "v"
-            , multiline = 1 &= help "Enable multi-line matching"
-            , jobs = Nothing &= help "Number threads to run in parallel" &= explicit &= name "threads" &= name "j"
-            , show_match = False &= groupname "\nOutput format" &= help "Show list of matching tokens" &= explicit &= name "show-match"
-            , color = False &= help "Use colors to highlight the match strings" &= explicit &= name "color"
-            , no_color = False &= help "Do not use colors (override config file)" &= explicit &= name "no-color"
-            , no_filename = False &= help "Suppress the file name prefix on output" &= explicit &= name "h" &= name "no-filename"
-            , no_numbers = False &= help "Suppress both line and column numbers on output" &= explicit &= name "no-numbers"
-            , no_column = False &= help "Suppress the column number on output" &= explicit &= name "no-column"
-            , count = False &= help "Print only a count of matching lines per file" &= explicit &= name "count"
-            , filename_only = False &= help "Print only the name of files containing matches" &= explicit &= name "filename-only"
-            , vim = False &= help "Run vim editor passing the files that match" &= explicit &= name "vim"
-            , editor = False &= help "Run the editor specified by EDITOR var., passing the files that match" &= explicit &= name "editor"
-            , fileline = False &= help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" &= explicit &= name "fileline"
-            , json = False &= help "Format output as json object" &= explicit &= name "json"
-            , verbose = 0 &= groupname "\nMiscellaneous" &= help "Verbose level: 1, 2, 3 or 4" &= explicit &= name "verbose"
-            , no_shallow = False &= help "Disable shallow-search" &= explicit &= name "no-shallow"
-            , show_palette = False &= help "Show color palette" &= explicit &= name "palette"
-            , others = [] &= args
-            }
-            &= summary ("Cgrep " <> showVersion version <> ". Usage: cgrep [OPTION] [PATTERN] files...")
-            &= program "cgrep"
+-- Parser per le opzioni
+options :: Parser Options
+options = Options
+    <$> strOption
+        ( long "file"
+       <> metavar "FILE"
+       <> value ""
+       <> help "Read PATTERNs from file (one per line)" )
+    <*> switch
+        ( long "word" 
+       <> short 'w'
+       <> help "Force word matching" )
+    <*> switch
+        ( long "prefix"
+       <> short 'p'
+       <> help "Force prefix matching" )
+    <*> switch
+        ( long "suffix"
+       <> short 's'
+       <> help "Force suffix matching" )
+    <*> switch
+        ( long "edit"
+       <> short 'e'
+       <> help "Use edit distance" )
+    <*> switch
+        ( long "regex"
+       <> short 'G'
+       <> help "Use regex matching (posix)" )
+    <*> switch
+        ( long "pcre"
+       <> short 'P'
+       <> help "Use regex matching (pcre)" )
+    <*> switch
+        ( long "ignore-case"
+       <> short 'i'
+       <> help "Ignore case distinctions" )
+    -- Context filters
+    <*> switch
+        ( long "code"
+       <> short 'c'
+       <> help "Enable search in source code" )
+    <*> switch
+        ( long "comment"
+       <> short 'm'
+       <> help "Enable search in comments" )
+    <*> switch
+        ( long "literal"
+       <> short 'l'
+       <> help "Enable search in string literals" )
+    -- Token filters
+    <*> switch
+        ( long "identifier"
+       <> long "name"
+       <> help "Identifiers" )
+    <*> switch
+        ( long "native"
+       <> long "type"
+       <> help "Native Types" )
+    <*> switch
+        ( long "keyword"
+       <> help "Keywords" )
+    <*> switch
+        ( long "number"
+       <> help "Literal numbers" )
+    <*> switch
+        ( long "string"
+       <> help "Literal strings" )
+    <*> switch
+        ( long "op"
+       <> help "Operators" )
+    -- File filters
+    <*> many (strOption
+        ( long "type"
+       <> metavar "TYPE"
+       <> help "Specify file types. ie: Cpp, +Haskell, -Makefile" ))
+    <*> many (strOption
+        ( long "kind"
+       <> metavar "KIND"
+       <> help "Specify file kinds. Text, Config, Language, Data, Markup or Script" ))
+    <*> switch
+        ( long "code-only"
+       <> help "Parse code modules only (skip headers/interfaces)" )
+    <*> switch
+        ( long "hdr-only"
+       <> help "Parse headers/interfaces only (skip modules)" )
+    <*> switch
+        ( long "skip-test"
+       <> short 'T'
+       <> help "Skip files that have 'test' in the name" )
+    <*> many (strOption
+        ( long "prune-dir"
+       <> metavar "DIR"
+       <> help "Do not descend into dir" ))
+    <*> switch
+        ( long "recursive"
+       <> short 'r'
+       <> help "Enable recursive search (don't follow symlinks)" )
+    <*> switch
+        ( long "follow"
+       <> short 'L'
+       <> help "Follow symlinks" )
+    -- Semantic
+    <*> switch
+        ( long "semantic"
+       <> short 'S'
+       <> help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT, OR" )
+    -- Control
+    <*> option auto
+        ( long "max-count"
+       <> metavar "INT"
+       <> value maxBound
+       <> help "Stop search in files after INT matches" )
+    <*> optional (strOption
+        ( long "force-type"
+       <> metavar "TYPE"
+       <> help "Force the type of file" ))
+    <*> switch
+        ( long "type-list"
+       <> help "List the supported file types" )
+    <*> switch
+        ( long "invert-match"
+       <> short 'v'
+       <> help "Select non-matching lines" )
+    <*> option auto
+        ( long "multiline"
+       <> metavar "INT"
+       <> value 1
+       <> help "Enable multi-line matching" )
+    <*> optional (option auto
+        ( long "threads"
+       <> short 'j'
+       <> metavar "INT"
+       <> help "Number threads to run in parallel" ))
+    -- Output format
+    <*> switch
+        ( long "show-match"
+       <> help "Show list of matching tokens" )
+    <*> switch
+        ( long "color"
+       <> help "Use colors to highlight the match strings" )
+    <*> switch
+        ( long "no-color"
+       <> help "Do not use colors (override config file)" )
+    <*> switch
+        ( long "no-filename"
+       <> short 'h'
+       <> help "Suppress the file name prefix on output" )
+    <*> switch
+        ( long "no-numbers"
+       <> help "Suppress both line and column numbers on output" )
+    <*> switch
+        ( long "no-column"
+       <> help "Suppress the column number on output" )
+    <*> switch
+        ( long "count"
+       <> help "Print only a count of matching lines per file" )
+    <*> switch
+        ( long "filename-only"
+       <> help "Print only the name of files containing matches" )
+    <*> switch
+        ( long "vim"
+       <> help "Run vim editor passing the files that match" )
+    <*> switch
+        ( long "editor"
+       <> help "Run the editor specified by EDITOR var., passing the files that match" )
+    <*> switch
+        ( long "fileline"
+       <> help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" )
+    <*> switch
+        ( long "json"
+       <> help "Format output as json object" )
+    -- Miscellaneous
+    <*> option auto
+        ( long "verbose"
+       <> metavar "INT"
+       <> value 0
+       <> help "Verbose level: 1, 2, 3 or 4" )
+    <*> switch
+        ( long "no-shallow"
+       <> help "Disable shallow-search" )
+    <*> switch
+        ( long "palette"
+       <> help "Show color palette" )
+    <*> many (argument str (metavar "PATTERN|FILES..."))
+
+-- Informazioni del parser principale
+parserInfo :: ParserInfo Options
+parserInfo = info (options <**> helper)
+    ( fullDesc
+   <> progDesc "Context-aware grep for source codes"
+   <> header ("cgrep " <> showVersion version <> " - Usage: cgrep [OPTION] [PATTERN] files...") )
