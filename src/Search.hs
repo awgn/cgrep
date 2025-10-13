@@ -200,7 +200,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
 
     let !parallelSearch = maybe True (> 1) jobs
     let multiplier = if parallelSearch then 4 else 1
-    let totalJobs = multiplier * fromMaybe (numCaps - 1) jobs
+    let totalJobs = multiplier * fromMaybe numCaps jobs
 
     -- create channels ...
     fileCh <- liftIO $ newChan 4096
@@ -248,10 +248,9 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     let env = Env conf opt
         runSearch = getSearcher env
 
-    let firstProcessor = if numCaps > 1 then 1 else 0
 
     workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
-        let processor = firstProcessor + idx `div` multiplier
+        let processor = idx `div` multiplier
         liftIO . asyncOn processor $ void . runExceptT $ do
             asRef <- liftIO $ newIORef ([] :: [Async ()])
             forever $ do
