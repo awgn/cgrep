@@ -143,8 +143,8 @@ readPatternsFromFile f
     | OS.null f = return []
     | otherwise = map trim8 . C.lines <$> C.readFile (toFilePath f)
 
+
 splitPatternsAndFiles :: [C.ByteString] -> ([C.ByteString], [OsPath])
-splitPatternsAndFiles args =
-    case break (== "") args of
-        (patterns, []) -> (patterns, [])
-        (patterns, _ : files) -> (patterns, fromByteString <$> files)
+splitPatternsAndFiles [] = ([], [])
+splitPatternsAndFiles [x] = ([x], [])
+splitPatternsAndFiles (x:xs) = ([x], fromByteString <$> xs)

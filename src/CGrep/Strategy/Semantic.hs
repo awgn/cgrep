@@ -98,7 +98,6 @@ search info f ps strict = do
                 , tfBracket = True
                 }
 
-
         patterns = map (parseTokens pfilter (snd <$> info) strict . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
         patterns' = map (mkAtomFromToken <$>) patterns
         patterns'' = map (\ps -> [toList ps] ) patterns'

@@ -147,7 +147,7 @@ ref <~ !x = writeSTRef ref x
 
 {-# INLINE parseChunks #-}
 parseChunks :: Maybe FileTypeInfo -> Text8 -> S.Seq Chunk
-parseChunks l t = runST $ case l >>= \FileTypeInfo{..} -> ftIdentifierChars of
+parseChunks l t = runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
     Just (isAlpha1, isAlphaN) -> parseChunks' isAlpha_ isAlphaNum_ t
     _ -> parseChunks' isAlpha_ isAlphaNum_ t
   where
