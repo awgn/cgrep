@@ -15,6 +15,7 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE DeriveLift #-}
 
 module CGrep.FileType (
     FileType (..),
@@ -37,6 +38,7 @@ import Options (Options (Options, force_type))
 import System.OsPath (OsPath)
 import qualified System.OsPath as OS
 import Util (prettyRead)
+import Language.Haskell.TH.Syntax (Lift)
 
 data FileType
     = Agda
@@ -103,10 +105,10 @@ data FileType
     | Ini
     | Zig
     | Zsh
-    deriving stock (Read, Show, Eq, Ord, Bounded)
+    deriving stock (Read, Show, Eq, Ord, Bounded, Lift)
 
 data FileSelector = Name OsPath | Ext OsPath | Hdr OsPath
-    deriving stock (Eq, Ord)
+    deriving stock (Eq, Ord, Lift)
 
 ext :: String -> FileSelector
 ext = Ext . OS.unsafeEncodeUtf

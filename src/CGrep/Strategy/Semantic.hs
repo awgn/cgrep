@@ -36,9 +36,11 @@ import CGrep.ContextFilter (
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
-    contextFilter,
-    fileTypeLookup,
  )
+import CGrep.FileTypeMapTH (
+     contextFilter,
+     fileTypeLookup,
+  )
 import CGrep.Output (Output, mkOutputElements, runSearch)
 import CGrep.Parser.Atom (
     Atom (..),

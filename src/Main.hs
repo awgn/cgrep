@@ -40,7 +40,7 @@ import System.IO (stderr, stdin, stdout)
 
 import CGrep.Common (trim8)
 import CGrep.FileType (readKindList, readTypeList)
-import CGrep.FileTypeMap (dumpFileTypeInfoMap, fileTypeInfoMap)
+import CGrep.FileTypeMapTH (dumpFileTypeInfoMap, fileTypeInfoMap)
 import CGrep.Parser.Atom (wildCardMap)
 
 import CmdOptions (parserInfo)

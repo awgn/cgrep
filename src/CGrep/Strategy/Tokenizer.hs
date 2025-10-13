@@ -35,9 +35,13 @@ import CGrep.Distance ((~==))
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
+ )
+
+import CGrep.FileTypeMapTH (
     contextFilter,
     fileTypeLookup,
  )
+
 import CGrep.Output (Output, mkOutputElements, runSearch)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Line

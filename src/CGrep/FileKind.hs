@@ -15,14 +15,16 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE DeriveLift #-}
 
 module CGrep.FileKind (
     FileKind (..),
 )
 where
+import Language.Haskell.TH.Syntax (Lift)
 
 data FileKind = KindText | KindConfig | KindLanguage | KindData | KindMarkup | KindScript
-    deriving stock (Eq, Ord, Enum, Bounded)
+    deriving stock (Eq, Ord, Enum, Bounded, Lift)
 
 instance Show FileKind where
     show KindText = "Text"

@@ -78,6 +78,7 @@ executable cgrep
     CGrep.FileKind
     CGrep.FileType
     CGrep.FileTypeMap
+    CGrep.FileTypeMapTH
     CGrep.Output
     CGrep.Parser.Atom
     CGrep.Parser.Char
@@ -121,6 +122,7 @@ executable cgrep
     extra,
     filepath,
     ghc-prim,
+    template-haskell,
     mmap,
     monad-loops,
     mono-traversable,

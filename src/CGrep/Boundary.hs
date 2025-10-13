@@ -15,6 +15,7 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE DeriveLift #-}
 
 module CGrep.Boundary (
     Boundary (..),
@@ -23,7 +24,7 @@ module CGrep.Boundary (
     pattern End,
 )
 where
-
+import Language.Haskell.TH.Syntax (Lift)
 import qualified Data.ByteString.Char8 as C
 import Data.Word (Word8)
 
@@ -31,7 +32,7 @@ data Boundary = Boundary
     { bBegin :: C.ByteString
     , bEnd :: C.ByteString
     }
-    deriving stock (Show, Eq)
+    deriving stock (Show, Eq, Lift)
 
 newtype BoundaryType = BoundaryType {unpackBoundaryType :: Word8}
     deriving newtype (Eq, Ord)

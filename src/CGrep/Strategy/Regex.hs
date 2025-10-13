@@ -44,7 +44,8 @@ import CGrep.Common (
  )
 import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
-import CGrep.FileTypeMap (FileTypeInfo (..), contextFilter, fileTypeLookup)
+import CGrep.FileTypeMap (FileTypeInfo (..))
+import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
 import CGrep.Output (Output, mkOutputElements)
 
 #ifdef ENABLE_PCRE

@@ -28,6 +28,8 @@ import CGrep.FileKind (FileKind)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
+ )
+import CGrep.FileTypeMapTH (
     fileTypeInfoLookup,
     fileTypeLookup,
  )
