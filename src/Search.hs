@@ -92,6 +92,7 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Function (fix)
 import Data.Functor (void, ($>), (<&>))
 import Data.Functor as F (unzip)
+import qualified Data.HashSet as S
 import Data.IORef (
     IORef,
     atomicModifyIORef,
@@ -107,7 +108,6 @@ import Data.List (elemIndex, intersperse, isPrefixOf, isSuffixOf, partition)
 import Data.List.Split (chunksOf)
 import qualified Data.Map as M
 import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
-import qualified Data.Set as S
 import Data.Tuple.Extra ()
 import Data.Vector ((!))
 import qualified Data.Vector as V hiding ((!))
@@ -149,7 +149,6 @@ data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
     , rcFileKinds :: [FileKind]
     , rcPrunableDirs :: [OsPath]
-    , rcWalkers :: IORef Int
     , rcParallel :: Bool
     }
 
@@ -157,37 +156,30 @@ withRecursiveContents ::
     RecursiveContext ->
     Options ->
     OsPath ->
-    S.Set OsPath ->
+    S.HashSet OsPath ->
     ([OsPath] -> IO ()) ->
     IO ()
 withRecursiveContents ctx@RecursiveContext{..} opt@Options{..} dir visited action = do
     xs <- getDirectoryContents dir
     (dirs, files) <- partitionM (\p -> doesDirectoryExist (dir </> p)) xs
-    -- putStrLn $ "CURRENT DIR:" <> show dir <> " CONTENT:" <> show xs <>  " SUBDIR:" <> show dirs <> " FILES:" <> show files
 
     -- filter the list of files
     let files' :: [OsPath] = (dir </>) <$> filter (\f -> fileFilter opt rcFileTypes rcFileKinds f && (not skip_test || isNotTestFile f)) files
     let dirs' :: [OsPath] = (dir </>) <$> filter (\d -> not $ isDot d) dirs
 
     -- run IO action
-    mapM_ action (chunksOf 8 files')
+    mapM_ action (chunksOf 4 files')
 
-    -- process directories recursively...
     foreach <-
-        readIORef rcWalkers >>= \tot -> do
-            if tot < 64
-                then pure (forConcurrently_ @[])
-                else pure forM_
+        if rcParallel
+            then pure (forConcurrently_ @[])
+            else pure forM_
 
     foreach dirs' $ \dirPath -> do
         unless (isPrunableDir dirPath rcPrunableDirs) $
             -- this is a good directory, unless already visited...
             makeAbsolute dirPath >>= \cpath -> do
-                unless (cpath `S.member` visited) $ do
-                    incrRef rcWalkers
-                        *> withRecursiveContents ctx opt dirPath (S.insert cpath visited) action
-
-    decrRef rcWalkers
+                unless (cpath `S.member` visited) $ withRecursiveContents ctx opt dirPath (S.insert cpath visited) action
 
 startSearch :: [OsPath] -> [C.ByteString] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
 startSearch paths patterns fTypes fKinds isTermIn = do
@@ -203,30 +195,27 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     let totalJobs = multiplier * fromMaybe numCaps jobs
 
     -- create channels ...
-    fileCh <- liftIO $ newChan 4096
+    fileCh <- liftIO $ newChan 65536
 
     -- recursively traverse the filesystem ...
-    _ <- liftIO . forkOn 0 $ do
-        walkers <- newIORef (0 :: Int)
+    _ <- liftIO . forkIO $ do
         if recursive || follow
             then forM_ (if null paths then [unsafeEncodeUtf "."] else paths) $ \path ->
                 doesDirectoryExist path >>= \case
                     True ->
-                        incrRef walkers
-                            *> withRecursiveContents
-                                RecursiveContext
-                                    { rcFileTypes = fTypes
-                                    , rcFileKinds = fKinds
-                                    , rcPrunableDirs = (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
-                                    , rcWalkers = walkers
-                                    , rcParallel = parallelSearch
-                                    }
-                                opt
-                                path
-                                (S.singleton path)
-                                ( \file -> do
-                                    writeChan (fst fileCh) file
-                                )
+                        withRecursiveContents
+                            RecursiveContext
+                                { rcFileTypes = fTypes
+                                , rcFileKinds = fKinds
+                                , rcPrunableDirs = (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
+                                , rcParallel = parallelSearch
+                                }
+                            opt
+                            path
+                            (S.singleton path)
+                            ( \file -> do
+                                writeChan (fst fileCh) file
+                            )
                     _ -> writeChan (fst fileCh) [path]
             else
                 forM_
@@ -243,11 +232,10 @@ startSearch paths patterns fTypes fKinds isTermIn = do
         replicateM_ totalJobs $ writeChan (fst fileCh) []
 
     -- launch the worker threads...
-    matchingFiles :: IORef (S.Set (OsPath, Int64)) <- liftIO $ newIORef S.empty
+    matchingFiles :: IORef (S.HashSet (OsPath, Int64)) <- liftIO $ newIORef S.empty
 
     let env = Env conf opt
         runSearch = getSearcher env
-
 
     workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
         let processor = idx `div` multiplier

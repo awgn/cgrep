@@ -267,7 +267,6 @@ isUnicodeNum_' c = c == '_' || c == '\'' || isLetter c || isDigit c
 isLispIdent :: Char -> Bool
 isLispIdent c =
     isAsciiLower c
-        || isAsciiLower c
         || isDigit c
         || c `elem` ("-+*/@$%^&_=<>~!?[]{}" :: String)
 

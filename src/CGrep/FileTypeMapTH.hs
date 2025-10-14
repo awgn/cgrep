@@ -1970,7 +1970,6 @@ fileTypeInfoMap = $(lift $
                                        ]
                            }
                        )
-                       -----------------------------------------------------
                    ,
                        ( Html
                        , FileTypeInfo
@@ -2498,7 +2497,7 @@ fileTypeInfoMap = $(lift $
                            , ftChar = []
                            , ftString = ["'" ~~ "'", "\"" ~~ "\""]
                            , ftRawString = ["[===[" ~~ "]===]", "[==[" ~~ "]==]", "[=[" ~~ "]=]", "[[" ~~ "]]"]
-                           , ftIdentCharSet = Just (Alpha_, AlphaNum_)
+                           , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
                            , ftKeywords =
                                reserved
                                    [ "and"
