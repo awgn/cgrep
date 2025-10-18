@@ -18,12 +18,9 @@
 
 module CGrep.Parser.Atom (
     Atom (..),
-    Atoms,
     mkAtomFromToken,
-    filterTokensWithAtoms,
+    findAllMatches,
     wildCardMap,
-    wildCardMatch,
-    wildCardsMatch,
 ) where
 
 import qualified Data.Map as M
@@ -37,7 +34,9 @@ import Data.List (
     isInfixOf,
     isPrefixOf,
     isSuffixOf,
+    sort,
     subsequences,
+    tails,
  )
 import Options (
     Options (edit_dist, prefix_match, suffix_match, word_match),
@@ -47,6 +46,11 @@ import Util (rmQuote8, spanGroup)
 import qualified CGrep.Parser.Chunk as T
 import qualified CGrep.Parser.Token as T
 import qualified Data.ByteString.Char8 as C
+import Data.Containers.ListUtils (nubOrd)
+import Data.Function (on)
+import Data.List (groupBy)
+import Data.List.Extra (sortOn)
+import Debug.Trace
 import GHC.Stack (errorWithStackTrace)
 
 data Atom
@@ -57,11 +61,9 @@ data Atom
     | Hex
     | String
     | Literal
-    | Identifier C.ByteString
-    | Raw T.Token
+    | Placeholder C.ByteString
+    | Exact T.Token
     deriving stock (Eq, Ord, Show)
-
-type Atoms = [Atom]
 
 wildCardMap :: M.Map C.ByteString Atom
 wildCardMap =
@@ -80,51 +82,15 @@ mkAtomFromToken t
     | T.isTokenIdentifier t = case () of
         _
             | Just wc <- M.lookup str wildCardMap -> wc
-            | isAtomIdentifier str -> Identifier str
-            | otherwise -> Raw $ T.mkTokenIdentifier (rmAtomEscape str) (T.tOffset t)
+            | isAtomPlaceholder str -> Placeholder str
+            | otherwise -> Exact $ T.mkTokenIdentifier (unescapeAtom str) (T.tOffset t)
           where
             str = T.tToken t
-    | otherwise = Raw t
+    | otherwise = Exact t
 
-
-{-# INLINE filterTokensWithAtoms #-}
-filterTokensWithAtoms :: Options -> [Atoms] -> [T.Token] -> [T.Token]
-filterTokensWithAtoms opt ws ts = go opt (spanOptionalCards ws) ts
-  where
-    go :: Options -> [[Atoms]] -> [T.Token] -> [T.Token]
-    go _ [] _ = []
-    go opt (g : gs) ts =
-        {-# SCC "atom_find_total" #-} concatMap (take grpLen . (`drop` ts)) ({-# SCC "atom_find_indices" #-} findIndices (wildCardsCompare opt g) grp) <> {-# SCC atom_find_req #-} go opt gs ts
-      where
-        grp = {-# SCC "atomSpanGroup" #-} spanGroup grpLen ts
-        grpLen = length g
-
-spanOptionalCards :: [Atoms] -> [[Atoms]]
-spanOptionalCards wc = map (`filterCardIndices` wc') idx
-  where
-    wc' = zip [0 ..] wc
-    idx =
-        subsequences $
-            findIndices
-                ( \case
-                    [Identifier (C.uncons -> Just ('$', _))] -> True
-                    _ -> False
-                )
-                wc
-
-filterCardIndices :: [Int] -> [(Int, Atoms)] -> [Atoms]
-filterCardIndices ns ps = map snd $ filter (\(n, _) -> n `notElem` ns) ps
-{-# INLINE filterCardIndices #-}
-
-wildCardsCompare :: Options -> [Atoms] -> [T.Token] -> Bool
-wildCardsCompare opt l r =
-    wildCardsCompareAll ts && wildCardsCheckOccurrences ts
-  where
-    ts = wildCardsGroupCompare opt l r
-{-# INLINE wildCardsCompare #-}
-
-isAtomIdentifier :: C.ByteString -> Bool
-isAtomIdentifier s =
+{-# INLINE isAtomPlaceholder #-}
+isAtomPlaceholder :: C.ByteString -> Bool
+isAtomPlaceholder s =
     if
         | Just (x, C.uncons -> Just (y, xs)) <- C.uncons s -> wprefix x && isDigit y
         | Just (x, "") <- C.uncons s -> wprefix x
@@ -132,80 +98,63 @@ isAtomIdentifier s =
   where
     wprefix x = x == '$' || x == '_'
 
-rmAtomEscape :: C.ByteString -> C.ByteString
-rmAtomEscape (C.uncons -> Just ('$', xs)) = xs
-rmAtomEscape (C.uncons -> Just ('_', xs)) = xs
-rmAtomEscape xs = xs
-{-# INLINE rmAtomEscape #-}
+unescapeAtom :: C.ByteString -> C.ByteString
+unescapeAtom (C.uncons -> Just ('$', xs)) = xs
+unescapeAtom (C.uncons -> Just ('_', xs)) = xs
+unescapeAtom xs = xs
+{-# INLINE unescapeAtom #-}
 
-wildCardsCompareAll :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
-wildCardsCompareAll = all fst
-{-# INLINE wildCardsCompareAll #-}
-{-# SCC wildCardsCompareAll #-}
+findAllMatches :: Options -> [[Atom]] -> [T.Token] -> [T.Token]
+findAllMatches opt ws ts = nubOrd . nubOrd $ concatMap (\w -> findAllMatches' opt w ts) ws
+{-# INLINE findAllMatches #-}
 
--- Note: pattern $ and _ match any token, whereas $1 $2 (_1 _2 etc.) match tokens
---       that must compare equal in the respective occurrences
+findAllMatches' :: Options -> [Atom] -> [T.Token] -> [T.Token]
+findAllMatches' opt as ts =
+    let indicies = findIndicesBy (doesAtomMatchToken opt) as ts
+     in concatMap
+            ( \i ->
+                let s = extractSlice i (length as) ts
+                 in if atomsCheckOccurrences as s
+                        then s
+                        else []
+            )
+            indicies
 
-wildCardsCheckOccurrences :: [(Bool, (Atoms, [C.ByteString]))] -> Bool
-wildCardsCheckOccurrences ts = M.foldr checkAndFold True m
+extractSlice :: Int -> Int -> [a] -> [a]
+extractSlice i n xs = take n (drop i xs)
+{-# INLINE extractSlice #-}
+
+-- The pattern _ matches any token, whereas _1, _2, etc. match tokens that must be equal across their respective occurrences.
+
+atomsCheckOccurrences :: [Atom] -> [T.Token] -> Bool
+atomsCheckOccurrences as ts = M.foldr checkAndFold True (m)
   where
-    checkAndFold xs acc = acc && case xs of
-        []     -> True
-        (y:ys) -> all (== y) ys
+    checkAndFold xs acc =
+        acc && case xs of
+            [] -> True
+            (y : ys) -> all (== y) ys
     m =
         M.mapWithKey
             ( \k xs ->
                 case k of
-                    [Identifier "_0"] -> xs
-                    [Identifier "_1"] -> xs
-                    [Identifier "_2"] -> xs
-                    [Identifier "_3"] -> xs
-                    [Identifier "_4"] -> xs
-                    [Identifier "_5"] -> xs
-                    [Identifier "_6"] -> xs
-                    [Identifier "_7"] -> xs
-                    [Identifier "_8"] -> xs
-                    [Identifier "_9"] -> xs
-                    [Identifier "$0"] -> xs
-                    [Identifier "$1"] -> xs
-                    [Identifier "$2"] -> xs
-                    [Identifier "$3"] -> xs
-                    [Identifier "$4"] -> xs
-                    [Identifier "$5"] -> xs
-                    [Identifier "$6"] -> xs
-                    [Identifier "$7"] -> xs
-                    [Identifier "$8"] -> xs
-                    [Identifier "$9"] -> xs
+                    Placeholder "_0" -> xs
+                    Placeholder "_1" -> xs
+                    Placeholder "_2" -> xs
+                    Placeholder "_3" -> xs
+                    Placeholder "_4" -> xs
+                    Placeholder "_5" -> xs
+                    Placeholder "_6" -> xs
+                    Placeholder "_7" -> xs
+                    Placeholder "_8" -> xs
+                    Placeholder "_9" -> xs
                     _ -> []
             )
-            $ M.fromListWith (<>) (map snd ts)
-{-# INLINE wildCardsCheckOccurrences #-}
-{-# SCC wildCardsCheckOccurrences #-}
+            $ M.fromListWith (<>)
+            $ zip as (take (length as) (map (: []) ts))
 
-wildCardsGroupCompare :: Options -> [Atoms] -> [T.Token] -> [(Bool, (Atoms, [C.ByteString]))]
-wildCardsGroupCompare opt ls rs
-    | length rs >= length ls = zipWith (tokensZip opt) ls rs
-    | otherwise = [(False, ([Any], []))]
-{-# INLINE wildCardsGroupCompare #-}
-{-# SCC wildCardsGroupCompare #-}
-
-tokensZip :: Options -> Atoms -> T.Token -> (Bool, (Atoms, [C.ByteString]))
-tokensZip opt l r
-    | wildCardsMatch opt l r = (True, (l, [T.tToken r]))
-    | otherwise = (False, ([Any], []))
-{-# INLINE tokensZip #-}
-{-# SCC tokensZip #-}
-
-wildCardsMatch :: Options -> Atoms -> T.Token -> Bool
-wildCardsMatch opt m t = any (\w -> wildCardMatch opt w t) m
-{-# INLINE wildCardsMatch #-}
-{-# SCC wildCardsMatch #-}
-
-{-# SCC wildCardMatch #-}
-wildCardMatch :: Options -> Atom -> T.Token -> Bool
-wildCardMatch opt (Raw l) r
+doesAtomMatchToken :: Options -> Atom -> T.Token -> Bool
+doesAtomMatchToken opt (Exact l) r
     | T.isTokenIdentifier l && T.isTokenIdentifier r =
-        {-# SCC wildcard_raw_0 #-}
         if
             | word_match opt -> T.tToken l == T.tToken r
             | prefix_match opt -> T.tToken l `C.isPrefixOf` T.tToken r
@@ -213,22 +162,34 @@ wildCardMatch opt (Raw l) r
             | edit_dist opt -> (C.unpack . T.tToken) l ~== C.unpack (T.tToken r)
             | otherwise -> T.tToken l `C.isInfixOf` T.tToken r
     | T.isTokenString l && T.isTokenString r =
-        {-# SCC wildcard_raw_1 #-}
         if
             | word_match opt -> ls == rs
             | prefix_match opt -> ls `C.isPrefixOf` rs
             | suffix_match opt -> ls `C.isSuffixOf` rs
             | edit_dist opt -> C.unpack ls ~== C.unpack rs
             | otherwise -> ls `C.isInfixOf` rs
-    | otherwise = {-# SCC wildcard_raw_2 #-} l `T.eqToken` r
+    | otherwise = l `T.eqToken` r
   where
     ls = rmQuote8 $ trim8 (T.tToken l)
     rs = rmQuote8 $ trim8 (T.tToken r)
-wildCardMatch _ Any _ = {-# SCC wildcard_any #-} True
-wildCardMatch _ (Identifier _) t = {-# SCC wildcard_identifier #-} T.isTokenIdentifier t
-wildCardMatch _ Keyword t = {-# SCC wildcard_keyword #-} T.isTokenKeyword t
-wildCardMatch _ String t = {-# SCC wildcard_string #-} T.isTokenString t
-wildCardMatch _ Literal t = {-# SCC wildcard_lit #-} T.isTokenString t
-wildCardMatch _ Number t = {-# SCC wildcard_number #-} T.isTokenNumber t
-wildCardMatch _ Oct t = {-# SCC wildcard_octal #-} T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just (d, _)) -> isDigit d; _ -> False
-wildCardMatch _ Hex t = {-# SCC wildcard_hex #-} T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just ('x', _)) -> True; _ -> False
+doesAtomMatchToken _ Any _ = True
+doesAtomMatchToken _ (Placeholder _) t = T.isTokenIdentifier t
+doesAtomMatchToken _ Keyword t = T.isTokenKeyword t
+doesAtomMatchToken _ String t = T.isTokenString t
+doesAtomMatchToken _ Literal t = T.isTokenString t
+doesAtomMatchToken _ Number t = T.isTokenNumber t
+doesAtomMatchToken _ Oct t = T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just (d, _)) -> isDigit d; _ -> False
+doesAtomMatchToken _ Hex t = T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just ('x', _)) -> True; _ -> False
+
+
+isPrefixOfBy :: (a -> b -> Bool) -> [a] -> [b] -> Bool
+isPrefixOfBy _ [] _ = True
+isPrefixOfBy _ (_ : _) [] = False
+isPrefixOfBy p (x : xs) (y : ys) = p x y && isPrefixOfBy p xs ys
+{-# INLINEABLE isPrefixOfBy #-}
+
+
+findIndicesBy :: (a -> b -> Bool) -> [a] -> [b] -> [Int]
+findIndicesBy p needle haystack =
+    [i | (i, tail) <- zip [0 ..] (tails haystack), isPrefixOfBy p needle tail]
+{-# INLINE findIndicesBy #-}

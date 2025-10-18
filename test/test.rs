@@ -4,3 +4,7 @@ pub struct Gateway<S> {
     drain: drain::Watch,
     stack: Stack<S>,
 }
+
+fn main() {
+    test.method();
+}

@@ -44,10 +44,9 @@ prettyRead xs err =
         _ -> errorWithoutStackTrace $ err <> ": parse error near '" <> take 40 xs <> "'"
 
 spanGroup :: Int -> [a] -> [[a]]
-spanGroup _ [] = []
-spanGroup 1 xs = map (: []) xs
-spanGroup n l@(x : xs) = take n l : spanGroup n xs
-{-# INLINE spanGroup #-}
+spanGroup n xs
+  | length xs < n = [] -- Stop if the remaining list is shorter than n
+  | otherwise     = take n xs : spanGroup n (drop 1 xs)
 
 spanGroupSeq :: Int -> S.Seq a -> [S.Seq a]
 spanGroupSeq _ S.Empty = []

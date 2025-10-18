@@ -38,13 +38,13 @@ import CGrep.FileTypeMap (
     FileTypeInfo,
  )
 import CGrep.FileTypeMapTH (
-     contextFilter,
-     fileTypeLookup,
-  )
+    contextFilter,
+    fileTypeLookup,
+ )
 import CGrep.Output (Output, mkOutputElements, runSearch)
 import CGrep.Parser.Atom (
     Atom (..),
-    filterTokensWithAtoms,
+    findAllMatches,
     mkAtomFromToken,
  )
 import CGrep.Parser.Chunk
@@ -102,13 +102,13 @@ search info f ps strict = do
 
         patterns = map (parseTokens pfilter (snd <$> info) strict . contextFilter (fst <$> fileTypeLookup opt filename) filt True) ps
         patterns' = map (mkAtomFromToken <$>) patterns
-        patterns'' = map (\ps -> [toList ps] ) patterns'
+        patterns'' = map toList patterns'
 
         matchers =
             mapMaybe
                 ( \case
-                    Raw (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
-                    Raw t -> Just (tToken t)
+                    Exact (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
+                    Exact t -> Just (tToken t)
                     _ -> Nothing
                 )
                 (concatMap toList patterns')
@@ -125,6 +125,7 @@ search info f ps strict = do
 
     let eligible_for_search = eligibleForSearch matchers indices'
     runSearch opt filename eligible_for_search $ do
+        -- parse source code, get the Generic.Token list...
         let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns
         putMessageLnVerb 3 stderr $ "filter    : " <> show tfilter
 
@@ -133,14 +134,12 @@ search info f ps strict = do
 
         -- get matching tokens ...
 
-        let tokens' = sortBy (compare `on` tOffset) $ nub $ concatMap (\ms -> filterTokensWithAtoms opt ms tokens) patterns''
+        let allMatches = sortBy (compare `on` tOffset) $ nub $ findAllMatches opt patterns'' tokens
 
         -- convert Tokens to Chunks
 
-        let matches = coerce tokens' :: [Chunk]
-
+        let matches = coerce allMatches :: [Chunk]
         putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text
-
         mkOutputElements lineOffsets filename text text''' matches
