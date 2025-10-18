@@ -18,12 +18,12 @@
 
 module Util where
 
-import qualified Data.ByteString.Char8 as C
 import Data.Char (toLower)
 import Data.Maybe (listToMaybe)
 import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
 import qualified Data.Sequence as S
 import Text.Read (readMaybe)
+import qualified Data.Text as T
 
 partitionM :: (Monad m) => (a -> m Bool) -> [a] -> m ([a], [a])
 partitionM _ [] = return ([], [])
@@ -54,25 +54,18 @@ spanGroupSeq 1 xs = [xs]
 spanGroupSeq n xs = S.take n xs : spanGroupSeq n (S.drop 1 xs)
 {-# INLINE spanGroupSeq #-}
 
-rmQuote :: String -> String
-rmQuote [] = []
-rmQuote [x] = [x]
-rmQuote y@(x : xs)
-    | x == '"' || x == '\'' =
-        if x == last xs
-            then init xs
-            else y
-    | otherwise = y
-{-# INLINE rmQuote #-}
-
-rmQuote8 :: C.ByteString -> C.ByteString
-rmQuote8 b
-    | C.length b < 2 = b
-    | otherwise =
-        case C.uncons b of
-            Just (x, xs) -> if (x == '"' || x == '\'') && (x == C.last b) then C.init xs else b
-            _ -> b
-{-# INLINE rmQuote8 #-}
+-- | Removes a single pair of matching quotes ('"' or '\'')
+-- | from the beginning and end of a Text.
+unquoteT :: T.Text -> T.Text
+unquoteT txt =
+    case T.uncons txt of
+        -- Check if 'x' is a quote we care about
+        Just (x, xs) | x == '"' || x == '\'' ->
+            case T.unsnoc xs of
+                Just (inner, y) | x == y -> inner
+                _ -> txt
+        _ -> txt -- Text was empty or first char wasn't a quote
+{-# INLINE unquoteT #-}
 
 mapMaybe' :: (Foldable f) => (a -> Maybe b) -> f a -> [b]
 mapMaybe' f = foldr g []

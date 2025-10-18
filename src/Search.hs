@@ -17,13 +17,15 @@
 -- nc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE QuasiQuotes #-}
+
 module Search (
     startSearch,
     isRegexp,
 )
 where
 
-import CGrep.Common (Text8, getTargetName, takeN)
+import CGrep.Common (getTargetName, takeN)
 import CGrep.FileKind (FileKind)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
@@ -34,8 +36,8 @@ import CGrep.FileTypeMapTH (
     fileTypeLookup,
  )
 import CGrep.Output (
-    Output (..),
-    putOutputElements,
+    OutputMatch (..),
+    putOutputMatches,
     showFileName,
  )
 import qualified CGrep.Strategy.BoyerMoore as BoyerMoore
@@ -84,11 +86,6 @@ import Control.Monad.Trans.Reader (
     reader,
  )
 import qualified Data.Bifunctor
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Builder as B
-import qualified Data.ByteString.Builder.Extra as B
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Function (fix)
 import Data.Functor (void, ($>), (<&>))
 import Data.Functor as F (unzip)
@@ -114,7 +111,6 @@ import qualified Data.Vector as V hiding ((!))
 import Debug.Trace
 import GHC.Conc (getNumCapabilities)
 import Options (Options (..))
-import OsPath (toByteString)
 import PutMessage (putMessageLn, putMessageLnVerb)
 import Reader (
     Env (..),
@@ -131,8 +127,10 @@ import System.IO (
     stdin,
     stdout,
  )
-import System.OsPath (OsPath, takeBaseName, takeExtension, unsafeEncodeUtf, (</>))
-import System.OsString as OS (isSuffixOf)
+
+import qualified OsPath as OS
+import System.OsPath (OsPath, OsString, osp, takeBaseName, takeExtension, unsafeEncodeUtf, (</>))
+import System.OsString as OS (isSuffixOf, isPrefixOf)
 import System.PosixCompat.Files as PC (
     FileStatus,
     getFileStatus,
@@ -140,10 +138,10 @@ import System.PosixCompat.Files as PC (
     isDirectory,
  )
 import System.Process (runProcess, waitForProcess)
-
-isDot :: OsPath -> Bool
-isDot p = let n = toByteString p in n == "." || n == ".."
-{-# INLINE isDot #-}
+import qualified Data.Text.IO as TIO
+import qualified Data.Text.Lazy.IO as LTIO
+import qualified Data.Text as T
+import qualified Data.Text.Lazy.Builder as TLB
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -181,7 +179,7 @@ withRecursiveContents ctx@RecursiveContext{..} opt@Options{..} dir visited actio
             makeAbsolute dirPath >>= \cpath -> do
                 unless (cpath `S.member` visited) $ withRecursiveContents ctx opt dirPath (S.insert cpath visited) action
 
-startSearch :: [OsPath] -> [C.ByteString] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
+startSearch :: [OsPath] -> [T.Text] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
 startSearch paths patterns fTypes fKinds isTermIn = do
     Env{..} <- ask
 
@@ -227,12 +225,12 @@ startSearch paths patterns fTypes fKinds isTermIn = do
 
         -- enqueue EOF messages...
         when (verbose > 0) $
-            putMessageLn @Text8 stderr "filesystem traversal completed!"
+            putMessageLn @T.Text stderr "filesystem traversal completed!"
 
         replicateM_ totalJobs $ writeChan (fst fileCh) []
 
     -- launch the worker threads...
-    matchingFiles :: IORef (S.HashSet (OsPath, Int64)) <- liftIO $ newIORef S.empty
+    matchingFiles :: IORef (S.HashSet (OsPath, Int)) <- liftIO $ newIORef S.empty
 
     let env = Env conf opt
         runSearch = getSearcher env
@@ -257,17 +255,19 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                     E.catch
                                                         ( runReaderT
                                                             ( do
-                                                                out' <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
+                                                                !matches <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
+                                                                -- liftIO $ putStrLn $ show matches
                                                                 when (vim || editor) $
                                                                     liftIO $
-                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) out'
-                                                                putOutputElements out'
+                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) matches
+                                                                putOutputMatches matches
+                                                                -- putOutputMatches []
                                                             )
                                                             env
                                                         )
                                                         ( \e -> do
                                                             let msg = show (e :: SomeException)
-                                                            C.hPutStrLn stderr (showFileName conf opt (getTargetName f) <> ": error: " <> C.pack (takeN 120 msg))
+                                                            TIO.hPutStrLn stderr (showFileName conf opt (getTargetName f) <> ": error: " <> T.pack (takeN 120 msg))
                                                             return Nothing
                                                         )
                                             )
@@ -277,12 +277,12 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                             liftIO $
                                 async
                                     ( do
-                                        let !dump = LB.toStrict $ B.toLazyByteString (mconcat ((<> B.char8 '\n') <$> out))
-                                        B.hPut stdout dump
+                                        let !dump = TLB.toLazyText (mconcat ((<> TLB.singleton '\n') <$> out))
+                                        LTIO.hPutStr stdout dump
                                     )
                                     >>= \a -> modifyIORef' asRef (a :)
                 when (null fs) $ do
-                    when (verbose > 3) $ putMessageLn stderr $ "[" <> C.pack (show idx) <> "]@" <> C.pack (show processor) <> " searcher terminated!"
+                    when (verbose > 3) $ putMessageLn stderr $ "[" <> T.pack (show idx) <> "]@" <> T.pack (show processor) <> " searcher terminated!"
                     throwE ()
 
     -- wait workers to complete the job
@@ -296,7 +296,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 else lookupEnv "EDITOR"
 
         files <- S.toList <$> readIORef matchingFiles
-        let filesUnpacked = Data.Bifunctor.first (C.unpack . toByteString) <$> files
+        let filesUnpacked = Data.Bifunctor.first (T.unpack . OS.toText) <$> files
 
         let editFiles =
                 if fileline || configFileLine
@@ -316,7 +316,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 (Just stderr)
                 >>= waitForProcess
 
-getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output])
+getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch])
 getSearcher Env{..} = do
     if
         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
@@ -343,10 +343,19 @@ fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKind
 
 isNotTestFile :: OsPath -> Bool
 isNotTestFile f =
-    let fs = [("_test" `C.isSuffixOf`), ("-test" `C.isSuffixOf`), ("test-" `C.isPrefixOf`), ("test_" `C.isPrefixOf`), ("test" ==)] :: [C.ByteString -> Bool]
-        basename = toByteString (takeBaseName f)
-     in not $ any ($ basename) fs
+    let fs = [ ([osp|_test|] `OS.isSuffixOf`)
+             , ([osp|-test|] `OS.isSuffixOf`)
+             , ([osp|test-|] `OS.isPrefixOf`)
+             , ([osp|test_|] `OS.isPrefixOf`)
+             , ([osp|test|] ==)
+         ] :: [OsString -> Bool]
+        basename = takeBaseName f
+      in not $ any ($ basename) fs
 {-# INLINE isNotTestFile #-}
+
+isDot :: OsPath -> Bool
+isDot p = p == [osp|.|] || p == [osp|..|]
+{-# INLINE isDot #-}
 
 isPrunableDir :: OsPath -> [OsPath] -> Bool
 isPrunableDir dir = any (`OS.isSuffixOf` pdir)

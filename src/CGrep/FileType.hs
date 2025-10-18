@@ -31,7 +31,6 @@ where
 import CGrep.FileKind (FileKind)
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
-import qualified Data.ByteString.Char8 as C
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Options (Options (Options, force_type))
@@ -39,6 +38,8 @@ import System.OsPath (OsPath)
 import qualified System.OsPath as OS
 import Util (prettyRead)
 import Language.Haskell.TH.Syntax (Lift)
+
+import qualified Data.Text as T
 
 data FileType
     = Agda

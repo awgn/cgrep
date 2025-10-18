@@ -18,15 +18,11 @@
 
 module CGrep.Strategy.BoyerMoore (search) where
 
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as LC
-
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
 import Data.List (genericLength, isPrefixOf, isSuffixOf)
 
 import CGrep.Common (
-    Text8,
     expandMultiline,
     getTargetContents,
     getTargetName,
@@ -36,7 +32,7 @@ import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
-import CGrep.Output (Output, mkOutputElements, runSearch)
+import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
 import CGrep.Search
 import CGrep.Types (Offset)
 
@@ -49,11 +45,13 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
-import CGrep.Parser.Line (getLineByOffset, getLineOffsets)
+import CGrep.Parser.Line (getLineByOffset, getLineOffsets, getAllLineOffsets)
 import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
+import qualified Data.Text as T
+import Debug.Trace (traceShowId)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do
     Env{..} <- ask
 
@@ -76,18 +74,14 @@ search info f patterns strict = do
 
     -- make shallow search
 
-    let indices' = searchStringIndices patterns text'
+    let !indices' = searchStringIndices patterns text'
     let indices''' = searchStringIndices patterns text'''
 
     -- search for matching tokens
 
     let ctor = Chunk ChunkUnspec
-
     let chunks = concat $ zipWith (\p xs -> (p `ctor`) <$> xs) patterns indices'''
-
-    -- filter exact/partial matching tokens
-
-    let lineOffsets = getLineOffsets (fromIntegral $ C.length text) text
+    let lineOffsets = getAllLineOffsets text
 
     let chunks' =
             if word_match opt || prefix_match opt || suffix_match opt
@@ -98,14 +92,14 @@ search info f patterns strict = do
     putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt filename (eligibleForSearch patterns indices') $ do
-        putMessageLnVerb 2 stderr $ "chunks'   : " <> show chunks'
-        mkOutputElements lineOffsets filename text text''' chunks'
+        putMessageLnVerb 2 stderr $ "matches   : " <> show chunks'
+        mkOutputMatches lineOffsets filename text text''' chunks'
 
-checkChunk :: Options -> UV.Vector Int64 -> Maybe FileTypeInfo -> Text8 -> Chunk -> Bool
+checkChunk :: Options -> UV.Vector Offset -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
 checkChunk opt vec info text chunk
     | word_match opt = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
-    | prefix_match opt = any (\chunk' -> cToken chunk `C.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
-    | suffix_match opt = any (\chunk' -> cToken chunk `C.isSuffixOf` cToken chunk' && cOffset chunk' + off' + fromIntegral (C.length (cToken chunk') - C.length (cToken chunk)) == cOffset chunk) cs
+    | prefix_match opt = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
+    | suffix_match opt = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + fromIntegral (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs
     | otherwise = undefined
   where
     (# line', off' #) = getLineByOffset (cOffset chunk) text vec

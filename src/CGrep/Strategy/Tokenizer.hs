@@ -19,7 +19,6 @@
 module CGrep.Strategy.Tokenizer (search) where
 
 import CGrep.Common (
-    Text8,
     expandMultiline,
     getTargetContents,
     getTargetName,
@@ -42,7 +41,7 @@ import CGrep.FileTypeMapTH (
     fileTypeLookup,
  )
 
-import CGrep.Output (Output, mkOutputElements, runSearch)
+import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Line
 import CGrep.Parser.Token
@@ -50,7 +49,6 @@ import CGrep.Search (eligibleForSearch, searchStringIndices)
 import CGrep.Types (Offset)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
-import qualified Data.ByteString.Char8 as C
 import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
 import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
@@ -74,8 +72,10 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (mapMaybe')
+import qualified Data.Text as T
+import qualified Data.Vector.Unboxed as UV
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f ps strict = do
     Env{..} <- ask
 
@@ -126,19 +126,19 @@ search info f ps strict = do
 
         let lineOffsets = getAllLineOffsets text
 
-        mkOutputElements lineOffsets filename text text''' matches
+        mkOutputMatches lineOffsets filename text text''' matches
 
-tokenizerFilter :: Options -> [C.ByteString] -> Token -> Maybe Chunk
+tokenizerFilter :: Options -> [T.Text] -> Token -> Maybe Chunk
 tokenizerFilter opt patterns token
     | isTokenUnspecified token = Nothing
     | tokenPredicate opt patterns token = Just $ coerce token
     | otherwise = Nothing
 {-# INLINE tokenizerFilter #-}
 
-tokenPredicate :: Options -> [C.ByteString] -> Token -> Bool
+tokenPredicate :: Options -> [T.Text] -> Token -> Bool
 tokenPredicate opt patterns tokens
-    | edit_dist opt = (\t -> any (\p -> C.unpack p ~== (C.unpack . tToken) t) patterns) tokens
+    | edit_dist opt = (\t -> any (\p -> T.unpack p ~== (T.unpack . tToken) t) patterns) tokens
     | word_match opt = ((`elem` patterns) . tToken) tokens
-    | prefix_match opt = ((\t -> any (`C.isPrefixOf` t) patterns) . tToken) tokens
-    | suffix_match opt = ((\t -> any (`C.isSuffixOf` t) patterns) . tToken) tokens
-    | otherwise = ((\t -> any (`C.isInfixOf` t) patterns) . tToken) tokens
+    | prefix_match opt = ((\t -> any (`T.isPrefixOf` t) patterns) . tToken) tokens
+    | suffix_match opt = ((\t -> any (`T.isSuffixOf` t) patterns) . tToken) tokens
+    | otherwise = ((\t -> any (`T.isInfixOf` t) patterns) . tToken) tokens

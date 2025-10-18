@@ -38,13 +38,13 @@ module CGrep.FileTypeMap (
 
 import Language.Haskell.TH.Syntax (Lift)
 import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
-import qualified Data.ByteString.Char8 as C
-import CGrep.Boundary (Boundary (Boundary))
+import CGrep.Boundary (Boundary (..))
 import CGrep.Parser.Char
 import CGrep.FileKind
 
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
 
 newtype FileTypeInfoMap = FileTypeInfoMap
     { unMapInfo :: Map.Map FileType FileTypeInfo
@@ -67,7 +67,7 @@ data FileTypeInfo = FileTypeInfo
     , ftRawString :: [Boundary]
     , ftComment :: [Boundary]
     , ftIdentCharSet :: Maybe (CharSet, CharSet)
-    , ftKeywords :: HM.HashMap C.ByteString WordType
+    , ftKeywords :: HM.HashMap T.Text WordType
     }
     deriving stock (Eq, Show, Lift)
 
@@ -224,14 +224,14 @@ instance IsCharSet 'AgdaIdent where
     isValidChar = isAgdaIdent
     {-# INLINE isValidChar #-}
 
-(~~) :: C.ByteString -> C.ByteString -> Boundary
-(~~) = Boundary
+(~~) :: T.Text -> T.Text -> Boundary
+b ~~ e = Boundary {bBegin = b, bBeginLen = T.length b, bEnd = e, bEndLen = T.length e}
 {-# INLINE (~~) #-}
 
-reserved :: [C.ByteString] -> HM.HashMap C.ByteString WordType
+reserved :: [T.Text] -> HM.HashMap T.Text WordType
 reserved = HM.fromList . map (,Keyword)
 {-# INLINE reserved #-}
 
-types :: [C.ByteString] -> HM.HashMap C.ByteString WordType
+types :: [T.Text] -> HM.HashMap T.Text WordType
 types = HM.fromList . map (,NativeType)
 {-# INLINE types #-}

@@ -1,8 +1,9 @@
 module OsPath (
-    toShortByteString,
-    toByteString,
-    toFilePath,
     fromByteString,
+    fromText,
+    toShortByteString,
+    toText,
+    toFilePath,
 ) where
 
 import Data.ByteString (ByteString)
@@ -10,14 +11,16 @@ import Data.ByteString.Short (ShortByteString, toShort)
 import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Data.ByteString.Short (fromShort)
 import System.OsString.Internal.Types
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
+
+toText :: OsString -> T.Text
+toText = TE.decodeUtf8Lenient . fromShort . getPosixString . getOsString
+{-# INLINE toText #-}
 
 toShortByteString :: OsString -> ShortByteString
 toShortByteString = getPosixString . getOsString
 {-# INLINE toShortByteString #-}
-
-toByteString :: OsString -> ByteString
-toByteString = fromShort . getPosixString . getOsString
-{-# INLINE toByteString #-}
 
 toFilePath :: OsString -> FilePath
 toFilePath = show . getPosixString . getOsString
@@ -26,3 +29,7 @@ toFilePath = show . getPosixString . getOsString
 fromByteString :: ByteString -> OsString
 fromByteString bs = OsString $ PosixString (toShort bs)
 {-# INLINE fromByteString #-}
+
+fromText :: T.Text -> OsString
+fromText = OsString . PosixString . toShort . TE.encodeUtf8
+{-# INLINE fromText #-}

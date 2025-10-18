@@ -25,12 +25,14 @@ module CGrep.Boundary (
 )
 where
 import Language.Haskell.TH.Syntax (Lift)
-import qualified Data.ByteString.Char8 as C
 import Data.Word (Word8)
+import qualified Data.Text as T
 
 data Boundary = Boundary
-    { bBegin :: C.ByteString
-    , bEnd :: C.ByteString
+    { bBegin :: T.Text
+    , bBeginLen :: Int
+    , bEnd :: T.Text
+    , bEndLen :: Int
     }
     deriving stock (Show, Eq, Lift)
 

@@ -17,21 +17,19 @@
 --
 
 module CGrep.Common (
-    Text8,
     getTargetName,
     getTargetContents,
     expandMultiline,
     ignoreCase,
     subText,
     trim,
-    trim8,
+    trimT,
     takeN,
 )
 where
 
 import CGrep.Parser.Char (isSpace)
-import CGrep.Types (Offset, Text8)
-import qualified Data.ByteString.Char8 as C
+import CGrep.Types (Offset)
 import Data.Char (toLower)
 import Data.Int (Int64)
 import Data.List (group, groupBy, sort, sortOn)
@@ -40,9 +38,10 @@ import GHC.Exts (groupWith)
 import Options (
     Options (Options, ignore_case, multiline, no_shallow),
  )
-import System.IO.MMap (mmapFileByteString)
 import System.OsPath
 import qualified System.OsString as OS
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Util (spanGroup)
 
 takeN :: Int -> String -> String
@@ -55,37 +54,36 @@ trim :: String -> String
 trim = (dropWhile isSpace . reverse) . dropWhile isSpace . reverse
 {-# INLINE trim #-}
 
-trim8 :: Text8 -> Text8
-trim8 = (C.dropWhile isSpace . C.reverse) . C.dropWhile isSpace . C.reverse
-{-# INLINE trim8 #-}
+trimT :: T.Text -> T.Text
+trimT = T.stripEnd . T.stripStart
 
 getTargetName :: OsPath -> OsPath
 getTargetName (OS.null -> True) = unsafeEncodeUtf "<STDIN>"
 getTargetName name = name
 {-# INLINE getTargetName #-}
 
-getTargetContents :: OsPath -> IO Text8
-getTargetContents (OS.null -> True) = C.getContents
-getTargetContents xs = decodeUtf xs >>= \fp -> mmapFileByteString fp Nothing
+getTargetContents :: OsPath -> IO T.Text
+getTargetContents (OS.null -> True) = TIO.getContents
+getTargetContents xs = decodeUtf xs >>= TIO.readFile
 {-# INLINE getTargetContents #-}
 
-expandMultiline :: Options -> Text8 -> Text8
+expandMultiline :: Options -> T.Text -> T.Text
 expandMultiline Options{multiline = n} xs
     | n == 1 = xs
-    | otherwise = C.unlines $ map C.unwords $ spanGroup n (C.lines xs)
+    | otherwise = T.unlines $ map T.unwords $ spanGroup n (T.lines xs)
 {-# INLINE expandMultiline #-}
 
-ignoreCase :: Options -> Text8 -> Text8
+ignoreCase :: Options -> T.Text -> T.Text
 ignoreCase opt
-    | ignore_case opt = C.map toLower
+    | ignore_case opt = T.map toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}
 
-subText :: [[Offset]] -> Text8 -> Text8
+subText :: [[Offset]] -> T.Text -> T.Text
 subText [] txt = txt
-subText indices txt = case C.elemIndex '\n' (C.drop maxOff txt) of
+subText indices txt = case T.findIndex (== '\n') (T.drop maxOff txt) of
     Nothing -> txt
-    (Just n) -> C.take (maxOff + n) txt
+    (Just n) -> T.take (maxOff + n) txt
   where
     maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs

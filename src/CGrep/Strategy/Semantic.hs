@@ -19,14 +19,13 @@
 module CGrep.Strategy.Semantic (search) where
 
 import CGrep.Common (
-    Text8,
     expandMultiline,
     getTargetContents,
     getTargetName,
     ignoreCase,
     subText,
     trim,
-    trim8,
+    trimT,
  )
 import CGrep.ContextFilter (
     contextBitComment,
@@ -41,20 +40,19 @@ import CGrep.FileTypeMapTH (
     contextFilter,
     fileTypeLookup,
  )
-import CGrep.Output (Output, mkOutputElements, runSearch)
+import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
 import CGrep.Parser.Atom (
     Atom (..),
     findAllMatches,
     mkAtomFromToken,
  )
 import CGrep.Parser.Chunk
-import CGrep.Parser.Line (getAllLineOffsets)
+import CGrep.Parser.Line (getLineOffsets, getAllLineOffsets)
 import CGrep.Parser.Token
 import CGrep.Search (eligibleForSearch, searchStringIndices)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
-import qualified Data.ByteString.Char8 as C
 import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
 import Data.Function (on)
@@ -66,9 +64,10 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath, takeBaseName)
-import Util (rmQuote8)
+import Util (unquoteT)
+import qualified Data.Text as T
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f ps strict = do
     Env{..} <- ask
 
@@ -107,7 +106,7 @@ search info f ps strict = do
         matchers =
             mapMaybe
                 ( \case
-                    Exact (Token (Chunk ChunkString xs _)) -> Just (rmQuote8 $ trim8 xs)
+                    Exact (Token (Chunk ChunkString xs _)) -> Just ((unquoteT . trimT) xs)
                     Exact t -> Just (tToken t)
                     _ -> Nothing
                 )
@@ -142,4 +141,4 @@ search info f ps strict = do
         putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
         let lineOffsets = getAllLineOffsets text
-        mkOutputElements lineOffsets filename text text''' matches
+        mkOutputMatches lineOffsets filename text text''' matches

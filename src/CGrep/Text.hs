@@ -16,8 +16,20 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module CGrep.Types (
-    Offset,
+module CGrep.Text (
+    iterM,
 ) where
 
-type Offset = Int
+import qualified Data.Text as T
+import qualified Data.Text.Unsafe as TU
+
+iterM :: (Monad m) => T.Text -> ((# Char, Int #) -> m ()) -> m ()
+iterM txt f = go 0
+  where
+    len = TU.lengthWord8 txt
+    go !off
+        | off >= len = return ()
+        | otherwise = do
+            let TU.Iter c delta = TU.iter txt off
+            f (# c, off #)
+            go (off + delta)

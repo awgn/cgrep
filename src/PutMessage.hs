@@ -21,11 +21,9 @@ module PutMessage where
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (reader)
-import qualified Data.ByteString as C (hPut, hPutStr)
-import qualified Data.ByteString.Char8 as C
 import Data.String (IsString)
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import qualified Data.Text.IO as TIO
 import GHC.IO.Handle (Handle)
 import Options (Options (verbose))
 import Reader (Env (..), ReaderIO)
@@ -37,15 +35,15 @@ class (IsString a) => PutStr a where
 
 instance PutStr String where
     putStringLn = hPutStrLn
+    {-# INLINE putStringLn #-}
     putString = hPutStr
-
-instance PutStr C.ByteString where
-    putStringLn = C.hPutStrLn
-    putString = C.hPutStr
+    {-# INLINE putString #-}
 
 instance PutStr T.Text where
-    putStringLn = T.hPutStrLn
-    putString = T.hPutStr
+    putStringLn = TIO.hPutStrLn
+    {-# INLINE putStringLn #-}
+    putString = TIO.hPutStr
+    {-# INLINE putString #-}
 
 putMessageLnVerb :: (PutStr a) => Int -> Handle -> a -> ReaderIO ()
 putMessageLnVerb l h xs = do

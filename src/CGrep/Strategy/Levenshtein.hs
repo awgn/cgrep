@@ -17,16 +17,12 @@
 --
 
 module CGrep.Strategy.Levenshtein (search) where
-
-import CGrep.Parser.Line (getAllLineOffsets)
-
-import qualified Data.ByteString.Char8 as C
+import CGrep.Parser.Line (getLineOffsets)
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
 
 import CGrep.Common (
-    Text8,
     expandMultiline,
     getTargetContents,
     getTargetName,
@@ -43,7 +39,7 @@ import CGrep.FileTypeMapTH (
      fileTypeLookup,
  )
 
-import CGrep.Output (Output, mkOutputElements)
+import CGrep.Output (OutputMatch, mkOutputMatches)
 import CGrep.Parser.Chunk (Chunk, cToken, parseChunks)
 
 import Data.Foldable (Foldable (toList))
@@ -51,42 +47,44 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
+import Data.Text
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do
-    Env{..} <- ask
+    reader $ const []
+    -- Env{..} <- ask
 
-    text <- liftIO $ getTargetContents f
+    -- text <- liftIO $ getTargetContents f
 
-    let filename = getTargetName f
+    -- let filename = getTargetName f
 
-    -- transform text
+    -- -- transform text
 
-    let ctxFilter = mkContextFilter opt
+    -- let ctxFilter = mkContextFilter opt
 
-    let [text''', _, _, _] =
-            scanr
-                ($)
-                text
-                [ expandMultiline opt
-                , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
-                , ignoreCase opt
-                ]
+    -- let [text''', _, _, _] =
+    --         scanr
+    --             ($)
+    --             text
+    --             [ expandMultiline opt
+    --             , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
+    --             , ignoreCase opt
+    --             ]
 
-        -- parse source code, get the Cpp.Token list...
+    --     -- parse source code, get the Cpp.Token list...
 
-        tokens' = parseChunks (snd <$> info) text'''
+    --     tokens' = parseChunks (snd <$> info) text'''
 
-        -- filter tokens...
+    --     -- filter tokens...
 
-        patterns' = map C.unpack patterns
-        matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
+    --     patterns' = map C.unpack patterns
+    --     matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
 
-    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
-    putMessageLnVerb 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
-    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens'
-    putMessageLnVerb 2 stderr $ "matches   : " <> show matches
+    -- putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    -- putMessageLnVerb 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
+    -- putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens'
+    -- putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
-    let lineOffsets = getAllLineOffsets text
+    -- let lineOffsets = getAllLineOffsets text
 
-    mkOutputElements lineOffsets filename text text''' matches
+    -- mkOutputElements lineOffsets filename text text''' matches

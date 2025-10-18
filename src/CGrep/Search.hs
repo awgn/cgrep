@@ -23,28 +23,15 @@ module CGrep.Search (
     TaggedIx (..),
 ) where
 
-import CGrep.Types (Text8)
 import Data.Int (Int64)
 import GHC.Exts (groupWith)
-
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Search as BM
-import qualified Data.ByteString.Search.DFA as DFA
-
-import qualified Data.ByteString.Lazy.Search as LBM
-import qualified Data.ByteString.Lazy.Search.DFA as LDFA
 import Data.List.Extra (notNull)
 import Data.Maybe (mapMaybe)
+import qualified Data.Text as T
+import qualified Data.Text.Internal.Search as TS
 
-findIndices :: Text8 -> Text8 -> [Int]
-findIndices p =
-    if C.length p <= 3
-        then DFA.indices p
-        else BM.indices p
-{-# INLINE findIndices #-}
-
-searchStringIndices :: [Text8] -> Text8 -> [[Int64]]
-searchStringIndices ps text = ps >>= \p -> [fromIntegral <$> p `findIndices` text]
+searchStringIndices :: [T.Text] -> T.Text -> [[Int]]
+searchStringIndices ps text = (`TS.indices` text) <$> ps
 {-# INLINE searchStringIndices #-}
 
 data TaggedIx a = TaggedIx
@@ -59,13 +46,13 @@ instance Eq (TaggedIx a) where
 instance Ord (TaggedIx a) where
     compare (TaggedIx i1 _) (TaggedIx i2 _) = compare i1 i2
 
-searchStringTaggedIndices :: [(Text8, a)] -> Text8 -> [TaggedIx a]
+searchStringTaggedIndices :: [(T.Text, a)] -> T.Text -> [TaggedIx a]
 searchStringTaggedIndices ps text =
     let res =
             ps >>= \p ->
                 let pat = fst p
                     tag = snd p
-                    ids = findIndices pat text
+                    ids = TS.indices pat text
                  in (\i -> TaggedIx (fromIntegral i) [tag]) <$> ids
      in mapMaybe fuseGroup (groupWith index res)
   where
@@ -74,7 +61,7 @@ searchStringTaggedIndices ps text =
     fuseGroup [] = Nothing
     fuseGroup (x:xs) = Just $ TaggedIx (index x) $ concatMap tags (x:xs)
 
-eligibleForSearch :: [a] -> [[Int64]] -> Bool
+eligibleForSearch :: [a] -> [[Int]] -> Bool
 eligibleForSearch [_] = all notNull
 eligibleForSearch _ = any notNull
 {-# INLINE eligibleForSearch #-}

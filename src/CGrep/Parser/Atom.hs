@@ -25,7 +25,7 @@ module CGrep.Parser.Atom (
 
 import qualified Data.Map as M
 
-import CGrep.Common (trim, trim8)
+import CGrep.Common (trim, trimT)
 import CGrep.Distance ((~==))
 import CGrep.Parser.Char (isDigit)
 
@@ -41,17 +41,18 @@ import Data.List (
 import Options (
     Options (edit_dist, prefix_match, suffix_match, word_match),
  )
-import Util (rmQuote8, spanGroup)
+import Util (unquoteT, spanGroup)
 
 import qualified CGrep.Parser.Chunk as T
 import qualified CGrep.Parser.Token as T
-import qualified Data.ByteString.Char8 as C
+
 import Data.Containers.ListUtils (nubOrd)
 import Data.Function (on)
 import Data.List (groupBy)
 import Data.List.Extra (sortOn)
 import Debug.Trace
 import GHC.Stack (errorWithStackTrace)
+import qualified Data.Text as T
 
 data Atom
     = Any
@@ -61,11 +62,11 @@ data Atom
     | Hex
     | String
     | Literal
-    | Placeholder C.ByteString
+    | Placeholder T.Text
     | Exact T.Token
     deriving stock (Eq, Ord, Show)
 
-wildCardMap :: M.Map C.ByteString Atom
+wildCardMap :: M.Map T.Text Atom
 wildCardMap =
     M.fromList
         [ ("ANY", Any)
@@ -89,18 +90,18 @@ mkAtomFromToken t
     | otherwise = Exact t
 
 {-# INLINE isAtomPlaceholder #-}
-isAtomPlaceholder :: C.ByteString -> Bool
+isAtomPlaceholder :: T.Text -> Bool
 isAtomPlaceholder s =
     if
-        | Just (x, C.uncons -> Just (y, xs)) <- C.uncons s -> wprefix x && isDigit y
-        | Just (x, "") <- C.uncons s -> wprefix x
+        | Just (x, T.uncons -> Just (y, xs)) <- T.uncons s -> wprefix x && isDigit y
+        | Just (x, "") <- T.uncons s -> wprefix x
         | otherwise -> errorWithoutStackTrace "CGrep: isAtomIdentifier"
   where
     wprefix x = x == '$' || x == '_'
 
-unescapeAtom :: C.ByteString -> C.ByteString
-unescapeAtom (C.uncons -> Just ('$', xs)) = xs
-unescapeAtom (C.uncons -> Just ('_', xs)) = xs
+unescapeAtom :: T.Text -> T.Text
+unescapeAtom (T.uncons -> Just ('$', xs)) = xs
+unescapeAtom (T.uncons -> Just ('_', xs)) = xs
 unescapeAtom xs = xs
 {-# INLINE unescapeAtom #-}
 
@@ -157,29 +158,29 @@ doesAtomMatchToken opt (Exact l) r
     | T.isTokenIdentifier l && T.isTokenIdentifier r =
         if
             | word_match opt -> T.tToken l == T.tToken r
-            | prefix_match opt -> T.tToken l `C.isPrefixOf` T.tToken r
-            | suffix_match opt -> T.tToken l `C.isSuffixOf` T.tToken r
-            | edit_dist opt -> (C.unpack . T.tToken) l ~== C.unpack (T.tToken r)
-            | otherwise -> T.tToken l `C.isInfixOf` T.tToken r
+            | prefix_match opt -> T.tToken l `T.isPrefixOf` T.tToken r
+            | suffix_match opt -> T.tToken l `T.isSuffixOf` T.tToken r
+            | edit_dist opt -> (T.unpack . T.tToken) l ~== T.unpack (T.tToken r)
+            | otherwise -> T.tToken l `T.isInfixOf` T.tToken r
     | T.isTokenString l && T.isTokenString r =
         if
             | word_match opt -> ls == rs
-            | prefix_match opt -> ls `C.isPrefixOf` rs
-            | suffix_match opt -> ls `C.isSuffixOf` rs
-            | edit_dist opt -> C.unpack ls ~== C.unpack rs
-            | otherwise -> ls `C.isInfixOf` rs
+            | prefix_match opt -> ls `T.isPrefixOf` rs
+            | suffix_match opt -> ls `T.isSuffixOf` rs
+            | edit_dist opt -> T.unpack ls ~== T.unpack rs
+            | otherwise -> ls `T.isInfixOf` rs
     | otherwise = l `T.eqToken` r
   where
-    ls = rmQuote8 $ trim8 (T.tToken l)
-    rs = rmQuote8 $ trim8 (T.tToken r)
+    ls = (unquoteT . trimT) (T.tToken l)
+    rs = (unquoteT . trimT) (T.tToken r)
 doesAtomMatchToken _ Any _ = True
 doesAtomMatchToken _ (Placeholder _) t = T.isTokenIdentifier t
 doesAtomMatchToken _ Keyword t = T.isTokenKeyword t
 doesAtomMatchToken _ String t = T.isTokenString t
 doesAtomMatchToken _ Literal t = T.isTokenString t
 doesAtomMatchToken _ Number t = T.isTokenNumber t
-doesAtomMatchToken _ Oct t = T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just (d, _)) -> isDigit d; _ -> False
-doesAtomMatchToken _ Hex t = T.isTokenNumber t && case C.uncons (T.tToken t) of Just ('0', C.uncons -> Just ('x', _)) -> True; _ -> False
+doesAtomMatchToken _ Oct t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (d, _)) -> isDigit d; _ -> False
+doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just ('x', _)) -> True; _ -> False
 
 
 isPrefixOfBy :: (a -> b -> Bool) -> [a] -> [b] -> Bool

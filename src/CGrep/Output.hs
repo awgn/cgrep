@@ -17,20 +17,13 @@
 --
 
 module CGrep.Output (
-    Output (..),
-    mkOutputElements,
-    putOutputElements,
+    OutputMatch (..),
+    mkOutputMatches,
+    putOutputMatches,
     runSearch,
     showFileName,
     showBold,
 ) where
-
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Builder as B
-
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy.Char8 as LC
-import qualified Data.ByteString.Unsafe as BU
 
 import qualified Data.Vector.Unboxed as UV
 
@@ -58,10 +51,9 @@ import Data.List (
  )
 
 import CGrep.Parser.Chunk (Chunk (..), MatchLine (..))
-import CGrep.Types (Offset, Text8)
+import CGrep.Types (Offset)
 
 import Config (Config (configColorFile, configColorMatch))
-import Data.ByteString.Internal (c2w)
 import Data.Int (Int64)
 import qualified Data.Vector.Fusion.Util as VU (Box (..))
 import Data.Word (Word8)
@@ -71,7 +63,9 @@ import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Internal.Types
 
 import CGrep.Parser.Line (getLineOffsets)
-import Data.ByteString.Short (ShortByteString)
+import qualified Data.Text as T
+import qualified Data.Text.Lazy.Builder as TB
+import qualified Data.Text.Lazy.Builder.Int as TB
 import qualified Data.Vector.Generic as GV
 import Options (
     Options (
@@ -89,18 +83,18 @@ import Options (
         show_match
     ),
  )
-import OsPath (toShortByteString)
-import System.OsString.Data.ByteString.Short (fromShort)
+import qualified OsPath as OS
 
-data Output = Output
+data OutputMatch = OutputMatch
     { outFilePath :: OsPath
-    , outLineNumb :: {-# UNPACK #-} !Int64
-    , outLine :: {-# UNPACK #-} !Text8
+    , outLineNumb :: {-# UNPACK #-} !Int
+    , outLine :: {-# UNPACK #-} !T.Text
     , outChunks :: ![Chunk]
     }
+    deriving (Show, Eq)
 
-outTokens :: Output -> [Text8]
-outTokens (Output fp ln l cs) = cToken <$> cs
+outTokens :: OutputMatch -> [T.Text]
+outTokens (OutputMatch fp ln l cs) = cToken <$> cs
 {-# INLINE outTokens #-}
 
 insertIndex :: UV.Vector Offset -> Offset -> Int
@@ -120,18 +114,18 @@ getLineNumberAndOffset xs x =
      in (# idx, x - xs `UV.unsafeIndex` (idx - 1) #)
 {-# INLINE getLineNumberAndOffset #-}
 
-mkOutputElements :: UV.Vector Int64 -> OsPath -> Text8 -> Text8 -> [Chunk] -> ReaderIO [Output]
-mkOutputElements lineOffsets f text multi ts = do
+mkOutputMatches :: UV.Vector Offset -> OsPath -> T.Text -> T.Text -> [Chunk] -> ReaderIO [OutputMatch]
+mkOutputMatches lineOffsets f text multi ts = do
     invert <- invert_match <$> reader opt
     return $
         if invert
-            then map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n - 1)) xs) . invertLines (length ls) $ mkMatchLines lineOffsets multi ts
-            else map (\(MatchLine n xs) -> Output f n (ls !! fromIntegral (n - 1)) xs) $ mkMatchLines lineOffsets multi ts
+            then map (\(MatchLine n xs) -> OutputMatch f n (ls !! fromIntegral (n - 1)) xs) . invertLines (length ls) $ mkMatchLines lineOffsets multi ts
+            else map (\(MatchLine n xs) -> OutputMatch f n (ls !! fromIntegral (n - 1)) xs) $ mkMatchLines lineOffsets multi ts
   where
-    ls = C.lines text
-{-# INLINE mkOutputElements #-}
+    ls = T.lines text
+{-# INLINE mkOutputMatches #-}
 
-mkMatchLines :: UV.Vector Int64 -> Text8 -> [Chunk] -> [MatchLine]
+mkMatchLines :: UV.Vector Int -> T.Text -> [Chunk] -> [MatchLine]
 mkMatchLines lineOffsets _ [] = []
 mkMatchLines lineOffsets text ts =
     map mergeGroup $
@@ -148,9 +142,9 @@ invertLines n xs = filter (\(MatchLine i _) -> i `notElem` idx) $ take n [MatchL
     idx = mlOffset <$> xs
 {-# INLINE invertLines #-}
 
-putOutputElements :: [Output] -> ReaderIO (Maybe B.Builder)
-putOutputElements [] = pure Nothing
-putOutputElements out = do
+putOutputMatches :: [OutputMatch] -> ReaderIO (Maybe TB.Builder)
+putOutputMatches [] = pure Nothing
+putOutputMatches out = do
     Env{..} <- ask
     if
         | json opt -> Just <$> jsonOutput out
@@ -161,129 +155,129 @@ runSearch ::
     Options ->
     OsPath ->
     Bool ->
-    ReaderIO [Output] ->
-    ReaderIO [Output]
+    ReaderIO [OutputMatch] ->
+    ReaderIO [OutputMatch]
 runSearch opt filename eligible doSearch =
     if eligible || no_shallow opt
         then doSearch
-        else mkOutputElements UV.empty filename C.empty C.empty ([] :: [Chunk])
+        else mkOutputMatches UV.empty filename T.empty T.empty ([] :: [Chunk])
 
-defaultOutput :: [Output] -> ReaderIO B.Builder
+defaultOutput :: [OutputMatch] -> ReaderIO TB.Builder
 defaultOutput xs = do
     Env{..} <- ask
     if
         | Options{no_filename = False, no_numbers = False, count = False} <- opt ->
-            pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildLineCol opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+            pure $ mconcat . intersperse (TB.singleton '\n') $ map (\out -> buildFileName conf opt out <> TB.singleton ':' <> buildLineCol opt out <> TB.singleton ':' <> buildTokens opt out <> buildLine conf opt out) xs
         | Options{no_filename = False, no_numbers = True, count = False} <- opt ->
-            pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildFileName conf opt out <> B.char8 ':' <> buildTokens opt out <> buildLine conf opt out) xs
+            pure $ mconcat . intersperse (TB.singleton '\n') $ map (\out -> buildFileName conf opt out <> TB.singleton ':' <> buildTokens opt out <> buildLine conf opt out) xs
         | Options{no_filename = True, no_numbers = False, count = False} <- opt ->
-            pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
+            pure $ mconcat . intersperse (TB.singleton '\n') $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
         | Options{no_filename = True, no_numbers = True, count = False} <- opt ->
-            pure $ mconcat . intersperse (B.char8 '\n') $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
+            pure $ mconcat . intersperse (TB.singleton '\n') $ map (\out -> buildTokens opt out <> buildLine conf opt out) xs
         | Options{no_filename = False, count = True} <- opt ->
             do
-                let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                pure $ mconcat . intersperse (B.char8 '\n') $ (\ys@(y : _) -> buildFileName conf opt y <> B.char8 ':' <> B.intDec (length ys)) <$> gs
+                let gs = groupBy (\(OutputMatch f1 _ _ _) (OutputMatch f2 _ _ _) -> f1 == f2) xs
+                pure $ mconcat . intersperse (TB.singleton '\n') $ (\ys@(y : _) -> buildFileName conf opt y <> TB.singleton ':' <> TB.decimal (length ys)) <$> gs
         | Options{count = True} <- opt ->
             do
-                let gs = groupBy (\(Output f1 _ _ _) (Output f2 _ _ _) -> f1 == f2) xs
-                pure $ mconcat . intersperse (B.char8 '\n') $ (\ys@(y : _) -> B.intDec (length ys)) <$> gs
+                let gs = groupBy (\(OutputMatch f1 _ _ _) (OutputMatch f2 _ _ _) -> f1 == f2) xs
+                pure $ mconcat . intersperse (TB.singleton '\n') $ (\ys@(y : _) -> TB.decimal (length ys)) <$> gs
 
-jsonOutput :: [Output] -> ReaderIO B.Builder
+jsonOutput :: [OutputMatch] -> ReaderIO TB.Builder
 jsonOutput [] = pure mempty
-jsonOutput outs@(Output fname _ _ _ : _) = do
+jsonOutput outs@(OutputMatch fname _ _ _ : _) = do
     strname <- liftIO $ decodeUtf fname
     pure $
-        mconcat . intersperse (B.char8 '\n') $
-            [B.byteString "{ \"file\":\"" <> B.string8 strname <> B.byteString "\", \"matches\":["]
-                <> [mconcat $ intersperse (B.char8 ',') (foldl mkMatch [] outs)]
-                <> [B.byteString "]}"]
+        mconcat . intersperse (TB.singleton '\n') $
+            [TB.fromString "{ \"file\":\"" <> TB.fromString strname <> TB.fromString "\", \"matches\":["]
+                <> [mconcat $ intersperse (TB.singleton ',') (foldl mkMatch [] outs)]
+                <> [TB.fromString "]}"]
   where
-    mkJToken chunk = B.byteString "{ \"col\":" <> B.int64Dec (cOffset chunk) <> B.byteString ", \"token\":\"" <> B.byteString (cToken chunk) <> B.byteString "\" }"
-    mkMatch xs (Output _ n _ ts) =
+    mkJToken chunk = TB.fromString "{ \"col\":" <> TB.decimal (cOffset chunk) <> TB.fromString ", \"token\":\"" <> TB.fromText (cToken chunk) <> TB.fromString "\" }"
+    mkMatch xs (OutputMatch _ n _ ts) =
         xs
-            <> [ B.byteString "{ \"row\": "
-                    <> B.int64Dec n
-                    <> B.byteString ", \"tokens\":["
-                    <> mconcat (intersperse (B.byteString ",") (map mkJToken ts))
-                    <> B.byteString "] }"
+            <> [ TB.fromString "{ \"row\": "
+                    <> TB.decimal n
+                    <> TB.fromString ", \"tokens\":["
+                    <> mconcat (intersperse (TB.fromString ",") (map mkJToken ts))
+                    <> TB.fromString "] }"
                ]
 
-filenameOutput :: [Output] -> ReaderIO B.Builder
-filenameOutput outs = return $ mconcat . intersperse (B.char8 '\n') $ B.shortByteString <$> nub ((\(Output fname _ _ _) -> (toShortByteString fname)) <$> outs)
+filenameOutput :: [OutputMatch] -> ReaderIO TB.Builder
+filenameOutput outs = return $ mconcat . intersperse (TB.singleton '\n') $ TB.fromText <$> nub ((\(OutputMatch fname _ _ _) -> (OS.toText fname)) <$> outs)
 {-# INLINE filenameOutput #-}
 
-bold, reset :: C.ByteString
-bold = C.pack $ setSGRCode [SetConsoleIntensity BoldIntensity]
-reset = C.pack $ setSGRCode []
+bold, reset :: T.Text
+bold = T.pack $ setSGRCode [SetConsoleIntensity BoldIntensity]
+reset = T.pack $ setSGRCode []
 {-# NOINLINE bold #-}
 {-# NOINLINE reset #-}
 
-boldBuilder, resetBuilder :: B.Builder
-boldBuilder = B.byteString bold
-resetBuilder = B.byteString reset
+boldBuilder, resetBuilder :: TB.Builder
+boldBuilder = TB.fromText bold
+resetBuilder = TB.fromText reset
 {-# NOINLINE boldBuilder #-}
 {-# NOINLINE resetBuilder #-}
 
-type ColorString = C.ByteString
+type ColorCode = T.Text
 
-buildFileName :: Config -> Options -> Output -> B.Builder
+buildFileName :: Config -> Options -> OutputMatch -> TB.Builder
 buildFileName conf opt out =
-    let str = toShortByteString (outFilePath out)
+    let str = OS.toText (outFilePath out)
      in buildFileName' conf opt $ str
   where
-    buildFileName' :: Config -> Options -> ShortByteString -> B.Builder
-    buildFileName' conf opt = buildColoredAs opt $ C.pack (setSGRCode (configColorFile conf))
+    buildFileName' :: Config -> Options -> T.Text -> TB.Builder
+    buildFileName' conf opt = buildColoredAs opt $ T.pack (setSGRCode (configColorFile conf))
 {-# INLINE buildFileName #-}
 
-buildColoredAs :: Options -> ColorString -> ShortByteString -> B.Builder
-buildColoredAs Options{color = c, no_color = c'} colorCode str
-    | c && not c' = B.byteString colorCode <> B.shortByteString str <> resetBuilder
-    | otherwise = B.shortByteString str
+buildColoredAs :: Options -> ColorCode -> T.Text -> TB.Builder
+buildColoredAs Options{color = c, no_color = c'} colorCode txt
+    | c && not c' = TB.fromText colorCode <> TB.fromText txt <> resetBuilder
+    | otherwise = TB.fromText txt
 {-# INLINE buildColoredAs #-}
 
-buildLineCol :: Options -> Output -> B.Builder
+buildLineCol :: Options -> OutputMatch -> TB.Builder
 buildLineCol Options{no_numbers = True} _ = mempty
-buildLineCol Options{no_numbers = False, no_column = True} (Output _ n _ _) = B.int64Dec n
-buildLineCol Options{no_numbers = False, no_column = False} (Output _ n _ []) = B.int64Dec n
-buildLineCol Options{no_numbers = False, no_column = False} (Output _ n _ (t:_)) = B.int64Dec n <> B.char8 ':' <> B.int64Dec ((+ 1) . cOffset $ t)
+buildLineCol Options{no_numbers = False, no_column = True} (OutputMatch _ n _ _) = TB.decimal n
+buildLineCol Options{no_numbers = False, no_column = False} (OutputMatch _ n _ []) = TB.decimal n
+buildLineCol Options{no_numbers = False, no_column = False} (OutputMatch _ n _ (t : _)) = TB.decimal n <> TB.singleton ':' <> TB.decimal ((+ 1) . cOffset $ t)
 {-# INLINE buildLineCol #-}
 
-buildTokens :: Options -> Output -> B.Builder
+buildTokens :: Options -> OutputMatch -> TB.Builder
 buildTokens Options{show_match = st} out
-    | st = boldBuilder <> mconcat (B.byteString <$> outTokens out) <> resetBuilder <> B.char8 ':'
+    | st = boldBuilder <> mconcat (TB.fromText <$> outTokens out) <> resetBuilder <> TB.singleton ':'
     | otherwise = mempty
 
-buildLine :: Config -> Options -> Output -> B.Builder
+buildLine :: Config -> Options -> OutputMatch -> TB.Builder
 buildLine conf Options{color = c, no_color = c'} out
-    | c && not c' = highlightLine conf (sortBy (flip compare `on` (C.length . cToken)) (outChunks out)) (outLine out)
-    | otherwise = B.byteString $ outLine out
+    | c && not c' = highlightLine conf (sortBy (flip compare `on` (T.length . cToken)) (outChunks out)) (outLine out)
+    | otherwise = TB.fromText $ outLine out
 {-# INLINE buildLine #-}
 
-showFileName :: Config -> Options -> OsPath -> C.ByteString
-showFileName conf opt path = showColoredAs opt (C.pack (setSGRCode (configColorFile conf))) ((fromShort . toShortByteString) path)
+showFileName :: Config -> Options -> OsPath -> T.Text
+showFileName conf opt path = showColoredAs opt (T.pack (setSGRCode (configColorFile conf))) (OS.toText path)
 {-# INLINE showFileName #-}
 
-showBold :: Options -> C.ByteString -> C.ByteString
+showBold :: Options -> T.Text -> T.Text
 showBold opt = showColoredAs opt bold
 {-# INLINE showBold #-}
 
-showColoredAs :: Options -> C.ByteString -> C.ByteString -> C.ByteString
+showColoredAs :: Options -> T.Text -> T.Text -> T.Text
 showColoredAs Options{color = c, no_color = c'} colorCode str
     | c && not c' = colorCode <> str <> reset
     | otherwise = str
 {-# INLINE showColoredAs #-}
 
-highlightLine :: Config -> [Chunk] -> Text8 -> B.Builder
+highlightLine :: Config -> [Chunk] -> T.Text -> TB.Builder
 highlightLine conf ts = highlightLine' (highlightIndexes ts, 0, 0)
   where
-    highlightLine' :: ([(Int64, Int64)], Int64, Int) -> C.ByteString -> B.Builder
-    highlightLine' _ (C.uncons -> Nothing) = mempty
-    highlightLine' (ns, !n, !bs) s@(C.uncons -> Just (x, _)) =
+    highlightLine' :: ([(Int64, Int64)], Int64, Int) -> T.Text -> TB.Builder
+    highlightLine' _ (T.uncons -> Nothing) = mempty
+    highlightLine' (ns, !n, !bs) s@(T.uncons -> Just (x, _)) =
         ( if
-            | check && bs' == 0 -> if fst stack > 0 then B.string8 colorMatch <> B.char8 x <> resetBuilder else B.char8 x <> resetBuilder
-            | check && bs' > 0 -> B.string8 colorMatch <> B.char8 x
-            | otherwise -> B.byteString next
+            | check && bs' == 0 -> if fst stack > 0 then TB.fromString colorMatch <> TB.singleton x <> resetBuilder else TB.singleton x <> resetBuilder
+            | check && bs' > 0 -> TB.fromString colorMatch <> TB.singleton x
+            | otherwise -> TB.fromText next
         )
             <> highlightLine' (ns, n + nn, bs') rest
       where
@@ -294,13 +288,13 @@ highlightLine conf ts = highlightLine' (highlightIndexes ts, 0, 0)
         plain = nub . sort $ foldr (\(a, b) acc -> a : b : acc) [] ns
         nn
             | check = 1
-            | [] <- plain' = fromIntegral (C.length s)
-            | (p:_) <- plain' = p - n
+            | [] <- plain' = fromIntegral (T.length s)
+            | (p : _) <- plain' = p - n
           where
             plain' = dropWhile (<= n) plain
-        (next, rest) = C.splitAt (fromIntegral nn) s
+        (next, rest) = T.splitAt (fromIntegral nn) s
     highlightLine' _ _ = undefined
 
 highlightIndexes :: [Chunk] -> [(Int64, Int64)]
-highlightIndexes = foldr (\chunk a -> let b = cOffset chunk in (fromIntegral b, b + fromIntegral (C.length (cToken chunk)) - 1) : a) [] . filter (not . B.null . cToken)
+highlightIndexes = foldr (\chunk a -> let b = cOffset chunk in (fromIntegral b, fromIntegral $ b + (T.length (cToken chunk)) - 1) : a) [] . filter (not . T.null . cToken)
 {-# INLINE highlightIndexes #-}

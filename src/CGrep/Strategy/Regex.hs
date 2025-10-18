@@ -17,11 +17,9 @@
 --
 
 module CGrep.Strategy.Regex (search) where
-
-import qualified Data.ByteString.Char8 as C
-
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
+import qualified Data.Vector.Unboxed as UV
 
 import Text.Regex.Base (
     AllTextMatches (getAllTextMatches),
@@ -31,12 +29,11 @@ import Text.Regex.Base (
 #ifdef ENABLE_PCRE
 import qualified Text.Regex.PCRE ((=~))
 #endif
-import qualified Text.Regex.Posix ((=~))
+import qualified Text.Regex.TDFA ((=~))
 
 import Data.Array (Array, elems)
 
 import CGrep.Common (
-    Text8,
     expandMultiline,
     getTargetContents,
     getTargetName,
@@ -46,7 +43,7 @@ import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
-import CGrep.Output (Output, mkOutputElements)
+import CGrep.Output (OutputMatch, mkOutputMatches)
 
 #ifdef ENABLE_PCRE
 import Options (Options (regex_pcre))
@@ -56,12 +53,13 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 
 import CGrep.Parser.Chunk
-import CGrep.Parser.Line (getAllLineOffsets)
+import CGrep.Parser.Line (getLineOffsets, getAllLineOffsets)
 
 import System.IO (stderr)
 import System.OsPath (OsPath)
+import qualified Data.Text as T
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text8] -> Bool -> ReaderIO [Output]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do
     Env{..} <- ask
 
@@ -84,14 +82,14 @@ search info f patterns strict = do
 
         -- search for matching tokens
 #ifdef ENABLE_PCRE
-        (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.Posix.=~)
+        (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.TDFA.=~)
 #else
-        (=~~~) = (Text.Regex.Posix.=~)
+        (=~~~) = (Text.Regex.TDFA.=~)
 #endif
         tokens =
             map (\(str, (off, _)) -> Chunk ChunkUnspec str (fromIntegral off)) $
                 concatMap elems $
-                    patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText Text8)))
+                    patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText T.Text)))
 
     putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
     #ifdef ENABLE_PCRE
@@ -103,4 +101,4 @@ search info f patterns strict = do
 
     let lineOffsets = getAllLineOffsets text
 
-    mkOutputElements lineOffsets filename text text''' tokens
+    mkOutputMatches lineOffsets filename text text''' tokens

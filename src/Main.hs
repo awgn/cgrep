@@ -19,7 +19,6 @@
 module Main where
 
 import qualified Codec.Binary.UTF8.String as UC
-import qualified Data.ByteString.Char8 as C
 
 import Data.Char (toLower)
 import Data.List (elemIndex, genericLength, isInfixOf, isPrefixOf, isSuffixOf, nub, partition, sort, union, (\\))
@@ -38,7 +37,7 @@ import System.Environment (withArgs)
 import System.Exit (exitSuccess)
 import System.IO (stderr, stdin, stdout)
 
-import CGrep.Common (trim8)
+import CGrep.Common (trimT)
 import CGrep.FileType (readKindList, readTypeList)
 import CGrep.FileTypeMapTH (dumpFileTypeInfoMap, fileTypeInfoMap)
 import CGrep.Parser.Atom (wildCardMap)
@@ -55,15 +54,19 @@ import PutMessage (putMessageLnVerb)
 
 import Reader (Env (..), ReaderIO)
 import Search (isRegexp, startSearch)
-import System.OsPath (OsPath)
 import Util (partitionM)
 
 import Control.Applicative (Alternative ((<|>)))
 import Data.Functor (void, ($>))
 import Data.List.Extra (notNull)
-import OsPath (fromByteString, toByteString, toFilePath)
-import System.OsPath (unsafeEncodeUtf)
+import OsPath (fromByteString, toFilePath)
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+
+import qualified System.OsPath as OP (unsafeEncodeUtf)
 import qualified System.OsString as OS
+import System.OsPath (OsPath)
+import qualified OsPath as OS
 
 main :: IO ()
 main = do
@@ -99,7 +102,7 @@ main = do
         withArgs ["--help"] $
             void (execParser parserInfo)
 
-    let others' = C.pack <$> others
+    let others' = T.pack <$> others
 
     -- load patterns and filepaths:
 
@@ -107,13 +110,13 @@ main = do
         Nothing -> do
             pure $ splitPatternsAndFiles others'
         Just f -> do
-            readPatternsFromFile (unsafeEncodeUtf f) >>= \ps -> pure (ps, fromByteString <$> others')
+            readPatternsFromFile (OS.unsafeEncodeUtf f) >>= \ps -> pure (ps, OS.fromText <$> others')
 
     let patterns' = map (if ignore_case then ic else id) patterns
           where
             ic
-                | (not . isRegexp) opt && semantic = C.unwords . map (\p -> if p `elem` (M.keys wildCardMap) then p else C.map toLower p) . C.words
-                | otherwise = C.map toLower
+                | (not . isRegexp) opt && semantic = T.unwords . map (\p -> if p `elem` (M.keys wildCardMap) then p else T.map toLower p) . T.words
+                | otherwise = T.map toLower
 
     -- parse cmd line language list:
     let (l0, l1, l2) = readTypeList type_filter
@@ -138,13 +141,12 @@ main = do
     -- run search
     runReaderT (startSearch paths patterns' types kinds isTermIn) (Env conf opt{jobs = Just cap})
 
-readPatternsFromFile :: OsPath -> IO [C.ByteString]
+readPatternsFromFile :: OsPath -> IO [T.Text]
 readPatternsFromFile f
     | OS.null f = return []
-    | otherwise = map trim8 . C.lines <$> C.readFile (toFilePath f)
+    | otherwise = map trimT . T.lines <$> TIO.readFile (OS.toFilePath f)
 
-
-splitPatternsAndFiles :: [C.ByteString] -> ([C.ByteString], [OsPath])
+splitPatternsAndFiles :: [T.Text] -> ([T.Text], [OsPath])
 splitPatternsAndFiles [] = ([], [])
 splitPatternsAndFiles [x] = ([x], [])
-splitPatternsAndFiles (x:xs) = ([x], fromByteString <$> xs)
+splitPatternsAndFiles (x:xs) = ([x], OS.fromText <$> xs)

@@ -1,6 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 --
 -- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
@@ -20,6 +17,9 @@
 --
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 
 module CGrep.Parser.Token (
     parseTokens,
@@ -46,9 +46,6 @@ module CGrep.Parser.Token (
     mkTokenOperator,
 ) where
 
-import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Internal as BI
-import qualified Data.ByteString.Lazy as LB
 import qualified Data.DList as DL
 
 import CGrep.Parser.Char (
@@ -62,7 +59,7 @@ import CGrep.Parser.Char (
     isSpace,
  )
 
-import CGrep.Types (Offset, Text8)
+import CGrep.Types (Offset)
 import Data.List (genericLength)
 
 import CGrep.FileTypeMap (
@@ -82,7 +79,6 @@ import Data.MonoTraversable (MonoFoldable (oforM_))
 import Data.STRef (STRef, modifySTRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 import Data.Word (Word8)
 
-import qualified ByteString.StrictBuilder as B
 import CGrep.Parser.Chunk
 
 import CGrep.ContextFilter
@@ -91,6 +87,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text.Internal.Read (T)
 import Debug.Trace
 import GHC.Exts (inline)
+import qualified Data.Text as T
 
 newtype TokenState = TokenState {unTokenState :: Int}
     deriving newtype (Eq)
@@ -128,7 +125,7 @@ newtype Token = Token Chunk
 instance Show Token where
     show (Token (Chunk typ bs off)) = case typ of
         ChunkUnspec -> "(*)"
-        _ -> "(" <> show typ <> " '" <> C.unpack bs <> "' @" <> show off <> ")"
+        _ -> "(" <> show typ <> " '" <> T.unpack bs <> "' @" <> show off <> ")"
     {-# INLINE show #-}
 
 eqToken :: Token -> Token -> Bool
@@ -137,35 +134,35 @@ eqToken a b =
         && tTyp a == tTyp b
 {-# INLINE eqToken #-}
 
-mkTokenIdentifier :: C.ByteString -> Offset -> Token
+mkTokenIdentifier :: T.Text -> Offset -> Token
 mkTokenIdentifier bs off = Token $ Chunk ChunkIdentifier bs off
 {-# INLINE mkTokenIdentifier #-}
 
-mkTokenKeyword :: C.ByteString -> Offset -> Token
+mkTokenKeyword :: T.Text -> Offset -> Token
 mkTokenKeyword bs off = Token $ Chunk ChunkKeyword bs off
 {-# INLINE mkTokenKeyword #-}
 
-mkTokenDigit :: C.ByteString -> Offset -> Token
+mkTokenDigit :: T.Text -> Offset -> Token
 mkTokenDigit bs off = Token $ Chunk ChunkDigit bs off
 {-# INLINE mkTokenDigit #-}
 
-mkTokenBracket :: C.ByteString -> Offset -> Token
+mkTokenBracket :: T.Text -> Offset -> Token
 mkTokenBracket bs off = Token $ Chunk ChunkBracket bs off
 {-# INLINE mkTokenBracket #-}
 
-mkTokenOperator :: C.ByteString -> Offset -> Token
+mkTokenOperator :: T.Text -> Offset -> Token
 mkTokenOperator bs off = Token $ Chunk ChunkOperator bs off
 {-# INLINE mkTokenOperator #-}
 
-mkTokenString :: C.ByteString -> Offset -> Token
+mkTokenString :: T.Text -> Offset -> Token
 mkTokenString bs off = Token $ Chunk ChunkString bs off
 {-# INLINE mkTokenString #-}
 
-mkTokenNativeType :: C.ByteString -> Offset -> Token
+mkTokenNativeType :: T.Text -> Offset -> Token
 mkTokenNativeType bs off = Token $ Chunk ChunkNativeType bs off
 {-# INLINE mkTokenNativeType #-}
 
-mkTokenFromWord :: Maybe FileTypeInfo -> C.ByteString -> Offset -> Token
+mkTokenFromWord :: Maybe FileTypeInfo -> T.Text -> Offset -> Token
 mkTokenFromWord Nothing txt off = mkTokenIdentifier txt off
 mkTokenFromWord (Just info) txt off =
     case HM.lookup txt (ftKeywords info) of
@@ -175,7 +172,7 @@ mkTokenFromWord (Just info) txt off =
         _ -> mkTokenIdentifier txt off
 {-# INLINEABLE mkTokenFromWord #-}
 
-mkToken :: Maybe FileTypeInfo -> TokenState -> C.ByteString -> Offset -> Token
+mkToken :: Maybe FileTypeInfo -> TokenState -> T.Text -> Offset -> Token
 mkToken _ StateSpace = mkTokenOperator
 mkToken info StateIdentifier = mkTokenFromWord info
 mkToken _ StateDigit = mkTokenDigit
@@ -191,7 +188,7 @@ tOffset :: Token -> Offset
 tOffset t = cOffset (coerce t :: Chunk)
 {-# INLINE tOffset #-}
 
-tToken :: Token -> Text8
+tToken :: Token -> T.Text
 tToken t = cToken (coerce t :: Chunk)
 {-# INLINE tToken #-}
 
@@ -270,8 +267,8 @@ data TokenIdx = TokenIdx
     , len :: {-# UNPACK #-} !Int
     }
 
-tkString :: TokenIdx -> C.ByteString -> C.ByteString
-tkString (TokenIdx off len) = C.take len . C.drop off
+tkString :: TokenIdx -> T.Text -> T.Text
+tkString (TokenIdx off len) = T.take len . T.drop off
 {-# INLINE tkString #-}
 
 data AccOp = Reset | Start {-# UNPACK #-} !Int | Append {-# UNPACK #-} !Int
@@ -285,7 +282,7 @@ ref <<~ Append cur = modifySTRef' ref $ \case
 {-# INLINE (<<~) #-}
 
 {-# INLINE parseTokens #-}
-parseTokens :: TokenFilter -> Maybe FileTypeInfo -> Bool -> C.ByteString -> Seq Token
+parseTokens :: TokenFilter -> Maybe FileTypeInfo -> Bool -> T.Text -> Seq Token
 parseTokens tf@TokenFilter{..} info strict txt =
     runST $ do
         let (runtimeCS1, runtimeCS2) = fromMaybe (None, None) (info >>= ftIdentCharSet)
@@ -310,15 +307,14 @@ parseTokens tf@TokenFilter{..} info strict txt =
             (AgdaIdent, AgdaIdent) -> parseToken' @'AgdaIdent @'AgdaIdent tf info strict txt
             _ -> error $ "CGrep: unsupported CharSet combination: " <> show (runtimeCS1, runtimeCS2)
 
-parseToken' :: forall (cs1 :: CharSet) (cs :: CharSet) a. (IsCharSet cs1, IsCharSet cs) => TokenFilter -> Maybe FileTypeInfo -> Bool -> C.ByteString -> ST a (S.Seq Token)
+parseToken' :: forall (cs1 :: CharSet) (cs :: CharSet) a. (IsCharSet cs1, IsCharSet cs) => TokenFilter -> Maybe FileTypeInfo -> Bool -> T.Text -> ST a (S.Seq Token)
 parseToken' tf@TokenFilter{..} info strict txt = do
     stateR <- newSTRef StateSpace
     accR <- newSTRef (TokenIdx (-1) (-1))
     tokensR <- newSTRef S.empty
     curR <- newSTRef 0
 
-    oforM_ txt $ \w -> do
-        let x = BI.w2c w
+    oforM_ txt $ \x -> do
         cur <- readSTRef curR
         state <- readSTRef stateR
 
@@ -410,30 +406,30 @@ parseToken' tf@TokenFilter{..} info strict txt = do
             cur <- readSTRef curR
             return $ tokens |> buildFilteredToken tf (mkToken info state) lastAcc txt
 
-buildFilteredToken :: TokenFilter -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
+buildFilteredToken :: TokenFilter -> (T.Text -> Offset -> Token) -> TokenIdx -> T.Text -> Token
 buildFilteredToken tf f (TokenIdx start len) txt =
-    let t = f (subByteString start len txt) (fromIntegral start)
+    let t = f (subText start len txt) (fromIntegral start)
      in if filterToken tf t
             then t
             else unspecifiedToken
 {-# INLINE buildFilteredToken #-}
 
-buildToken :: Bool -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
-buildToken True f (TokenIdx start len) txt = f (subByteString start len txt) (fromIntegral start)
+buildToken :: Bool -> (T.Text -> Offset -> Token) -> TokenIdx -> T.Text -> Token
+buildToken True f (TokenIdx start len) txt = f (subText start len txt) (fromIntegral start)
 buildToken False f (TokenIdx start len) txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
-buildToken_ :: Bool -> Bool -> Bool -> (C.ByteString -> Offset -> Token) -> TokenIdx -> C.ByteString -> Token
+buildToken_ :: Bool -> Bool -> Bool -> (T.Text -> Offset -> Token) -> TokenIdx -> T.Text -> Token
 buildToken_ i k t f (TokenIdx start len) txt =
     if i && isTokenIdentifier tok || k && isTokenKeyword tok || t && isTokenNativeType tok
         then tok
         else unspecifiedToken
   where
-    tok = f (subByteString start len txt) (fromIntegral start)
+    tok = f (subText start len txt) (fromIntegral start)
 
-subByteString :: Int -> Int -> C.ByteString -> C.ByteString
-subByteString i n = C.take n . C.drop i
-{-# INLINE subByteString #-}
+subText :: Int -> Int -> T.Text -> T.Text
+subText i n = T.take n . T.drop i
+{-# INLINE subText #-}
 
 unspecifiedToken :: Token
-unspecifiedToken = Token $ Chunk ChunkUnspec C.empty 0
+unspecifiedToken = Token $ Chunk ChunkUnspec T.empty 0

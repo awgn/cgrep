@@ -49,8 +49,6 @@ import qualified Data.Yaml as Y
 import CGrep.FileType (FileType)
 import GHC.Generics (Generic)
 
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as C
 import Data.List.Split (splitOn)
 import System.FilePath ((</>))
 

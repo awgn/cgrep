@@ -40,7 +40,6 @@ import CGrep.ContextFilter (
 
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
-import qualified Data.ByteString.Char8 as C
 import Options (Options (Options, code_only, force_type, hdr_only, keyword))
 import System.OsPath (OsPath, takeBaseName, takeExtension, takeFileName)
 import System.OsPath.Types (OsString)
@@ -49,9 +48,9 @@ import Language.Haskell.TH.Syntax (lift)
 
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
 
 import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
-import CGrep.Types (Text8)
 import CGrep.FileTypeMap
 import CGrep.Parser.Char
 import CGrep.FileKind
@@ -130,7 +129,7 @@ fileTypeInfoMap = $(lift $
                 , FileTypeInfo
                     { ftSelector = [ext ".awk", ext ".mawk", ext ".gawk"]
                     , ftKind = KindScript
-                    , ftComment = ["{-" ~~ "-}", "--" ~~ "\n"]
+                    , ftComment = ["{-" ~~ "-}", "--" ~~ "\n", "#" ~~ "\n"]
                     , ftChar = []
                     , ftString = ["\"" ~~ "\""]
                     , ftRawString = []
@@ -4807,7 +4806,7 @@ fileTypeInfoMap = $(lift $
                        )
             ])
 
-contextFilter :: Maybe FileType -> ContextFilter -> Bool -> Text8 -> Text8
+contextFilter :: Maybe FileType -> ContextFilter -> Bool -> T.Text -> T.Text
 contextFilter _ (isContextFilterAll -> True) False txt = txt
 contextFilter Nothing _ _ txt = txt
 contextFilter (Just ftype) filt alterBoundary txt
@@ -4829,11 +4828,6 @@ fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (h
     m = unMap fileTypeMap
 {-# INLINE fileTypeLookup #-}
 
-osStringToByteStringUTF8 :: OsString -> Maybe C.ByteString
-osStringToByteStringUTF8 os = do
-    str <- OS.decodeUtf os
-    return $ C.pack str
-{-# INLINE osStringToByteStringUTF8 #-}
 
 fileTypeInfoLookup :: Options -> OsPath -> Maybe (FileType, FileTypeInfo)
 fileTypeInfoLookup opts f = fileTypeLookup opts f >>= \(typ, kid) -> (typ,) <$> Map.lookup typ (unMapInfo fileTypeInfoMap)
