@@ -1,0 +1,43 @@
+-- Comment: This is the Cabal specification version used for the file.
+-- Reserved Keyword: 'cabal-version'
+cabal-version: 3.0
+
+-- Reserved Keyword: 'name'
+-- Identifier: 'my-app' (Project identifier)
+name: my-app
+
+-- Reserved Keyword: 'version'
+-- String Literal: '0.1.0.0'
+version: 0.1.0.0
+
+-- Reserved Keyword: 'synopsis'
+-- String Literal (Multi-line implicit): A brief description of the package.
+synopsis: Minimal Haskell application example.
+
+-- Reserved Keyword: 'description'
+description: This package demonstrates the minimal required fields 
+             to create a simple executable in Haskell using Cabal.
+
+-- Reserved Keyword: 'category'
+-- Identifier: 'Web' (A standard category identifier)
+category: Web
+
+-- Reserved Keyword: 'build-type'
+-- String Literal: 'Simple'
+build-type: Simple
+
+-- Reserved Keyword: 'executable'
+-- Identifier: 'my-app-exe' (The name of the resulting executable binary)
+executable my-app-exe
+  -- Comment: Specify the file that contains the main function.
+  -- Reserved Keyword: 'main-is'
+  -- String Literal: 'Main.hs'
+  main-is: Main.hs
+
+  -- Reserved Keyword: 'build-depends'
+  -- Identifier: 'base' (A dependency identifier)
+  build-depends: base >= 4.7 && < 5
+
+  -- Reserved Keyword: 'default-language'
+  -- Identifier: 'Haskell2010' (Language standard identifier)
+  default-language: Haskell2010
