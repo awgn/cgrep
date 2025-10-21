@@ -18,7 +18,6 @@
 
 module CGrep.Parser.Line (
     getLineOffsets,
-    getAllLineOffsets,
     getLineByOffset,
     lowerBound,
 ) where
@@ -33,12 +32,8 @@ import qualified Data.Text.Internal.Search as T
 import qualified Data.Text.Unsafe as TU
 import Data.Text.Internal (Text(..))
 
-getAllLineOffsets :: T.Text -> UV.Vector Offset
-getAllLineOffsets txt = UV.fromList $ 0 : (map (+1) $ T.indices (T.singleton '\n') txt)
-{-# INLINE getAllLineOffsets #-}
-
-getLineOffsets :: Int -> T.Text -> UV.Vector Offset
-getLineOffsets maxOff txt = getAllLineOffsets (T.take maxOff txt)
+getLineOffsets :: T.Text -> UV.Vector Offset
+getLineOffsets txt = UV.fromList $ 0 : (map (+1) $ T.indices (T.singleton '\n') txt)
 {-# INLINE getLineOffsets #-}
 
 lowerBound :: UV.Vector Int -> Int -> Int

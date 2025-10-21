@@ -47,7 +47,6 @@ import CGrep.Parser.Atom (
     mkAtomFromToken,
  )
 import CGrep.Parser.Chunk
-import CGrep.Parser.Line (getLineOffsets, getAllLineOffsets)
 import CGrep.Parser.Token
 import CGrep.Search (eligibleForSearch, searchStringIndices)
 import Control.Monad (when)
@@ -66,6 +65,7 @@ import System.IO (stderr)
 import System.OsPath (OsPath, takeBaseName)
 import Util (unquoteT)
 import qualified Data.Text as T
+import CGrep.Parser.Line (getLineOffsets)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f ps strict = do
@@ -140,5 +140,5 @@ search info f ps strict = do
         let matches = coerce allMatches :: [Chunk]
         putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
-        let lineOffsets = getAllLineOffsets text
+        let lineOffsets = getLineOffsets text
         mkOutputMatches lineOffsets filename text text''' matches

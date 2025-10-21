@@ -124,7 +124,7 @@ search info f ps strict = do
         putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
         putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
-        let lineOffsets = getAllLineOffsets text
+        let lineOffsets = getLineOffsets text
 
         mkOutputMatches lineOffsets filename text text''' matches
 

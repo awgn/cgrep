@@ -53,11 +53,11 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 
 import CGrep.Parser.Chunk
-import CGrep.Parser.Line (getLineOffsets, getAllLineOffsets)
 
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import qualified Data.Text as T
+import CGrep.Parser.Line (getLineOffsets)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do
@@ -99,6 +99,6 @@ search info f patterns strict = do
     #endif
     putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
 
-    let lineOffsets = getAllLineOffsets text
+    let lineOffsets = getLineOffsets text
 
     mkOutputMatches lineOffsets filename text text''' tokens

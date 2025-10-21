@@ -1,4 +1,3 @@
---
 -- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
@@ -45,7 +44,7 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
-import CGrep.Parser.Line (getLineByOffset, getLineOffsets, getAllLineOffsets)
+import CGrep.Parser.Line (getLineByOffset, getLineOffsets)
 import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
 import qualified Data.Text as T
@@ -54,16 +53,13 @@ import Debug.Trace (traceShowId)
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do
     Env{..} <- ask
-
     text <- liftIO $ getTargetContents f
-
     let filename = getTargetName f
 
     -- transform text
-
     let ctxFilter = mkContextFilter opt
 
-    let [text''', _, text', _] =
+    let [text'', _, text', _] =
             scanr
                 ($)
                 text
@@ -74,33 +70,34 @@ search info f patterns strict = do
 
     -- make shallow search
 
-    let !indices' = searchStringIndices patterns text'
-    let indices''' = searchStringIndices patterns text'''
+    let indices' = searchStringIndices patterns text'
+    let indices'' = searchStringIndices patterns text''
 
     -- search for matching tokens
+    let lineOffsets = getLineOffsets text
 
     let ctor = Chunk ChunkUnspec
-    let chunks = concat $ zipWith (\p xs -> (p `ctor`) <$> xs) patterns indices'''
-    let lineOffsets = getAllLineOffsets text
+    let chunks = concat $ zipWith (\p xs -> (p `ctor`) <$> xs) patterns indices''
 
     let chunks' =
             if word_match opt || prefix_match opt || suffix_match opt
-                then filter (checkChunk opt lineOffsets (snd <$> info) text''') chunks
+                then filter (checkChunk opt lineOffsets (snd <$> info) text'') chunks
                 else chunks
 
-    putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
+    putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt filename (eligibleForSearch patterns indices') $ do
         putMessageLnVerb 2 stderr $ "matches   : " <> show chunks'
-        mkOutputMatches lineOffsets filename text text''' chunks'
+        mkOutputMatches lineOffsets filename text text'' chunks'
+
 
 checkChunk :: Options -> UV.Vector Offset -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
-checkChunk opt vec info text chunk
-    | word_match opt = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
-    | prefix_match opt = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
-    | suffix_match opt = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + fromIntegral (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs
+checkChunk opts loff info text chunk
+    | word_match opts = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
+    | prefix_match opts = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
+    | suffix_match opts = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + fromIntegral (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs
     | otherwise = undefined
   where
-    (# line', off' #) = getLineByOffset (cOffset chunk) text vec
+    (# line', off' #) = getLineByOffset (cOffset chunk) text loff
     cs = parseChunks info line'
