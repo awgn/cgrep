@@ -62,7 +62,7 @@ import Reader (Env (..), ReaderIO)
 import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Internal.Types
 
-import CGrep.Parser.Line (getLineOffsets)
+import CGrep.Line (getLineOffsets)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as TB
 import qualified Data.Text.Lazy.Builder.Int as TB

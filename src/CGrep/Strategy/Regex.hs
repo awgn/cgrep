@@ -57,7 +57,7 @@ import CGrep.Parser.Chunk
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import qualified Data.Text as T
-import CGrep.Parser.Line (getLineOffsets)
+import CGrep.Line (getLineOffsets)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do

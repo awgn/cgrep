@@ -111,7 +111,7 @@ findAllMatches opt ws ts = nubOrd . nubOrd $ concatMap (\w -> findAllMatches' op
 
 findAllMatches' :: Options -> [Atom] -> [T.Token] -> [T.Token]
 findAllMatches' opt as ts =
-    let indicies = findIndicesBy (doesAtomMatchToken opt) as ts
+    let indices = findIndicesBy (doesAtomMatchToken opt) as ts
      in concatMap
             ( \i ->
                 let s = extractSlice i (length as) ts
@@ -119,7 +119,7 @@ findAllMatches' opt as ts =
                         then s
                         else []
             )
-            indicies
+            indices
 
 extractSlice :: Int -> Int -> [a] -> [a]
 extractSlice i n xs = take n (drop i xs)

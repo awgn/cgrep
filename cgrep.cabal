@@ -75,6 +75,7 @@ executable cgrep-v9
     CGrep.Common
     CGrep.ContextFilter
     CGrep.Text
+    CGrep.Line
     CGrep.Distance
     CGrep.FileKind
     CGrep.FileType
@@ -84,9 +85,7 @@ executable cgrep-v9
     CGrep.Parser.Atom
     CGrep.Parser.Char
     CGrep.Parser.Chunk
-    CGrep.Parser.Line
     CGrep.Parser.Token
-    CGrep.Search
     CGrep.Strategy.BoyerMoore
     CGrep.Strategy.Levenshtein
     CGrep.Strategy.Regex

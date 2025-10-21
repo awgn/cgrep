@@ -32,7 +32,6 @@ import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
 import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
-import CGrep.Search
 import CGrep.Types (Offset)
 
 import CGrep.Parser.Chunk
@@ -44,11 +43,13 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
-import CGrep.Parser.Line (getLineByOffset, getLineOffsets)
+import CGrep.Line (getLineByOffset, getLineOffsets)
 import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
 import qualified Data.Text as T
 import Debug.Trace (traceShowId)
+import CGrep.Common (eligibleForSearch)
+import CGrep.Text (textIndices)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f patterns strict = do
@@ -70,8 +71,8 @@ search info f patterns strict = do
 
     -- make shallow search
 
-    let indices' = searchStringIndices patterns text'
-    let indices'' = searchStringIndices patterns text''
+    let indices' = textIndices patterns text'
+    let indices'' = textIndices patterns text''
 
     -- search for matching tokens
     let lineOffsets = getLineOffsets text

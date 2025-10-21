@@ -18,10 +18,13 @@
 
 module CGrep.Text (
     iterM,
+    textIndices,
 ) where
 
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
+import qualified Data.Text.Internal.Search as TIS
+import Data.Int (Int64)
 
 iterM :: (Monad m) => T.Text -> ((# Char, Int #) -> m ()) -> m ()
 iterM txt f = go 0
@@ -33,3 +36,8 @@ iterM txt f = go 0
             let TU.Iter c delta = TU.iter txt off
             f (# c, off #)
             go (off + delta)
+
+
+textIndices :: [T.Text] -> T.Text -> [[Int]]
+textIndices ps text = (`TIS.indices` text) <$> ps
+{-# INLINE textIndices #-}

@@ -17,6 +17,7 @@
 --
 
 module CGrep.Common (
+    eligibleForSearch,
     getTargetName,
     getTargetContents,
     expandMultiline,
@@ -43,6 +44,7 @@ import qualified System.OsString as OS
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Util (spanGroup)
+import Data.List.Extra (notNull)
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -88,3 +90,8 @@ subText indices txt = case T.findIndex (== '\n') (T.drop maxOff txt) of
     maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
 {-# INLINE subText #-}
+
+eligibleForSearch :: [a] -> [[Int]] -> Bool
+eligibleForSearch [_] = all notNull
+eligibleForSearch _ = any notNull
+{-# INLINE eligibleForSearch #-}

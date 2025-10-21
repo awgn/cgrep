@@ -60,6 +60,7 @@ import Control.Monad (forM_)
 import CGrep.Text (iterM)
 import CGrep.Types (Offset(..))
 import Data.Coerce (coerce)
+import Data.Int (Int64)
 
 newtype ChunkType = ChunkType {unChunkType :: Word8}
     deriving newtype (Eq, Ord)

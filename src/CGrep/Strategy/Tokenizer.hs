@@ -43,10 +43,11 @@ import CGrep.FileTypeMapTH (
 
 import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
 import CGrep.Parser.Chunk (Chunk (..))
-import CGrep.Parser.Line
 import CGrep.Parser.Token
-import CGrep.Search (eligibleForSearch, searchStringIndices)
+import CGrep.Line
+import CGrep.Common (eligibleForSearch)
 import CGrep.Types (Offset)
+import CGrep.Text (textIndices)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
 import Data.Coerce (coerce)
@@ -99,7 +100,7 @@ search info f ps strict = do
     putMessageLnVerb 1 stderr $ "strategy: running token search on " <> show filename <> "..."
     putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
 
-    let indices' = searchStringIndices ps text'
+    let indices' = textIndices ps text'
 
     runSearch opt filename (eligibleForSearch ps indices') $ do
         -- parse source code, get the token list...

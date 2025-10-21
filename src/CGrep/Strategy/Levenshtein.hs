@@ -17,7 +17,7 @@
 --
 
 module CGrep.Strategy.Levenshtein (search) where
-import CGrep.Parser.Line (getLineOffsets)
+import CGrep.Line (getLineOffsets)
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
@@ -53,9 +53,7 @@ search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text] -> Bool -> ReaderIO
 search info f patterns strict = do
     reader $ const []
     -- Env{..} <- ask
-
     -- text <- liftIO $ getTargetContents f
-
     -- let filename = getTargetName f
 
     -- -- transform text

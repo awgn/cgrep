@@ -48,7 +48,7 @@ import CGrep.Parser.Atom (
  )
 import CGrep.Parser.Chunk
 import CGrep.Parser.Token
-import CGrep.Search (eligibleForSearch, searchStringIndices)
+import CGrep.Common (eligibleForSearch)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)
@@ -65,7 +65,8 @@ import System.IO (stderr)
 import System.OsPath (OsPath, takeBaseName)
 import Util (unquoteT)
 import qualified Data.Text as T
-import CGrep.Parser.Line (getLineOffsets)
+import CGrep.Line (getLineOffsets)
+import CGrep.Text (textIndices)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
 search info f ps strict = do
@@ -120,7 +121,7 @@ search info f ps strict = do
     putMessageLnVerb 2 stderr $ "matchers  : " <> show matchers
 
     -- parse source code, get the Generic.Chunk list...
-    let indices' = searchStringIndices matchers text'
+    let indices' = textIndices matchers text'
 
     let eligible_for_search = eligibleForSearch matchers indices'
     runSearch opt filename eligible_for_search $ do
