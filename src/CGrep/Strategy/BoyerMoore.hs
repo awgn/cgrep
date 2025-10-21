@@ -32,7 +32,6 @@ import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
 import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
-import CGrep.Types (Offset)
 
 import CGrep.Parser.Chunk
 import Data.Int (Int64)
@@ -93,7 +92,7 @@ search info f patterns strict = do
         mkOutputMatches lineOffsets filename text text'' chunks'
 
 
-checkChunk :: Options -> UV.Vector Offset -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
+checkChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
 checkChunk opts loff info text chunk
     | word_match opts = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
     | prefix_match opts = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs

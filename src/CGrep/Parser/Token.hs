@@ -59,7 +59,6 @@ import CGrep.Parser.Char (
     isSpace,
  )
 
-import CGrep.Types (Offset)
 import Data.List (genericLength)
 
 import CGrep.FileTypeMap (
@@ -134,35 +133,35 @@ eqToken a b =
         && tTyp a == tTyp b
 {-# INLINE eqToken #-}
 
-mkTokenIdentifier :: T.Text -> Offset -> Token
+mkTokenIdentifier :: T.Text -> Int -> Token
 mkTokenIdentifier bs off = Token $ Chunk ChunkIdentifier bs off
 {-# INLINE mkTokenIdentifier #-}
 
-mkTokenKeyword :: T.Text -> Offset -> Token
+mkTokenKeyword :: T.Text -> Int -> Token
 mkTokenKeyword bs off = Token $ Chunk ChunkKeyword bs off
 {-# INLINE mkTokenKeyword #-}
 
-mkTokenDigit :: T.Text -> Offset -> Token
+mkTokenDigit :: T.Text -> Int -> Token
 mkTokenDigit bs off = Token $ Chunk ChunkDigit bs off
 {-# INLINE mkTokenDigit #-}
 
-mkTokenBracket :: T.Text -> Offset -> Token
+mkTokenBracket :: T.Text -> Int -> Token
 mkTokenBracket bs off = Token $ Chunk ChunkBracket bs off
 {-# INLINE mkTokenBracket #-}
 
-mkTokenOperator :: T.Text -> Offset -> Token
+mkTokenOperator :: T.Text -> Int -> Token
 mkTokenOperator bs off = Token $ Chunk ChunkOperator bs off
 {-# INLINE mkTokenOperator #-}
 
-mkTokenString :: T.Text -> Offset -> Token
+mkTokenString :: T.Text -> Int -> Token
 mkTokenString bs off = Token $ Chunk ChunkString bs off
 {-# INLINE mkTokenString #-}
 
-mkTokenNativeType :: T.Text -> Offset -> Token
+mkTokenNativeType :: T.Text -> Int -> Token
 mkTokenNativeType bs off = Token $ Chunk ChunkNativeType bs off
 {-# INLINE mkTokenNativeType #-}
 
-mkTokenFromWord :: Maybe FileTypeInfo -> T.Text -> Offset -> Token
+mkTokenFromWord :: Maybe FileTypeInfo -> T.Text -> Int -> Token
 mkTokenFromWord Nothing txt off = mkTokenIdentifier txt off
 mkTokenFromWord (Just info) txt off =
     case HM.lookup txt (ftKeywords info) of
@@ -172,7 +171,7 @@ mkTokenFromWord (Just info) txt off =
         _ -> mkTokenIdentifier txt off
 {-# INLINEABLE mkTokenFromWord #-}
 
-mkToken :: Maybe FileTypeInfo -> TokenState -> T.Text -> Offset -> Token
+mkToken :: Maybe FileTypeInfo -> TokenState -> T.Text -> Int -> Token
 mkToken _ StateSpace = mkTokenOperator
 mkToken info StateIdentifier = mkTokenFromWord info
 mkToken _ StateDigit = mkTokenDigit
@@ -184,7 +183,7 @@ tTyp :: Token -> ChunkType
 tTyp = cTyp . coerce
 {-# INLINE tTyp #-}
 
-tOffset :: Token -> Offset
+tOffset :: Token -> Int
 tOffset t = cOffset (coerce t :: Chunk)
 {-# INLINE tOffset #-}
 
@@ -406,7 +405,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
             cur <- readSTRef curR
             return $ tokens |> buildFilteredToken tf (mkToken info state) lastAcc txt
 
-buildFilteredToken :: TokenFilter -> (T.Text -> Offset -> Token) -> TokenIdx -> T.Text -> Token
+buildFilteredToken :: TokenFilter -> (T.Text -> Int -> Token) -> TokenIdx -> T.Text -> Token
 buildFilteredToken tf f (TokenIdx start len) txt =
     let t = f (subText start len txt) (fromIntegral start)
      in if filterToken tf t
@@ -414,12 +413,12 @@ buildFilteredToken tf f (TokenIdx start len) txt =
             else unspecifiedToken
 {-# INLINE buildFilteredToken #-}
 
-buildToken :: Bool -> (T.Text -> Offset -> Token) -> TokenIdx -> T.Text -> Token
+buildToken :: Bool -> (T.Text -> Int -> Token) -> TokenIdx -> T.Text -> Token
 buildToken True f (TokenIdx start len) txt = f (subText start len txt) (fromIntegral start)
 buildToken False f (TokenIdx start len) txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
-buildToken_ :: Bool -> Bool -> Bool -> (T.Text -> Offset -> Token) -> TokenIdx -> T.Text -> Token
+buildToken_ :: Bool -> Bool -> Bool -> (T.Text -> Int -> Token) -> TokenIdx -> T.Text -> Token
 buildToken_ i k t f (TokenIdx start len) txt =
     if i && isTokenIdentifier tok || k && isTokenKeyword tok || t && isTokenNativeType tok
         then tok

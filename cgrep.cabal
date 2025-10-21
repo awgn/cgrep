@@ -91,7 +91,6 @@ executable cgrep-v9
     CGrep.Strategy.Regex
     CGrep.Strategy.Semantic
     CGrep.Strategy.Tokenizer
-    CGrep.Types
     CmdOptions
     Config
     Options

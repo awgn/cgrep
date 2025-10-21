@@ -58,7 +58,6 @@ import qualified Data.Text.Unsafe as TU
 
 import Control.Monad (forM_)
 import CGrep.Text (iterM)
-import CGrep.Types (Offset(..))
 import Data.Coerce (coerce)
 import Data.Int (Int64)
 
@@ -105,12 +104,12 @@ pattern ChunkNativeType = ChunkType 7
 data Chunk = Chunk
     { cTyp :: {-# UNPACK #-} !ChunkType
     , cToken :: {-# UNPACK #-} !T.Text
-    , cOffset :: {-# UNPACK #-} !Offset
+    , cOffset :: {-# UNPACK #-} !Int
     }
     deriving stock (Eq, Show, Ord)
 
 data MatchLine = MatchLine
-    { mlOffset :: {-# UNPACK #-} !Offset
+    { mlOffset :: {-# UNPACK #-} !Int
     , mlChunks :: [Chunk]
     }
     deriving stock (Eq, Show)
@@ -146,7 +145,7 @@ ref <~ !x = writeSTRef ref x
 {-# INLINE (<~) #-}
 
 
-toChunk :: T.Text -> Offset -> Maybe Int -> Int -> Chunk
+toChunk :: T.Text -> Int -> Maybe Int -> Int -> Chunk
 toChunk _ _ Nothing _ = error "CGrep.Parser.Chunk.toChunk: Nothing (Internal Error)"
 toChunk text charOff (Just beg) cur =
     let chunk = TU.takeWord8 (cur - beg) (TU.dropWord8 beg text)

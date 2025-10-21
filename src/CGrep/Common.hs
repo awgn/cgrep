@@ -30,7 +30,6 @@ module CGrep.Common (
 where
 
 import CGrep.Parser.Char (isSpace)
-import CGrep.Types (Offset)
 import Data.Char (toLower)
 import Data.Int (Int64)
 import Data.List (group, groupBy, sort, sortOn)
@@ -81,7 +80,7 @@ ignoreCase opt
     | otherwise = id
 {-# INLINE ignoreCase #-}
 
-subText :: [[Offset]] -> T.Text -> T.Text
+subText :: [[Int]] -> T.Text -> T.Text
 subText [] txt = txt
 subText indices txt = case T.findIndex (== '\n') (T.drop maxOff txt) of
     Nothing -> txt

@@ -51,7 +51,6 @@ import Data.List (
  )
 
 import CGrep.Parser.Chunk (Chunk (..), MatchLine (..))
-import CGrep.Types (Offset)
 
 import Config (Config (configColorFile, configColorMatch))
 import Data.Int (Int64)
@@ -97,7 +96,7 @@ outTokens :: OutputMatch -> [T.Text]
 outTokens (OutputMatch fp ln l cs) = cToken <$> cs
 {-# INLINE outTokens #-}
 
-insertIndex :: UV.Vector Offset -> Offset -> Int
+insertIndex :: UV.Vector Int -> Int -> Int
 insertIndex vs x = search vs 0 (UV.length vs)
   where
     search xs !lo !hi
@@ -108,13 +107,13 @@ insertIndex vs x = search vs 0 (UV.length vs)
                     then search xs lo mid
                     else search xs (mid + 1) hi
 
-getLineNumberAndOffset :: UV.Vector Offset -> Offset -> (# Int, Offset #)
+getLineNumberAndOffset :: UV.Vector Int -> Int -> (# Int, Int #)
 getLineNumberAndOffset xs x =
     let idx = insertIndex xs x
      in (# idx, x - xs `UV.unsafeIndex` (idx - 1) #)
 {-# INLINE getLineNumberAndOffset #-}
 
-mkOutputMatches :: UV.Vector Offset -> OsPath -> T.Text -> T.Text -> [Chunk] -> ReaderIO [OutputMatch]
+mkOutputMatches :: UV.Vector Int -> OsPath -> T.Text -> T.Text -> [Chunk] -> ReaderIO [OutputMatch]
 mkOutputMatches lineOffsets f text multi ts = do
     invert <- invert_match <$> reader opt
     return $
