@@ -19,6 +19,7 @@
 module CGrep.Text (
     iterM,
     textIndices,
+    textSlice,
 ) where
 
 import qualified Data.Text as T
@@ -41,3 +42,7 @@ iterM txt f = go 0
 textIndices :: [T.Text] -> T.Text -> [[Int]]
 textIndices ps text = (`TIS.indices` text) <$> ps
 {-# INLINE textIndices #-}
+
+textSlice :: T.Text -> Int -> Int -> T.Text
+textSlice txt start len = TU.takeWord8 len $ TU.dropWord8 start txt
+{-# INLINE textSlice #-}

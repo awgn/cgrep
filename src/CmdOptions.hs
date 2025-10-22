@@ -230,6 +230,9 @@ options = Options
        <> value 0
        <> help "Verbose level: 1, 2, 3 or 4" )
     <*> switch
+        ( long "null-output"
+       <> help "Disable output for performance evaluation" )
+    <*> switch
         ( long "no-shallow"
        <> help "Disable shallow-search" )
     <*> switch

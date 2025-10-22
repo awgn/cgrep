@@ -31,7 +31,8 @@ import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
-import CGrep.Output (OutputMatch, mkOutputMatches, runSearch)
+import CGrep.Match (Match, mkMatches)
+import CGrep.Common(runSearch)
 
 import CGrep.Parser.Chunk
 import Data.Int (Int64)
@@ -42,7 +43,7 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
-import CGrep.Line (getLineByOffset, getLineOffsets)
+import CGrep.Line (getLineByOffset, getLineOffsets, buildIndex)
 import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
 import qualified Data.Text as T
@@ -50,11 +51,12 @@ import Debug.Trace (traceShowId)
 import CGrep.Common (eligibleForSearch)
 import CGrep.Text (textIndices)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns strict = do
     Env{..} <- ask
     text <- liftIO $ getTargetContents f
     let filename = getTargetName f
+    let !lindex = buildIndex text
 
     -- transform text
     let ctxFilter = mkContextFilter opt
@@ -87,9 +89,10 @@ search info f patterns strict = do
     putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
-    runSearch opt filename (eligibleForSearch patterns indices') $ do
+    runSearch opt lindex filename (eligibleForSearch patterns indices') $ do
         putMessageLnVerb 2 stderr $ "matches   : " <> show chunks'
-        mkOutputMatches lineOffsets filename text text'' chunks'
+        putMessageLnVerb 2 stderr $ "lindex    : " <> show lindex
+        mkMatches lindex filename text'' chunks'
 
 
 checkChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool

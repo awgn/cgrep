@@ -39,7 +39,7 @@ import CGrep.FileTypeMapTH (
      fileTypeLookup,
  )
 
-import CGrep.Output (OutputMatch, mkOutputMatches)
+import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (Chunk, cToken, parseChunks)
 
 import Data.Foldable (Foldable (toList))
@@ -47,11 +47,11 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
-import Data.Text
+import qualified Data.Text as T
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [Text] -> Bool -> ReaderIO [OutputMatch]
+search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns strict = do
-    reader $ const []
+    undefined
     -- Env{..} <- ask
     -- text <- liftIO $ getTargetContents f
     -- let filename = getTargetName f

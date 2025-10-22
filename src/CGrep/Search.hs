@@ -19,7 +19,7 @@
 
 {-# LANGUAGE QuasiQuotes #-}
 
-module Search (
+module CGrep.Search (
     startSearch,
     isRegexp,
 )
@@ -35,10 +35,10 @@ import CGrep.FileTypeMapTH (
     fileTypeInfoLookup,
     fileTypeLookup,
  )
-import CGrep.Output (
-    OutputMatch (..),
-    putOutputMatches,
-    showFileName,
+import CGrep.Match (
+    Match (..),
+    putMatches,
+    prettyFileName,
  )
 import qualified CGrep.Strategy.BoyerMoore as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein as Levenshtein
@@ -141,6 +141,7 @@ import System.Process (runProcess, waitForProcess)
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy.IO as LTIO
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 
 data RecursiveContext = RecursiveContext
@@ -260,14 +261,14 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                                 when (vim || editor) $
                                                                     liftIO $
                                                                         mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) matches
-                                                                putOutputMatches matches
+                                                                putMatches matches
                                                                 -- putOutputMatches []
                                                             )
                                                             env
                                                         )
                                                         ( \e -> do
                                                             let msg = show (e :: SomeException)
-                                                            TIO.hPutStrLn stderr (showFileName conf opt (getTargetName f) <> ": error: " <> T.pack (takeN 120 msg))
+                                                            LTIO.hPutStrLn stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
                                                             return Nothing
                                                         )
                                             )
@@ -316,7 +317,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 (Just stderr)
                 >>= waitForProcess
 
-getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch])
+getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match])
 getSearcher Env{..} = do
     if
         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search

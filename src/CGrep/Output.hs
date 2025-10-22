@@ -61,11 +61,12 @@ import Reader (Env (..), ReaderIO)
 import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Internal.Types
 
-import CGrep.Line (getLineOffsets)
+import CGrep.Line (LineIndex, getLineByOffset', getLineOffsets, lookupLineAndPosition, totalLines)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as TB
 import qualified Data.Text.Lazy.Builder.Int as TB
 import qualified Data.Vector.Generic as GV
+import Debug.Trace (traceShowId)
 import Options (
     Options (
         Options,
@@ -150,17 +151,6 @@ putOutputMatches out = do
         | filename_only opt -> Just <$> filenameOutput out
         | otherwise -> Just <$> defaultOutput out
 
-runSearch ::
-    Options ->
-    OsPath ->
-    Bool ->
-    ReaderIO [OutputMatch] ->
-    ReaderIO [OutputMatch]
-runSearch opt filename eligible doSearch =
-    if eligible || no_shallow opt
-        then doSearch
-        else mkOutputMatches UV.empty filename T.empty T.empty ([] :: [Chunk])
-
 defaultOutput :: [OutputMatch] -> ReaderIO TB.Builder
 defaultOutput xs = do
     Env{..} <- ask
@@ -229,11 +219,13 @@ buildFileName conf opt out =
     buildFileName' conf opt = buildColoredAs opt $ T.pack (setSGRCode (configColorFile conf))
 {-# INLINE buildFileName #-}
 
+
 buildColoredAs :: Options -> ColorCode -> T.Text -> TB.Builder
 buildColoredAs Options{color = c, no_color = c'} colorCode txt
     | c && not c' = TB.fromText colorCode <> TB.fromText txt <> resetBuilder
     | otherwise = TB.fromText txt
 {-# INLINE buildColoredAs #-}
+
 
 buildLineCol :: Options -> OutputMatch -> TB.Builder
 buildLineCol Options{no_numbers = True} _ = mempty

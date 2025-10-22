@@ -17,6 +17,7 @@
 --
 
 module CGrep.Common (
+    runSearch,
     eligibleForSearch,
     getTargetName,
     getTargetContents,
@@ -44,6 +45,10 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Util (spanGroup)
 import Data.List.Extra (notNull)
+import CGrep.Line (LineIndex)
+import Reader (ReaderIO)
+import CGrep.Match (Match, mkMatches)
+import CGrep.Parser.Chunk (Chunk)
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -94,3 +99,16 @@ eligibleForSearch :: [a] -> [[Int]] -> Bool
 eligibleForSearch [_] = all notNull
 eligibleForSearch _ = any notNull
 {-# INLINE eligibleForSearch #-}
+
+
+runSearch ::
+    Options ->
+    LineIndex ->
+    OsPath ->
+    Bool ->
+    ReaderIO [Match] ->
+    ReaderIO [Match]
+runSearch opt lindex filename eligible doSearch =
+    if eligible || no_shallow opt
+        then doSearch
+        else mkMatches lindex filename T.empty ([] :: [Chunk])

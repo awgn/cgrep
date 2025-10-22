@@ -74,6 +74,7 @@ data Options = Options
     , fileline :: Bool
     , -- Misc:
       verbose :: Int
+    , null_output :: Bool
     , no_shallow :: Bool
     , show_palette :: Bool
     , others :: [String]

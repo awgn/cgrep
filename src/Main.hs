@@ -41,6 +41,7 @@ import CGrep.Common (trimT)
 import CGrep.FileType (readKindList, readTypeList)
 import CGrep.FileTypeMapTH (dumpFileTypeInfoMap, fileTypeInfoMap)
 import CGrep.Parser.Atom (wildCardMap)
+import CGrep.Search (isRegexp, startSearch)
 
 import CmdOptions (parserInfo)
 import Config (
@@ -53,7 +54,6 @@ import Paths_cgrep (version)
 import PutMessage (putMessageLnVerb)
 
 import Reader (Env (..), ReaderIO)
-import Search (isRegexp, startSearch)
 import Util (partitionM)
 
 import Control.Applicative (Alternative ((<|>)))
