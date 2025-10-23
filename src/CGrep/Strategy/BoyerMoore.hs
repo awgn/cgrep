@@ -99,7 +99,7 @@ checkChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk 
 checkChunk opts loff info text chunk
     | word_match opts = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
     | prefix_match opts = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
-    | suffix_match opts = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + fromIntegral (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs
+    | suffix_match opts = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs
     | otherwise = undefined
   where
     (# line', off' #) = getLineByOffset (cOffset chunk) text loff

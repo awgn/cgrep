@@ -47,7 +47,7 @@ data LineIndex
     = LineIndex
         T.Text
         (UV.Vector (Int))
-    deriving (Show)
+    deriving stock (Show)
 
 totalLines :: LineIndex -> Int
 totalLines (LineIndex _ vec) = UV.length vec

@@ -15,6 +15,9 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module CGrep.Parser.Chunk (
     parseChunks,
@@ -31,35 +34,22 @@ module CGrep.Parser.Chunk (
     pattern ChunkUnspec,
 ) where
 
-import CGrep.Parser.Char (
-    isAlphaNum_,
-    isAlpha_,
-    isBracket',
-    isCharNumber,
-    isDigit,
-    isSpace,
- )
-
-import CGrep.FileTypeMap (FileTypeInfo (..))
-import Data.List (genericLength)
-
-import Data.MonoTraversable (MonoFoldable (oforM_))
+import CGrep.FileTypeMap (FileTypeInfo (..), CharSet (..), IsCharSet (..))
 
 import Control.Monad.ST (ST, runST)
 import Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 
-import Data.Maybe (fromMaybe, fromJust)
+-- import Data.Maybe (fromMaybe, fromJust)
 import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
 import qualified Data.Sequence as S
 import Data.Word (Word8)
 import qualified Data.Text as T
-import qualified Data.Text.Internal.StrictBuilder as T
+-- import qualified Data.Text.Internal.StrictBuilder as T
 import qualified Data.Text.Unsafe as TU
 
-import Control.Monad (forM_)
 import CGrep.Text (iterM)
 import Data.Coerce (coerce)
-import Data.Int (Int64)
+import CGrep.Parser.Char (isDigit, isSpace, isCharNumber, isBracket')
 
 newtype ChunkType = ChunkType {unChunkType :: Word8}
     deriving newtype (Eq, Ord)
@@ -157,69 +147,86 @@ toChunk text charOff (Just beg) cur =
 
 {-# INLINE parseChunks #-}
 parseChunks :: Maybe FileTypeInfo -> T.Text -> S.Seq Chunk
-parseChunks l t = runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
-    Just (isAlpha1, isAlphaN) -> parseChunks' isAlpha_ isAlphaNum_ t
-    _ -> parseChunks' isAlpha_ isAlphaNum_ t
-  where
-    parseChunks' :: (Char -> Bool) -> (Char -> Bool) -> T.Text -> ST s (S.Seq Chunk)
-    parseChunks' isAlpha1 isAlphaN txt = do
-        stateR <- newSTRef StateSpace
-        coffR <- newSTRef 0
-        accR <- newSTRef Nothing
-        tokensR <- newSTRef S.empty
-        iterM txt $ \(# x, off #) -> do
-            state <- readSTRef stateR
-            coff <- readSTRef coffR
-            acc <- readSTRef accR
-            tokens <- readSTRef tokensR
-            case state of
-                StateSpace ->
-                    if
-                        | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing
-                        | isAlpha1 x -> do stateR <~ StateAlpha; accR <~ Just off
-                        | isDigit x -> do stateR <~ StateDigit; accR <~ Just off
-                        | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off
-                        | otherwise -> do stateR <~ StateOther; accR <~ Just off
-                StateAlpha ->
-                    if
-                        | isAlphaN x -> do stateR <~ StateAlpha
-                        | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | otherwise -> do stateR <~ StateOther; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                StateDigit ->
-                    if
-                        | isCharNumber x -> do stateR <~ StateDigit
-                        | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isAlpha1 x -> do stateR <~ StateAlpha; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | otherwise -> do stateR <~ StateOther; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                StateBracket ->
-                    if
-                        | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isAlpha1 x -> do stateR <~ StateAlpha; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isDigit x -> do stateR <~ StateDigit; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | otherwise -> do stateR <~ StateOther; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                StateOther ->
-                    if
-                        | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isAlpha1 x -> do stateR <~ StateAlpha; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isDigit x ->
-                            if acc == Just (off-1) &&
-                                TU.unsafeHead (TU.dropWord8 (off-1) txt) == '.'
-                                then do stateR <~ StateDigit
-                                else do stateR <~ StateDigit; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
-                        | otherwise -> do stateR <~ StateOther;
-            coffR <~ (coff + 1)
+parseChunks l txt = runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
+    Just (None, None) -> parseChunks' @'None @'None txt
+    Just (Alpha_, AlphaNum_') -> parseChunks' @'Alpha_ @'AlphaNum_' txt
+    Just (Alpha_, AlphaNum_) -> parseChunks' @'Alpha_ @'AlphaNum_ txt
+    Just (Alpha, AlphaNum_) -> parseChunks' @'Alpha @'AlphaNum_ txt
+    Just (Alpha_, AlphaNumDash_) -> parseChunks' @'Alpha_ @'AlphaNumDash_ txt
+    Just (AlphaDash_, AlphaNumDash_) -> parseChunks' @'AlphaDash_ @'AlphaNumDash_ txt
+    Just (ClojureIdentStart, ClojureIdentCont) -> parseChunks' @'ClojureIdentStart @'ClojureIdentCont txt
+    Just (CSharpIdentStart, CSharpIdentCont) -> parseChunks' @'CSharpIdentStart @'CSharpIdentCont txt
+    Just (HtmlIdentStart, HtmlIdentCont) -> parseChunks' @'HtmlIdentStart @'HtmlIdentCont txt
+    Just (JavaIdentStart, JavaIdentCont) -> parseChunks' @'JavaIdentStart @'JavaIdentCont txt
+    Just (JuliaIdentStart, JuliaIdentCont) -> parseChunks' @'JuliaIdentStart @'JuliaIdentCont txt
+    Just (ListIdent, ListIdent) -> parseChunks' @'ListIdent @'ListIdent txt
+    Just (Unicode_, UnicodeNum_) -> parseChunks' @'Unicode_ @'UnicodeNum_ txt
+    Just (UnicodeDollar_, UnicodeNumDollar_) -> parseChunks' @'UnicodeDollar_ @'UnicodeNumDollar_ txt
+    Just (Unicode_, UnicodeNum_') -> parseChunks' @'Unicode_ @'UnicodeNum_' txt
+    Just (Unicode_, UnicodeNumDollar_) -> parseChunks' @'Unicode_ @'UnicodeNumDollar_ txt
+    Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunks' @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
+    Just (AgdaIdent, AgdaIdent) -> parseChunks' @'AgdaIdent @'AgdaIdent txt
+    charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
 
+
+parseChunks' :: forall (cs1 :: CharSet) (csN :: CharSet) s. (IsCharSet cs1, IsCharSet csN) =>  T.Text -> ST s (S.Seq Chunk)
+parseChunks' txt = do
+    stateR <- newSTRef StateSpace
+    coffR <- newSTRef 0
+    accR <- newSTRef Nothing
+    tokensR <- newSTRef S.empty
+    iterM txt $ \(# x, off #) -> do
+        state <- readSTRef stateR
+        coff <- readSTRef coffR
+        acc <- readSTRef accR
         tokens <- readSTRef tokensR
-        lastAcc <- readSTRef accR
+        case state of
+            StateSpace ->
+                if
+                    | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing
+                    | isValidChar @cs1 x -> do stateR <~ StateAlpha; accR <~ Just off
+                    | isDigit x -> do stateR <~ StateDigit; accR <~ Just off
+                    | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off
+                    | otherwise -> do stateR <~ StateOther; accR <~ Just off
+            StateAlpha ->
+                if
+                    | isValidChar @csN x -> do stateR <~ StateAlpha
+                    | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | otherwise -> do stateR <~ StateOther; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+            StateDigit ->
+                if
+                    | isCharNumber x -> do stateR <~ StateDigit
+                    | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isValidChar @cs1 x -> do stateR <~ StateAlpha; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | otherwise -> do stateR <~ StateOther; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+            StateBracket ->
+                if
+                    | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isValidChar @cs1 x -> do stateR <~ StateAlpha; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isDigit x -> do stateR <~ StateDigit; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | otherwise -> do stateR <~ StateOther; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+            StateOther ->
+                if
+                    | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isValidChar @cs1 x -> do stateR <~ StateAlpha; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isDigit x ->
+                        if acc == Just (off-1) &&
+                            TU.unsafeHead (TU.dropWord8 (off-1) txt) == '.'
+                            then do stateR <~ StateDigit
+                            else do stateR <~ StateDigit; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | isBracket' x -> do stateR <~ StateBracket; accR <~ Just off; tokensR <~ (tokens |> toChunk txt coff acc off)
+                    | otherwise -> do stateR <~ StateOther;
+        coffR <~ (coff + 1)
 
-        if lastAcc /= Just (TU.lengthWord8 txt)
-            then do
-                state <- readSTRef stateR
-                coff <- readSTRef coffR
-                return $ tokens |> toChunk txt coff lastAcc (TU.lengthWord8 txt)
-            else
-                return $ tokens
+    tokens <- readSTRef tokensR
+    lastAcc <- readSTRef accR
+
+    if lastAcc /= Just (TU.lengthWord8 txt)
+        then do
+            coff <- readSTRef coffR
+            return $ tokens |> toChunk txt coff lastAcc (TU.lengthWord8 txt)
+        else
+            return $ tokens

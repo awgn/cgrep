@@ -53,7 +53,7 @@ data Match = Match
     , outLine :: {-# UNPACK #-} !T.Text
     , outChunks :: ![Chunk]
     }
-    deriving (Show, Eq)
+    deriving stock (Show, Eq)
 
 outTokens :: Match -> [T.Text]
 outTokens (Match fp ln l cs) = cToken <$> cs
@@ -61,7 +61,7 @@ outTokens (Match fp ln l cs) = cToken <$> cs
 
 
 mkMatches :: LineIndex -> OsPath -> T.Text -> [Chunk] -> ReaderIO [Match]
-mkMatches lindex f multi ts = do
+mkMatches lindex f txt chunks = do
     invert <- invert_match <$> reader opt
     return $
         if invert
@@ -72,14 +72,14 @@ mkMatches lindex f multi ts = do
                          in Match f n line xs
                     )
                     . invertLines (totalLines lindex)
-                    $ mkMatchLines lindex ts
+                    $ mkMatchLines lindex chunks
             else
                 map
                     ( \(MatchLine n xs) ->
                         let line = getLineByOffset' lindex ((cOffset . head) xs)
                          in Match f n (getLineByOffset' lindex n) xs
                     )
-                    $ mkMatchLines lindex ts
+                    $ mkMatchLines lindex chunks
 
 mkMatchLines :: LineIndex -> [Chunk] -> [MatchLine]
 mkMatchLines lindex [] = []
