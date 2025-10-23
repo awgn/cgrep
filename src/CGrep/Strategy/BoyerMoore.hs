@@ -18,11 +18,10 @@
 module CGrep.Strategy.BoyerMoore (search) where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ask, reader)
-import Data.List (genericLength, isPrefixOf, isSuffixOf)
+import Control.Monad.Trans.Reader (ask)
 
 import CGrep.Common (
-    expandMultiline,
+    -- expandMultiline,
     getTargetContents,
     getTargetName,
     ignoreCase,
@@ -30,29 +29,26 @@ import CGrep.Common (
 import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
-import CGrep.FileTypeMapTH (contextFilter, fileTypeLookup)
+import CGrep.FileTypeMapTH (contextFilter)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Common(runSearch)
 
 import CGrep.Parser.Chunk
-import Data.Int (Int64)
 import Options (Options (prefix_match, suffix_match, word_match))
-import PutMessage (putMessageLnVerb)
+import PutMessage (putMessageLnVerb, putMessageLn)
 import Reader (Env (..), ReaderIO)
 
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
 import CGrep.Line (getLineByOffset, getLineOffsets, buildIndex)
-import Data.Array (indices)
 import qualified Data.Vector.Unboxed as UV
 import qualified Data.Text as T
-import Debug.Trace (traceShowId)
-import CGrep.Common (eligibleForSearch)
-import CGrep.Text (textIndices)
+import CGrep.Text (textIndices, textSlice, textContainsOneOf)
+import qualified Data.Text.Unsafe as TU
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns strict = do
+search info f patterns _strict = do
     Env{..} <- ask
     text <- liftIO $ getTargetContents f
     let filename = getTargetName f
@@ -61,42 +57,44 @@ search info f patterns strict = do
     -- transform text
     let ctxFilter = mkContextFilter opt
 
-    let [text'', _, text', _] =
+    let [text', _, _] =
             scanr
                 ($)
                 text
-                [ expandMultiline opt
-                , contextFilter (fst <$> info) ctxFilter False
+                [
+                  contextFilter (fst <$> info) ctxFilter False
                 , ignoreCase opt
                 ]
 
     -- make shallow search
-
-    let indices' = textIndices patterns text'
-    let indices'' = textIndices patterns text''
+    let !eligibleForSearch = textContainsOneOf patterns text
 
     -- search for matching tokens
-    let lineOffsets = getLineOffsets text
+    let lineOffsets = getLineOffsets text'
 
-    let ctor = Chunk ChunkUnspec
-    let chunks = concat $ zipWith (\p xs -> (p `ctor`) <$> xs) patterns indices''
-
-    let chunks' =
-            if word_match opt || prefix_match opt || suffix_match opt
-                then filter (checkChunk opt lineOffsets (snd <$> info) text'') chunks
-                else chunks
-
-    putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
+    putMessageLnVerb 3 stderr $ "---\n" <> text' <> "\n---"
     putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
-    runSearch opt lindex filename (eligibleForSearch patterns indices') $ do
+    runSearch opt lindex filename eligibleForSearch $ do
+
+        let indices' = textIndices patterns text'
+
+        let chunks = concat $ zipWith (\p offsets ->
+                let blen = TU.lengthWord8 p
+                 in map (\offset -> Chunk ChunkUnspec (textSlice text' offset blen)) offsets) patterns indices'
+
+        let chunks' =
+                if word_match opt || prefix_match opt || suffix_match opt
+                    then filter (filterChunk opt lineOffsets (snd <$> info) text') chunks
+                    else chunks
+
         putMessageLnVerb 2 stderr $ "matches   : " <> show chunks'
         putMessageLnVerb 2 stderr $ "lindex    : " <> show lindex
-        mkMatches lindex filename text'' chunks'
+        mkMatches lindex filename text' chunks'
 
 
-checkChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
-checkChunk opts loff info text chunk
+filterChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
+filterChunk opts loff info text chunk
     | word_match opts = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
     | prefix_match opts = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
     | suffix_match opts = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs

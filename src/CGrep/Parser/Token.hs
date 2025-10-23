@@ -87,6 +87,7 @@ import Data.Text.Internal.Read (T)
 import Debug.Trace
 import GHC.Exts (inline)
 import qualified Data.Text as T
+import CGrep.Text (textOffsetWord8, iterM, textSlice)
 
 newtype TokenState = TokenState {unTokenState :: Int}
     deriving newtype (Eq)
@@ -122,9 +123,9 @@ newtype Token = Token Chunk
     deriving newtype (Eq, Ord)
 
 instance Show Token where
-    show (Token (Chunk typ bs off)) = case typ of
+    show (Token (Chunk typ txt)) = case typ of
         ChunkUnspec -> "(*)"
-        _ -> "(" <> show typ <> " '" <> T.unpack bs <> "' @" <> show off <> ")"
+        _ -> "(" <> show typ <> " '" <> T.unpack txt <> "' @" <> show (textOffsetWord8 txt) <> ")"
     {-# INLINE show #-}
 
 eqToken :: Token -> Token -> Bool
@@ -133,45 +134,45 @@ eqToken a b =
         && tTyp a == tTyp b
 {-# INLINE eqToken #-}
 
-mkTokenIdentifier :: T.Text -> Int -> Token
-mkTokenIdentifier bs off = Token $ Chunk ChunkIdentifier bs off
+mkTokenIdentifier :: T.Text -> Token
+mkTokenIdentifier bs = Token $ Chunk ChunkIdentifier bs
 {-# INLINE mkTokenIdentifier #-}
 
-mkTokenKeyword :: T.Text -> Int -> Token
-mkTokenKeyword bs off = Token $ Chunk ChunkKeyword bs off
+mkTokenKeyword :: T.Text -> Token
+mkTokenKeyword bs = Token $ Chunk ChunkKeyword bs
 {-# INLINE mkTokenKeyword #-}
 
-mkTokenDigit :: T.Text -> Int -> Token
-mkTokenDigit bs off = Token $ Chunk ChunkDigit bs off
+mkTokenDigit :: T.Text -> Token
+mkTokenDigit bs = Token $ Chunk ChunkDigit bs
 {-# INLINE mkTokenDigit #-}
 
-mkTokenBracket :: T.Text -> Int -> Token
-mkTokenBracket bs off = Token $ Chunk ChunkBracket bs off
+mkTokenBracket :: T.Text -> Token
+mkTokenBracket bs = Token $ Chunk ChunkBracket bs
 {-# INLINE mkTokenBracket #-}
 
-mkTokenOperator :: T.Text -> Int -> Token
-mkTokenOperator bs off = Token $ Chunk ChunkOperator bs off
+mkTokenOperator :: T.Text -> Token
+mkTokenOperator bs = Token $ Chunk ChunkOperator bs
 {-# INLINE mkTokenOperator #-}
 
-mkTokenString :: T.Text -> Int -> Token
-mkTokenString bs off = Token $ Chunk ChunkString bs off
+mkTokenString :: T.Text -> Token
+mkTokenString bs = Token $ Chunk ChunkString bs
 {-# INLINE mkTokenString #-}
 
-mkTokenNativeType :: T.Text -> Int -> Token
-mkTokenNativeType bs off = Token $ Chunk ChunkNativeType bs off
+mkTokenNativeType :: T.Text -> Token
+mkTokenNativeType bs = Token $ Chunk ChunkNativeType bs
 {-# INLINE mkTokenNativeType #-}
 
-mkTokenFromWord :: Maybe FileTypeInfo -> T.Text -> Int -> Token
-mkTokenFromWord Nothing txt off = mkTokenIdentifier txt off
-mkTokenFromWord (Just info) txt off =
+mkTokenFromWord :: Maybe FileTypeInfo -> T.Text -> Token
+mkTokenFromWord Nothing txt = mkTokenIdentifier txt
+mkTokenFromWord (Just info) txt =
     case HM.lookup txt (ftKeywords info) of
         Just typ -> case typ of
-            Keyword -> mkTokenKeyword txt off
-            NativeType -> mkTokenNativeType txt off
-        _ -> mkTokenIdentifier txt off
+            Keyword -> mkTokenKeyword txt
+            NativeType -> mkTokenNativeType txt
+        _ -> mkTokenIdentifier txt
 {-# INLINEABLE mkTokenFromWord #-}
 
-mkToken :: Maybe FileTypeInfo -> TokenState -> T.Text -> Int -> Token
+mkToken :: Maybe FileTypeInfo -> TokenState -> T.Text -> Token
 mkToken _ StateSpace = mkTokenOperator
 mkToken info StateIdentifier = mkTokenFromWord info
 mkToken _ StateDigit = mkTokenDigit
@@ -270,14 +271,14 @@ tkString :: TokenIdx -> T.Text -> T.Text
 tkString (TokenIdx off len) = T.take len . T.drop off
 {-# INLINE tkString #-}
 
-data AccOp = Reset | Start {-# UNPACK #-} !Int | Append {-# UNPACK #-} !Int
+data AccOp = Reset | Start {-# UNPACK #-} !Int !Int | Append {-# UNPACK #-} !Int !Int
 
 (<<~) :: STRef s TokenIdx -> AccOp -> ST s ()
 ref <<~ Reset = writeSTRef ref (TokenIdx (-1) 0)
-ref <<~ Start cur = writeSTRef ref (TokenIdx cur 1)
-ref <<~ Append cur = modifySTRef' ref $ \case
-    TokenIdx (-1) 0 -> TokenIdx cur 1
-    TokenIdx off len -> TokenIdx off (len + 1)
+ref <<~ Start offset delta = writeSTRef ref (TokenIdx offset delta)
+ref <<~ Append offset delta = modifySTRef' ref $ \case
+    TokenIdx (-1) 0 -> TokenIdx offset delta
+    TokenIdx offset' delta' -> TokenIdx offset' (delta + delta')
 {-# INLINE (<<~) #-}
 
 {-# INLINE parseTokens #-}
@@ -311,10 +312,8 @@ parseToken' tf@TokenFilter{..} info strict txt = do
     stateR <- newSTRef StateSpace
     accR <- newSTRef (TokenIdx (-1) (-1))
     tokensR <- newSTRef S.empty
-    curR <- newSTRef 0
 
-    oforM_ txt $ \x -> do
-        cur <- readSTRef curR
+    iterM txt $ \(# x, cur , delta #) -> do
         state <- readSTRef stateR
 
         case state of
@@ -322,36 +321,36 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                 {-# SCC "StateSpace" #-}
                 if
                     | isSpace x -> do accR <<~ Reset
-                    | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur
+                    | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta
                     | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset
-                    | isDigit x -> do stateR <~ StateDigit; accR <<~ Start cur
-                    | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur
-                    | otherwise -> do stateR <~ StateOther; accR <<~ Start cur
+                    | isDigit x -> do stateR <~ StateDigit; accR <<~ Start cur delta
+                    | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta
+                    | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta
             StateIdentifier ->
                 {-# SCC "StateIdentifier" #-}
                 if isValidChar @cs x
-                    then accR <<~ Append cur
+                    then accR <<~ Append cur delta
                     else do
                         acc <- readSTRef accR
                         tokens <- readSTRef tokensR
                         if
                             | isSpace x -> do stateR <~ StateSpace; accR <<~ Reset; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
                             | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
-                            | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
-                            | otherwise -> do stateR <~ StateOther; accR <<~ Start cur; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
+                            | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
+                            | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
             StateDigit ->
                 {-# SCC "StateDigit" #-}
                 if isCharNumber x
-                    then accR <<~ Append cur
+                    then accR <<~ Append cur delta
                     else do
                         acc <- readSTRef accR
                         tokens <- readSTRef tokensR
                         if
                             | isSpace x -> do stateR <~ StateSpace; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
                             | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
-                            | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
-                            | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
-                            | otherwise -> do stateR <~ StateOther; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
+                            | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
+                            | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
+                            | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
             StateLiteral ->
                 {-# SCC "StateLiteral" #-}
                 if x == chr 3
@@ -361,7 +360,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                         stateR <~ StateSpace
                         accR <<~ Reset
                         tokensR <~ (tokens |> buildToken tfString mkTokenString acc txt)
-                    else do accR <<~ Append cur
+                    else do accR <<~ Append cur delta
             StateBracket ->
                 {-# SCC "StateBracket" #-}
                 do
@@ -369,11 +368,11 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                     tokens <- readSTRef tokensR
                     if
                         | isSpace x -> do stateR <~ StateSpace; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
-                        | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
-                        | isDigit x -> do stateR <~ StateDigit; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
-                        | isBracket' x -> do accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
+                        | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
+                        | isDigit x -> do stateR <~ StateDigit; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
+                        | isBracket' x -> do accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
-                        | otherwise -> do stateR <~ StateOther; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
+                        | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
             StateOther ->
                 {-# SCC "StateOther" #-}
                 do
@@ -381,20 +380,18 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                     tokens <- readSTRef tokensR
                     if
                         | isSpace x -> do stateR <~ StateSpace; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
-                        | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
+                        | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | isDigit x ->
                             if tkString acc txt == "."
-                                then do stateR <~ StateDigit; accR <<~ Append cur
-                                else do stateR <~ StateDigit; accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
-                        | isBracket' x -> do stateR <~ StateBracket; accR <<~ Append cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
+                                then do stateR <~ StateDigit; accR <<~ Append cur delta
+                                else do stateR <~ StateDigit; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
+                        | isBracket' x -> do stateR <~ StateBracket; accR <<~ Append cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
-                        | isPunctuation x -> do accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
+                        | isPunctuation x -> do accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | otherwise ->
                             if strict
-                                then do accR <<~ Append cur
-                                else do accR <<~ Start cur; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
-
-        curR <~ (cur + 1)
+                                then do accR <<~ Append cur delta
+                                else do accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
 
     lastAcc <- readSTRef accR
     tokens <- readSTRef tokensR
@@ -402,33 +399,30 @@ parseToken' tf@TokenFilter{..} info strict txt = do
         then return tokens
         else do
             state <- readSTRef stateR
-            cur <- readSTRef curR
             return $ tokens |> buildFilteredToken tf (mkToken info state) lastAcc txt
 
-buildFilteredToken :: TokenFilter -> (T.Text -> Int -> Token) -> TokenIdx -> T.Text -> Token
+buildFilteredToken :: TokenFilter -> (T.Text -> Token) -> TokenIdx -> T.Text -> Token
 buildFilteredToken tf f (TokenIdx start len) txt =
-    let t = f (subText start len txt) (fromIntegral start)
+    let t = f (textSlice txt start len)
      in if filterToken tf t
             then t
             else unspecifiedToken
 {-# INLINE buildFilteredToken #-}
 
-buildToken :: Bool -> (T.Text -> Int -> Token) -> TokenIdx -> T.Text -> Token
-buildToken True f (TokenIdx start len) txt = f (subText start len txt) (fromIntegral start)
-buildToken False f (TokenIdx start len) txt = unspecifiedToken
+buildToken :: Bool -> (T.Text -> Token) -> TokenIdx -> T.Text -> Token
+buildToken True f (TokenIdx start len) txt = f (textSlice txt start len)
+buildToken False f (TokenIdx _start _len) _txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
-buildToken_ :: Bool -> Bool -> Bool -> (T.Text -> Int -> Token) -> TokenIdx -> T.Text -> Token
+
+buildToken_ :: Bool -> Bool -> Bool -> (T.Text -> Token) -> TokenIdx -> T.Text -> Token
 buildToken_ i k t f (TokenIdx start len) txt =
     if i && isTokenIdentifier tok || k && isTokenKeyword tok || t && isTokenNativeType tok
         then tok
         else unspecifiedToken
   where
-    tok = f (subText start len txt) (fromIntegral start)
+    tok = f (textSlice txt start len)
 
-subText :: Int -> Int -> T.Text -> T.Text
-subText i n = T.take n . T.drop i
-{-# INLINE subText #-}
 
 unspecifiedToken :: Token
-unspecifiedToken = Token $ Chunk ChunkUnspec T.empty 0
+unspecifiedToken = Token $ Chunk ChunkUnspec T.empty

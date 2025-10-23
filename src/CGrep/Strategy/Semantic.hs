@@ -49,7 +49,6 @@ import CGrep.Parser.Atom (
 import CGrep.Common(runSearch)
 import CGrep.Parser.Chunk
 import CGrep.Parser.Token
-import CGrep.Common (eligibleForSearch)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)

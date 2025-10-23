@@ -18,7 +18,6 @@
 
 module CGrep.Common (
     runSearch,
-    eligibleForSearch,
     getTargetName,
     getTargetContents,
     expandMultiline,
@@ -94,11 +93,6 @@ subText indices txt = case T.findIndex (== '\n') (T.drop maxOff txt) of
     maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
 {-# INLINE subText #-}
-
-eligibleForSearch :: [a] -> [[Int]] -> Bool
-eligibleForSearch [_] = all notNull
-eligibleForSearch _ = any notNull
-{-# INLINE eligibleForSearch #-}
 
 
 runSearch ::

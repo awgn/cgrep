@@ -46,7 +46,6 @@ import CGrep.Common(runSearch)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token
 import CGrep.Line
-import CGrep.Common (eligibleForSearch)
 import CGrep.Text (textIndices)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask, reader)

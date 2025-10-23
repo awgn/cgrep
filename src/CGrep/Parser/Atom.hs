@@ -82,11 +82,11 @@ mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
     | T.isTokenIdentifier t = case () of
         _
-            | Just wc <- M.lookup str wildCardMap -> wc
-            | isAtomPlaceholder str -> Placeholder str
-            | otherwise -> Exact $ T.mkTokenIdentifier (unescapeAtom str) (T.tOffset t)
+            | Just wc <- M.lookup txt wildCardMap -> wc
+            | isAtomPlaceholder txt -> Placeholder txt 
+            | otherwise -> Exact $ T.mkTokenIdentifier (unescapeAtom txt)
           where
-            str = T.tToken t
+            txt = T.tToken t
     | otherwise = Exact t
 
 {-# INLINE isAtomPlaceholder #-}

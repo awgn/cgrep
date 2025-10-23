@@ -27,7 +27,7 @@ import qualified Data.Text.IO as TIO
 import GHC.IO.Handle (Handle)
 import Options (Options (verbose))
 import Reader (Env (..), ReaderIO)
-import System.IO (Handle, hPutStr, hPutStrLn)
+import System.IO (hPutStr, hPutStrLn)
 
 class (IsString a) => PutStr a where
     putStringLn :: Handle -> a -> IO ()

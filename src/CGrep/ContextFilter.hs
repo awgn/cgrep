@@ -20,8 +20,7 @@
 module CGrep.ContextFilter where
 
 import CGrep.Boundary (Boundary (..))
-import CGrep.Parser.Char (chr, isSpace, ord)
-import qualified Data.Aeson.KeyMap as B
+import CGrep.Parser.Char (chr, isSpace )
 import Data.Bits (Bits (complement, shiftL, shiftR, xor, (.&.), (.|.)))
 import Data.HashMap.Internal.Strict (alter)
 import Data.Int (Int32, Int64)
@@ -36,6 +35,7 @@ import Util (findWithIndex)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Unsafe as TU
+import CGrep.Text (blankByWidth)
 
 type FilterFunction = ContextFilter -> T.Text -> T.Text
 
@@ -190,7 +190,7 @@ runContextFilter conf@ParConfig{..} f txt
                 else
                     if isSpace x
                         then Just (x, ParData xs s')
-                        else Just (' ', ParData xs s')
+                        else Just (blankByWidth x, ParData xs s')
     contextFilter' _ (ParData (T.uncons -> Nothing) _) = Nothing
 
     contextFilter'' :: ParConfig -> ParData -> Maybe (Char, ParData)
@@ -198,7 +198,7 @@ runContextFilter conf@ParConfig{..} f txt
         let s' = nextContextState c s txt f
          in if display s' || isSpace x
                 then Just (x, ParData xs s')
-                else Just (' ', ParData xs s')
+                else Just (blankByWidth x, ParData xs s')
     contextFilter'' _ (ParData (T.uncons -> Nothing) _) = Nothing
 
 {-# INLINE nextContextState #-}

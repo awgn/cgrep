@@ -260,7 +260,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                                 -- liftIO $ putStrLn $ show matches
                                                                 when (vim || editor) $
                                                                     liftIO $
-                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (outFilePath &&& outLineNumb)) matches
+                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
                                                                 putMatches matches
                                                                 -- putOutputMatches []
                                                             )
