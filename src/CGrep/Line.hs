@@ -116,7 +116,7 @@ getLineOffsets txt = UV.fromList $ 0 : (map (+ 1) $ T.indices (T.singleton '\n')
 {-# INLINE getLineOffsets #-}
 
 getLineByOffset :: Int -> T.Text -> UV.Vector Int -> (# T.Text, Int #)
-getLineByOffset off text vec = (# getFirstLine (T.drop (fromIntegral lb) text), lb #)
+getLineByOffset off text vec = (# getFirstLine (T.drop lb text), lb #)
   where
     lb = lowerBound vec off
     getFirstLine bs = case T.lines bs of

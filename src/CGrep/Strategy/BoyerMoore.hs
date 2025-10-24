@@ -26,7 +26,7 @@ import CGrep.Common (
     getTargetName,
     ignoreCase,
  )
-import CGrep.ContextFilter (mkContextFilter)
+import CGrep.ContextFilter (mkContextFilter, mustRunContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (contextFilter)
@@ -34,7 +34,7 @@ import CGrep.Match (Match, mkMatches)
 import CGrep.Common(runSearch)
 
 import CGrep.Parser.Chunk
-import Options (Options (prefix_match, suffix_match, word_match))
+import Options (Options (..))
 import PutMessage (putMessageLnVerb, putMessageLn)
 import Reader (Env (..), ReaderIO)
 
@@ -46,6 +46,7 @@ import qualified Data.Vector.Unboxed as UV
 import qualified Data.Text as T
 import CGrep.Text (textIndices, textSlice, textContainsOneOf)
 import qualified Data.Text.Unsafe as TU
+import qualified Data.Text.Internal.Fusion as TIF
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns _strict = do
@@ -54,17 +55,16 @@ search info f patterns _strict = do
     let filename = getTargetName f
     let !lindex = buildIndex text
 
-    -- transform text
+    -- transform text...
     let ctxFilter = mkContextFilter opt
+    let mustRunStream = ignore_case opt || mustRunContextFilter ctxFilter;
 
-    let [text', _, _] =
-            scanr
-                ($)
-                text
-                [
-                  contextFilter (fst <$> info) ctxFilter False
-                , ignoreCase opt
-                ]
+    let text' = if mustRunStream
+                then (TIF.unstream .
+                     contextFilter (fst <$> info) ctxFilter False .
+                     ignoreCase opt .
+                     TIF.stream) text
+                else text;
 
     -- make shallow search
     let !eligibleForSearch = textContainsOneOf patterns text

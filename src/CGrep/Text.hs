@@ -59,7 +59,6 @@ textContainsOneOf :: [T.Text] -> T.Text -> Bool
 textContainsOneOf ps text = any isJust ((`firstIndex` text) <$> ps)
 {-# INLINE textContainsOneOf #-}
 
-
 textSlice :: T.Text -> Int -> Int -> T.Text
 textSlice txt start len = TU.takeWord8 len $ TU.dropWord8 start txt
 {-# INLINE textSlice #-}

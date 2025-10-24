@@ -20,24 +20,20 @@
 module CGrep.ContextFilter where
 
 import CGrep.Boundary (Boundary (..))
-import CGrep.Parser.Char (chr, isSpace )
+import CGrep.Parser.Char (chr, isSpace)
+import CGrep.Text (blankByWidth)
 import Data.Bits (Bits (complement, shiftL, shiftR, xor, (.&.), (.|.)))
-import Data.HashMap.Internal.Strict (alter)
-import Data.Int (Int32, Int64)
-import Data.List (find, findIndex, nub)
-import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, isJust, fromJust)
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as UV
-import Data.Word (Word64)
+import Data.Int (Int32)
+import Data.List (find, findIndex, nub, sort)
+import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
+import qualified Data.Text as T
+import qualified Data.Text.Internal.Fusion as TIF
+import qualified Data.Text.Internal.Fusion.Common as TIFC
 import Options (Options (..))
 import Util (findWithIndex)
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Unsafe as TU
-import CGrep.Text (blankByWidth)
 
-type FilterFunction = ContextFilter -> T.Text -> T.Text
+type FilterFunction = ContextFilter -> TIF.Stream Char -> TIF.Stream Char
+
 
 data Context = Code | Comment | Literal
     deriving stock (Eq, Show)
@@ -83,6 +79,10 @@ isContextFilterAll :: ContextFilter -> Bool
 isContextFilterAll f = f == contextFilterAll
 {-# INLINE isContextFilterAll #-}
 
+mustRunContextFilter :: ContextFilter -> Bool
+mustRunContextFilter = not . isContextFilterAll
+{-# INLINE mustRunContextFilter #-}
+
 codeFilter :: ContextFilter -> Bool
 codeFilter f = (unFilter f .&. contextBitCode) /= contextBitEmpty
 {-# INLINE codeFilter #-}
@@ -95,32 +95,52 @@ literalFilter :: ContextFilter -> Bool
 literalFilter f = (unFilter f .&. contextBitLiteral) /= contextBitEmpty
 {-# INLINE literalFilter #-}
 
+data StreamB
+
+data StreamBoundary = StreamBoundary
+    { sbBegin :: (# Char, TIF.Stream Char #)
+    , sbBeginLen :: Int
+    , sbEnd :: (# Char, TIF.Stream Char #)
+    , sbEndLen :: Int
+    }
+
+toStreamBoundary :: Boundary -> StreamBoundary
+toStreamBoundary Boundary{..} =
+    StreamBoundary
+        { sbBegin = (# T.head bBegin, TIF.stream (T.tail bBegin) #)
+        , sbBeginLen = bBeginLen
+        , sbEnd = (# T.head bEnd, TIF.stream (T.tail bEnd) #)
+        , sbEndLen = bEndLen
+        }
+
 data ParConfig = ParConfig
-    { commBound :: [Boundary]
-    , litrBound :: [Boundary]
-    , rawBound :: [Boundary]
-    , chrBound :: [Boundary]
+    { commBound :: [StreamBoundary]
+    , litrBound :: [StreamBoundary]
+    , rawBound :: [StreamBoundary]
+    , chrBound :: [StreamBoundary]
     , inits :: !T.Text
     , alterBoundary :: !Bool
     }
 
-mkInit :: T.Text -> T.Text
-mkInit txt = case T.uncons txt of
+safeHead :: T.Text -> T.Text
+safeHead txt = case T.uncons txt of
     Just (x, _) -> T.singleton x
-    Nothing -> ""
-{-# INLINE mkInit #-}
+    Nothing -> T.empty
+{-# INLINE safeHead #-}
 
 mkParConfig :: [Boundary] -> [Boundary] -> [Boundary] -> [Boundary] -> Bool -> ParConfig
 mkParConfig cs ls rs chs ab =
     ParConfig
-        { commBound = cs
-        , litrBound = ls
-        , rawBound = rs
-        , chrBound = chs
-        , inits = mconcat . nub $ (mkInit . bBegin <$> cs) <>
-                            (mkInit . bBegin <$> ls) <>
-                            (mkInit . bBegin <$> rs) <>
-                            (mkInit . bBegin <$> chs)
+        { commBound = toStreamBoundary <$> cs
+        , litrBound = toStreamBoundary <$> ls
+        , rawBound = toStreamBoundary <$> rs
+        , chrBound = toStreamBoundary <$> chs
+        , inits =
+            mconcat . nub . sort $
+                ((safeHead . bBegin) <$> cs)
+                    <> ((safeHead . bBegin) <$> ls)
+                    <> ((safeHead . bBegin) <$> rs)
+                    <> ((safeHead . bBegin) <$> chs)
         , alterBoundary = ab
         }
 
@@ -170,18 +190,18 @@ end_literal :: Char
 end_literal = chr 3
 
 data ParData = ParData
-    { pdText :: {-# UNPACK #-} !T.Text
+    { pdText :: TIF.Stream Char
     , pdState :: !ParState
     }
 
-runContextFilter :: ParConfig -> ContextFilter -> T.Text -> T.Text
+runContextFilter :: ParConfig -> ContextFilter -> TIF.Stream Char -> TIF.Stream Char
 runContextFilter conf@ParConfig{..} f txt
-    | alterBoundary = T.unfoldr (contextFilter' conf) (ParData txt (ParState CodeState1 CodeState1 (codeFilter f) 0))
-    | otherwise = T.unfoldr (contextFilter'' conf) (ParData txt (ParState CodeState1 CodeState1 (codeFilter f) 0))
+    | alterBoundary = TIFC.unfoldr (contextFilter' conf) (ParData txt (ParState CodeState1 CodeState1 (codeFilter f) 0))
+    | otherwise = TIFC.unfoldr (contextFilter'' conf) (ParData txt (ParState CodeState1 CodeState1 (codeFilter f) 0))
   where
     contextFilter' :: ParConfig -> ParData -> Maybe (Char, ParData)
-    contextFilter' c (ParData txt@(T.uncons -> Just (x, xs)) s) =
-        let s' = nextContextState c s txt f
+    contextFilter' conf (ParData (TIFC.uncons -> Just (x, xs)) s) =
+        let s' = nextContextState conf s x xs f
          in if display s'
                 then case (# getContext (ctxState s), getContext (ctxState s') #) of
                     (# Code, Literal #) -> Just (start_literal, ParData xs s')
@@ -191,92 +211,102 @@ runContextFilter conf@ParConfig{..} f txt
                     if isSpace x
                         then Just (x, ParData xs s')
                         else Just (blankByWidth x, ParData xs s')
-    contextFilter' _ (ParData (T.uncons -> Nothing) _) = Nothing
+    contextFilter' _ (ParData (TIFC.uncons -> Nothing) _) = Nothing
 
     contextFilter'' :: ParConfig -> ParData -> Maybe (Char, ParData)
-    contextFilter'' c (ParData txt@(T.uncons -> Just (x, xs)) s) =
-        let s' = nextContextState c s txt f
+    contextFilter'' conf (ParData (TIFC.uncons -> Just (x, xs)) s) =
+        let s' = nextContextState conf s x xs f
          in if display s' || isSpace x
                 then Just (x, ParData xs s')
                 else Just (blankByWidth x, ParData xs s')
-    contextFilter'' _ (ParData (T.uncons -> Nothing) _) = Nothing
+    contextFilter'' _ (ParData (TIFC.uncons -> Nothing) _) = Nothing
 
-{-# INLINE nextContextState #-}
-nextContextState :: ParConfig -> ParState -> T.Text -> ContextFilter -> ParState
-nextContextState c s@ParState{..} txt f
+-- DUMMY
+-- contextFilter'' :: ParConfig -> ParData -> Maybe (Char, ParData)
+-- contextFilter'' c (ParData txt@(T.uncons -> Just (x, xs)) s) = Just (x, ParData xs s)
+-- contextFilter'' _ (ParData (T.uncons -> Nothing) _) = Nothing
+
+nextContextState :: ParConfig -> ParState -> Char -> TIF.Stream Char -> ContextFilter -> ParState
+nextContextState conf s@ParState{..} c cont f
     | skip > 0 = {-# SCC "skip" #-} transState s{skip = skip - 1}
     | CodeState1 <- ctxState =
         {-# SCC "next_code1" #-}
-        if TU.unsafeHead txt `T.elem` inits c
-            then case findPrefixBoundary txt (commBound c) of
-                (# i, Just b #) -> {-# SCC "next_code1_1" #-} transState s{nextState = CommState1 i, display = commentFilter f, skip = (bBeginLen b) - 1}
-                _ -> case findPrefixBoundary txt (litrBound c) of
-                    (# i, Just b #) -> {-# SCC "next_code1_2" #-} transState s{nextState = LitrState1 i, display = codeFilter f, skip = (bBeginLen b) - 1}
-                    _ -> case findPrefixBoundary txt (rawBound c) of
-                        (# i, Just b #) -> {-# SCC "next_code1_3" #-} transState s{nextState = RawState i, display = codeFilter f, skip = (bBeginLen b) - 1}
-                        _ -> case findPrefixBoundary' txt (chrBound c) of
-                            (# i, Just b #) -> transState s{nextState = ChrState i, display = codeFilter f, skip = (bBeginLen b) - 1}
+        if c `T.elem` inits conf
+            then case findPrefixBoundary c cont (commBound conf) of
+                (# i, Just b #) -> {-# SCC "next_code1_1" #-} transState s{nextState = CommState1 i, display = commentFilter f, skip = (sbBeginLen b) - 1}
+                _ -> case findPrefixBoundary c cont (litrBound conf) of
+                    (# i, Just b #) -> {-# SCC "next_code1_2" #-} transState s{nextState = LitrState1 i, display = codeFilter f, skip = (sbBeginLen b) - 1}
+                    _ -> case findPrefixBoundary c cont  (rawBound conf) of
+                        (# i, Just b #) -> {-# SCC "next_code1_3" #-} transState s{nextState = RawState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
+                        _ -> case findPrefixBoundary' c cont (chrBound conf) of
+                            (# i, Just b #) -> transState s{nextState = ChrState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
                             _ -> {-# SCC "next_code1_5" #-} s{ctxState = CodeStateN, nextState = CodeStateN, display = codeFilter f, skip = 0}
             else {-# SCC "next_code1_0" #-} s{ctxState = CodeStateN, nextState = CodeStateN, display = codeFilter f, skip = 0}
     | CodeStateN <- ctxState =
         {-# SCC "next_code" #-}
-        if {-# SCC "next_code_if" #-} TU.unsafeHead txt `T.elem` inits c
+        if {-# SCC "next_code_if" #-} c `T.elem` inits conf
             then
                 {-# SCC "next_code_then" #-}
-                case findPrefixBoundary txt (commBound c) of
-                    (# i, Just b #) -> {-# SCC "next_code1_1" #-} transState s{nextState = CommState1 i, display = commentFilter f, skip = (bBeginLen b) - 1}
-                    _ -> case findPrefixBoundary txt (litrBound c) of
-                        (# i, Just b #) -> {-# SCC "next_code1_2" #-} transState s{nextState = LitrState1 i, display = codeFilter f, skip = (bBeginLen b) - 1}
-                        _ -> case findPrefixBoundary txt (rawBound c) of
-                            (# i, Just b #) -> {-# SCC "next_code1_3" #-} transState s{nextState = RawState i, display = codeFilter f, skip = (bBeginLen b) - 1}
-                            _ -> case findPrefixBoundary' txt (chrBound c) of
-                                (# i, Just b #) -> transState s{nextState = ChrState i, display = codeFilter f, skip = (bBeginLen b) - 1}
+                case findPrefixBoundary c cont (commBound conf) of
+                    (# i, Just b #) -> {-# SCC "next_code1_1" #-} transState s{nextState = CommState1 i, display = commentFilter f, skip = (sbBeginLen b) - 1}
+                    _ -> case findPrefixBoundary c cont (litrBound conf) of
+                        (# i, Just b #) -> {-# SCC "next_code1_2" #-} transState s{nextState = LitrState1 i, display = codeFilter f, skip = (sbBeginLen b) - 1}
+                        _ -> case findPrefixBoundary c cont (rawBound conf) of
+                            (# i, Just b #) -> {-# SCC "next_code1_3" #-} transState s{nextState = RawState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
+                            _ -> case findPrefixBoundary' c cont (chrBound conf) of
+                                (# i, Just b #) -> transState s{nextState = ChrState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
                                 _ -> {-# SCC "next_code_5" #-} s
             else {-# SCC "next_code_else" #-} s
     | CommState1 n <- ctxState =
-        let Boundary{..} = commBound c !! n
+        let !StreamBoundary{..} = commBound conf !! n
+            (# ec, es #) = sbEnd
          in {-# SCC "next_comm1" #-}
-            if bEnd `T.isPrefixOf` txt
-                then transState $ s{nextState = CodeState1, display = commentFilter f, skip = bEndLen - 1}
+            if c == ec && es `TIFC.isPrefixOf` cont
+                then transState $ s{nextState = CodeState1, display = commentFilter f, skip = sbEndLen - 1}
                 else s{ctxState = CommStateN n, nextState = CommStateN n, display = commentFilter f, skip = 0}
     | CommStateN n <- ctxState =
-        let Boundary{..} = commBound c !! n
+        let !StreamBoundary{..} = commBound conf !! n
+            (# ec, es #) = sbEnd
          in {-# SCC "next_comm" #-}
-            if bEnd `T.isPrefixOf` txt
-                then transState $ s{nextState = CodeState1, display = commentFilter f, skip = bEndLen - 1}
+            if c == ec && es `TIFC.isPrefixOf` cont
+                then transState $ s{nextState = CodeState1, display = commentFilter f, skip = sbEndLen - 1}
                 else s
     | LitrState1 n <- ctxState =
-        if T.head txt == '\\'
+        if c == '\\'
             then s{display = displayContext ctxState f, skip = 1}
             else
-                let Boundary{..} = litrBound c !! n
+                let !StreamBoundary{..} = litrBound conf !! n
+                    (# ec, es #) = sbEnd
                  in {-# SCC "next_liter" #-}
-                    if bEnd `T.isPrefixOf` txt
-                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = bEndLen - 1}
+                    if c == ec && es `TIFC.isPrefixOf` cont
+                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
                         else s{ctxState = LitrStateN n, nextState = LitrStateN n, display = literalFilter f, skip = 0}
     | LitrStateN n <- ctxState =
-        if T.head txt == '\\'
+        if c == '\\'
             then s{display = displayContext ctxState f, skip = 1}
             else
-                let Boundary{..} = litrBound c !! n
+                let !StreamBoundary{..} = litrBound conf !! n
+                    (# ec, es #) = sbEnd
                  in {-# SCC "next_liter" #-}
-                    if bEnd `T.isPrefixOf` txt
-                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = bEndLen - 1}
+                    if c == ec && es `TIFC.isPrefixOf` cont
+                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
                         else s
     | ChrState n <- ctxState =
-        if T.head txt == '\\'
+        if c == '\\'
             then s{display = displayContext ctxState f, skip = 1}
             else
-                let Boundary{..} = chrBound c !! n
+                let !StreamBoundary{..} = chrBound conf !! n
+                    (# ec, es #) = sbEnd
                  in {-# SCC "next_chr" #-}
-                    if bEnd `T.isPrefixOf` txt
-                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = bEndLen - 1}
+                    if c == ec && es `TIFC.isPrefixOf` cont
+                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
                         else s{display = literalFilter f, skip = 0}
     | RawState n <- ctxState =
-        let Boundary{..} = rawBound c !! n
+        let !StreamBoundary{..} = rawBound conf !! n
+            (# ec, es #) = sbEnd
          in {-# SCC "next_raw" #-}
-            if bEnd `T.isPrefixOf` txt
-                then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = bEndLen - 1}
+            if c == ec && es `TIFC.isPrefixOf` cont
+                then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
                 else s{display = literalFilter f, skip = 0}
 
 displayContext :: ContextState -> ContextFilter -> Bool
@@ -296,18 +326,28 @@ transState s@ParState{..}
     | otherwise = s
 {-# INLINE transState #-}
 
-findPrefixBoundary :: T.Text -> [Boundary] -> (# Int, Maybe Boundary #)
-findPrefixBoundary xs vb =
-    {-# SCC "findPrefixBoundary" #-}
-    findWithIndex (\(Boundary{..}) -> bBegin `T.isPrefixOf` xs) vb
+findPrefixBoundary :: Char -> TIF.Stream Char -> [StreamBoundary] -> (# Int, Maybe StreamBoundary #)
+findPrefixBoundary x xs vb =
+    findWithIndex
+        ( \(StreamBoundary{..}) ->
+            let (# c, cont #) = sbBegin
+             in c == x && cont `TIFC.isPrefixOf` xs
+        )
+        vb
 {-# INLINE findPrefixBoundary #-}
 
-findPrefixBoundary' :: T.Text -> [Boundary] -> (# Int, Maybe Boundary #)
-findPrefixBoundary' txt bs =
-    case findWithIndex (\(Boundary{..}) -> bBegin `T.isPrefixOf` txt) bs of
-        elm@(# idx, Just b@(Boundary{..}) #) -> case T.tail txt of
-            (T.uncons -> Just (y, ys)) ->
+findPrefixBoundary' :: Char -> TIF.Stream Char -> [StreamBoundary] -> (# Int, Maybe StreamBoundary #)
+findPrefixBoundary' x xs vb =
+    case findWithIndex (\(StreamBoundary{..}) -> let (# c, cont #) = sbBegin in c == x && cont `TIFC.isPrefixOf` xs) vb of
+        elm@(# _, Just StreamBoundary{..} #) -> case xs of
+            (TIFC.uncons -> Just (y, ys)) ->
                 let skip = if y == '\\' then 1 else 0
-                 in if bEnd `T.isPrefixOf` T.drop skip ys then elm else (# 0, Nothing #)
+                 in case TIFC.drop skip ys of
+                        (TIFC.uncons -> Just (z, zs)) ->
+                            let (#e, es #) = sbEnd
+                             in if z == e && es `TIFC.isPrefixOf` zs
+                                then elm
+                                else (# 0, Nothing #)
+                        _ -> (# 0, Nothing #)
             _ -> (# 0, Nothing #)
         _ -> (# 0, Nothing #)

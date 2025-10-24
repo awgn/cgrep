@@ -49,6 +49,9 @@ import Reader (ReaderIO)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (Chunk)
 
+import qualified Data.Text.Internal.Fusion as TIF
+import qualified Data.Text.Internal.Fusion.Common as TIFC
+
 takeN :: Int -> String -> String
 takeN n xs
     | length xs > n = take n xs <> "..."
@@ -78,11 +81,13 @@ expandMultiline Options{multiline = n} xs
     | otherwise = T.unlines $ map T.unwords $ spanGroup n (T.lines xs)
 {-# INLINE expandMultiline #-}
 
-ignoreCase :: Options -> T.Text -> T.Text
+
+ignoreCase :: Options -> TIF.Stream Char -> TIF.Stream Char
 ignoreCase opt
-    | ignore_case opt = T.map toLower
+    | ignore_case opt = TIFC.toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}
+
 
 subText :: [[Int]] -> T.Text -> T.Text
 subText [] txt = txt
@@ -90,7 +95,7 @@ subText indices txt = case T.findIndex (== '\n') (T.drop maxOff txt) of
     Nothing -> txt
     (Just n) -> T.take (maxOff + n) txt
   where
-    maxOff = fromIntegral $ maximum (lastDef 0 <$> indices)
+    maxOff = maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
 {-# INLINE subText #-}
 

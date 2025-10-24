@@ -1,4 +1,4 @@
-/* hello world */
+/* main hello world */
 int
 main(int argc, char *argv[])
 {

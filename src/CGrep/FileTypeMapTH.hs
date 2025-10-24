@@ -55,6 +55,8 @@ import CGrep.FileTypeMap
 import CGrep.Parser.Char
 import CGrep.FileKind
 
+import qualified Data.Text.Internal.Fusion as TIF
+
 fileTypeInfoMap :: FileTypeInfoMap
 fileTypeInfoMap = $(lift $
     FileTypeInfoMap
@@ -4806,7 +4808,7 @@ fileTypeInfoMap = $(lift $
                        )
             ])
 
-contextFilter :: Maybe FileType -> ContextFilter -> Bool -> T.Text -> T.Text
+contextFilter :: Maybe FileType -> ContextFilter -> Bool -> TIF.Stream Char -> TIF.Stream Char
 contextFilter _ (isContextFilterAll -> True) False txt = txt
 contextFilter Nothing _ _ txt = txt
 contextFilter (Just ftype) filt alterBoundary txt

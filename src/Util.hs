@@ -77,8 +77,8 @@ mapMaybe' f = foldr g []
 findWithIndex :: forall a. (a -> Bool) -> [a] -> (# Int, Maybe a #)
 findWithIndex predicate = go predicate 0
   where
-    go :: forall a. (a -> Bool) -> Int -> [a] -> (# Int, Maybe a #)
-    go p _ [] = (# 0, Nothing #)
+    go :: (a -> Bool) -> Int -> [a] -> (# Int, Maybe a #)
+    go _ _ [] = (# 0, Nothing #)
     go p !index (x : xs)
         | p x = (# index, Just x #)
         | otherwise = go p (index + 1) xs
