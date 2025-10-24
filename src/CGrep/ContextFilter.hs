@@ -190,7 +190,7 @@ end_literal :: Char
 end_literal = chr 3
 
 data ParData = ParData
-    { pdText :: TIF.Stream Char
+    { pdText :: !(TIF.Stream Char)
     , pdState :: !ParState
     }
 

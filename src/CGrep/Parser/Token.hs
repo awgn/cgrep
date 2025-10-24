@@ -74,7 +74,6 @@ import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
 import qualified Data.Sequence as S
 
 import Control.Monad.ST (ST, runST)
-import Data.MonoTraversable (MonoFoldable (oforM_))
 import Data.STRef (STRef, modifySTRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 import Data.Word (Word8)
 

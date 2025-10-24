@@ -133,7 +133,6 @@ executable cgrep-v9
     template-haskell,
     mmap,
     monad-loops,
-    mono-traversable,
     mtl,
     optparse-applicative,
     os-string,

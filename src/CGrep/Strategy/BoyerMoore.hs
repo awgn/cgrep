@@ -29,7 +29,7 @@ import CGrep.Common (
 import CGrep.ContextFilter (mkContextFilter, mustRunContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
-import CGrep.FileTypeMapTH (contextFilter)
+import CGrep.FileTypeMapTH (mkStreamFilter)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Common(runSearch)
 
@@ -58,10 +58,11 @@ search info f patterns _strict = do
     -- transform text...
     let ctxFilter = mkContextFilter opt
     let mustRunStream = ignore_case opt || mustRunContextFilter ctxFilter;
+    let !contextFilter = mkStreamFilter (fst <$> info) ctxFilter False
 
     let text' = if mustRunStream
                 then (TIF.unstream .
-                     contextFilter (fst <$> info) ctxFilter False .
+                     contextFilter .
                      ignoreCase opt .
                      TIF.stream) text
                 else text;

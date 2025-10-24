@@ -37,7 +37,7 @@ module CGrep.FileTypeMap (
 ) where
 
 import Language.Haskell.TH.Syntax (Lift)
-import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
+import CGrep.FileType (FileSelector (..), FileType (..))
 import CGrep.Boundary (Boundary (..))
 import CGrep.Parser.Char
 import CGrep.FileKind

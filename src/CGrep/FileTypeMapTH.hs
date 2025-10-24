@@ -24,7 +24,7 @@
 
 module CGrep.FileTypeMapTH (
     fileTypeInfoMap,
-    contextFilter,
+    mkStreamFilter,
     fileTypeLookup,
     fileTypeInfoLookup,
     dumpFileTypeInfoMap,
@@ -42,17 +42,14 @@ import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
 import Options (Options (Options, code_only, force_type, hdr_only, keyword))
 import System.OsPath (OsPath, takeBaseName, takeExtension, takeFileName)
-import System.OsPath.Types (OsString)
 import qualified System.OsPath as OS
 import Language.Haskell.TH.Syntax (lift)
 
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
 
 import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
 import CGrep.FileTypeMap
-import CGrep.Parser.Char
 import CGrep.FileKind
 
 import qualified Data.Text.Internal.Fusion as TIF
@@ -4808,15 +4805,15 @@ fileTypeInfoMap = $(lift $
                        )
             ])
 
-contextFilter :: Maybe FileType -> ContextFilter -> Bool -> TIF.Stream Char -> TIF.Stream Char
-contextFilter _ (isContextFilterAll -> True) False txt = txt
-contextFilter Nothing _ _ txt = txt
-contextFilter (Just ftype) filt alterBoundary txt
-    | Just fun <- parFunc = fun filt txt
-    | otherwise = txt
+mkStreamFilter :: Maybe FileType -> ContextFilter -> Bool -> (TIF.Stream Char -> TIF.Stream Char)
+mkStreamFilter _ (isContextFilterAll -> True) False = id
+mkStreamFilter Nothing _ _ = id
+mkStreamFilter (Just ftype) filt alterBoundary
+    | Just fun <- parFunc = fun filt
+    | otherwise           = id
   where
     parFunc = mkFilterFunction alterBoundary =<< Map.lookup ftype (unMapInfo fileTypeInfoMap)
-{-# INLINE contextFilter #-}
+
 
 fileTypeLookup :: Options -> OsPath -> Maybe (FileType, FileKind)
 fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (hdr_only opts)
