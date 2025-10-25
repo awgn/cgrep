@@ -20,7 +20,6 @@ module CmdOptions (
     parserInfo,
 ) where
 
-import Data.Version (showVersion)
 import Options.Applicative (
     Parser,
     ParserInfo,
@@ -47,6 +46,9 @@ import Options.Applicative (
 
 import Options (Options (..))
 import Paths_cgrep (version)
+import Options.Applicative.Builder (infoOption)
+import Options.Applicative (hidden)
+import Data.Version (showVersion)
 
 -- Parser per le opzioni
 options :: Parser Options
@@ -224,11 +226,16 @@ options = Options
         ( long "fileline"
        <> help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" )
     -- Miscellaneous
-    <*> option auto
+    <*> switch
         ( long "verbose"
+       <> help "Enable verbose mode"
+       )
+    <*> option auto
+        ( long "debug"
        <> metavar "INT"
        <> value 0
-       <> help "Verbose level: 1, 2, 3 or 4" )
+       -- <> help "debug level: 1, 2, 3 or 4"
+       <> hidden)
     <*> switch
         ( long "null-output"
        <> help "Disable output for performance evaluation" )
@@ -240,9 +247,15 @@ options = Options
        <> help "Show color palette" )
     <*> many (argument str (metavar "PATTERN FILES..."))
 
--- Informazioni del parser principale
+parseVersion :: Parser (a -> a)
+parseVersion = infoOption ("cgrep " <> showVersion version)
+  ( long "version"
+ <> help "Show version information and exit"
+ -- <> hidden -- Uncomment to hide it from the main help message
+  )
+
 parserInfo :: ParserInfo Options
-parserInfo = info (options <**> helper)
+parserInfo = info (options <**> helper <**> parseVersion)
     ( fullDesc
    <> progDesc "Context-aware grep for source codes"
    <> header ("cgrep " <> showVersion version <> " - Usage: cgrep [OPTION] [PATTERN] files...") )

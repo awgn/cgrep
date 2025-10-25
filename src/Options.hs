@@ -75,7 +75,8 @@ data Options = Options
     , editor :: Bool
     , fileline :: Bool
     , -- Misc:
-      verbose :: Int
+      verbose :: Bool
+    , debug :: Int
     , null_output :: Bool
     , no_shallow :: Bool
     , show_palette :: Bool

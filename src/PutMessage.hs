@@ -29,7 +29,7 @@ import Data.String (IsString)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.IO.Handle (Handle)
-import Options (Options (verbose))
+import Options (Options (..))
 import Reader (Env (..), ReaderIO)
 import System.IO (hPutStr, hPutStrLn)
 
@@ -51,7 +51,7 @@ instance PutStr T.Text where
 
 putMessageLnVerb :: (PutStr a) => Int -> Handle -> a -> ReaderIO ()
 putMessageLnVerb l h xs = do
-    n <- reader $ verbose . opt
+    n <- reader $ debug . opt
     when (n >= l) $
         liftIO $
             putStringLn h xs

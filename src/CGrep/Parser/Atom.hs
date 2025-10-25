@@ -38,7 +38,6 @@ import Util (unquoteT)
 
 import qualified CGrep.Parser.Token as T
 
-import Data.Containers.ListUtils (nubOrd)
 import qualified Data.Text as T
 
 data Atom

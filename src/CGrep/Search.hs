@@ -248,7 +248,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                     )
                                     >>= \a -> modifyIORef' asRef (a :)
                 when (null fs) $ do
-                    when (verbose > 3) $ putMessageLn stderr $ "[" <> T.pack (show idx) <> "]@" <> T.pack (show processor) <> " searcher terminated!"
+                    when (debug > 3) $ putMessageLn stderr $ "[" <> T.pack (show idx) <> "]@" <> T.pack (show processor) <> " searcher terminated!"
                     throwE ()
 
     -- wait workers to complete the job

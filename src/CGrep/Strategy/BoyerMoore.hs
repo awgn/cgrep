@@ -20,18 +20,14 @@ module CGrep.Strategy.BoyerMoore (search) where
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 
-import CGrep.Common (
-    -- expandMultiline,
-    getTargetContents,
-    getTargetName,
-    ignoreCase, expandMultiline,
- )
+-- expandMultiline,
+
+import CGrep.Common (expandMultiline, getTargetContents, getTargetName, ignoreCase, runSearch)
 import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (mkContextFilterFn)
 import CGrep.Match (Match, mkMatches)
-import CGrep.Common(runSearch)
 
 import CGrep.Parser.Chunk
 import Options (Options (..))
@@ -41,11 +37,11 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
-import CGrep.Line (getLineByOffset, getLineOffsets, buildIndex)
-import qualified Data.Vector.Unboxed as UV
+import CGrep.Line (buildIndex, getLineByOffset, getLineOffsets)
+import CGrep.Text (textContainsOneOf, textIndices, textSlice)
 import qualified Data.Text as T
-import CGrep.Text (textIndices, textSlice, textContainsOneOf)
 import qualified Data.Text.Unsafe as TU
+import qualified Data.Vector.Unboxed as UV
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns _strict = do
@@ -71,9 +67,15 @@ search info f patterns _strict = do
         let lineOffsets = getLineOffsets text''
         let indices = textIndices patterns text''
 
-        let !chunks = concat $ zipWith (\p offsets ->
-                let blen = TU.lengthWord8 p
-                 in map (\offset -> Chunk ChunkUnspec (textSlice text'' offset blen)) offsets) patterns indices
+        let !chunks =
+                concat $
+                    zipWith
+                        ( \p offsets ->
+                            let blen = TU.lengthWord8 p
+                             in map (\offset -> Chunk ChunkUnspec (textSlice text'' offset blen)) offsets
+                        )
+                        patterns
+                        indices
 
         let !chunks' =
                 if word_match opt || prefix_match opt || suffix_match opt
@@ -84,25 +86,31 @@ search info f patterns _strict = do
         putMessageLnVerb 2 stderr $ "lindex    : " <> show lindex
         mkMatches lindex filename text'' chunks'
 
-
 filterChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
 filterChunk opts loff info text chunk
     | word_match opts =
         let (# line', _ #) = getLineByOffset ((cOffset chunk)) text loff
             !cs = parseChunks info line'
             !off = cOffset chunk
-        in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) $ cs
+         in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) $ cs
     | prefix_match opts =
         let !(# line', _ #) = getLineByOffset (cOffset chunk) text loff
             !cs = parseChunks info line'
-        in any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' &&
-                           cOffset chunk' == cOffset chunk) cs
+         in any
+                ( \chunk' ->
+                    cToken chunk `T.isPrefixOf` cToken chunk'
+                        && cOffset chunk' == cOffset chunk
+                )
+                cs
     | suffix_match opts =
         let !(# line', _ #) = getLineByOffset (cOffset chunk) text loff
             !cs = parseChunks info line'
             !tokLen = T.length (cToken chunk)
-        in any (\chunk' ->
-                let !tokLen' = T.length (cToken chunk')
-                in cToken chunk `T.isSuffixOf` cToken chunk' &&
-                   cOffset chunk' + (tokLen' - tokLen) == cOffset chunk) cs
+         in any
+                ( \chunk' ->
+                    let !tokLen' = T.length (cToken chunk')
+                     in cToken chunk `T.isSuffixOf` cToken chunk'
+                            && cOffset chunk' + (tokLen' - tokLen) == cOffset chunk
+                )
+                cs
     | otherwise = undefined

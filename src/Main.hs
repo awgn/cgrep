@@ -18,9 +18,7 @@
 
 module Main (main) where
 
-
 import Data.Char (toLower)
-import Data.Version (showVersion)
 
 import Control.Monad (void, when)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
@@ -32,7 +30,7 @@ import GHC.IO.Handle (hIsTerminalDevice)
 import Options.Applicative (execParser)
 import System.Environment (withArgs)
 import System.Exit (exitSuccess)
-import System.IO (stderr, stdin, stdout)
+import System.IO (stdin, stdout)
 
 import CGrep.Common (trimT)
 import CGrep.FileType (readKindList, readTypeList)
@@ -47,8 +45,6 @@ import Config (
     getConfig,
  )
 import Options (Options (..))
-import Paths_cgrep (version)
-import PutMessage (putMessageLnVerb)
 
 import Reader (Env (..))
 
@@ -57,10 +53,10 @@ import Data.Functor (($>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 
-import qualified System.OsString as OS
-import System.OsPath (OsPath)
-import qualified OsPath as OS
 import Data.List (union, (\\))
+import qualified OsPath as OS
+import System.OsPath (OsPath)
+import qualified System.OsString as OS
 
 main :: IO ()
 main = do
@@ -115,7 +111,6 @@ main = do
     let types = (if null l0 then configFileTypes conf else l0 `union` l1) \\ l2
         kinds = if null kind_filter then configFileKinds conf else readKindList kind_filter
 
-
     -- specify number of cores
     cap <- case jobs <|> configJobs conf of
         (Just j) -> setNumCapabilities (j + 1) $> j
@@ -132,4 +127,4 @@ readPatternsFromFile f
 splitPatternsAndFiles :: [T.Text] -> ([T.Text], [OsPath])
 splitPatternsAndFiles [] = ([], [])
 splitPatternsAndFiles [x] = ([x], [])
-splitPatternsAndFiles (x:xs) = ([x], OS.fromText <$> xs)
+splitPatternsAndFiles (x : xs) = ([x], OS.fromText <$> xs)

@@ -28,13 +28,12 @@ module CGrep.Line (
     lowerBound,
 ) where
 
-import qualified Data.Text as T
-import qualified Data.Text.Internal.Search as T
-import qualified Data.Vector.Unboxed as UV
 import CGrep.Text (textSlice)
 import Data.Bits
-import Debug.Trace (traceShowId)
+import qualified Data.Text as T
+import qualified Data.Text.Internal.Search as T
 import qualified Data.Text.Unsafe as TU
+import qualified Data.Vector.Unboxed as UV
 
 -- A LineIndex holds the original text and a vector of line start offsets.
 data LineIndex
@@ -119,13 +118,11 @@ getLineByOffset off text vec = (# line, lb #)
     !line = T.takeWhile (/= '\n') dropped
 {-# INLINE getLineByOffset #-}
 
-
 lowerBound :: UV.Vector Int -> Int -> Int
 lowerBound vec v
-    | UV.null vec = 0  -- caso edge
+    | UV.null vec = 0 -- caso edge
     | otherwise = lowerBoundGo vec v 0 (UV.length vec - 1)
 {-# INLINE lowerBound #-}
-
 
 lowerBoundGo :: UV.Vector Int -> Int -> Int -> Int -> Int
 lowerBoundGo vec v !left !right
