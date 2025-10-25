@@ -17,10 +17,10 @@
 --
 
 module CGrep.Strategy.Levenshtein (search) where
-import CGrep.Line (getLineOffsets)
+import CGrep.Line (buildIndex)
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ask, reader)
+import Control.Monad.Trans.Reader (ask)
 
 import CGrep.Common (
     expandMultiline,
@@ -36,11 +36,10 @@ import CGrep.FileTypeMap (
  )
 import CGrep.FileTypeMapTH (
      mkContextFilterFn,
-     fileTypeLookup,
  )
 
 import CGrep.Match (Match, mkMatches)
-import CGrep.Parser.Chunk (Chunk, cToken, parseChunks)
+import CGrep.Parser.Chunk (cToken, parseChunks)
 
 import Data.Foldable (Foldable (toList))
 import PutMessage (putMessageLnVerb)
@@ -50,39 +49,30 @@ import System.OsPath (OsPath)
 import qualified Data.Text as T
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns strict = do
-    undefined
-    -- Env{..} <- ask
-    -- text <- liftIO $ getTargetContents f
-    -- let filename = getTargetName f
+search info f patterns _strict = do
+    Env{..} <- ask
+    text <- liftIO $ getTargetContents f
+    let filename = getTargetName f
+    let lindex = buildIndex text
 
-    -- -- transform text
+    -- transform text
+    let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
 
-    -- let ctxFilter = mkContextFilter opt
+    let text' = ignoreCase opt text
+    let text'' = expandMultiline opt . contextFilter $ text'
 
-    -- let [text''', _, _, _] =
-    --         scanr
-    --             ($)
-    --             text
-    --             [ expandMultiline opt
-    --             , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
-    --             , ignoreCase opt
-    --             ]
+    -- parse source code, get the Cpp.Token list...
 
-    --     -- parse source code, get the Cpp.Token list...
+    let tokens' = parseChunks (snd <$> info) text''
 
-    --     tokens' = parseChunks (snd <$> info) text'''
+    -- filter tokens...
 
-    --     -- filter tokens...
+    let patterns' = map T.unpack patterns
+    let matches = filter (\t -> any (\p -> p ~== T.unpack (cToken t)) patterns') (toList tokens')
 
-    --     patterns' = map C.unpack patterns
-    --     matches = filter (\t -> any (\p -> p ~== C.unpack (cToken t)) patterns') (toList tokens')
+    putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
+    putMessageLnVerb 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
+    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens'
+    putMessageLnVerb 2 stderr $ "matches   : " <> show matches
 
-    -- putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
-    -- putMessageLnVerb 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
-    -- putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens'
-    -- putMessageLnVerb 2 stderr $ "matches   : " <> show matches
-
-    -- let lineOffsets = getAllLineOffsets text
-
-    -- mkOutputElements lineOffsets filename text text''' matches
+    mkMatches lindex filename text'' matches

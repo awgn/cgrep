@@ -40,19 +40,16 @@ import CGrep.FileTypeMap (FileTypeInfo (..), CharSet (..), IsCharSet (..))
 import Control.Monad.ST (ST, runST)
 import Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 
--- import Data.Maybe (fromMaybe, fromJust)
-import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
+import Data.Sequence ((|>))
 import qualified Data.Sequence as S
 import Data.Word (Word8)
 import qualified Data.Text as T
--- import qualified Data.Text.Internal.StrictBuilder as T
 import qualified Data.Text.Unsafe as TU
 
 import CGrep.Text (iterM, textOffsetWord8)
-import Data.Coerce (coerce)
 import CGrep.Parser.Char (isDigit, isSpace, isCharNumber, isBracket')
 
-newtype ChunkType = ChunkType {unChunkType :: Word8}
+newtype ChunkType = ChunkType {_unChunkType :: Word8}
     deriving newtype (Eq, Ord)
 
 instance Show ChunkType where
@@ -108,7 +105,7 @@ data MatchLine = MatchLine
     }
     deriving stock (Eq, Show)
 
-newtype ChunkState = ChunkState {unChunkState :: Word8}
+newtype ChunkState = ChunkState {_unChunkState :: Word8}
     deriving newtype (Eq, Ord)
 
 instance Show ChunkState where
@@ -134,12 +131,14 @@ pattern StateBracket = ChunkState 3
 pattern StateOther :: ChunkState
 pattern StateOther = ChunkState 4
 
+{-# COMPLETE StateSpace, StateAlpha, StateDigit, StateBracket, StateOther #-}
+
 (<~) :: STRef s a -> a -> ST s ()
 ref <~ !x = writeSTRef ref x
 {-# INLINE (<~) #-}
 
 
-toChunk :: T.Text ->  Maybe Int -> Int -> Chunk
+toChunk :: T.Text -> Maybe Int -> Int -> Chunk
 toChunk _ Nothing _ = error "CGrep.Parser.Chunk.toChunk: Nothing (Internal Error)"
 toChunk text (Just beg) cur =
     let chunk = TU.takeWord8 (cur - beg) (TU.dropWord8 beg text)
@@ -225,8 +224,7 @@ parseChunks' txt = do
     tokens <- readSTRef tokensR
     lastAcc <- readSTRef accR
 
-    if lastAcc /= Just (TU.lengthWord8 txt)
-        then do
-            return $ tokens |> toChunk txt lastAcc (TU.lengthWord8 txt)
-        else
-            return $ tokens
+    case lastAcc of
+        Nothing -> return tokens
+        Just off | off == TU.lengthWord8 txt -> return tokens
+                 | otherwise -> return $ tokens |> toChunk txt lastAcc (TU.lengthWord8 txt)
