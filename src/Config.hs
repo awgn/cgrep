@@ -23,11 +23,11 @@ module Config (
 ) where
 
 import Control.Monad (MonadPlus (mzero), filterM, forM_)
+import System.Console.ANSI.Types (ConsoleIntensity (BoldIntensity), xterm6LevelRGB)
 import System.Directory (doesFileExist, getHomeDirectory)
-import System.Console.ANSI.Types (xterm6LevelRGB, ConsoleIntensity (BoldIntensity))
 
 import Data.Aeson (FromJSON (parseJSON), (.!=), (.:?))
-import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Yaml as Y
 
 import CGrep.FileType (FileType)
@@ -37,9 +37,9 @@ import Data.List.Split (splitOn)
 import System.FilePath ((</>))
 
 import CGrep.FileKind (FileKind)
-import Text.Read (readMaybe)
-import System.Console.ANSI (SGR(..), ConsoleLayer (..), ColorIntensity (..), Color (..))
+import System.Console.ANSI (Color (..), ColorIntensity (..), ConsoleLayer (..), SGR (..))
 import System.Console.ANSI.Codes (setSGRCode)
+import Text.Read (readMaybe)
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"

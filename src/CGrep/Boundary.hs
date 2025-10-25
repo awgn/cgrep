@@ -24,9 +24,10 @@ module CGrep.Boundary (
     pattern End,
 )
 where
-import Language.Haskell.TH.Syntax (Lift)
-import Data.Word (Word8)
+
 import qualified Data.Text as T
+import Data.Word (Word8)
+import Language.Haskell.TH.Syntax (Lift)
 
 data Boundary = Boundary
     { bBegin :: T.Text

@@ -1,3 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE KindSignatures #-}
 --
 -- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
@@ -16,12 +20,8 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE TypeApplications #-}
 
 module CGrep.FileTypeMap (
     FileTypeMap (..),
@@ -36,19 +36,20 @@ module CGrep.FileTypeMap (
     types,
 ) where
 
-import Language.Haskell.TH.Syntax (Lift)
-import CGrep.FileType (FileSelector (..), FileType (..))
 import CGrep.Boundary (Boundary (..))
-import CGrep.Parser.Char
 import CGrep.FileKind
+import CGrep.FileType (FileSelector (..), FileType (..))
+import CGrep.Parser.Char
+import Language.Haskell.TH.Syntax (Lift)
 
-import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as Map
 import qualified Data.Text as T
 
 newtype FileTypeInfoMap = FileTypeInfoMap
     { unMapInfo :: Map.Map FileType FileTypeInfo
-    } deriving stock (Eq, Show, Lift)
+    }
+    deriving stock (Eq, Show, Lift)
 
 newtype FileTypeMap = FileTypeMap
     { unMap :: Map.Map FileSelector (FileType, FileKind)
@@ -102,7 +103,6 @@ data CharSet
     | JuliaIdentCont
     | ListIdent
     | AgdaIdent
-
     deriving stock (Eq, Show, Lift)
 
 class IsCharSet (cs :: CharSet) where
@@ -225,7 +225,7 @@ instance IsCharSet 'AgdaIdent where
     {-# INLINE isValidChar #-}
 
 (~~) :: T.Text -> T.Text -> Boundary
-b ~~ e = Boundary {bBegin = b, bBeginLen = T.length b, bEnd = e, bEndLen = T.length e}
+b ~~ e = Boundary{bBegin = b, bBeginLen = T.length b, bEnd = e, bEndLen = T.length e}
 {-# INLINE (~~) #-}
 
 reserved :: [T.Text] -> HM.HashMap T.Text WordType

@@ -17,8 +17,8 @@
 --
 
 module Reader (
-    Env (..)
-  , ReaderIO
+    Env (..),
+    ReaderIO,
 ) where
 
 import Config (Config)

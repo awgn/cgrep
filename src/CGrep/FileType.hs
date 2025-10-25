@@ -29,11 +29,10 @@ module CGrep.FileType (
 where
 
 import CGrep.FileKind (FileKind)
+import Language.Haskell.TH.Syntax (Lift)
 import System.OsPath (OsPath)
 import qualified System.OsPath as OS
 import Util (prettyRead)
-import Language.Haskell.TH.Syntax (Lift)
-
 
 data FileType
     = Agda

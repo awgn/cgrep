@@ -29,8 +29,8 @@ module Util (
 ) where
 
 import qualified Data.Sequence as S
-import Text.Read (readMaybe)
 import qualified Data.Text as T
+import Text.Read (readMaybe)
 
 partitionM :: (Monad m) => (a -> m Bool) -> [a] -> m ([a], [a])
 partitionM _ [] = return ([], [])
@@ -52,8 +52,8 @@ prettyRead xs err =
 
 spanGroup :: Int -> [a] -> [[a]]
 spanGroup n xs
-  | length xs < n = [] -- Stop if the remaining list is shorter than n
-  | otherwise     = take n xs : spanGroup n (drop 1 xs)
+    | length xs < n = [] -- Stop if the remaining list is shorter than n
+    | otherwise = take n xs : spanGroup n (drop 1 xs)
 
 spanGroupSeq :: Int -> S.Seq a -> [S.Seq a]
 spanGroupSeq _ S.Empty = []
@@ -61,8 +61,9 @@ spanGroupSeq 1 xs = [xs]
 spanGroupSeq n xs = S.take n xs : spanGroupSeq n (S.drop 1 xs)
 {-# INLINE spanGroupSeq #-}
 
--- | Removes a single pair of matching quotes ('"' or '\'')
--- | from the beginning and end of a Text.
+{- | Removes a single pair of matching quotes ('"' or '\'')
+| from the beginning and end of a Text.
+-}
 unquoteT :: T.Text -> T.Text
 unquoteT txt =
     case T.uncons txt of
@@ -91,6 +92,6 @@ findWithIndex predicate = go predicate 0
         | otherwise = go p (index + 1) xs
 
 unsafeHead :: [a] -> a
-unsafeHead []    = error "unsafeHead: empty list"
-unsafeHead (!x:_) = x
+unsafeHead [] = error "unsafeHead: empty list"
+unsafeHead (!x : _) = x
 {-# INLINE unsafeHead #-}

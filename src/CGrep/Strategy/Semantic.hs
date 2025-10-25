@@ -18,14 +18,7 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (
-    expandMultiline,
-    getTargetContents,
-    getTargetName,
-    ignoreCase,
-    subText,
-    trimT,
- )
+import CGrep.Common (expandMultiline, getTargetContents, getTargetName, ignoreCase, runSearch, subText, trimT)
 import CGrep.ContextFilter (
     contextBitComment,
     mkContextFilter,
@@ -38,15 +31,16 @@ import CGrep.FileTypeMap (
 import CGrep.FileTypeMapTH (
     mkContextFilterFn,
  )
+import CGrep.Line (buildIndex)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Atom (
     Atom (..),
     findAllMatches,
     mkAtomFromToken,
  )
-import CGrep.Common(runSearch)
 import CGrep.Parser.Chunk
 import CGrep.Parser.Token
+import CGrep.Text (textContainsOneOf, textIndices)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
@@ -54,14 +48,12 @@ import Data.Foldable (Foldable (toList))
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Maybe (mapMaybe)
+import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (unquoteT)
-import qualified Data.Text as T
-import CGrep.Line (buildIndex)
-import CGrep.Text (textIndices, textContainsOneOf)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns strict = do
@@ -78,31 +70,32 @@ search info f patterns strict = do
     let text'' = expandMultiline opt . contextFilter $ text'
 
     -- pre-process patterns
-    let pfilter = TokenFilter
-            { tfIdentifier = True
-            , tfKeyword = True
-            , tfNativeType = True
-            , tfString = True
-            , tfNumber = True
-            , tfOperator = True
-            , tfBracket = True
-            }
+    let pfilter =
+            TokenFilter
+                { tfIdentifier = True
+                , tfKeyword = True
+                , tfNativeType = True
+                , tfString = True
+                , tfNumber = True
+                , tfOperator = True
+                , tfBracket = True
+                }
 
     let patterns' = map (parseTokens pfilter (snd <$> info) strict . contextFilter) patterns
         patterns'' = map (toList . (mkAtomFromToken <$>)) patterns'
 
-    let matchers = mapMaybe
-            ( \case
-                Exact (Token (Chunk ChunkString xs)) -> Just ((unquoteT . trimT) xs)
-                Exact t -> Just (tToken t)
-                _ -> Nothing
-            )
-            (concatMap toList patterns'')
+    let matchers =
+            mapMaybe
+                ( \case
+                    Exact (Token (Chunk ChunkString xs)) -> Just ((unquoteT . trimT) xs)
+                    Exact t -> Just (tToken t)
+                    _ -> Nothing
+                )
+                (concatMap toList patterns'')
 
     let !eligibleForSearch = textContainsOneOf matchers text'
 
     runSearch opt lindex filename eligibleForSearch $ do
-
         putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
         putMessageLnVerb 1 stderr $ "strategy  : running generic semantic search on " <> show filename
         putMessageLnVerb 2 stderr $ "atoms     : " <> show patterns''

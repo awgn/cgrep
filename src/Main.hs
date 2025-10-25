@@ -70,9 +70,9 @@ main = do
     -- read command-line options
     opt@Options{..} <-
         ( if isTermOut
-            then \o -> o{color = color o || configColors conf}
-            else id
-        )
+                then \o -> o{color = color o || configColors conf}
+                else id
+            )
             <$> execParser parserInfo
 
     -- display lang-map and exit...

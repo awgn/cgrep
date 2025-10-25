@@ -8,10 +8,10 @@ module OsPath (
 
 import Data.ByteString (ByteString)
 import Data.ByteString.Short (ShortByteString, toShort)
-import System.OsString.Data.ByteString.Short (fromShort)
-import System.OsString.Internal.Types
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import System.OsString.Data.ByteString.Short (fromShort)
+import System.OsString.Internal.Types
 
 toText :: OsString -> T.Text
 toText = TE.decodeUtf8Lenient . fromShort . getPosixString . getOsString

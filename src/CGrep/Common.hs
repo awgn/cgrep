@@ -29,20 +29,20 @@ module CGrep.Common (
 )
 where
 
+import CGrep.Line (LineIndex)
+import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Char (isSpace)
+import CGrep.Parser.Chunk (Chunk)
+import qualified Data.Text as T
+import qualified Data.Text.IO.Utf8 as TIO
+import qualified Data.Text.Unsafe as TU
 import Options (
     Options (Options, ignore_case, multiline, no_shallow),
  )
+import Reader (ReaderIO)
 import System.OsPath
 import qualified System.OsString as OS
-import qualified Data.Text as T
-import qualified Data.Text.IO.Utf8 as TIO
 import Util (spanGroup)
-import CGrep.Line (LineIndex)
-import Reader (ReaderIO)
-import CGrep.Match (Match, mkMatches)
-import CGrep.Parser.Chunk (Chunk)
-import qualified Data.Text.Unsafe as TU
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -73,13 +73,11 @@ expandMultiline Options{multiline = n} xs
     | otherwise = T.unlines $ map T.unwords $ spanGroup n (T.lines xs)
 {-# INLINE expandMultiline #-}
 
-
 ignoreCase :: Options -> T.Text -> T.Text
 ignoreCase opt
     | ignore_case opt = T.toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}
-
 
 subText :: [[Int]] -> T.Text -> T.Text
 subText [] txt = txt
@@ -90,7 +88,6 @@ subText indices txt = case T.findIndex (== '\n') (TU.dropWord8 maxOff txt) of
     maxOff = maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
 {-# INLINE subText #-}
-
 
 runSearch ::
     Options ->

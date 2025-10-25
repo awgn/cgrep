@@ -21,6 +21,7 @@ module CGrep.FileKind (
     FileKind (..),
 )
 where
+
 import Language.Haskell.TH.Syntax (Lift)
 
 data FileKind = KindText | KindConfig | KindLanguage | KindData | KindMarkup | KindScript

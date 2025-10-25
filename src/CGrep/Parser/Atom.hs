@@ -29,7 +29,7 @@ import CGrep.Common (trimT)
 import CGrep.Distance ((~==))
 import CGrep.Parser.Char (isDigit)
 
-import Data.List ( tails )
+import Data.List (tails)
 
 import Options (
     Options (edit_dist, prefix_match, suffix_match, word_match),

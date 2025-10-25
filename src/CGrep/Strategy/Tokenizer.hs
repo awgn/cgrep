@@ -40,15 +40,16 @@ import CGrep.FileTypeMapTH (
     mkContextFilterFn,
  )
 
+import CGrep.Common (runSearch)
+import CGrep.Line
 import CGrep.Match (Match, mkMatches)
-import CGrep.Common(runSearch)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token
-import CGrep.Line
-import CGrep.Text (textIndices, textContainsOneOf)
+import CGrep.Text (textContainsOneOf, textIndices)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
+import qualified Data.Text as T
 import Options (
     Options (
         edit_dist,
@@ -68,8 +69,6 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (mapMaybe')
-import qualified Data.Text as T
-
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns strict = do
@@ -96,7 +95,6 @@ search info f patterns strict = do
     putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
 
     runSearch opt lindex filename eligibleForSearch $ do
-
         let indices = textIndices patterns text''
 
         -- parse source code, get the token list...

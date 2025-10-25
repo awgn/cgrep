@@ -17,6 +17,7 @@
 --
 
 module CGrep.Strategy.Levenshtein (search) where
+
 import CGrep.Line (buildIndex)
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -35,18 +36,18 @@ import CGrep.FileTypeMap (
     FileTypeInfo,
  )
 import CGrep.FileTypeMapTH (
-     mkContextFilterFn,
+    mkContextFilterFn,
  )
 
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (cToken, parseChunks)
 
 import Data.Foldable (Foldable (toList))
+import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
-import qualified Data.Text as T
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns _strict = do

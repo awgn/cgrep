@@ -16,7 +16,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 -- nc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-
 {-# LANGUAGE QuasiQuotes #-}
 
 module CGrep.Search (
@@ -37,8 +36,8 @@ import CGrep.FileTypeMapTH (
  )
 import CGrep.Match (
     Match (..),
-    putMatches,
     prettyFileName,
+    putMatches,
  )
 import qualified CGrep.Strategy.BoyerMoore as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein as Levenshtein
@@ -102,15 +101,15 @@ import System.IO (
     stdout,
  )
 
-import qualified OsPath as OS
-import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
-import System.OsString as OS (isSuffixOf, isPrefixOf)
-import System.Process (runProcess, waitForProcess)
-import qualified Data.Text.Lazy.IO as LTIO
+import Control.Applicative ((<|>))
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
-import Control.Applicative ((<|>))
+import qualified Data.Text.Lazy.IO as LTIO
+import qualified OsPath as OS
+import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
+import System.OsString as OS (isPrefixOf, isSuffixOf)
+import System.Process (runProcess, waitForProcess)
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -191,7 +190,6 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                         else paths `zip` [0 ..]
                     )
                     (\(p, _idx) -> writeChan (fst fileCh) [p])
-
 
         replicateM_ totalJobs $ writeChan (fst fileCh) []
 
@@ -301,14 +299,16 @@ fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKind
 
 isNotTestFile :: OsPath -> Bool
 isNotTestFile f =
-    let fs = [ ([osp|_test|] `OS.isSuffixOf`)
-             , ([osp|-test|] `OS.isSuffixOf`)
-             , ([osp|test-|] `OS.isPrefixOf`)
-             , ([osp|test_|] `OS.isPrefixOf`)
-             , ([osp|test|] ==)
-         ] :: [OsString -> Bool]
+    let fs =
+            [ ([osp|_test|] `OS.isSuffixOf`)
+            , ([osp|-test|] `OS.isSuffixOf`)
+            , ([osp|test-|] `OS.isPrefixOf`)
+            , ([osp|test_|] `OS.isPrefixOf`)
+            , ([osp|test|] ==)
+            ] ::
+                [OsString -> Bool]
         basename = takeBaseName f
-      in not $ any ($ basename) fs
+     in not $ any ($ basename) fs
 {-# INLINE isNotTestFile #-}
 
 isDot :: OsPath -> Bool

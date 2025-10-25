@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 --
 -- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
@@ -16,8 +18,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module CGrep.Parser.Chunk (
     parseChunks,
@@ -35,19 +35,19 @@ module CGrep.Parser.Chunk (
     pattern ChunkUnspec,
 ) where
 
-import CGrep.FileTypeMap (FileTypeInfo (..), CharSet (..), IsCharSet (..))
+import CGrep.FileTypeMap (CharSet (..), FileTypeInfo (..), IsCharSet (..))
 
 import Control.Monad.ST (ST, runST)
 import Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 
 import Data.Sequence ((|>))
 import qualified Data.Sequence as S
-import Data.Word (Word8)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
+import Data.Word (Word8)
 
+import CGrep.Parser.Char (isBracket', isCharNumber, isDigit, isSpace)
 import CGrep.Text (iterM, textOffsetWord8)
-import CGrep.Parser.Char (isDigit, isSpace, isCharNumber, isBracket')
 
 newtype ChunkType = ChunkType {_unChunkType :: Word8}
     deriving newtype (Eq, Ord)
@@ -137,14 +137,12 @@ pattern StateOther = ChunkState 4
 ref <~ !x = writeSTRef ref x
 {-# INLINE (<~) #-}
 
-
 toChunk :: T.Text -> Maybe Int -> Int -> Chunk
 toChunk _ Nothing _ = error "CGrep.Parser.Chunk.toChunk: Nothing (Internal Error)"
 toChunk text (Just beg) cur =
     let chunk = TU.takeWord8 (cur - beg) (TU.dropWord8 beg text)
-       in Chunk ChunkUnspec chunk
+     in Chunk ChunkUnspec chunk
 {-# INLINE toChunk #-}
-
 
 {-# COMPLETE StateSpace, StateAlpha, StateDigit, StateBracket, StateOther #-}
 
@@ -172,8 +170,7 @@ parseChunks l txt = runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
     Nothing -> parseChunks' @'None @'None txt
     charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
 
-
-parseChunks' :: forall (cs1 :: CharSet) (csN :: CharSet) s. (IsCharSet cs1, IsCharSet csN) =>  T.Text -> ST s (S.Seq Chunk)
+parseChunks' :: forall (cs1 :: CharSet) (csN :: CharSet) s. (IsCharSet cs1, IsCharSet csN) => T.Text -> ST s (S.Seq Chunk)
 parseChunks' txt = do
     stateR <- newSTRef StateSpace
     accR <- newSTRef Nothing
@@ -215,17 +212,18 @@ parseChunks' txt = do
                     | isSpace x -> do stateR <~ StateSpace; accR <~ Nothing; tokensR <~ (tokens |> toChunk txt acc offset)
                     | isValidChar @cs1 x -> do stateR <~ StateAlpha; accR <~ Just offset; tokensR <~ (tokens |> toChunk txt acc offset)
                     | isDigit x ->
-                        if acc == Just (offset-1) &&
-                            TU.unsafeHead (TU.dropWord8 (offset-1) txt) == '.'
+                        if acc == Just (offset - 1)
+                            && TU.unsafeHead (TU.dropWord8 (offset - 1) txt) == '.'
                             then do stateR <~ StateDigit
                             else do stateR <~ StateDigit; accR <~ Just offset; tokensR <~ (tokens |> toChunk txt acc offset)
                     | isBracket' x -> do stateR <~ StateBracket; accR <~ Just offset; tokensR <~ (tokens |> toChunk txt acc offset)
-                    | otherwise -> do stateR <~ StateOther;
+                    | otherwise -> do stateR <~ StateOther
 
     tokens <- readSTRef tokensR
     lastAcc <- readSTRef accR
 
     case lastAcc of
         Nothing -> return tokens
-        Just off | off == TU.lengthWord8 txt -> return tokens
-                 | otherwise -> return $ tokens |> toChunk txt lastAcc (TU.lengthWord8 txt)
+        Just off
+            | off == TU.lengthWord8 txt -> return tokens
+            | otherwise -> return $ tokens |> toChunk txt lastAcc (TU.lengthWord8 txt)

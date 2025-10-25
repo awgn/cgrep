@@ -15,6 +15,8 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
+--------------------------------------------------------------------
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module CGrep.Match (
     Match (..),
@@ -37,15 +39,14 @@ import CGrep.Text (textOffsetWord8)
 import Config
 import Control.Monad.Reader
 import Data.Function (on)
+import Data.List (groupBy, nub, sortBy, sortOn)
 import Data.List.Extra (intersperse)
 import Options (Options (..))
 import qualified OsPath as OS
 import Reader (Env (..), ReaderIO)
 import System.Console.ANSI (SGR (..), setSGRCode)
 import System.Console.ANSI.Codes (ConsoleIntensity (..))
-import Data.List (sortBy, groupBy, sortOn)
 import Util (unsafeHead)
-import Data.List (nub)
 
 data Match = Match
     { mFilePath :: OsPath
@@ -110,8 +111,6 @@ putMatches out = do
         | filename_only opt -> Just <$> filenameMatch out
         | otherwise -> Just <$> defPutMatches out
 
---------------------------------------------------------------------
-
 defPutMatches :: [Match] -> ReaderIO TLB.Builder
 defPutMatches xs = do
     Env{..} <- ask
@@ -127,11 +126,14 @@ defPutMatches xs = do
         | Options{no_filename = False, count = True} <- opt ->
             do
                 let gs = groupBy (\(Match f1 _ _ _) (Match f2 _ _ _) -> f1 == f2) xs
-                {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-                pure $ mconcat . intersperse (TLB.singleton '\n') $ (\ys -> case ys of
-                    (y : _) -> buildFileName conf opt y <> TLB.singleton ':' <> TLB.decimal (length ys)
-                    [] -> mempty) <$> gs
 
+                pure $
+                    mconcat . intersperse (TLB.singleton '\n') $
+                        ( \ys -> case ys of
+                            (y : _) -> buildFileName conf opt y <> TLB.singleton ':' <> TLB.decimal (length ys)
+                            [] -> mempty
+                        )
+                            <$> gs
         | Options{count = True} <- opt ->
             do
                 let gs = groupBy (\(Match f1 _ _ _) (Match f2 _ _ _) -> f1 == f2) xs
@@ -195,7 +197,7 @@ bytesToCharOffset line byteOffset = go 0 0
         | byteIdx >= TU.lengthWord8 line = charIdx
         | otherwise =
             let TU.Iter _ delta = TU.iter line byteIdx
-            in go (charIdx + 1) (byteIdx + delta)
+             in go (charIdx + 1) (byteIdx + delta)
 {-# INLINE bytesToCharOffset #-}
 
 buildTokens :: Options -> Match -> TLB.Builder

@@ -29,6 +29,7 @@ module CGrep.Text (
 
 import Data.Bits (unsafeShiftL, (.&.), (.|.))
 import Data.Char (ord)
+import Data.Maybe (isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Array as A
 import qualified Data.Text.Internal as TI
@@ -37,7 +38,6 @@ import qualified Data.Text.Internal.Search as TIS
 import qualified Data.Text.Unsafe as TU
 import Data.Word (Word64)
 import GHC.Word (Word8)
-import Data.Maybe (isJust)
 
 iterM :: (Monad m) => T.Text -> ((# Char, Int, Int #) -> m ()) -> m ()
 iterM txt f = go 0 (return ())
@@ -47,13 +47,12 @@ iterM txt f = go 0 (return ())
         | off >= len = cont
         | otherwise =
             let TU.Iter !c !delta = TU.iter txt off
-            in f (# c, off, delta #) >> go (off + delta) cont
+             in f (# c, off, delta #) >> go (off + delta) cont
 {-# INLINE iterM #-}
 
 textIndices :: [T.Text] -> T.Text -> [[Int]]
 textIndices ps text = (`TIS.indices` text) <$> ps
 {-# INLINE textIndices #-}
-
 
 textContainsOneOf :: [T.Text] -> T.Text -> Bool
 textContainsOneOf [] _ = True

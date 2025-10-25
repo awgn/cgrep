@@ -1,3 +1,6 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 --
 -- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
 --
@@ -17,9 +20,6 @@
 --
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 
 module CGrep.Parser.Token (
     parseTokens,
@@ -70,8 +70,9 @@ import CGrep.FileTypeMap (
  )
 
 import qualified Data.HashMap.Strict as HM
+
 -- import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
-import Data.Sequence ((|>), Seq)
+import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as S
 
 import Control.Monad.ST (ST, runST)
@@ -80,13 +81,13 @@ import Data.STRef (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 import CGrep.Parser.Chunk
 
 import CGrep.ContextFilter
+import CGrep.Parser.Char (chr, isBracket', isCharNumber, isDigit, isPunctuation, isSpace)
+import CGrep.Text (iterM, textOffsetWord8, textSlice)
 import Data.Coerce (coerce)
 import Data.Maybe (fromMaybe)
-import GHC.Exts (inline)
 import qualified Data.Text as T
-import CGrep.Text (textOffsetWord8, iterM, textSlice)
-import CGrep.Parser.Char (isSpace, isDigit, isBracket', isCharNumber, chr, isPunctuation)
 import qualified Data.Text.Unsafe as TU
+import GHC.Exts (inline)
 
 newtype TokenState = TokenState {_unTokenState :: Int}
     deriving newtype (Eq)
@@ -316,7 +317,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
     accR <- newSTRef (TokenIdx (-1) (-1))
     tokensR <- newSTRef S.empty
 
-    iterM txt $ \(# x, cur , delta #) -> do
+    iterM txt $ \(# x, cur, delta #) -> do
         state <- readSTRef stateR
         case state of
             StateSpace ->
@@ -410,7 +411,6 @@ buildToken True f (TokenIdx start len) txt = f (textSlice txt start len)
 buildToken False _ (TokenIdx _start _len) _txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
-
 buildToken_ :: Bool -> Bool -> Bool -> (T.Text -> Token) -> TokenIdx -> T.Text -> Token
 buildToken_ i k t f (TokenIdx start len) txt =
     if i && isTokenIdentifier tok || k && isTokenKeyword tok || t && isTokenNativeType tok
@@ -418,7 +418,6 @@ buildToken_ i k t f (TokenIdx start len) txt =
         else unspecifiedToken
   where
     tok = f (textSlice txt start len)
-
 
 unspecifiedToken :: Token
 unspecifiedToken = Token $ Chunk ChunkUnspec T.empty
