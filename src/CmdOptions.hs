@@ -212,6 +212,9 @@ options = Options
         ( long "filename-only"
        <> help "Print only the name of files containing matches" )
     <*> switch
+        ( long "json"
+       <> help "Format output as json object" )
+    <*> switch
         ( long "vim"
        <> help "Run vim editor passing the files that match" )
     <*> switch
@@ -220,9 +223,6 @@ options = Options
     <*> switch
         ( long "fileline"
        <> help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" )
-    <*> switch
-        ( long "json"
-       <> help "Format output as json object" )
     -- Miscellaneous
     <*> option auto
         ( long "verbose"

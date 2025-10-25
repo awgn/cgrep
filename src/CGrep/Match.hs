@@ -45,6 +45,7 @@ import System.Console.ANSI (SGR (..), setSGRCode)
 import System.Console.ANSI.Codes (ConsoleIntensity (..))
 import Data.List (sortBy, groupBy, sortOn)
 import Util (unsafeHead)
+import Data.List (nub)
 
 data Match = Match
     { mFilePath :: OsPath
@@ -105,7 +106,8 @@ putMatches out = do
     Env{..} <- ask
     if
         | null_output opt -> pure Nothing
-        -- \| filename_only opt -> Just <$> filenameOutput out
+        | json opt -> Just <$> jsonMatch out
+        | filename_only opt -> Just <$> filenameMatch out
         | otherwise -> Just <$> defPutMatches out
 
 --------------------------------------------------------------------
@@ -134,6 +136,32 @@ defPutMatches xs = do
             do
                 let gs = groupBy (\(Match f1 _ _ _) (Match f2 _ _ _) -> f1 == f2) xs
                 pure $ mconcat . intersperse (TLB.singleton '\n') $ (\ys -> TLB.decimal (length ys)) <$> gs
+
+filenameMatch :: [Match] -> ReaderIO TLB.Builder
+filenameMatch outs = do
+    liftIO $ putStrLn "filenameOutput"
+    return $ mconcat . intersperse (TLB.singleton '\n') $ TLB.fromText <$> nub ((\(Match fname _ _ _) -> (OS.toText fname)) <$> outs)
+{-# INLINE filenameMatch #-}
+
+jsonMatch :: [Match] -> ReaderIO TLB.Builder
+jsonMatch [] = pure mempty
+jsonMatch outs@(Match fname _ _ _ : _) = do
+    strname <- liftIO $ decodeUtf fname
+    pure $
+        mconcat . intersperse (TLB.singleton '\n') $
+            [TLB.fromString "{ \"file\":\"" <> TLB.fromString strname <> TLB.fromString "\", \"matches\":["]
+                <> [mconcat $ intersperse (TLB.singleton ',') (foldl mkMatch [] outs)]
+                <> [TLB.fromString "]}"]
+  where
+    mkJToken chunk = TLB.fromString "{ \"col\":" <> TLB.decimal (cOffset chunk) <> TLB.fromString ", \"token\":\"" <> TLB.fromText (cToken chunk) <> TLB.fromString "\" }"
+    mkMatch xs (Match _ n _ ts) =
+        xs
+            <> [ TLB.fromString "{ \"row\": "
+                    <> TLB.decimal n
+                    <> TLB.fromString ", \"tokens\":["
+                    <> mconcat (intersperse (TLB.fromString ",") (map mkJToken ts))
+                    <> TLB.fromString "] }"
+               ]
 
 --------------------------------------------------------------------
 
