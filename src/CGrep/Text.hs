@@ -39,16 +39,31 @@ import Data.Word (Word64)
 import GHC.Word (Word8)
 import Data.Maybe (isJust)
 
+-- iterM :: (Monad m) => T.Text -> ((# Char, Int, Int #) -> m ()) -> m ()
+-- iterM txt f = go 0
+--   where
+--     len = TU.lengthWord8 txt
+--     go !off
+--         | off >= len = return ()
+--         | otherwise = do
+--             let TU.Iter c delta = TU.iter txt off
+--             f (# c, off, delta #)
+--             go (off + delta)
+
 iterM :: (Monad m) => T.Text -> ((# Char, Int, Int #) -> m ()) -> m ()
-iterM txt f = go 0
+iterM txt f
+    | T.null txt = return ()
+    | otherwise = go 0 len
   where
-    len = TU.lengthWord8 txt
-    go !off
-        | off >= len = return ()
-        | otherwise = do
-            let TU.Iter c delta = TU.iter txt off
-            f (# c, off, delta #)
-            go (off + delta)
+    !len = TU.lengthWord8 txt
+    go !off !end
+        | off >= end = return ()
+        | otherwise =
+            case TU.iter txt off of
+                TU.Iter c delta -> do
+                    f (# c, off, delta #)
+                    go (off + delta) end
+
 
 textIndices :: [T.Text] -> T.Text -> [[Int]]
 textIndices ps text = (`TIS.indices` text) <$> ps

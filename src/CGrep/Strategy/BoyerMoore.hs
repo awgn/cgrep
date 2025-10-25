@@ -52,7 +52,7 @@ search info f patterns _strict = do
     Env{..} <- ask
     text <- liftIO $ getTargetContents f
     let filename = getTargetName f
-    let !lindex = buildIndex text
+    let lindex = buildIndex text
 
     -- transform text...
     let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False

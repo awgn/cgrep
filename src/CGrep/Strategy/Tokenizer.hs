@@ -38,7 +38,6 @@ import CGrep.FileTypeMap (
 
 import CGrep.FileTypeMapTH (
     mkContextFilterFn,
-    fileTypeLookup,
  )
 
 import CGrep.Match (Match, mkMatches)
@@ -46,13 +45,10 @@ import CGrep.Common(runSearch)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token
 import CGrep.Line
-import CGrep.Text (textIndices)
+import CGrep.Text (textIndices, textContainsOneOf)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ask, reader)
+import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
-import Data.Foldable (Foldable (toList))
-import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
-import qualified Data.Sequence as S
 import Options (
     Options (
         edit_dist,
@@ -73,76 +69,71 @@ import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (mapMaybe')
 import qualified Data.Text as T
-import qualified Data.Vector.Unboxed as UV
+
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns strict = do
-    undefined
+    Env{..} <- ask
 
--- search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [OutputMatch]
--- search info f ps strict = do
---     Env{..} <- ask
---
---     text <- liftIO $ getTargetContents f
---
---     let filename = getTargetName f
---
---     -- transform text
---
---     let filt = mkContextFilter opt ~! contextBitComment
---
---     let [text''', _, text', _] =
---             scanr
---                 ($)
---                 text
---                 [ expandMultiline opt
---                 , contextFilter (fst <$> fileTypeLookup opt filename) filt True
---                 , ignoreCase opt
---                 ]
---
---     putMessageLnVerb 1 stderr $ "strategy: running token search on " <> show filename <> "..."
---     putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
---
---     let indices' = textIndices ps text'
---
---     runSearch opt filename (eligibleForSearch ps indices') $ do
---         -- parse source code, get the token list...
---
---         let tfilter =
---                 TokenFilter
---                     { tfIdentifier = identifier opt
---                     , tfKeyword = keyword opt
---                     , tfNativeType = nativeType opt
---                     , tfString = string opt
---                     , tfNumber = number opt
---                     , tfOperator = operator opt
---                     , tfBracket = False
---                     }
---
---         let tokens = {-# SCC "tok_0" #-} parseTokens tfilter (snd <$> info) strict (subText indices' text''')
---
---             -- filter tokens and make chunks
---
---             matches = {-# SCC "tok_3" #-} mapMaybe' (tokenizerFilter opt ps) tokens
---
---         putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
---         putMessageLnVerb 2 stderr $ "matches   : " <> show matches
---
---         let lineOffsets = getLineOffsets text
---
---         mkOutputMatches lineOffsets filename text text''' matches
+    text <- liftIO $ getTargetContents f
 
--- tokenizerFilter :: Options -> [T.Text] -> Token -> Maybe Chunk
--- tokenizerFilter opt patterns token
---     | isTokenUnspecified token = Nothing
---     | tokenPredicate opt patterns token = Just $ coerce token
---     | otherwise = Nothing
--- {-# INLINE tokenizerFilter #-}
---
--- tokenPredicate :: Options -> [T.Text] -> Token -> Bool
--- tokenPredicate opt patterns tokens
---     | edit_dist opt = (\t -> any (\p -> T.unpack p ~== (T.unpack . tToken) t) patterns) tokens
---     | word_match opt = ((`elem` patterns) . tToken) tokens
---     | prefix_match opt = ((\t -> any (`T.isPrefixOf` t) patterns) . tToken) tokens
---     | suffix_match opt = ((\t -> any (`T.isSuffixOf` t) patterns) . tToken) tokens
---     | otherwise = ((\t -> any (`T.isInfixOf` t) patterns) . tToken) tokens
+    let filename = getTargetName f
+    let lindex = buildIndex text
+
+    -- transform text
+
+    let filt = mkContextFilter opt ~! contextBitComment
+
+    let !contextFilter = mkContextFilterFn (fst <$> info) filt False
+
+    let text' = ignoreCase opt text
+    let text'' = expandMultiline opt . contextFilter $ text'
+
+    -- make shallow search
+    let !eligibleForSearch = textContainsOneOf patterns text'
+
+    putMessageLnVerb 1 stderr $ "strategy: running token search on " <> show filename <> "..."
+    putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
+
+    runSearch opt lindex filename eligibleForSearch $ do
+
+        let indices = textIndices patterns text''
+
+        -- parse source code, get the token list...
+
+        let tfilter =
+                TokenFilter
+                    { tfIdentifier = identifier opt
+                    , tfKeyword = keyword opt
+                    , tfNativeType = nativeType opt
+                    , tfString = string opt
+                    , tfNumber = number opt
+                    , tfOperator = operator opt
+                    , tfBracket = False
+                    }
+
+        let tokens = parseTokens tfilter (snd <$> info) strict (subText indices text'')
+
+            -- filter tokens and make chunks
+
+            chunks = mapMaybe' (tokenizerFilter opt patterns) tokens
+
+        putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
+        putMessageLnVerb 2 stderr $ "matches   : " <> show chunks
+
+        mkMatches lindex filename text'' chunks
+
+tokenizerFilter :: Options -> [T.Text] -> Token -> Maybe Chunk
+tokenizerFilter opt patterns token
+    | isTokenUnspecified token = Nothing
+    | tokenPredicate opt patterns token = Just $ coerce token
+    | otherwise = Nothing
+{-# INLINE tokenizerFilter #-}
+
+tokenPredicate :: Options -> [T.Text] -> Token -> Bool
+tokenPredicate opt patterns tokens
+    | edit_dist opt = (\t -> any (\p -> T.unpack p ~== (T.unpack . tToken) t) patterns) tokens
+    | word_match opt = ((`elem` patterns) . tToken) tokens
+    | prefix_match opt = ((\t -> any (`T.isPrefixOf` t) patterns) . tToken) tokens
+    | suffix_match opt = ((\t -> any (`T.isSuffixOf` t) patterns) . tToken) tokens
+    | otherwise = ((\t -> any (`T.isInfixOf` t) patterns) . tToken) tokens

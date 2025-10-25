@@ -46,23 +46,23 @@ module CGrep.Parser.Token (
     mkTokenOperator,
 ) where
 
-import qualified Data.DList as DL
+-- import qualified Data.DList as DL
 
-import CGrep.Parser.Char (
-    chr,
-    isAlphaNum_,
-    isAlpha_,
-    isBracket',
-    isCharNumber,
-    isDigit,
-    isPunctuation,
-    isSpace,
- )
+-- import CGrep.Parser.Char (
+--     chr,
+--     isAlphaNum_,
+--     isAlpha_,
+--     isBracket',
+--     isCharNumber,
+--     isDigit,
+--     isPunctuation,
+--     isSpace,
+--  )
 
-import Data.List (genericLength)
+-- import Data.List (genericLength)
 
 import CGrep.FileTypeMap (
-    CharIdentifierF,
+    -- CharIdentifierF,
     CharSet (..),
     FileTypeInfo (..),
     IsCharSet (..),
@@ -74,19 +74,17 @@ import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
 import qualified Data.Sequence as S
 
 import Control.Monad.ST (ST, runST)
-import Data.STRef (STRef, modifySTRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
-import Data.Word (Word8)
+import Data.STRef (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 
 import CGrep.Parser.Chunk
 
 import CGrep.ContextFilter
 import Data.Coerce (coerce)
 import Data.Maybe (fromMaybe)
-import Data.Text.Internal.Read (T)
-import Debug.Trace
 import GHC.Exts (inline)
 import qualified Data.Text as T
 import CGrep.Text (textOffsetWord8, iterM, textSlice)
+import CGrep.Parser.Char (isSpace, isDigit, isBracket', isCharNumber, chr, isPunctuation)
 
 newtype TokenState = TokenState {unTokenState :: Int}
     deriving newtype (Eq)
@@ -98,6 +96,7 @@ instance Show TokenState where
     show StateBracket = "bracket"
     show StateLiteral = "literal"
     show StateOther = "other"
+    show _ = "unknown"
     {-# INLINE show #-}
 
 pattern StateSpace :: TokenState
@@ -117,6 +116,8 @@ pattern StateLiteral = TokenState 4
 
 pattern StateOther :: TokenState
 pattern StateOther = TokenState 5
+
+{-# COMPLETE StateSpace, StateIdentifier, StateDigit, StateBracket, StateLiteral, StateOther #-}
 
 newtype Token = Token Chunk
     deriving newtype (Eq, Ord)
@@ -172,12 +173,14 @@ mkTokenFromWord (Just info) txt =
 {-# INLINEABLE mkTokenFromWord #-}
 
 mkToken :: Maybe FileTypeInfo -> TokenState -> T.Text -> Token
-mkToken _ StateSpace = mkTokenOperator
-mkToken info StateIdentifier = mkTokenFromWord info
-mkToken _ StateDigit = mkTokenDigit
-mkToken _ StateBracket = mkTokenBracket
-mkToken _ StateLiteral = mkTokenString
-mkToken _ StateOther = mkTokenOperator
+mkToken info state = case state of
+    StateSpace -> mkTokenOperator
+    StateIdentifier -> mkTokenFromWord info
+    StateDigit -> mkTokenDigit
+    StateBracket -> mkTokenBracket
+    StateLiteral -> mkTokenString
+    StateOther -> mkTokenOperator
+{-# INLINE mkToken #-}
 
 tTyp :: Token -> ChunkType
 tTyp = cTyp . coerce
@@ -314,10 +317,8 @@ parseToken' tf@TokenFilter{..} info strict txt = do
 
     iterM txt $ \(# x, cur , delta #) -> do
         state <- readSTRef stateR
-
         case state of
             StateSpace ->
-                {-# SCC "StateSpace" #-}
                 if
                     | isSpace x -> do accR <<~ Reset
                     | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta
@@ -326,7 +327,6 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                     | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta
                     | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta
             StateIdentifier ->
-                {-# SCC "StateIdentifier" #-}
                 if isValidChar @cs x
                     then accR <<~ Append cur delta
                     else do
@@ -338,7 +338,6 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                             | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
                             | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken_ tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
             StateDigit ->
-                {-# SCC "StateDigit" #-}
                 if isCharNumber x
                     then accR <<~ Append cur delta
                     else do
@@ -351,7 +350,6 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                             | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
                             | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
             StateLiteral ->
-                {-# SCC "StateLiteral" #-}
                 if x == chr 3
                     then do
                         acc <- readSTRef accR
@@ -361,7 +359,6 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                         tokensR <~ (tokens |> buildToken tfString mkTokenString acc txt)
                     else do accR <<~ Append cur delta
             StateBracket ->
-                {-# SCC "StateBracket" #-}
                 do
                     acc <- readSTRef accR
                     tokens <- readSTRef tokensR
@@ -373,7 +370,6 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                         | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
             StateOther ->
-                {-# SCC "StateOther" #-}
                 do
                     acc <- readSTRef accR
                     tokens <- readSTRef tokensR
@@ -410,7 +406,7 @@ buildFilteredToken tf f (TokenIdx start len) txt =
 
 buildToken :: Bool -> (T.Text -> Token) -> TokenIdx -> T.Text -> Token
 buildToken True f (TokenIdx start len) txt = f (textSlice txt start len)
-buildToken False f (TokenIdx _start _len) _txt = unspecifiedToken
+buildToken False _ (TokenIdx _start _len) _txt = unspecifiedToken
 {-# INLINE buildToken #-}
 
 
