@@ -169,6 +169,7 @@ parseChunks l txt = runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
     Just (Unicode_, UnicodeNumDollar_) -> parseChunks' @'Unicode_ @'UnicodeNumDollar_ txt
     Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunks' @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
     Just (AgdaIdent, AgdaIdent) -> parseChunks' @'AgdaIdent @'AgdaIdent txt
+    Nothing -> parseChunks' @'None @'None txt
     charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
 
 

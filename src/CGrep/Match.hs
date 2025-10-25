@@ -184,8 +184,19 @@ buildLineCol :: Options -> Match -> TLB.Builder
 buildLineCol Options{no_numbers = True} _ = mempty
 buildLineCol Options{no_numbers = False, no_column = True} (Match _ n _ _) = TLB.decimal n
 buildLineCol Options{no_numbers = False, no_column = False} (Match _ n _ []) = TLB.decimal n
-buildLineCol Options{no_numbers = False, no_column = False} (Match _ n _ (t : _)) = TLB.decimal n <> TLB.singleton ':' <> TLB.decimal ((+ 1) . cOffset $ t)
+buildLineCol Options{no_numbers = False, no_column = False} (Match _ n l (t : _)) = TLB.decimal n <> TLB.singleton ':' <> TLB.decimal (bytesToCharOffset l (cOffset t) + 1)
 {-# INLINE buildLineCol #-}
+
+bytesToCharOffset :: T.Text -> Int -> Int
+bytesToCharOffset line byteOffset = go 0 0
+  where
+    go !charIdx !byteIdx
+        | byteIdx >= byteOffset = charIdx
+        | byteIdx >= TU.lengthWord8 line = charIdx
+        | otherwise =
+            let TU.Iter _ delta = TU.iter line byteIdx
+            in go (charIdx + 1) (byteIdx + delta)
+{-# INLINE bytesToCharOffset #-}
 
 buildTokens :: Options -> Match -> TLB.Builder
 buildTokens Options{show_match = st} out
