@@ -82,9 +82,9 @@ expandMultiline Options{multiline = n} xs
 {-# INLINE expandMultiline #-}
 
 
-ignoreCase :: Options -> TIF.Stream Char -> TIF.Stream Char
+ignoreCase :: Options -> T.Text -> T.Text
 ignoreCase opt
-    | ignore_case opt = TIFC.toLower
+    | ignore_case opt = T.toLower
     | otherwise = id
 {-# INLINE ignoreCase #-}
 

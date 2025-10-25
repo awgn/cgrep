@@ -41,6 +41,7 @@ import qualified Data.Vector.Unboxed as UV
 import Debug.Trace (traceShowId)
 import GHC.Stack (HasCallStack)
 import CGrep.Text (textSlice)
+import Data.Bits
 
 -- A LineIndex holds the original text and a vector of line start offsets.
 data LineIndex
@@ -115,26 +116,29 @@ getLineOffsets :: T.Text -> UV.Vector Int
 getLineOffsets txt = UV.fromList $ 0 : (map (+ 1) $ T.indices (T.singleton '\n') txt)
 {-# INLINE getLineOffsets #-}
 
+
 getLineByOffset :: Int -> T.Text -> UV.Vector Int -> (# T.Text, Int #)
-getLineByOffset off text vec = (# getFirstLine (T.drop lb text), lb #)
+getLineByOffset off text vec = (# line, lb #)
   where
-    lb = lowerBound vec off
-    getFirstLine bs = case T.lines bs of
-        [] -> T.empty
-        (line : _) -> line
+    !lb = lowerBound vec off
+    !dropped = T.drop lb text
+    !line = T.takeWhile (/= '\n') dropped
 {-# INLINE getLineByOffset #-}
 
+
 lowerBound :: UV.Vector Int -> Int -> Int
-lowerBound vec v = lowerBoundGo vec v 0 (UV.length vec - 1)
+lowerBound vec v
+    | UV.null vec = 0  -- caso edge
+    | otherwise = lowerBoundGo vec v 0 (UV.length vec - 1)
 {-# INLINE lowerBound #-}
+
 
 lowerBoundGo :: UV.Vector Int -> Int -> Int -> Int -> Int
 lowerBoundGo vec v !left !right
-    | left > right = if right >= 0 then vec `UV.unsafeIndex` right else -1
-    | otherwise = case v `compare` midValue of
-        LT -> lowerBoundGo vec v left (mid - 1)
-        EQ -> midValue
-        _ -> lowerBoundGo vec v (mid + 1) right
+    | left > right = vec `UV.unsafeIndex` right
+    | midValue > v = lowerBoundGo vec v left (mid - 1)
+    | midValue == v = midValue
+    | otherwise = lowerBoundGo vec v (mid + 1) right
   where
-    mid = (left + right) `div` 2
-    midValue = vec `UV.unsafeIndex` mid
+    !mid = left + ((right - left) `shiftR` 1)
+    !midValue = vec `UV.unsafeIndex` mid

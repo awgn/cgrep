@@ -24,7 +24,7 @@
 
 module CGrep.FileTypeMapTH (
     fileTypeInfoMap,
-    mkStreamFilter,
+    mkContextFilterFn,
     fileTypeLookup,
     fileTypeInfoLookup,
     dumpFileTypeInfoMap,
@@ -52,7 +52,7 @@ import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
 import CGrep.FileTypeMap
 import CGrep.FileKind
 
-import qualified Data.Text.Internal.Fusion as TIF
+import qualified Data.Text as T
 
 fileTypeInfoMap :: FileTypeInfoMap
 fileTypeInfoMap = $(lift $
@@ -4805,10 +4805,11 @@ fileTypeInfoMap = $(lift $
                        )
             ])
 
-mkStreamFilter :: Maybe FileType -> ContextFilter -> Bool -> (TIF.Stream Char -> TIF.Stream Char)
-mkStreamFilter _ (isContextFilterAll -> True) False = id
-mkStreamFilter Nothing _ _ = id
-mkStreamFilter (Just ftype) filt alterBoundary
+
+mkContextFilterFn :: Maybe FileType -> ContextFilter -> Bool -> (T.Text -> T.Text)
+mkContextFilterFn _ (isContextFilterAll -> True) False = id
+mkContextFilterFn Nothing _ _ = id
+mkContextFilterFn (Just ftype) filt alterBoundary
     | Just fun <- parFunc = fun filt
     | otherwise           = id
   where
@@ -4819,11 +4820,11 @@ fileTypeLookup :: Options -> OsPath -> Maybe (FileType, FileKind)
 fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (hdr_only opts)
   where
     lookupFileType :: OsPath -> Bool -> Bool -> Maybe (FileType, FileKind)
-    lookupFileType f False False = Map.lookup (Name $ OS.takeFileName f) m <|> Map.lookup (Ext ext) m <|> Map.lookup (Hdr ext) m
-    lookupFileType f True False = Map.lookup (Name $ OS.takeFileName f) m <|> Map.lookup (Ext ext) m
-    lookupFileType f False True = Map.lookup (Name $ OS.takeFileName f) m <|> Map.lookup (Hdr ext) m
-    lookupFileType f True True = errorWithoutStackTrace "CGrep: code-only and hdr-only are mutually exclusive!"
-    ext = OS.takeExtension f
+    lookupFileType file False False = Map.lookup (Name $ OS.takeFileName file) m <|> Map.lookup (Ext e) m <|> Map.lookup (Hdr e) m
+    lookupFileType file True False = Map.lookup (Name $ OS.takeFileName file) m <|> Map.lookup (Ext e) m
+    lookupFileType file False True = Map.lookup (Name $ OS.takeFileName file) m <|> Map.lookup (Hdr e) m
+    lookupFileType _ True True = errorWithoutStackTrace "CGrep: code-only and hdr-only are mutually exclusive!"
+    e = OS.takeExtension f
     m = unMap fileTypeMap
 {-# INLINE fileTypeLookup #-}
 
@@ -4841,8 +4842,9 @@ dumpFileTypeInfoMap m = forM_ ((Map.toList . unMapInfo) m) $ \(l, ex) ->
     putStrLn $ show l <> [' ' | _ <- [length (show l) .. 12]] <> "-> " <> show (ftSelector ex)
 
 dumpFileTypeMap :: FileTypeMap -> IO ()
-dumpFileTypeMap m = forM_ (Map.toList (unMap m)) $ \(ext, l) ->
-    putStrLn $ show ext <> [' ' | _ <- [length (show ext) .. 12]] <> "-> " <> show l
+dumpFileTypeMap m = forM_ (Map.toList (unMap m)) $ \(e, l) ->
+    putStrLn $ show e <> [' ' | _ <- [length (show e) .. 12]] <> "-> " <> show l
+
 
 forcedType :: Options -> Maybe (FileType, FileKind)
 forcedType Options{..}

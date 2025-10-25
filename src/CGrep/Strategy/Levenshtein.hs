@@ -35,7 +35,7 @@ import CGrep.FileTypeMap (
     FileTypeInfo,
  )
 import CGrep.FileTypeMapTH (
-     mkStreamFilter,
+     mkContextFilterFn,
      fileTypeLookup,
  )
 

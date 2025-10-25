@@ -24,18 +24,18 @@ import CGrep.Common (
     -- expandMultiline,
     getTargetContents,
     getTargetName,
-    ignoreCase,
+    ignoreCase, expandMultiline,
  )
-import CGrep.ContextFilter (mkContextFilter, mustRunContextFilter)
+import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
-import CGrep.FileTypeMapTH (mkStreamFilter)
+import CGrep.FileTypeMapTH (mkContextFilterFn)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Common(runSearch)
 
 import CGrep.Parser.Chunk
 import Options (Options (..))
-import PutMessage (putMessageLnVerb, putMessageLn)
+import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 
 import System.IO (stderr)
@@ -46,7 +46,6 @@ import qualified Data.Vector.Unboxed as UV
 import qualified Data.Text as T
 import CGrep.Text (textIndices, textSlice, textContainsOneOf)
 import qualified Data.Text.Unsafe as TU
-import qualified Data.Text.Internal.Fusion as TIF
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search info f patterns _strict = do
@@ -56,50 +55,54 @@ search info f patterns _strict = do
     let !lindex = buildIndex text
 
     -- transform text...
-    let ctxFilter = mkContextFilter opt
-    let mustRunStream = ignore_case opt || mustRunContextFilter ctxFilter;
-    let !contextFilter = mkStreamFilter (fst <$> info) ctxFilter False
+    let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
 
-    let text' = if mustRunStream
-                then (TIF.unstream .
-                     contextFilter .
-                     ignoreCase opt .
-                     TIF.stream) text
-                else text;
+    let text' = ignoreCase opt text
+    let text'' = expandMultiline opt . contextFilter $ text'
 
     -- make shallow search
-    let !eligibleForSearch = textContainsOneOf patterns text
+    let !eligibleForSearch = textContainsOneOf patterns text'
 
     -- search for matching tokens
-    let lineOffsets = getLineOffsets text'
-
     putMessageLnVerb 3 stderr $ "---\n" <> text' <> "\n---"
     putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt lindex filename eligibleForSearch $ do
+        let lineOffsets = getLineOffsets text''
+        let indices = textIndices patterns text''
 
-        let indices' = textIndices patterns text'
-
-        let chunks = concat $ zipWith (\p offsets ->
+        let !chunks = concat $ zipWith (\p offsets ->
                 let blen = TU.lengthWord8 p
-                 in map (\offset -> Chunk ChunkUnspec (textSlice text' offset blen)) offsets) patterns indices'
+                 in map (\offset -> Chunk ChunkUnspec (textSlice text'' offset blen)) offsets) patterns indices
 
-        let chunks' =
+        let !chunks' =
                 if word_match opt || prefix_match opt || suffix_match opt
-                    then filter (filterChunk opt lineOffsets (snd <$> info) text') chunks
+                    then filter (filterChunk opt lineOffsets (snd <$> info) text'') chunks
                     else chunks
 
         putMessageLnVerb 2 stderr $ "matches   : " <> show chunks'
         putMessageLnVerb 2 stderr $ "lindex    : " <> show lindex
-        mkMatches lindex filename text' chunks'
+        mkMatches lindex filename text'' chunks'
 
 
 filterChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
 filterChunk opts loff info text chunk
-    | word_match opts = let !off = cOffset chunk - off' in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
-    | prefix_match opts = any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' && cOffset chunk' + off' == cOffset chunk) cs
-    | suffix_match opts = any (\chunk' -> cToken chunk `T.isSuffixOf` cToken chunk' && cOffset chunk' + off' + (T.length (cToken chunk') - T.length (cToken chunk)) == cOffset chunk) cs
+    | word_match opts =
+        let !(# line', off' #) = getLineByOffset (cOffset chunk) text loff
+            !cs = parseChunks info line'
+            !off = cOffset chunk - off'
+        in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
+    | prefix_match opts =
+        let !(# line', off' #) = getLineByOffset (cOffset chunk) text loff
+            !cs = parseChunks info line'
+        in any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' &&
+                           cOffset chunk' + off' == cOffset chunk) cs
+    | suffix_match opts =
+        let !(# line', off' #) = getLineByOffset (cOffset chunk) text loff
+            !cs = parseChunks info line'
+            !tokLen = T.length (cToken chunk)
+        in any (\chunk' ->
+                let !tokLen' = T.length (cToken chunk')
+                in cToken chunk `T.isSuffixOf` cToken chunk' &&
+                   cOffset chunk' + off' + (tokLen' - tokLen) == cOffset chunk) cs
     | otherwise = undefined
-  where
-    (# line', off' #) = getLineByOffset (cOffset chunk) text loff
-    cs = parseChunks info line'
