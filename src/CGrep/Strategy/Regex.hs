@@ -42,7 +42,7 @@ import CGrep.Common (
 import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo (..))
-import CGrep.FileTypeMapTH (mkContextFilterFn, fileTypeLookup)
+import CGrep.FileTypeMapTH (mkContextFilterFn)
 import CGrep.Match (Match, mkMatches)
 
 #ifdef ENABLE_PCRE
@@ -57,49 +57,39 @@ import CGrep.Parser.Chunk
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import qualified Data.Text as T
-import CGrep.Line (getLineOffsets)
+import CGrep.Line (buildIndex)
 
 search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns strict = do
-    undefined
---     Env{..} <- ask
---
---     text <- liftIO $ getTargetContents f
---
---     let filename = getTargetName f
---
---     -- transform text
---
---     let ctxFilter = mkContextFilter opt
---
---     let [text''', _, _, _] =
---             scanr
---                 ($)
---                 text
---                 [ expandMultiline opt
---                 , contextFilter (fst <$> fileTypeLookup opt filename) ctxFilter False
---                 , ignoreCase opt
---                 ]
---
---         -- search for matching tokens
--- #ifdef ENABLE_PCRE
---         (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.TDFA.=~)
--- #else
---         (=~~~) = (Text.Regex.TDFA.=~)
--- #endif
---         tokens =
---             map (\(str, (off, _)) -> Chunk ChunkUnspec str (fromIntegral off)) $
---                 concatMap elems $
---                     patterns >>= (\p -> elems (getAllTextMatches $ text''' =~~~ p :: (Array Int) (MatchText T.Text)))
---
---     putMessageLnVerb 3 stderr $ "---\n" <> text''' <> "\n---"
---     #ifdef ENABLE_PCRE
---     putMessageLnVerb 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
---     #else
---     putMessageLnVerb 1 stderr $ "strategy  : running regex (posix) search on " <> show filename
---     #endif
---     putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
---
---     let lineOffsets = getLineOffsets text
---
---     mkOutputMatches lineOffsets filename text text''' tokens
+search info f patterns _strict = do
+    Env{..} <- ask
+
+    text <- liftIO $ getTargetContents f
+    let filename = getTargetName f
+    let lindex = buildIndex text
+
+    let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
+
+    -- transform text
+
+    let text' = expandMultiline opt . contextFilter . ignoreCase opt $ text
+
+        -- search for matching tokens
+#ifdef ENABLE_PCRE
+        (=~~~) = if regex_pcre opt then (Text.Regex.PCRE.=~) else (Text.Regex.TDFA.=~)
+#else
+        (=~~~) = (Text.Regex.TDFA.=~)
+#endif
+        tokens =
+            map (\(str, (_, _)) -> Chunk ChunkUnspec str) $
+                concatMap elems $
+                    patterns >>= (\p -> elems (getAllTextMatches $ text' =~~~ p :: (Array Int) (MatchText T.Text)))
+
+    putMessageLnVerb 3 stderr $ "---\n" <> text' <> "\n---"
+    #ifdef ENABLE_PCRE
+    putMessageLnVerb 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
+    #else
+    putMessageLnVerb 1 stderr $ "strategy  : running regex (posix) search on " <> show filename
+    #endif
+    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
+
+    mkMatches lindex filename text' tokens
