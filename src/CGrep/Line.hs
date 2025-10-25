@@ -33,6 +33,8 @@ import qualified Data.Text.Internal.Search as T
 import qualified Data.Vector.Unboxed as UV
 import CGrep.Text (textSlice)
 import Data.Bits
+import Debug.Trace (traceShowId)
+import qualified Data.Text.Unsafe as TU
 
 -- A LineIndex holds the original text and a vector of line start offsets.
 data LineIndex
@@ -103,16 +105,17 @@ findLineIndexGo vec v !left !right
 
 --------------------------------------------------------------------------------------------
 
+--- >>> getLineOffsets "Hello ©\nWorld\nThis is a test\n"
+-- [0,9,15,30]
 getLineOffsets :: T.Text -> UV.Vector Int
 getLineOffsets txt = UV.fromList $ 0 : (map (+ 1) $ T.indices (T.singleton '\n') txt)
 {-# INLINE getLineOffsets #-}
-
 
 getLineByOffset :: Int -> T.Text -> UV.Vector Int -> (# T.Text, Int #)
 getLineByOffset off text vec = (# line, lb #)
   where
     !lb = lowerBound vec off
-    !dropped = T.drop lb text
+    !dropped = TU.dropWord8 lb text
     !line = T.takeWhile (/= '\n') dropped
 {-# INLINE getLineByOffset #-}
 

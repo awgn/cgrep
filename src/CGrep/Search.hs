@@ -192,9 +192,6 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                     )
                     (\(p, _idx) -> writeChan (fst fileCh) [p])
 
-        -- enqueue EOF messages...
-        when (verbose > 0) $
-            putMessageLn @T.Text stderr "filesystem traversal completed!"
 
         replicateM_ totalJobs $ writeChan (fst fileCh) []
 

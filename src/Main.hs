@@ -115,13 +115,6 @@ main = do
     let types = (if null l0 then configFileTypes conf else l0 `union` l1) \\ l2
         kinds = if null kind_filter then configFileKinds conf else readKindList kind_filter
 
-    runReaderT
-        ( do
-            putMessageLnVerb 1 stderr $ "cgrep " <> showVersion version <> "!"
-            putMessageLnVerb 1 stderr $ "File types: " <> show type_filter
-            putMessageLnVerb 1 stderr $ "File kinds: " <> show kinds
-        )
-        (Env conf opt)
 
     -- specify number of cores
     cap <- case jobs <|> configJobs conf of

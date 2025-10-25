@@ -86,6 +86,7 @@ import GHC.Exts (inline)
 import qualified Data.Text as T
 import CGrep.Text (textOffsetWord8, iterM, textSlice)
 import CGrep.Parser.Char (isSpace, isDigit, isBracket', isCharNumber, chr, isPunctuation)
+import qualified Data.Text.Unsafe as TU
 
 newtype TokenState = TokenState {_unTokenState :: Int}
     deriving newtype (Eq)
@@ -270,7 +271,7 @@ data TokenIdx = TokenIdx
     }
 
 tkString :: TokenIdx -> T.Text -> T.Text
-tkString (TokenIdx off len) = T.take len . T.drop off
+tkString (TokenIdx off len) = TU.takeWord8 len . TU.dropWord8 off
 {-# INLINE tkString #-}
 
 data AccOp = Reset | Start {-# UNPACK #-} !Int !Int | Append {-# UNPACK #-} !Int !Int

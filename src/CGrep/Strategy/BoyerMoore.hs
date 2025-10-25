@@ -88,21 +88,21 @@ search info f patterns _strict = do
 filterChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
 filterChunk opts loff info text chunk
     | word_match opts =
-        let !(# line', off' #) = getLineByOffset (cOffset chunk) text loff
+        let (# line', _ #) = getLineByOffset ((cOffset chunk)) text loff
             !cs = parseChunks info line'
-            !off = cOffset chunk - off'
-        in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
+            !off = cOffset chunk
+        in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) $ cs
     | prefix_match opts =
-        let !(# line', off' #) = getLineByOffset (cOffset chunk) text loff
+        let !(# line', _ #) = getLineByOffset (cOffset chunk) text loff
             !cs = parseChunks info line'
         in any (\chunk' -> cToken chunk `T.isPrefixOf` cToken chunk' &&
-                           cOffset chunk' + off' == cOffset chunk) cs
+                           cOffset chunk' == cOffset chunk) cs
     | suffix_match opts =
-        let !(# line', off' #) = getLineByOffset (cOffset chunk) text loff
+        let !(# line', _ #) = getLineByOffset (cOffset chunk) text loff
             !cs = parseChunks info line'
             !tokLen = T.length (cToken chunk)
         in any (\chunk' ->
                 let !tokLen' = T.length (cToken chunk')
                 in cToken chunk `T.isSuffixOf` cToken chunk' &&
-                   cOffset chunk' + off' + (tokLen' - tokLen) == cOffset chunk) cs
+                   cOffset chunk' + (tokLen' - tokLen) == cOffset chunk) cs
     | otherwise = undefined

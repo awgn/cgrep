@@ -36,12 +36,13 @@ import Options (
 import System.OsPath
 import qualified System.OsString as OS
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+import qualified Data.Text.IO.Utf8 as TIO
 import Util (spanGroup)
 import CGrep.Line (LineIndex)
 import Reader (ReaderIO)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (Chunk)
+import qualified Data.Text.Unsafe as TU
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -82,9 +83,9 @@ ignoreCase opt
 
 subText :: [[Int]] -> T.Text -> T.Text
 subText [] txt = txt
-subText indices txt = case T.findIndex (== '\n') (T.drop maxOff txt) of
+subText indices txt = case T.findIndex (== '\n') (TU.dropWord8 maxOff txt) of
     Nothing -> txt
-    (Just n) -> T.take (maxOff + n) txt
+    (Just n) -> TU.takeWord8 (maxOff + n) txt
   where
     maxOff = maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
