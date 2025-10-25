@@ -93,7 +93,7 @@ unescapeAtom xs = xs
 {-# INLINE unescapeAtom #-}
 
 findAllMatches :: Options -> [[Atom]] -> [T.Token] -> [T.Token]
-findAllMatches opt ws ts = nubOrd . nubOrd $ concatMap (\w -> findAllMatches' opt w ts) ws
+findAllMatches opt ws ts = concatMap (\w -> findAllMatches' opt w ts) ws
 {-# INLINE findAllMatches #-}
 
 findAllMatches' :: Options -> [Atom] -> [T.Token] -> [T.Token]
@@ -169,13 +169,11 @@ doesAtomMatchToken _ Number t = T.isTokenNumber t
 doesAtomMatchToken _ Oct t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (d, _)) -> isDigit d; _ -> False
 doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just ('x', _)) -> True; _ -> False
 
-
 isPrefixOfBy :: (a -> b -> Bool) -> [a] -> [b] -> Bool
 isPrefixOfBy _ [] _ = True
 isPrefixOfBy _ (_ : _) [] = False
 isPrefixOfBy p (x : xs) (y : ys) = p x y && isPrefixOfBy p xs ys
 {-# INLINEABLE isPrefixOfBy #-}
-
 
 findIndicesBy :: (a -> b -> Bool) -> [a] -> [b] -> [Int]
 findIndicesBy p needle haystack =

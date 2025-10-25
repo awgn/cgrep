@@ -77,34 +77,31 @@ search info f patterns strict = do
     let text' = ignoreCase opt text
     let text'' = expandMultiline opt . contextFilter $ text'
 
-    let !eligibleForSearch = textContainsOneOf patterns text'
+    -- pre-process patterns
+    let pfilter = TokenFilter
+            { tfIdentifier = True
+            , tfKeyword = True
+            , tfNativeType = True
+            , tfString = True
+            , tfNumber = True
+            , tfOperator = True
+            , tfBracket = True
+            }
+
+    let patterns' = map (parseTokens pfilter (snd <$> info) strict . contextFilter) patterns
+        patterns'' = map (toList . (mkAtomFromToken <$>)) patterns'
+
+    let matchers = mapMaybe
+            ( \case
+                Exact (Token (Chunk ChunkString xs)) -> Just ((unquoteT . trimT) xs)
+                Exact t -> Just (tToken t)
+                _ -> Nothing
+            )
+            (concatMap toList patterns'')
+
+    let !eligibleForSearch = textContainsOneOf matchers text'
 
     runSearch opt lindex filename eligibleForSearch $ do
-
-        -- pre-process patterns
-
-        let pfilter = TokenFilter
-                { tfIdentifier = True
-                , tfKeyword = True
-                , tfNativeType = True
-                , tfString = True
-                , tfNumber = True
-                , tfOperator = True
-                , tfBracket = True
-                }
-
-        let patterns' = map (parseTokens pfilter (snd <$> info) strict . contextFilter) patterns
-            patterns'' = map (toList . (mkAtomFromToken <$>)) patterns'
-
-        let matchers = mapMaybe
-                ( \case
-                    Exact (Token (Chunk ChunkString xs)) -> Just ((unquoteT . trimT) xs)
-                    Exact t -> Just (tToken t)
-                    _ -> Nothing
-                )
-                (concatMap toList patterns'')
-
-                -- put banners...
 
         putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
         putMessageLnVerb 1 stderr $ "strategy  : running generic semantic search on " <> show filename
@@ -123,7 +120,7 @@ search info f patterns strict = do
 
         -- get matching tokens ...
 
-        let allMatches = sortBy (compare `on` tOffset) $ nub $ findAllMatches opt patterns'' tokens
+        let allMatches = sortBy (compare `on` tOffset) $ findAllMatches opt patterns'' tokens
 
         -- convert Tokens to Chunks
         let matches = coerce allMatches :: [Chunk]

@@ -56,6 +56,7 @@ textIndices ps text = (`TIS.indices` text) <$> ps
 
 
 textContainsOneOf :: [T.Text] -> T.Text -> Bool
+textContainsOneOf [] _ = True
 textContainsOneOf ps text = any isJust ((`firstIndex` text) <$> ps)
 {-# INLINE textContainsOneOf #-}
 
