@@ -24,7 +24,6 @@ import CGrep.Common (
     getTargetName,
     ignoreCase,
     subText,
-    trim,
     trimT,
  )
 import CGrep.ContextFilter (

@@ -18,8 +18,7 @@
 
 module CGrep.Strategy.Regex (search) where
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Reader (ask, reader)
-import qualified Data.Vector.Unboxed as UV
+import Control.Monad.Trans.Reader (ask)
 
 import Text.Regex.Base (
     AllTextMatches (getAllTextMatches),

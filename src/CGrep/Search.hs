@@ -45,7 +45,6 @@ import qualified CGrep.Strategy.Levenshtein as Levenshtein
 import qualified CGrep.Strategy.Regex as Regex
 import qualified CGrep.Strategy.Semantic as Semantic
 import qualified CGrep.Strategy.Tokenizer as Tokenizer
-import qualified Codec.Binary.UTF8.String as UC
 import Config (
     Config (
         Config,
@@ -56,93 +55,62 @@ import Config (
         configFileTypes,
         configPruneDirs
     ),
-    dumpPalette,
  )
-import Control.Applicative (
-    Alternative ((<|>)),
-    Applicative (liftA2),
- )
+
 import Control.Arrow (Arrow ((&&&)))
-import Control.Concurrent (MVar, forkIO, forkOn, putMVar, threadDelay)
-import Control.Concurrent.Async (Async, async, asyncOn, forConcurrently, forConcurrently_, mapConcurrently_, wait)
+import Control.Concurrent (forkIO)
+import Control.Concurrent.Async (Async, async, asyncOn, forConcurrently_, wait)
 import Control.Concurrent.Chan.Unagi.Bounded (
     newChan,
     readChan,
     writeChan,
  )
-import Control.Concurrent.MVar (newMVar, takeMVar)
 import Control.Exception as E (SomeException, catch)
 import Control.Monad (forM, forM_, forever, replicateM_, unless, void, when)
-import Control.Monad.Catch (MonadCatch (catch), SomeException)
 import Control.Monad.Extra (partitionM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Loops (whileM_)
-import Control.Monad.Trans (MonadIO (liftIO))
 import Control.Monad.Trans.Except (runExceptT, throwE)
 import Control.Monad.Trans.Reader (
     ReaderT (runReaderT),
     ask,
-    local,
-    reader,
  )
 import qualified Data.Bifunctor
-import Data.Function (fix)
-import Data.Functor (void, ($>), (<&>))
 import Data.Functor as F (unzip)
 import qualified Data.HashSet as S
 import Data.IORef (
     IORef,
-    atomicModifyIORef,
-    atomicModifyIORef',
     modifyIORef,
     modifyIORef',
     newIORef,
     readIORef,
  )
-import Data.IORef.Extra (atomicWriteIORef')
-import Data.Int (Int64)
-import Data.List (elemIndex, intersperse, isPrefixOf, isSuffixOf, partition)
 import Data.List.Split (chunksOf)
-import qualified Data.Map as M
-import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
+import Data.Maybe (catMaybes, fromJust, fromMaybe)
 import Data.Tuple.Extra ()
-import Data.Vector ((!))
-import qualified Data.Vector as V hiding ((!))
-import Debug.Trace
 import GHC.Conc (getNumCapabilities)
 import Options (Options (..))
-import PutMessage (putMessageLn, putMessageLnVerb)
+import PutMessage (putMessageLn)
 import Reader (
     Env (..),
     ReaderIO,
  )
-import System.Directory.OsPath (canonicalizePath, doesDirectoryExist, getDirectoryContents, makeAbsolute)
+import System.Directory.OsPath (doesDirectoryExist, getDirectoryContents, makeAbsolute)
 import System.Environment (lookupEnv)
 import System.IO (
-    BufferMode (BlockBuffering),
-    hPutStrLn,
-    hSetBinaryMode,
-    hSetBuffering,
     stderr,
     stdin,
     stdout,
  )
 
 import qualified OsPath as OS
-import System.OsPath (OsPath, OsString, osp, takeBaseName, takeExtension, unsafeEncodeUtf, (</>))
+import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
 import System.OsString as OS (isSuffixOf, isPrefixOf)
-import System.PosixCompat.Files as PC (
-    FileStatus,
-    getFileStatus,
-    getSymbolicLinkStatus,
-    isDirectory,
- )
 import System.Process (runProcess, waitForProcess)
-import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy.IO as LTIO
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
+import Control.Applicative ((<|>))
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -212,17 +180,17 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                             opt
                             path
                             (S.singleton path)
-                            ( \file -> do
-                                writeChan (fst fileCh) file
+                            ( \file' -> do
+                                writeChan (fst fileCh) file'
                             )
                     _ -> writeChan (fst fileCh) [path]
             else
                 forM_
                     ( if null paths && not isTermIn
-                        then [(unsafeEncodeUtf "", 0)]
+                        then [(unsafeEncodeUtf "", 0 :: Int)]
                         else paths `zip` [0 ..]
                     )
-                    (\(p, idx) -> writeChan (fst fileCh) [p])
+                    (\(p, _idx) -> writeChan (fst fileCh) [p])
 
         -- enqueue EOF messages...
         when (verbose > 0) $
@@ -244,13 +212,13 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 fs <- liftIO $ readChan (snd fileCh)
                 case fs of
                     [] -> liftIO $ readIORef asRef >>= mapM_ wait
-                    fs -> do
+                    fs' -> do
                         out <-
                             liftIO $
                                 runReaderT
                                     ( catMaybes
                                         <$> forM
-                                            fs
+                                            fs'
                                             ( \f ->
                                                 liftIO $
                                                     E.catch
@@ -327,20 +295,12 @@ getSearcher Env{..} = do
         | isRegexp opt -> Regex.search
         | otherwise -> undefined
 
-incrRef :: IORef Int -> IO ()
-incrRef ref = atomicModifyIORef' ref (\n -> (n + 1, ()))
-{-# INLINE incrRef #-}
-
-decrRef :: IORef Int -> IO ()
-decrRef ref = atomicModifyIORef' ref (\n -> (n - 1, ()))
-{-# INLINE decrRef #-}
-
 fileFilter :: Options -> [FileType] -> [FileKind] -> OsPath -> Bool
 fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKinds kin)
   where
     (typ, kin) = F.unzip $ fileTypeLookup opt filename
-    fileFilterTypes typ = maybe False (liftA2 (||) (const $ null fTypes) (`elem` fTypes)) typ
-    fileFilterKinds typ = maybe False (liftA2 (||) (const $ null fKinds) (`elem` fKinds)) typ
+    fileFilterTypes = maybe False (liftA2 (||) (const $ null fTypes) (`elem` fTypes))
+    fileFilterKinds = maybe False (liftA2 (||) (const $ null fKinds) (`elem` fKinds))
 
 isNotTestFile :: OsPath -> Bool
 isNotTestFile f =
@@ -370,13 +330,13 @@ mkPrunableDirName xs
     | otherwise = xs <> unsafeEncodeUtf "/"
 {-# INLINE mkPrunableDirName #-}
 
-(.!.) :: V.Vector a -> Int -> a
-v .!. i = v ! (i `mod` V.length v)
-{-# INLINE (.!.) #-}
+-- (.!.) :: V.Vector a -> Int -> a
+-- v .!. i = v ! (i `mod` V.length v)
+-- {-# INLINE (.!.) #-}
 
-hasFileType :: OsPath -> Options -> [FileType] -> Bool
-hasFileType path opt xs = isJust $ fileTypeLookup opt path >>= (\(typ, _) -> typ `elemIndex` xs)
-{-# INLINE hasFileType #-}
+-- hasFileType :: OsPath -> Options -> [FileType] -> Bool
+-- hasFileType path opt xs = isJust $ fileTypeLookup opt path >>= (\(typ, _) -> typ `elemIndex` xs)
+-- {-# INLINE hasFileType #-}
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options{..} =

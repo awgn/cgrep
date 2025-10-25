@@ -58,6 +58,6 @@ a ~== b
     | len < 5 = dist < 3
     | otherwise = dist < (len * 40 `div` 100)
   where
-    len = fromIntegral (length a `min` length b)
+    len = length a `min` length b
     dist = distance a b
 {-# INLINE (~==) #-}

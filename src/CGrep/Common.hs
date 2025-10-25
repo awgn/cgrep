@@ -30,11 +30,6 @@ module CGrep.Common (
 where
 
 import CGrep.Parser.Char (isSpace)
-import Data.Char (toLower)
-import Data.Int (Int64)
-import Data.List (group, groupBy, sort, sortOn)
-import qualified Data.Vector.Unboxed as UV
-import GHC.Exts (groupWith)
 import Options (
     Options (Options, ignore_case, multiline, no_shallow),
  )
@@ -43,14 +38,10 @@ import qualified System.OsString as OS
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Util (spanGroup)
-import Data.List.Extra (notNull)
 import CGrep.Line (LineIndex)
 import Reader (ReaderIO)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (Chunk)
-
-import qualified Data.Text.Internal.Fusion as TIF
-import qualified Data.Text.Internal.Fusion.Common as TIFC
 
 takeN :: Int -> String -> String
 takeN n xs

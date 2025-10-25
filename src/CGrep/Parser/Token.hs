@@ -70,7 +70,8 @@ import CGrep.FileTypeMap (
  )
 
 import qualified Data.HashMap.Strict as HM
-import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
+-- import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
+import Data.Sequence ((|>), Seq)
 import qualified Data.Sequence as S
 
 import Control.Monad.ST (ST, runST)
@@ -86,7 +87,7 @@ import qualified Data.Text as T
 import CGrep.Text (textOffsetWord8, iterM, textSlice)
 import CGrep.Parser.Char (isSpace, isDigit, isBracket', isCharNumber, chr, isPunctuation)
 
-newtype TokenState = TokenState {unTokenState :: Int}
+newtype TokenState = TokenState {_unTokenState :: Int}
     deriving newtype (Eq)
 
 instance Show TokenState where
@@ -96,7 +97,6 @@ instance Show TokenState where
     show StateBracket = "bracket"
     show StateLiteral = "literal"
     show StateOther = "other"
-    show _ = "unknown"
     {-# INLINE show #-}
 
 pattern StateSpace :: TokenState
@@ -265,7 +265,7 @@ ref <~ !x = writeSTRef ref x
 {-# INLINE (<~) #-}
 
 data TokenIdx = TokenIdx
-    { offset :: {-# UNPACK #-} !Int
+    { _offset :: {-# UNPACK #-} !Int
     , len :: {-# UNPACK #-} !Int
     }
 
@@ -285,7 +285,7 @@ ref <<~ Append offset delta = modifySTRef' ref $ \case
 
 {-# INLINE parseTokens #-}
 parseTokens :: TokenFilter -> Maybe FileTypeInfo -> Bool -> T.Text -> Seq Token
-parseTokens tf@TokenFilter{..} info strict txt =
+parseTokens tf info strict txt =
     runST $ do
         let (runtimeCS1, runtimeCS2) = fromMaybe (None, None) (info >>= ftIdentCharSet)
         case (runtimeCS1, runtimeCS2) of

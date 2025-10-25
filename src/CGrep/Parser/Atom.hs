@@ -25,33 +25,20 @@ module CGrep.Parser.Atom (
 
 import qualified Data.Map as M
 
-import CGrep.Common (trim, trimT)
+import CGrep.Common (trimT)
 import CGrep.Distance ((~==))
 import CGrep.Parser.Char (isDigit)
 
-import Data.List (
-    findIndices,
-    isInfixOf,
-    isPrefixOf,
-    isSuffixOf,
-    sort,
-    subsequences,
-    tails,
- )
+import Data.List ( tails )
+
 import Options (
     Options (edit_dist, prefix_match, suffix_match, word_match),
  )
-import Util (unquoteT, spanGroup)
+import Util (unquoteT)
 
-import qualified CGrep.Parser.Chunk as T
 import qualified CGrep.Parser.Token as T
 
 import Data.Containers.ListUtils (nubOrd)
-import Data.Function (on)
-import Data.List (groupBy)
-import Data.List.Extra (sortOn)
-import Debug.Trace
-import GHC.Stack (errorWithStackTrace)
 import qualified Data.Text as T
 
 data Atom
@@ -83,7 +70,7 @@ mkAtomFromToken t
     | T.isTokenIdentifier t = case () of
         _
             | Just wc <- M.lookup txt wildCardMap -> wc
-            | isAtomPlaceholder txt -> Placeholder txt 
+            | isAtomPlaceholder txt -> Placeholder txt
             | otherwise -> Exact $ T.mkTokenIdentifier (unescapeAtom txt)
           where
             txt = T.tToken t
@@ -93,7 +80,7 @@ mkAtomFromToken t
 isAtomPlaceholder :: T.Text -> Bool
 isAtomPlaceholder s =
     if
-        | Just (x, T.uncons -> Just (y, xs)) <- T.uncons s -> wprefix x && isDigit y
+        | Just (x, T.uncons -> Just (y, _)) <- T.uncons s -> wprefix x && isDigit y
         | Just (x, "") <- T.uncons s -> wprefix x
         | otherwise -> errorWithoutStackTrace "CGrep: isAtomIdentifier"
   where
@@ -192,5 +179,5 @@ isPrefixOfBy p (x : xs) (y : ys) = p x y && isPrefixOfBy p xs ys
 
 findIndicesBy :: (a -> b -> Bool) -> [a] -> [b] -> [Int]
 findIndicesBy p needle haystack =
-    [i | (i, tail) <- zip [0 ..] (tails haystack), isPrefixOfBy p needle tail]
+    [i | (i, tail') <- zip [0 ..] (tails haystack), isPrefixOfBy p needle tail']
 {-# INLINE findIndicesBy #-}

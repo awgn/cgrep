@@ -16,7 +16,11 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module PutMessage where
+module PutMessage (
+    PutStr (..),
+    putMessageLnVerb,
+    putMessageLn,
+) where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))

@@ -8,7 +8,6 @@ module OsPath (
 
 import Data.ByteString (ByteString)
 import Data.ByteString.Short (ShortByteString, toShort)
-import System.OsPath (OsPath, decodeUtf)
 import System.OsString.Data.ByteString.Short (fromShort)
 import System.OsString.Internal.Types
 import qualified Data.Text as T

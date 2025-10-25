@@ -16,17 +16,14 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module Main where
+module Main (main) where
 
-import qualified Codec.Binary.UTF8.String as UC
 
 import Data.Char (toLower)
-import Data.List (elemIndex, genericLength, isInfixOf, isPrefixOf, isSuffixOf, nub, partition, sort, union, (\\))
-import Data.Maybe (catMaybes)
 import Data.Version (showVersion)
 
 import Control.Monad (void, when)
-import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 
 import qualified Data.Map as M
 import GHC.Conc (getNumCapabilities, setNumCapabilities)
@@ -53,20 +50,17 @@ import Options (Options (..))
 import Paths_cgrep (version)
 import PutMessage (putMessageLnVerb)
 
-import Reader (Env (..), ReaderIO)
-import Util (partitionM)
+import Reader (Env (..))
 
 import Control.Applicative (Alternative ((<|>)))
-import Data.Functor (void, ($>))
-import Data.List.Extra (notNull)
-import OsPath (fromByteString, toFilePath)
+import Data.Functor (($>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 
-import qualified System.OsPath as OP (unsafeEncodeUtf)
 import qualified System.OsString as OS
 import System.OsPath (OsPath)
 import qualified OsPath as OS
+import Data.List (union, (\\))
 
 main :: IO ()
 main = do
@@ -84,10 +78,6 @@ main = do
             else id
         )
             <$> execParser parserInfo
-
-    -- check for multiple backends...
-    when (length (catMaybes [if json then Just "" else Nothing]) > 1) $
-        errorWithoutStackTrace "CGrep: you can use one back-end at time!"
 
     -- display lang-map and exit...
     when type_map $

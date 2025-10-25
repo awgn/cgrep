@@ -41,7 +41,6 @@ import CGrep.ContextFilter (
 import Control.Applicative (Alternative ((<|>)))
 import Control.Monad (forM_)
 import Options (Options (Options, code_only, force_type, hdr_only, keyword))
-import System.OsPath (OsPath, takeBaseName, takeExtension, takeFileName)
 import qualified System.OsPath as OS
 import Language.Haskell.TH.Syntax (lift)
 
@@ -4816,10 +4815,10 @@ mkContextFilterFn (Just ftype) filt alterBoundary
     parFunc = mkFilterFunction alterBoundary =<< Map.lookup ftype (unMapInfo fileTypeInfoMap)
 
 
-fileTypeLookup :: Options -> OsPath -> Maybe (FileType, FileKind)
+fileTypeLookup :: Options -> OS.OsPath -> Maybe (FileType, FileKind)
 fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (hdr_only opts)
   where
-    lookupFileType :: OsPath -> Bool -> Bool -> Maybe (FileType, FileKind)
+    lookupFileType :: OS.OsPath -> Bool -> Bool -> Maybe (FileType, FileKind)
     lookupFileType file False False = Map.lookup (Name $ OS.takeFileName file) m <|> Map.lookup (Ext e) m <|> Map.lookup (Hdr e) m
     lookupFileType file True False = Map.lookup (Name $ OS.takeFileName file) m <|> Map.lookup (Ext e) m
     lookupFileType file False True = Map.lookup (Name $ OS.takeFileName file) m <|> Map.lookup (Hdr e) m
@@ -4829,8 +4828,8 @@ fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (h
 {-# INLINE fileTypeLookup #-}
 
 
-fileTypeInfoLookup :: Options -> OsPath -> Maybe (FileType, FileTypeInfo)
-fileTypeInfoLookup opts f = fileTypeLookup opts f >>= \(typ, kid) -> (typ,) <$> Map.lookup typ (unMapInfo fileTypeInfoMap)
+fileTypeInfoLookup :: Options -> OS.OsPath -> Maybe (FileType, FileTypeInfo)
+fileTypeInfoLookup opts f = fileTypeLookup opts f >>= \(typ, _kid) -> (typ,) <$> Map.lookup typ (unMapInfo fileTypeInfoMap)
 {-# INLINE fileTypeInfoLookup #-}
 
 fileTypeMap :: FileTypeMap
@@ -4841,10 +4840,9 @@ dumpFileTypeInfoMap :: FileTypeInfoMap -> IO ()
 dumpFileTypeInfoMap m = forM_ ((Map.toList . unMapInfo) m) $ \(l, ex) ->
     putStrLn $ show l <> [' ' | _ <- [length (show l) .. 12]] <> "-> " <> show (ftSelector ex)
 
-dumpFileTypeMap :: FileTypeMap -> IO ()
-dumpFileTypeMap m = forM_ (Map.toList (unMap m)) $ \(e, l) ->
-    putStrLn $ show e <> [' ' | _ <- [length (show e) .. 12]] <> "-> " <> show l
-
+-- dumpFileTypeMap :: FileTypeMap -> IO ()
+-- dumpFileTypeMap m = forM_ (Map.toList (unMap m)) $ \(e, l) ->
+--     putStrLn $ show e <> [' ' | _ <- [length (show e) .. 12]] <> "-> " <> show l
 
 forcedType :: Options -> Maybe (FileType, FileKind)
 forcedType Options{..}

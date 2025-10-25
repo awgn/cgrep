@@ -16,7 +16,10 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module Reader where
+module Reader (
+    Env (..)
+  , ReaderIO
+) where
 
 import Config (Config)
 import Control.Monad.Trans.Reader (ReaderT)

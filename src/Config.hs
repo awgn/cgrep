@@ -23,24 +23,8 @@ module Config (
 ) where
 
 import Control.Monad (MonadPlus (mzero), filterM, forM_)
-import System.Console.ANSI (
-    Color (Blue, Cyan, Green, Magenta, Red, White, Yellow),
-    ColorIntensity (Vivid),
-    ConsoleIntensity (BoldIntensity),
-    ConsoleLayer (Foreground),
-    SGR (SetColor, SetConsoleIntensity),
-    setSGRCode,
- )
 import System.Directory (doesFileExist, getHomeDirectory)
-
-import System.Console.ANSI.Types (
-    Color (Blue, Cyan, Green, Magenta, Red, White, Yellow),
-    ColorIntensity (Vivid),
-    ConsoleIntensity (BoldIntensity),
-    ConsoleLayer (Foreground),
-    SGR (SetColor, SetConsoleIntensity, SetPaletteColor),
-    xterm6LevelRGB,
- )
+import System.Console.ANSI.Types (xterm6LevelRGB, ConsoleIntensity (BoldIntensity))
 
 import Data.Aeson (FromJSON (parseJSON), (.!=), (.:?))
 import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
@@ -53,9 +37,9 @@ import Data.List.Split (splitOn)
 import System.FilePath ((</>))
 
 import CGrep.FileKind (FileKind)
-import Data.List.Extra (notNull)
-import System.OsPath (OsPath)
 import Text.Read (readMaybe)
+import System.Console.ANSI (SGR(..), ConsoleLayer (..), ColorIntensity (..), Color (..))
+import System.Console.ANSI.Codes (setSGRCode)
 
 cgreprc :: FilePath
 cgreprc = "cgreprc"

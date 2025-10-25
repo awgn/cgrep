@@ -19,20 +19,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UnboxedTuples #-}
 
-module CGrep.ContextFilter where
+module CGrep.ContextFilter (
+    FilterFunction,
+    ContextFilter (..),
+    isContextFilterAll,
+    contextBitCode,
+    contextBitComment,
+    contextBitLiteral,
+    mkContextFilter,
+    mkParConfig,
+    (~!),
+    runContextFilter,
+    start_literal,
+    end_literal,
+) where
 
 import CGrep.Boundary (Boundary (..))
 import CGrep.Parser.Char (chr, isSpace)
 import CGrep.Text (blankByWidth)
-import Data.Bits (Bits (complement, shiftL, shiftR, xor, (.&.), (.|.)))
+import Data.Bits (Bits (complement, (.&.), (.|.)))
 import Data.Int (Int32)
-import Data.List (find, findIndex, nub, sort)
-import Data.Maybe (catMaybes, fromJust, fromMaybe, isJust)
+import Data.List (nub, sort)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Options (Options (..))
-import Util (findWithIndex)
-import qualified Data.Text.Unsafe as TU
 
 type FilterFunction = ContextFilter -> T.Text -> T.Text
 
@@ -91,8 +101,6 @@ commentFilter f = (unFilter f .&. contextBitComment) /= contextBitEmpty
 literalFilter :: ContextFilter -> Bool
 literalFilter f = (unFilter f .&. contextBitLiteral) /= contextBitEmpty
 {-# INLINE literalFilter #-}
-
-data StreamB
 
 data StreamBoundary = StreamBoundary
     { sbBegin :: !(# Char, T.Text #)
@@ -188,8 +196,8 @@ end_literal = chr 3
 
 -- Strict ParData to minimize allocations
 data ParData = ParData
-    { pdText :: !T.Text
-    , pdState :: !ParState
+    { _pdText :: !T.Text
+    , _pdState :: !ParState
     }
 
 runContextFilter :: ParConfig -> ContextFilter -> T.Text -> T.Text

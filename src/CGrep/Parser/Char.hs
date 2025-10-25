@@ -184,7 +184,7 @@ isClojureIdentStart c
     | c `elem` ("#:" :: String) = False
     | otherwise = True
   where
-    isClojureDelimiter c = c `elem` ("()[]{}@;~`'\"\\" :: String)
+    isClojureDelimiter x = x `elem` ("()[]{}@;~`'\"\\" :: String)
 {-# INLINE isClojureIdentStart #-}
 
 isClojureIdentCont :: Char -> Bool
@@ -271,7 +271,7 @@ isLispIdent c =
         || c `elem` ("-+*/@$%^&_=<>~!?[]{}" :: String)
 
 isUnicodeXIDStart_ :: Char -> Bool
-isUnicodeXIDStart_ c = c == '_' || isXIDStart c
+isUnicodeXIDStart_ x = x == '_' || isXIDStart x
   where
     isXIDStart c = case generalCategory c of
         UppercaseLetter -> True
@@ -286,7 +286,7 @@ isUnicodeXIDStart_ c = c == '_' || isXIDStart c
 isUnicodeNumXIDCont_ :: Char -> Bool
 isUnicodeNumXIDCont_ c = c == '_' || isXIDContinue c
   where
-    isXIDContinue c = case generalCategory c of
+    isXIDContinue x = case generalCategory x of
         UppercaseLetter -> True
         LowercaseLetter -> True
         TitlecaseLetter -> True

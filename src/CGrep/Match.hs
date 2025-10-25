@@ -24,29 +24,27 @@ module CGrep.Match (
     prettyBold,
 ) where
 
-import CGrep.Line (LineIndex, getLineByOffset', getLineOffsets, lookupLineAndPosition, totalLines)
-import System.OsPath
+import CGrep.Line (LineIndex, getLineByOffset', lookupLineAndPosition, totalLines)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Unsafe as TU
 import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.Builder.Int as TLB
+import qualified Data.Text.Unsafe as TU
+import System.OsPath
 
 import CGrep.Parser.Chunk (Chunk (..), MatchLine (..), cOffset)
-import Reader (ReaderIO, Env (..))
-import Config
-import Options (Options(..))
-import qualified OsPath as OS
-import Data.Function (on)
-import Data.List (sortBy, groupBy)
-import Data.List.Extra (intersperse)
-import Control.Monad.Reader
-import System.Console.ANSI (setSGRCode)
-import System.Console.ANSI.Codes (ConsoleIntensity(..))
-import System.Console.ANSI (SGR(..))
-import Data.List (sort, nub)
 import CGrep.Text (textOffsetWord8)
-import Data.List (sortOn)
+import Config
+import Control.Monad.Reader
+import Data.Function (on)
+import Data.List.Extra (intersperse)
+import Options (Options (..))
+import qualified OsPath as OS
+import Reader (Env (..), ReaderIO)
+import System.Console.ANSI (SGR (..), setSGRCode)
+import System.Console.ANSI.Codes (ConsoleIntensity (..))
+import Data.List (sortBy, groupBy, sortOn)
+import Util (unsafeHead)
 
 data Match = Match
     { mFilePath :: OsPath
@@ -57,9 +55,8 @@ data Match = Match
     deriving stock (Show, Eq)
 
 mTokens :: Match -> [T.Text]
-mTokens (Match fp ln l cs) = cToken <$> cs
+mTokens (Match _ _ _ cs) = cToken <$> cs
 {-# INLINE mTokens #-}
-
 
 mkMatches :: LineIndex -> OsPath -> T.Text -> [Chunk] -> ReaderIO [Match]
 mkMatches lindex f txt chunks = do
@@ -69,16 +66,15 @@ mkMatches lindex f txt chunks = do
             then
                 map
                     ( \(MatchLine n xs) ->
-                        --let line = getLineByOffset' lindex ((cOffset . head) xs)
-                         Match f n txt xs
+                        Match f n txt xs
                     )
                     . invertLines (totalLines lindex)
                     $ mkMatchLines lindex chunks
             else
                 map
                     ( \(MatchLine n xs) ->
-                        let line = getLineByOffset' lindex ((cOffset . head) xs)
-                          in Match f n line xs
+                        let line = getLineByOffset' lindex ((cOffset . unsafeHead) xs)
+                         in Match f n line xs
                     )
                     $ mkMatchLines lindex chunks
 
@@ -88,7 +84,7 @@ mkMatchLines lindex chunks =
     map mergeGroup $
         groupBy ((==) `on` mlOffset) . sortBy (compare `on` mlOffset) $
             ( \chunk ->
-                let (# r, c #) = lookupLineAndPosition lindex (cOffset chunk)
+                let (# r, _ #) = lookupLineAndPosition lindex (cOffset chunk)
                  in MatchLine r [Chunk (cTyp chunk) (cToken chunk)]
             )
                 <$> chunks
@@ -96,7 +92,6 @@ mkMatchLines lindex chunks =
     mergeGroup :: [MatchLine] -> MatchLine
     mergeGroup [] = error "mergeGroup: empty list"
     mergeGroup ls@(x : _) = MatchLine (mlOffset x) (foldl' (\l m -> l <> mlChunks m) [] ls)
-
 
 invertLines :: Int -> [MatchLine] -> [MatchLine]
 invertLines n xs = filter (\(MatchLine i _) -> i `notElem` idx) $ take n [MatchLine i [] | i <- [1 ..]]
@@ -110,7 +105,7 @@ putMatches out = do
     Env{..} <- ask
     if
         | null_output opt -> pure Nothing
-     -- | filename_only opt -> Just <$> filenameOutput out
+        -- \| filename_only opt -> Just <$> filenameOutput out
         | otherwise -> Just <$> defPutMatches out
 
 --------------------------------------------------------------------
@@ -130,11 +125,15 @@ defPutMatches xs = do
         | Options{no_filename = False, count = True} <- opt ->
             do
                 let gs = groupBy (\(Match f1 _ _ _) (Match f2 _ _ _) -> f1 == f2) xs
-                pure $ mconcat . intersperse (TLB.singleton '\n') $ (\ys@(y : _) -> buildFileName conf opt y <> TLB.singleton ':' <> TLB.decimal (length ys)) <$> gs
+                {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+                pure $ mconcat . intersperse (TLB.singleton '\n') $ (\ys -> case ys of
+                    (y : _) -> buildFileName conf opt y <> TLB.singleton ':' <> TLB.decimal (length ys)
+                    [] -> mempty) <$> gs
+
         | Options{count = True} <- opt ->
             do
                 let gs = groupBy (\(Match f1 _ _ _) (Match f2 _ _ _) -> f1 == f2) xs
-                pure $ mconcat . intersperse (TLB.singleton '\n') $ (\ys@(y : _) -> TLB.decimal (length ys)) <$> gs
+                pure $ mconcat . intersperse (TLB.singleton '\n') $ (\ys -> TLB.decimal (length ys)) <$> gs
 
 --------------------------------------------------------------------
 
@@ -144,7 +143,7 @@ buildFileName conf opt out =
      in buildFileName' conf opt $ str
   where
     buildFileName' :: Config -> Options -> T.Text -> TLB.Builder
-    buildFileName' conf opt = buildColoredText opt $ T.pack (setSGRCode (configColorFile conf))
+    buildFileName' conf' opts = buildColoredText opts $ T.pack (setSGRCode (configColorFile conf'))
 {-# INLINE buildFileName #-}
 
 buildColoredText :: Options -> ColorCode -> T.Text -> TLB.Builder
@@ -174,81 +173,77 @@ buildLine conf Options{color = c, no_color = no_c} out
 
 buildColoredLine :: Config -> [Chunk] -> T.Text -> TLB.Builder
 buildColoredLine conf chunks line =
-  let
-    lineOffset = textOffsetWord8 line
-    lineByteLen = TU.lengthWord8 line
-    lineEndOffset = lineOffset + lineByteLen
+    let
+        lineOffset = textOffsetWord8 line
+        lineByteLen = TU.lengthWord8 line
+        lineEndOffset = lineOffset + lineByteLen
 
-    events :: [(Int, Int)]
-    events = sortOn fst $ concatMap chunkToEvents chunks
+        events :: [(Int, Int)]
+        events = sortOn fst $ concatMap chunkToEvents chunks
 
-    chunkToEvents :: Chunk -> [(Int, Int)]
-    chunkToEvents chunk =
-      let
-        -- Offset assoluti del chunk
-        chunkStartAbs = cOffset chunk
-        chunkLen = TU.lengthWord8 (cToken chunk)
-        chunkEndAbs = chunkStartAbs + chunkLen
+        chunkToEvents :: Chunk -> [(Int, Int)]
+        chunkToEvents chunk =
+            let
+                -- Offset assoluti del chunk
+                chunkStartAbs = cOffset chunk
+                chunkLen = TU.lengthWord8 (cToken chunk)
+                chunkEndAbs = chunkStartAbs + chunkLen
 
-        -- Controlla se il chunk si sovrappone a questa riga
-        overlaps = chunkEndAbs > lineOffset && chunkStartAbs < lineEndOffset
+                -- Controlla se il chunk si sovrappone a questa riga
+                overlaps = chunkEndAbs > lineOffset && chunkStartAbs < lineEndOffset
+             in
+                if not overlaps || chunkLen == 0
+                    then []
+                    else
+                        let
+                            -- Calcola l'inizio relativo, clippato a 0 (inizio riga)
+                            relStart = max 0 (chunkStartAbs - lineOffset)
 
-      in
-        if not overlaps || chunkLen == 0
-        then []
-        else
-          let
-            -- Calcola l'inizio relativo, clippato a 0 (inizio riga)
-            relStart = max 0 (chunkStartAbs - lineOffset)
+                            -- Calcola la fine relativa, clippata alla lunghezza della riga
+                            relEnd = min lineByteLen (chunkEndAbs - lineOffset)
+                         in
+                            if relStart < relEnd
+                                then [(relStart, 1), (relEnd, -1)] -- Evento Inizio, Evento Fine
+                                else []
 
-            -- Calcola la fine relativa, clippata alla lunghezza della riga
-            relEnd = min lineByteLen (chunkEndAbs - lineOffset)
+        colorMatch = TLB.fromString $ setSGRCode (configColorMatch conf)
 
-          in
-            if relStart < relEnd
-            then [(relStart, 1), (relEnd, -1)] -- Evento Inizio, Evento Fine
-            else []
+        -- 2. Itera sugli eventi (la logica qui non cambia)
+        --    Stato: (lastByteIndex, currentHighlightLevel, accumulatedBuilder)
+        processEvent :: (Int, Int, TLB.Builder) -> (Int, Int) -> (Int, Int, TLB.Builder)
+        processEvent (lastIdx, level, accBuilder) (eventIdx, delta) =
+            let
+                accBuilder'
+                    | eventIdx > lastIdx =
+                        let
+                            chunkLen = eventIdx - lastIdx
+                            -- Usa le funzioni efficienti di slicing per byte (sulla riga)
+                            textChunk = TU.takeWord8 chunkLen (TU.dropWord8 lastIdx line)
 
-    colorMatch = TLB.fromString $ setSGRCode (configColorMatch conf)
+                            coloredChunk
+                                | level > 0 = colorMatch <> TLB.fromText textChunk <> resetBuilder
+                                | otherwise = TLB.fromText textChunk
+                         in
+                            accBuilder <> coloredChunk
+                    | otherwise = accBuilder
 
-    -- 2. Itera sugli eventi (la logica qui non cambia)
-    --    Stato: (lastByteIndex, currentHighlightLevel, accumulatedBuilder)
-    processEvent :: (Int, Int, TLB.Builder) -> (Int, Int) -> (Int, Int, TLB.Builder)
-    processEvent (lastIdx, level, accBuilder) (eventIdx, delta) =
-      let
-        accBuilder'
-          | eventIdx > lastIdx =
-              let
-                chunkLen = eventIdx - lastIdx
-                -- Usa le funzioni efficienti di slicing per byte (sulla riga)
-                textChunk = TU.takeWord8 chunkLen (TU.dropWord8 lastIdx line)
+                newLevel = level + delta
+                colorChange
+                    | newLevel > 0 && level == 0 = colorMatch
+                    | newLevel == 0 && level > 0 = resetBuilder
+                    | otherwise = mempty
+             in
+                (eventIdx, newLevel, accBuilder' <> colorChange)
 
-                coloredChunk
-                  | level > 0 = colorMatch <> TLB.fromText textChunk <> resetBuilder
-                  | otherwise = TLB.fromText textChunk
-              in
-                accBuilder <> coloredChunk
-          | otherwise = accBuilder
+        -- 3. Esegui il fold e gestisci il testo rimanente (la logica qui non cambia)
+        (finalIdx, finalLevel, mainBuilder) = foldl' processEvent (0, 0, mempty) events
 
-        newLevel = level + delta
-        colorChange
-          | newLevel > 0 && level == 0 = colorMatch
-          | newLevel == 0 && level > 0 = resetBuilder
-          | otherwise                  = mempty
-
-      in
-        (eventIdx, newLevel, accBuilder' <> colorChange)
-
-    -- 3. Esegui il fold e gestisci il testo rimanente (la logica qui non cambia)
-    (finalIdx, finalLevel, mainBuilder) = foldl' processEvent (0, 0, mempty) events
-
-    remainingText = TU.dropWord8 finalIdx line
-    finalBuilder
-      | finalLevel > 0 = colorMatch <> TLB.fromText remainingText <> resetBuilder
-      | otherwise        = TLB.fromText remainingText
-
-  in
-    mainBuilder <> finalBuilder
+        remainingText = TU.dropWord8 finalIdx line
+        finalBuilder
+            | finalLevel > 0 = colorMatch <> TLB.fromText remainingText <> resetBuilder
+            | otherwise = TLB.fromText remainingText
+     in
+        mainBuilder <> finalBuilder
 
 --------------------------------------------------------------------
 
@@ -269,7 +264,6 @@ boldBuilder = TLB.fromText bold
 resetBuilder = TLB.fromText reset
 {-# NOINLINE boldBuilder #-}
 {-# NOINLINE resetBuilder #-}
-
 
 bold, reset :: T.Text
 bold = T.pack $ setSGRCode [SetConsoleIntensity BoldIntensity]

@@ -16,11 +16,18 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
-module Util where
+module Util (
+    partitionM,
+    xor,
+    prettyRead,
+    spanGroup,
+    spanGroupSeq,
+    unquoteT,
+    mapMaybe',
+    findWithIndex,
+    unsafeHead,
+) where
 
-import Data.Char (toLower)
-import Data.Maybe (listToMaybe)
-import Data.Sequence (Seq (Empty, (:<|), (:|>)), (|>))
 import qualified Data.Sequence as S
 import Text.Read (readMaybe)
 import qualified Data.Text as T
@@ -82,3 +89,8 @@ findWithIndex predicate = go predicate 0
     go p !index (x : xs)
         | p x = (# index, Just x #)
         | otherwise = go p (index + 1) xs
+
+unsafeHead :: [a] -> a
+unsafeHead []    = error "unsafeHead: empty list"
+unsafeHead (!x:_) = x
+{-# INLINE unsafeHead #-}

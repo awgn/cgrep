@@ -28,18 +28,9 @@ module CGrep.Line (
     lowerBound,
 ) where
 
-import qualified Data.DList as DL
-import Data.Int (Int64)
 import qualified Data.Text as T
-import Data.Text.Internal (Text (..))
-import qualified Data.Text.Internal as TI
 import qualified Data.Text.Internal.Search as T
-import qualified Data.Text.Unsafe as TU
-import qualified Data.Vector as V
-import Data.Vector.Unboxed ((!))
 import qualified Data.Vector.Unboxed as UV
-import Debug.Trace (traceShowId)
-import GHC.Stack (HasCallStack)
 import CGrep.Text (textSlice)
 import Data.Bits
 
