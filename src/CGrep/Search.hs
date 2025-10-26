@@ -1,5 +1,5 @@
 --
--- Copyright (c) 2013-2023 Nicola Bonelli <nicola@larthia.com>
+-- Copyright (c) 2013-2025 Nicola Bonelli <nicola@larthia.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -16,8 +16,9 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 -- nc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-{-# LANGUAGE QuasiQuotes #-}
+
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module CGrep.Search (
     startSearch,
@@ -102,17 +103,17 @@ import Control.Concurrent (MVar)
 import Control.Concurrent.Classy (newBoundedChan, readBoundedChan)
 import Control.Concurrent.Classy.BoundedChan (writeBoundedChan)
 import Control.Concurrent.Extra (newMVar)
+import Data.Atomics.Counter (incrCounter, newCounter, readCounter)
 import Data.List.Extra (notNull)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.IO as LTIO
 import qualified OsPath as OS
+import System.Clock
 import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
 import System.OsString as OS (isPrefixOf, isSuffixOf)
 import System.Process (runProcess, waitForProcess)
-import System.Clock
-import Data.Atomics.Counter (newCounter, incrCounter, readCounter)
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -230,32 +231,31 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                             liftIO $
                                 runReaderT
                                     ( catMaybes
-                                        <$> do
-                                            -- putMessageLn lock stderr $ "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " processing " <> T.pack (show (length fs')) <> " files..."
-                                            forM
-                                                fs'
-                                                ( \f ->
-                                                    liftIO $
-                                                        E.catch
-                                                            ( runReaderT
-                                                                ( do
-                                                                    !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) f patterns strict
-                                                                    when (vim || editor) $
-                                                                        liftIO $
-                                                                            mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
-                                                                    -- putMessage @T.Text lock stderr $ "."
-                                                                    _ <- liftIO $ incrCounter (length matches) totalMatches
-                                                                    when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
-                                                                    putMatches matches
-                                                                )
-                                                                env
+                                        <$> forM
+                                            fs'
+                                            ( \f ->
+                                                liftIO $
+                                                    E.catch
+                                                        ( runReaderT
+                                                            ( do
+                                                                !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) f patterns strict
+
+                                                                when (vim || editor) $
+                                                                    liftIO $
+                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
+                                                                -- putMessage @T.Text lock stderr $ "."
+                                                                _ <- liftIO $ incrCounter (length matches) totalMatches
+                                                                when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
+                                                                putMatches matches
                                                             )
-                                                            ( \e -> do
-                                                                let msg = show (e :: SomeException)
-                                                                putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
-                                                                return Nothing
-                                                            )
-                                                )
+                                                            env
+                                                        )
+                                                        ( \e -> do
+                                                            let msg = show (e :: SomeException)
+                                                            putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
+                                                            return Nothing
+                                                        )
+                                            )
                                     )
                                     env
                         unless (null out) $
