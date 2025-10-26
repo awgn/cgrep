@@ -59,11 +59,6 @@ import Config (
 import Control.Arrow (Arrow ((&&&)))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Async (Async, async, asyncOn, forConcurrently_, wait)
-import Control.Concurrent.Chan.Unagi.Bounded (
-    newChan,
-    readChan,
-    writeChan,
- )
 import Control.Exception as E (SomeException, catch)
 import Control.Monad (forM, forM_, forever, replicateM_, unless, void, when)
 import Control.Monad.Extra (partitionM)
@@ -137,7 +132,7 @@ withRecursiveContents ctx@RecursiveContext{..} opt@Options{..} dir visited actio
     let dirs' :: [OsPath] = (dir </>) <$> filter (\d -> not $ isDot d) dirs
 
     -- run IO action
-    mapM_ action (chunksOf 4 files')
+    mapM_ action (chunksOf 16 files')
 
     foreach <-
         if rcParallel
@@ -165,7 +160,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     let totalJobs = multiplier * fromMaybe (max (numCaps-1) 1) jobs
 
     -- create channels ...
-    fileCh <- liftIO $ newChan 65536
+    fileCh <- liftIO $ newBoundedChan 65536
 
     -- recursively traverse the filesystem ...
     _ <- liftIO . forkIO $ do
@@ -186,21 +181,21 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                             ( \paths' -> do
                                 when (notNull paths') $ do
                                     -- putMessageLn @T.Text lock stderr $ "Discovered empty directory!"
-                                    writeChan (fst fileCh) paths'
+                                    writeBoundedChan fileCh paths'
                             )
-                    _ ->  writeChan (fst fileCh) [path]
+                    _ ->  writeBoundedChan fileCh [path]
             else
                 forM_
                     ( if null paths && not isTermIn
                         then [(unsafeEncodeUtf "", 0 :: Int)]
                         else paths `zip` [0 ..]
                     )
-                    (\(p, _idx) -> writeChan (fst fileCh) [p])
+                    (\(p, _idx) -> writeBoundedChan fileCh [p])
 
         when verbose $
             putMessageLn @T.Text lock stderr $ "File discovery completed..."
 
-        replicateM_ totalJobs $ writeChan (fst fileCh) []
+        replicateM_ totalJobs $ writeBoundedChan fileCh []
 
     -- launch the worker threads...
     matchingFiles :: IORef (S.HashSet (OsPath, Int)) <- liftIO $ newIORef S.empty
@@ -213,7 +208,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
         liftIO . asyncOn processor $ void . runExceptT $ do
             asRef <- liftIO $ newIORef ([] :: [Async ()])
             forever $ do
-                paths' <- liftIO $ readChan (snd fileCh)
+                paths' <- liftIO $ readBoundedChan fileCh
                 case paths' of
                     [] -> liftIO $ readIORef asRef >>= mapM_ wait
                     fs' -> do
@@ -291,7 +286,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 (Just stderr)
                 >>= waitForProcess
 
-getSearcher :: Env -> (Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match])
+getSearcher :: Env -> (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match])
 getSearcher Env{..} = do
     if
         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
