@@ -110,6 +110,9 @@ import qualified OsPath as OS
 import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
 import System.OsString as OS (isPrefixOf, isSuffixOf)
 import System.Process (runProcess, waitForProcess)
+import Control.Concurrent.Extra (newMVar)
+import Control.Concurrent (MVar)
+import Data.List.Extra (notNull)
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -151,6 +154,8 @@ startSearch :: [OsPath] -> [T.Text] -> [FileType] -> [FileKind] -> Bool -> Reade
 startSearch paths patterns fTypes fKinds isTermIn = do
     Env{..} <- ask
 
+    lock <- liftIO $ newMVar ()
+
     let Config{..} = conf
         Options{..} = opt
 
@@ -178,10 +183,12 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                             opt
                             path
                             (S.singleton path)
-                            ( \file' -> do
-                                writeChan (fst fileCh) file'
+                            ( \paths' -> do
+                                when (notNull paths') $ do
+                                    -- putMessageLn @T.Text lock stderr $ "Discovered empty directory!"
+                                    writeChan (fst fileCh) paths'
                             )
-                    _ -> writeChan (fst fileCh) [path]
+                    _ ->  writeChan (fst fileCh) [path]
             else
                 forM_
                     ( if null paths && not isTermIn
@@ -189,6 +196,9 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                         else paths `zip` [0 ..]
                     )
                     (\(p, _idx) -> writeChan (fst fileCh) [p])
+
+        when verbose $
+            putMessageLn @T.Text lock stderr $ "File discovery completed..."
 
         replicateM_ totalJobs $ writeChan (fst fileCh) []
 
@@ -203,8 +213,8 @@ startSearch paths patterns fTypes fKinds isTermIn = do
         liftIO . asyncOn processor $ void . runExceptT $ do
             asRef <- liftIO $ newIORef ([] :: [Async ()])
             forever $ do
-                fs <- liftIO $ readChan (snd fileCh)
-                case fs of
+                paths' <- liftIO $ readChan (snd fileCh)
+                case paths' of
                     [] -> liftIO $ readIORef asRef >>= mapM_ wait
                     fs' -> do
                         out <-
@@ -218,8 +228,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                     E.catch
                                                         ( runReaderT
                                                             ( do
-                                                                !matches <- take max_count <$> runSearch (fileTypeInfoLookup opt f) f patterns strict
-                                                                -- liftIO $ putStrLn $ show matches
+                                                                !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) f patterns strict
                                                                 when (vim || editor) $
                                                                     liftIO $
                                                                         mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
@@ -230,7 +239,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                         )
                                                         ( \e -> do
                                                             let msg = show (e :: SomeException)
-                                                            LTIO.hPutStrLn stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
+                                                            putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
                                                             return Nothing
                                                         )
                                             )
@@ -244,12 +253,15 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                         LTIO.hPutStr stdout dump
                                     )
                                     >>= \a -> modifyIORef' asRef (a :)
-                when (null fs) $ do
-                    when (debug > 3) $ putMessageLn stderr $ "[" <> T.pack (show idx) <> "]@" <> T.pack (show processor) <> " searcher terminated!"
+                when (null paths') $ do
+                    when verbose $
+                        putMessageLn lock stderr $ "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " terminated!"
                     throwE ()
 
     -- wait workers to complete the job
-    liftIO $ mapM_ wait workers
+    liftIO $ do
+        mapM_ wait workers
+        when verbose $ putMessageLn @T.Text lock stderr $ "All workers terminated!"
 
     -- run editor...
     when (vim || editor) $ liftIO $ do

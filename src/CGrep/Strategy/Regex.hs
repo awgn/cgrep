@@ -57,9 +57,10 @@ import System.IO (stderr)
 import System.OsPath (OsPath)
 import qualified Data.Text as T
 import CGrep.Line (buildIndex)
+import Control.Concurrent (MVar)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns _strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info f patterns _strict = do
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -83,12 +84,12 @@ search info f patterns _strict = do
                 concatMap elems $
                     patterns >>= (\p -> elems (getAllTextMatches $ text' =~~~ p :: (Array Int) (MatchText T.Text)))
 
-    putMessageLnVerb 3 stderr $ "---\n" <> text' <> "\n---"
+    putMessageLnVerb 3 lock stderr $ "---\n" <> text' <> "\n---"
     #ifdef ENABLE_PCRE
-    putMessageLnVerb 1 stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
+    putMessageLnVerb 1 lock stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
     #else
-    putMessageLnVerb 1 stderr $ "strategy  : running regex (posix) search on " <> show filename
+    putMessageLnVerb 1 lock stderr $ "strategy  : running regex (posix) search on " <> show filename
     #endif
-    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
+    putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
 
     mkMatches lindex filename text' tokens

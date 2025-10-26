@@ -48,9 +48,10 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
+import Control.Concurrent (MVar)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns _strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info f patterns _strict = do
     Env{..} <- ask
     text <- liftIO $ getTargetContents f
     let filename = getTargetName f
@@ -71,9 +72,9 @@ search info f patterns _strict = do
     let patterns' = map T.unpack patterns
     let matches = filter (\t -> any (\p -> p ~== T.unpack (cToken t)) patterns') (toList tokens')
 
-    putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
-    putMessageLnVerb 1 stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
-    putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens'
-    putMessageLnVerb 2 stderr $ "matches   : " <> show matches
+    putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
+    putMessageLnVerb 1 lock stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename
+    putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens'
+    putMessageLnVerb 2 lock stderr $ "matches   : " <> show matches
 
     mkMatches lindex filename text'' matches

@@ -69,9 +69,10 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (mapMaybe')
+import Control.Concurrent (MVar)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info f patterns strict = do
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -91,8 +92,8 @@ search info f patterns strict = do
     -- make shallow search
     let !eligibleForSearch = textContainsOneOf patterns text'
 
-    putMessageLnVerb 1 stderr $ "strategy: running token search on " <> show filename <> "..."
-    putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
+    putMessageLnVerb 1 lock stderr $ "strategy: running token search on " <> show filename <> "..."
+    putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
 
     runSearch opt lindex filename eligibleForSearch $ do
         let indices = textIndices patterns text''
@@ -116,8 +117,8 @@ search info f patterns strict = do
 
             chunks = mapMaybe' (tokenizerFilter opt patterns) tokens
 
-        putMessageLnVerb 2 stderr $ "tokens    : " <> show tokens
-        putMessageLnVerb 2 stderr $ "matches   : " <> show chunks
+        putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
+        putMessageLnVerb 2 lock stderr $ "matches   : " <> show chunks
 
         mkMatches lindex filename text'' chunks
 

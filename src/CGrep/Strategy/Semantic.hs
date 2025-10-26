@@ -54,9 +54,10 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (unquoteT)
+import Control.Concurrent (MVar)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info f patterns strict = do
     Env{..} <- ask
 
     text <- liftIO $ getTargetContents f
@@ -96,20 +97,20 @@ search info f patterns strict = do
     let !eligibleForSearch = textContainsOneOf matchers text'
 
     runSearch opt lindex filename eligibleForSearch $ do
-        putMessageLnVerb 3 stderr $ "---\n" <> text'' <> "\n---"
-        putMessageLnVerb 1 stderr $ "strategy  : running generic semantic search on " <> show filename
-        putMessageLnVerb 2 stderr $ "atoms     : " <> show patterns''
-        putMessageLnVerb 2 stderr $ "matchers  : " <> show matchers
+        putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
+        putMessageLnVerb 1 lock stderr $ "strategy  : running generic semantic search on " <> show filename
+        putMessageLnVerb 2 lock stderr $ "atoms     : " <> show patterns''
+        putMessageLnVerb 2 lock stderr $ "matchers  : " <> show matchers
 
         -- parse source code, get the Generic.Chunk list...
         let indices' = textIndices matchers text''
 
         -- parse source code, get the Generic.Token list...
         let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns'
-        putMessageLnVerb 3 stderr $ "filter    : " <> show tfilter
+        putMessageLnVerb 3 lock stderr $ "filter    : " <> show tfilter
 
         let tokens = toList $ parseTokens tfilter (snd <$> info) strict (subText indices' text'')
-        putMessageLnVerb 3 stderr $ "tokens    : " <> show tokens
+        putMessageLnVerb 3 lock stderr $ "tokens    : " <> show tokens
 
         -- get matching tokens ...
 
@@ -117,6 +118,6 @@ search info f patterns strict = do
 
         -- convert Tokens to Chunks
         let matches = coerce allMatches :: [Chunk]
-        putMessageLnVerb 2 stderr $ "matches   : " <> show matches
+        putMessageLnVerb 2 lock stderr $ "matches   : " <> show matches
 
         mkMatches lindex filename text'' matches

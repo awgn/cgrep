@@ -141,7 +141,6 @@ defPutMatches xs = do
 
 filenameMatch :: [Match] -> ReaderIO TLB.Builder
 filenameMatch outs = do
-    liftIO $ putStrLn "filenameOutput"
     return $ mconcat . intersperse (TLB.singleton '\n') $ TLB.fromText <$> nub ((\(Match fname _ _ _) -> (OS.toText fname)) <$> outs)
 {-# INLINE filenameMatch #-}
 

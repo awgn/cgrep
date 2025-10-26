@@ -42,9 +42,10 @@ import CGrep.Text (textContainsOneOf, textIndices, textSlice)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import qualified Data.Vector.Unboxed as UV
+import Control.Concurrent (MVar)
 
-search :: Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search info f patterns _strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info f patterns _strict = do
     Env{..} <- ask
     text <- liftIO $ getTargetContents f
     let filename = getTargetName f
@@ -60,8 +61,8 @@ search info f patterns _strict = do
     let !eligibleForSearch = textContainsOneOf patterns text'
 
     -- search for matching tokens
-    putMessageLnVerb 3 stderr $ "---\n" <> text' <> "\n---"
-    putMessageLnVerb 1 stderr $ "strategy  : running Boyer-Moore search on " <> show filename
+    putMessageLnVerb 3 lock stderr $ "---\n" <> text' <> "\n---"
+    putMessageLnVerb 1 lock stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt lindex filename eligibleForSearch $ do
         let lineOffsets = getLineOffsets text''
@@ -82,8 +83,8 @@ search info f patterns _strict = do
                     then filter (filterChunk opt lineOffsets (snd <$> info) text'') chunks
                     else chunks
 
-        putMessageLnVerb 2 stderr $ "matches   : " <> show chunks'
-        putMessageLnVerb 2 stderr $ "lindex    : " <> show lindex
+        putMessageLnVerb 2 lock stderr $ "matches   : " <> show chunks'
+        putMessageLnVerb 2 lock stderr $ "lindex    : " <> show lindex
         mkMatches lindex filename text'' chunks'
 
 filterChunk :: Options -> UV.Vector Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
