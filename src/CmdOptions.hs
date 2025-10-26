@@ -156,7 +156,7 @@ options = Options
     <*> switch
         ( long "semantic"
        <> short 'S'
-       <> help "\"code\" pattern: _, _1, _2... (identifiers), $, $1, $2... (optionals), ANY, KEY, STR, LIT, NUM, HEX, OCT" )
+       <> help "\"code\" pattern: _, _1, _2... (identifiers), ANY, KEY, STR, LIT, NUM, HEX, OCT" )
     <*> switch
         ( long "strict"
            <> help "Enable strict semantic for operators" )
