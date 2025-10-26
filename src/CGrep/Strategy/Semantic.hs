@@ -41,6 +41,7 @@ import CGrep.Parser.Atom (
 import CGrep.Parser.Chunk
 import CGrep.Parser.Token
 import CGrep.Text (textContainsOneOf, textIndices)
+import Control.Concurrent (MVar)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
@@ -54,7 +55,6 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (unquoteT)
-import Control.Concurrent (MVar)
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info f patterns strict = do
@@ -65,7 +65,7 @@ search lock info f patterns strict = do
     let lindex = buildIndex text
 
     let filt = mkContextFilter opt ~! contextBitComment
-    let !contextFilter = mkContextFilterFn (fst <$> info) filt False
+    let !contextFilter = mkContextFilterFn (fst <$> info) filt True
 
     let text' = ignoreCase opt text
     let text'' = expandMultiline opt . contextFilter $ text'

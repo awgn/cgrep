@@ -46,6 +46,7 @@ import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token
 import CGrep.Text (textContainsOneOf, textIndices)
+import Control.Concurrent (MVar)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
@@ -69,7 +70,6 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (mapMaybe')
-import Control.Concurrent (MVar)
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info f patterns strict = do
@@ -84,7 +84,7 @@ search lock info f patterns strict = do
 
     let filt = mkContextFilter opt ~! contextBitComment
 
-    let !contextFilter = mkContextFilterFn (fst <$> info) filt False
+    let !contextFilter = mkContextFilterFn (fst <$> info) filt True
 
     let text' = ignoreCase opt text
     let text'' = expandMultiline opt . contextFilter $ text'
@@ -92,8 +92,8 @@ search lock info f patterns strict = do
     -- make shallow search
     let !eligibleForSearch = textContainsOneOf patterns text'
 
-    putMessageLnVerb 1 lock stderr $ "strategy: running token search on " <> show filename <> "..."
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
+    putMessageLnVerb 1 lock stderr $ "strategy: running token search on " <> show filename <> "..."
 
     runSearch opt lindex filename eligibleForSearch $ do
         let indices = textIndices patterns text''

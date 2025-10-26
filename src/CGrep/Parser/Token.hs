@@ -229,13 +229,13 @@ isTokenUnspecified t = cTyp (coerce t) == ChunkUnspec
 {-# INLINE isTokenUnspecified #-}
 
 data TokenFilter = TokenFilter
-    { tfIdentifier :: {-# UNPACK #-}!Bool
-    , tfKeyword :: {-# UNPACK #-}!Bool
-    , tfNativeType :: {-# UNPACK #-}!Bool
-    , tfString :: {-# UNPACK #-}!Bool
-    , tfNumber :: {-# UNPACK #-}!Bool
-    , tfOperator :: {-# UNPACK #-}!Bool
-    , tfBracket :: {-# UNPACK #-}!Bool
+    { tfIdentifier :: {-# UNPACK #-} !Bool
+    , tfKeyword :: {-# UNPACK #-} !Bool
+    , tfNativeType :: {-# UNPACK #-} !Bool
+    , tfString :: {-# UNPACK #-} !Bool
+    , tfNumber :: {-# UNPACK #-} !Bool
+    , tfOperator :: {-# UNPACK #-} !Bool
+    , tfBracket :: {-# UNPACK #-} !Bool
     }
     deriving stock (Eq, Show)
 

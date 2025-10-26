@@ -42,13 +42,13 @@ import CGrep.FileTypeMapTH (
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (cToken, parseChunks)
 
+import Control.Concurrent (MVar)
 import Data.Foldable (Foldable (toList))
 import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
-import Control.Concurrent (MVar)
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info f patterns _strict = do

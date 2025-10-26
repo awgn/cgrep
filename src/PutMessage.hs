@@ -20,56 +20,60 @@ module PutMessage (
     PutStr (..),
     putMessageLnVerb,
     putMessageLn,
+    putMessage,
 ) where
 
+import Control.Concurrent (MVar)
+import Control.Concurrent.MVar (withMVar)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (reader)
 import Data.String (IsString)
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
 import qualified Data.Text.IO as TIO
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TLIO
 import GHC.IO.Handle (Handle)
 import Options (Options (..))
 import Reader (Env (..), ReaderIO)
 import System.IO (hPutStr, hPutStrLn)
-import Control.Concurrent (MVar)
-import Control.Concurrent.MVar (withMVar)
 
 class (IsString a) => PutStr a where
-    putStringLn :: MVar () -> Handle -> a -> IO ()
-    putString :: MVar () -> Handle -> a -> IO ()
+    putMsgLnLock :: MVar () -> Handle -> a -> IO ()
+    putMsgLock :: MVar () -> Handle -> a -> IO ()
 
 instance PutStr String where
-    putStringLn lock h msg = withMVar lock (\_ -> hPutStrLn h msg)
-    {-# INLINE putStringLn #-}
-    putString lock h msg = withMVar lock (\_ -> hPutStr h msg)
-    {-# INLINE putString #-}
+    putMsgLnLock lock h msg = withMVar lock (\_ -> hPutStrLn h msg)
+    {-# INLINE putMsgLnLock #-}
+    putMsgLock lock h msg = withMVar lock (\_ -> hPutStr h msg)
+    {-# INLINE putMsgLock #-}
 
 instance PutStr T.Text where
-    putStringLn lock h msg = withMVar lock (\_ -> TIO.hPutStrLn h msg)
-    {-# INLINE putStringLn #-}
-    putString lock h msg = withMVar lock (\_ -> TIO.hPutStr h msg)
-    {-# INLINE putString #-}
+    putMsgLnLock lock h msg = withMVar lock (\_ -> TIO.hPutStrLn h msg)
+    {-# INLINE putMsgLnLock #-}
+    putMsgLock lock h msg = withMVar lock (\_ -> TIO.hPutStr h msg)
+    {-# INLINE putMsgLock #-}
 
 instance PutStr TL.Text where
-    putStringLn lock h msg = withMVar lock (\_ -> TLIO.hPutStrLn h msg)
-    {-# INLINE putStringLn #-}
-    putString lock h msg = withMVar lock (\_ -> TLIO.hPutStr h msg)
-    {-# INLINE putString #-}
-
+    putMsgLnLock lock h msg = withMVar lock (\_ -> TLIO.hPutStrLn h msg)
+    {-# INLINE putMsgLnLock #-}
+    putMsgLock lock h msg = withMVar lock (\_ -> TLIO.hPutStr h msg)
+    {-# INLINE putMsgLock #-}
 
 putMessageLnVerb :: (PutStr a) => Int -> MVar () -> Handle -> a -> ReaderIO ()
 putMessageLnVerb lvl lock h xs = do
     n <- reader $ debug . opt
     when (n >= lvl) $
         liftIO $
-            putStringLn lock h xs
+            putMsgLnLock lock h xs
 {-# INLINE putMessageLnVerb #-}
-
 
 putMessageLn :: (PutStr a, MonadIO m) => MVar () -> Handle -> a -> m ()
 putMessageLn lock h xs =
-    liftIO $ putStringLn lock h xs
+    liftIO $ putMsgLnLock lock h xs
 {-# INLINE putMessageLn #-}
+
+putMessage :: (PutStr a, MonadIO m) => MVar () -> Handle -> a -> m ()
+putMessage lock h xs =
+    liftIO $ putMsgLock lock h xs
+{-# INLINE putMessage #-}

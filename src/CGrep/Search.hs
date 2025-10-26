@@ -97,6 +97,11 @@ import System.IO (
  )
 
 import Control.Applicative ((<|>))
+import Control.Concurrent (MVar)
+import Control.Concurrent.Classy (newBoundedChan, readBoundedChan)
+import Control.Concurrent.Classy.BoundedChan (writeBoundedChan)
+import Control.Concurrent.Extra (newMVar)
+import Data.List.Extra (notNull)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
@@ -105,9 +110,6 @@ import qualified OsPath as OS
 import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
 import System.OsString as OS (isPrefixOf, isSuffixOf)
 import System.Process (runProcess, waitForProcess)
-import Control.Concurrent.Extra (newMVar)
-import Control.Concurrent (MVar)
-import Data.List.Extra (notNull)
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -157,7 +159,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     numCaps <- liftIO getNumCapabilities
 
     let multiplier = 4
-    let totalJobs = multiplier * fromMaybe (max (numCaps-1) 1) jobs
+    let totalJobs = multiplier * fromMaybe (max (numCaps - 1) 1) jobs
 
     -- create channels ...
     fileCh <- liftIO $ newBoundedChan 65536
@@ -183,7 +185,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                     -- putMessageLn @T.Text lock stderr $ "Discovered empty directory!"
                                     writeBoundedChan fileCh paths'
                             )
-                    _ ->  writeBoundedChan fileCh [path]
+                    _ -> writeBoundedChan fileCh [path]
             else
                 forM_
                     ( if null paths && not isTermIn
@@ -193,7 +195,8 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                     (\(p, _idx) -> writeBoundedChan fileCh [p])
 
         when verbose $
-            putMessageLn @T.Text lock stderr $ "File discovery completed..."
+            putMessageLn @T.Text lock stderr $
+                "File discovery completed..."
 
         replicateM_ totalJobs $ writeBoundedChan fileCh []
 
@@ -210,34 +213,39 @@ startSearch paths patterns fTypes fKinds isTermIn = do
             forever $ do
                 paths' <- liftIO $ readBoundedChan fileCh
                 case paths' of
-                    [] -> liftIO $ readIORef asRef >>= mapM_ wait
+                    [] -> liftIO $ do
+                        -- when verbose $
+                        --    putMessageLn @T.Text lock stderr $ "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " received termination signal!"
+                        readIORef asRef >>= mapM_ wait
                     fs' -> do
                         out <-
                             liftIO $
                                 runReaderT
                                     ( catMaybes
-                                        <$> forM
-                                            fs'
-                                            ( \f ->
-                                                liftIO $
-                                                    E.catch
-                                                        ( runReaderT
-                                                            ( do
-                                                                !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) f patterns strict
-                                                                when (vim || editor) $
-                                                                    liftIO $
-                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
-                                                                putMatches matches
-                                                                -- putOutputMatches []
+                                        <$> do
+                                            -- putMessageLn lock stderr $ "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " processing " <> T.pack (show (length fs')) <> " files..."
+                                            forM
+                                                fs'
+                                                ( \f ->
+                                                    liftIO $
+                                                        E.catch
+                                                            ( runReaderT
+                                                                ( do
+                                                                    !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) f patterns strict
+                                                                    when (vim || editor) $
+                                                                        liftIO $
+                                                                            mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
+                                                                    -- putMessage @T.Text lock stderr $ "."
+                                                                    putMatches matches
+                                                                )
+                                                                env
                                                             )
-                                                            env
-                                                        )
-                                                        ( \e -> do
-                                                            let msg = show (e :: SomeException)
-                                                            putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
-                                                            return Nothing
-                                                        )
-                                            )
+                                                            ( \e -> do
+                                                                let msg = show (e :: SomeException)
+                                                                putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
+                                                                return Nothing
+                                                            )
+                                                )
                                     )
                                     env
                         unless (null out) $
@@ -250,7 +258,8 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                     >>= \a -> modifyIORef' asRef (a :)
                 when (null paths') $ do
                     when verbose $
-                        putMessageLn lock stderr $ "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " terminated!"
+                        putMessageLn lock stderr $
+                            "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " terminated!"
                     throwE ()
 
     -- wait workers to complete the job

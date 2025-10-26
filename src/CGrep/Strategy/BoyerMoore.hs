@@ -39,10 +39,10 @@ import System.OsPath (OsPath)
 
 import CGrep.Line (buildIndex, getLineByOffset, getLineOffsets)
 import CGrep.Text (textContainsOneOf, textIndices, textSlice)
+import Control.Concurrent (MVar)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import qualified Data.Vector.Unboxed as UV
-import Control.Concurrent (MVar)
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info f patterns _strict = do
@@ -61,7 +61,7 @@ search lock info f patterns _strict = do
     let !eligibleForSearch = textContainsOneOf patterns text'
 
     -- search for matching tokens
-    putMessageLnVerb 3 lock stderr $ "---\n" <> text' <> "\n---"
+    putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
     runSearch opt lindex filename eligibleForSearch $ do
