@@ -156,9 +156,8 @@ startSearch paths patterns fTypes fKinds isTermIn = do
 
     numCaps <- liftIO getNumCapabilities
 
-    let !parallelSearch = maybe True (> 1) jobs
-    let multiplier = if parallelSearch then 4 else 1
-    let totalJobs = multiplier * fromMaybe numCaps jobs
+    let multiplier = 4
+    let totalJobs = multiplier * fromMaybe (max (numCaps-1) 1) jobs
 
     -- create channels ...
     fileCh <- liftIO $ newChan 65536
@@ -174,7 +173,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                 { rcFileTypes = fTypes
                                 , rcFileKinds = fKinds
                                 , rcPrunableDirs = (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
-                                , rcParallel = parallelSearch
+                                , rcParallel = True
                                 }
                             opt
                             path
@@ -200,7 +199,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
         runSearch = getSearcher env
 
     workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
-        let processor = idx `div` multiplier
+        let processor = 1 + idx `div` multiplier
         liftIO . asyncOn processor $ void . runExceptT $ do
             asRef <- liftIO $ newIORef ([] :: [Async ()])
             forever $ do

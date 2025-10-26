@@ -186,7 +186,7 @@ options = Options
         ( long "threads"
        <> short 'j'
        <> metavar "INT"
-       <> help "Number threads to run in parallel" ))
+       <> help "Approximate number of threads to run search" ))
     -- Output format
     <*> switch
         ( long "show-match"
