@@ -109,7 +109,7 @@ instance Y.FromJSON YamlConfig where
 getConfig :: IO (Config, Maybe FilePath)
 getConfig = do
     home <- getHomeDirectory
-    confs <- filterM doesFileExist [cgreprc, "." <> cgreprc, home </> "." <> cgreprc, "/etc" </> cgreprc]
+    confs <- filterM doesFileExist ["." <> cgreprc, home </> "." <> cgreprc, "/etc" </> cgreprc]
     case (listToMaybe confs) of
         Just fp -> do
             conf <- Y.decodeFileEither fp

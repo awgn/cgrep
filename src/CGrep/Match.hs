@@ -223,33 +223,23 @@ buildColoredLine conf chunks line =
 
         chunkToEvents :: Chunk -> [(Int, Int)]
         chunkToEvents chunk =
-            let
-                -- Offset assoluti del chunk
-                chunkStartAbs = cOffset chunk
+            let chunkStartAbs = cOffset chunk
                 chunkLen = TU.lengthWord8 (cToken chunk)
                 chunkEndAbs = chunkStartAbs + chunkLen
-
-                -- Controlla se il chunk si sovrappone a questa riga
                 overlaps = chunkEndAbs > lineOffset && chunkStartAbs < lineEndOffset
              in
                 if not overlaps || chunkLen == 0
                     then []
                     else
-                        let
-                            -- Calcola l'inizio relativo, clippato a 0 (inizio riga)
-                            relStart = max 0 (chunkStartAbs - lineOffset)
-
-                            -- Calcola la fine relativa, clippata alla lunghezza della riga
+                        let relStart = max 0 (chunkStartAbs - lineOffset)
                             relEnd = min lineByteLen (chunkEndAbs - lineOffset)
                          in
                             if relStart < relEnd
-                                then [(relStart, 1), (relEnd, -1)] -- Evento Inizio, Evento Fine
+                                then [(relStart, 1), (relEnd, -1)]
                                 else []
 
         colorMatch = TLB.fromString $ setSGRCode (configColorMatch conf)
 
-        -- 2. Itera sugli eventi (la logica qui non cambia)
-        --    Stato: (lastByteIndex, currentHighlightLevel, accumulatedBuilder)
         processEvent :: (Int, Int, TLB.Builder) -> (Int, Int) -> (Int, Int, TLB.Builder)
         processEvent (lastIdx, level, accBuilder) (eventIdx, delta) =
             let
@@ -257,7 +247,6 @@ buildColoredLine conf chunks line =
                     | eventIdx > lastIdx =
                         let
                             chunkLen = eventIdx - lastIdx
-                            -- Usa le funzioni efficienti di slicing per byte (sulla riga)
                             textChunk = TU.takeWord8 chunkLen (TU.dropWord8 lastIdx line)
 
                             coloredChunk
@@ -275,7 +264,6 @@ buildColoredLine conf chunks line =
              in
                 (eventIdx, newLevel, accBuilder' <> colorChange)
 
-        -- 3. Esegui il fold e gestisci il testo rimanente (la logica qui non cambia)
         (finalIdx, finalLevel, mainBuilder) = foldl' processEvent (0, 0, mempty) events
 
         remainingText = TU.dropWord8 finalIdx line

@@ -10,10 +10,9 @@ file_types:   [ Agda , Assembly , Awk , Bash, C , CMake , Cabal , Chapel , Cloju
 prune_dirs       : [".svn", ".git", "CMakeFiles", ".stack-work" ]
 
 colors           : True
-color_filename   : "2:3:5"
-color_match      : "5:0:1"
-
-threads: 12
+color_filename   : "1:2:3"
+color_match      : "5:3:1"
+threads: 8 
 
 #
 # file_line option: enable edit for file:line
