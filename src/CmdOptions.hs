@@ -230,6 +230,10 @@ options = Options
         ( long "verbose"
        <> help "Enable verbose mode"
        )
+    <*> switch
+        ( long "stats"
+       <> help "Print statistics about the search"
+       )
     <*> option auto
         ( long "debug"
        <> metavar "INT"

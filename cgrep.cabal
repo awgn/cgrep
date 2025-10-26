@@ -114,9 +114,11 @@ executable cgrep
   build-depends:
     aeson,
     ansi-terminal,
+    atomic-primops,
     array,
     async,
     concurrency,
+    clock,
     base <5.0,
     bitarray,
     bitwise,

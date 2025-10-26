@@ -17,6 +17,7 @@
 -- nc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module CGrep.Search (
     startSearch,
@@ -110,6 +111,8 @@ import qualified OsPath as OS
 import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
 import System.OsString as OS (isPrefixOf, isSuffixOf)
 import System.Process (runProcess, waitForProcess)
+import System.Clock
+import Data.Atomics.Counter (newCounter, incrCounter, readCounter)
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -151,6 +154,11 @@ startSearch :: [OsPath] -> [T.Text] -> [FileType] -> [FileKind] -> Bool -> Reade
 startSearch paths patterns fTypes fKinds isTermIn = do
     Env{..} <- ask
 
+    startTime <- liftIO $ getTime Monotonic
+    totalFiles <- liftIO $ newCounter 0
+    totalMatchingFiles <- liftIO $ newCounter 0
+    totalMatches <- liftIO $ newCounter 0
+
     lock <- liftIO $ newMVar ()
 
     let Config{..} = conf
@@ -181,18 +189,18 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                             path
                             (S.singleton path)
                             ( \paths' -> do
-                                when (notNull paths') $ do
+                                when (notNull paths') $
                                     -- putMessageLn @T.Text lock stderr $ "Discovered empty directory!"
-                                    writeBoundedChan fileCh paths'
+                                    incrCounter (length paths') totalFiles >> writeBoundedChan fileCh paths'
                             )
-                    _ -> writeBoundedChan fileCh [path]
+                    _ -> incrCounter 1 totalFiles >> writeBoundedChan fileCh [path]
             else
                 forM_
                     ( if null paths && not isTermIn
                         then [(unsafeEncodeUtf "", 0 :: Int)]
                         else paths `zip` [0 ..]
                     )
-                    (\(p, _idx) -> writeBoundedChan fileCh [p])
+                    (\(p, _idx) -> incrCounter 1 totalFiles >> writeBoundedChan fileCh [p])
 
         when verbose $
             putMessageLn @T.Text lock stderr $
@@ -236,6 +244,8 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                                         liftIO $
                                                                             mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
                                                                     -- putMessage @T.Text lock stderr $ "."
+                                                                    _ <- liftIO $ incrCounter (length matches) totalMatches
+                                                                    when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
                                                                     putMatches matches
                                                                 )
                                                                 env
@@ -266,6 +276,17 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     liftIO $ do
         mapM_ wait workers
         when verbose $ putMessageLn @T.Text lock stderr $ "All workers terminated!"
+
+    endTime <- liftIO $ getTime Monotonic
+    when stats $ liftIO $ do
+        let diffTime = fromIntegral (toNanoSecs (diffTimeSpec endTime startTime)) / 1_000_000_000 :: Double
+        total <- (readCounter totalFiles)
+        matches <- (readCounter totalMatches)
+        mfiles <- (readCounter totalMatchingFiles)
+        putMessageLn @T.Text lock stderr $ "\nTotal matches " <> T.pack (show matches)
+        putMessageLn @T.Text lock stderr $ "Matching files " <> T.pack (show mfiles)
+        putMessageLn @T.Text lock stderr $ "Total files searched " <> T.pack (show total)
+        putMessageLn @T.Text lock stderr $ "Elapsed time " <> T.pack (show diffTime) <> " seconds"
 
     -- run editor...
     when (vim || editor) $ liftIO $ do

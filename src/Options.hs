@@ -76,6 +76,7 @@ data Options = Options
     , fileline :: Bool
     , -- Misc:
       verbose :: Bool
+    , stats :: Bool
     , debug :: Int
     , null_output :: Bool
     , no_shallow :: Bool
