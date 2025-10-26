@@ -1,3 +1,6 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 --
 -- Copyright (c) 2013-2025 Nicola Bonelli <nicola@larthia.com>
 --
@@ -16,7 +19,6 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 -- nc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE QuasiQuotes #-}
 
@@ -26,7 +28,7 @@ module CGrep.Search (
 )
 where
 
-import CGrep.Common (getTargetName, takeN)
+import CGrep.Common (getTargetContents, getTargetName, takeN)
 import CGrep.FileKind (FileKind)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
@@ -114,6 +116,41 @@ import System.Clock
 import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
 import System.OsString as OS (isPrefixOf, isSuffixOf)
 import System.Process (runProcess, waitForProcess)
+
+data SearcherKind
+    = Levenshtein
+    | BoyerMoore
+    | Semantic
+    | Tokenizer
+    | Regex
+
+class Searcher (s :: SearcherKind) where
+    run :: (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match])
+
+instance Searcher 'Levenshtein where
+    run = Levenshtein.search
+
+instance Searcher 'BoyerMoore where
+    run = BoyerMoore.search
+
+instance Searcher 'Semantic where
+    run = Semantic.search
+
+instance Searcher 'Tokenizer where
+    run = Tokenizer.search
+
+instance Searcher 'Regex where
+    run = Regex.search
+
+getSearcher :: Env -> (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match])
+getSearcher Env{..} = do
+    if
+        | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> run @Levenshtein
+        | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) -> run @BoyerMoore
+        | (not . isRegexp) opt && semantic opt -> run @Semantic
+        | (not . isRegexp) opt -> run @Tokenizer
+        | isRegexp opt -> run @Regex
+        | otherwise -> undefined
 
 data RecursiveContext = RecursiveContext
     { rcFileTypes :: [FileType]
@@ -238,7 +275,8 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                     E.catch
                                                         ( runReaderT
                                                             ( do
-                                                                !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) f patterns strict
+                                                                text <- liftIO $ getTargetContents f
+                                                                !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) (getTargetName f) text patterns strict
 
                                                                 when (vim || editor) $
                                                                     liftIO $
@@ -315,16 +353,6 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 (Just stdout)
                 (Just stderr)
                 >>= waitForProcess
-
-getSearcher :: Env -> (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match])
-getSearcher Env{..} = do
-    if
-        | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> Levenshtein.search
-        | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) -> BoyerMoore.search
-        | (not . isRegexp) opt && semantic opt -> Semantic.search
-        | (not . isRegexp) opt -> Tokenizer.search
-        | isRegexp opt -> Regex.search
-        | otherwise -> undefined
 
 fileFilter :: Options -> [FileType] -> [FileKind] -> OsPath -> Bool
 fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKinds kin)

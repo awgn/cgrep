@@ -15,7 +15,6 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
-
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module CGrep.Match (
@@ -227,14 +226,12 @@ buildColoredLine conf chunks line =
                 chunkLen = TU.lengthWord8 (cToken chunk)
                 chunkEndAbs = chunkStartAbs + chunkLen
                 overlaps = chunkEndAbs > lineOffset && chunkStartAbs < lineEndOffset
-             in
-                if not overlaps || chunkLen == 0
+             in if not overlaps || chunkLen == 0
                     then []
                     else
                         let relStart = max 0 (chunkStartAbs - lineOffset)
                             relEnd = min lineByteLen (chunkEndAbs - lineOffset)
-                         in
-                            if relStart < relEnd
+                         in if relStart < relEnd
                                 then [(relStart, 1), (relEnd, -1)]
                                 else []
 

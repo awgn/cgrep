@@ -17,12 +17,11 @@
 
 module CGrep.Strategy.BoyerMoore (search) where
 
-import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 
 -- expandMultiline,
 
-import CGrep.Common (expandMultiline, getTargetContents, getTargetName, ignoreCase, runSearch)
+import CGrep.Common (expandMultiline, ignoreCase, runSearch)
 import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
@@ -44,11 +43,9 @@ import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import qualified Data.Vector.Unboxed as UV
 
-search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search lock info f patterns _strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info filename text patterns _strict = do
     Env{..} <- ask
-    text <- liftIO $ getTargetContents f
-    let filename = getTargetName f
     let lindex = buildIndex text
 
     -- transform text...

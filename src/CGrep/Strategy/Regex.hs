@@ -17,7 +17,6 @@
 --
 
 module CGrep.Strategy.Regex (search) where
-import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 
 import Text.Regex.Base (
@@ -34,8 +33,6 @@ import Data.Array (Array, elems)
 
 import CGrep.Common (
     expandMultiline,
-    getTargetContents,
-    getTargetName,
     ignoreCase,
  )
 import CGrep.ContextFilter (mkContextFilter)
@@ -59,12 +56,9 @@ import qualified Data.Text as T
 import CGrep.Line (buildIndex)
 import Control.Concurrent (MVar)
 
-search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search lock info f patterns _strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info filename text patterns _strict = do
     Env{..} <- ask
-
-    text <- liftIO $ getTargetContents f
-    let filename = getTargetName f
     let lindex = buildIndex text
 
     let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False

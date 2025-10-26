@@ -18,7 +18,7 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (expandMultiline, getTargetContents, getTargetName, ignoreCase, runSearch, subText, trimT)
+import CGrep.Common (expandMultiline, ignoreCase, runSearch, subText, trimT)
 import CGrep.ContextFilter (
     contextBitComment,
     mkContextFilter,
@@ -42,7 +42,6 @@ import CGrep.Parser.Chunk
 import CGrep.Parser.Token
 import CGrep.Text (textContainsOneOf, textIndices)
 import Control.Concurrent (MVar)
-import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
@@ -56,12 +55,9 @@ import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (unquoteT)
 
-search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search lock info f patterns strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info filename text patterns strict = do
     Env{..} <- ask
-
-    text <- liftIO $ getTargetContents f
-    let filename = getTargetName f
     let lindex = buildIndex text
 
     let filt = mkContextFilter opt ~! contextBitComment

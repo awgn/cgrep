@@ -20,13 +20,10 @@ module CGrep.Strategy.Levenshtein (search) where
 
 import CGrep.Line (buildIndex)
 
-import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Reader (ask)
 
 import CGrep.Common (
     expandMultiline,
-    getTargetContents,
-    getTargetName,
     ignoreCase,
  )
 import CGrep.ContextFilter (mkContextFilter)
@@ -50,11 +47,9 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
-search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> [T.Text] -> Bool -> ReaderIO [Match]
-search lock info f patterns _strict = do
+search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
+search lock info filename text patterns _strict = do
     Env{..} <- ask
-    text <- liftIO $ getTargetContents f
-    let filename = getTargetName f
     let lindex = buildIndex text
 
     -- transform text
