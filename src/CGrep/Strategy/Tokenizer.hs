@@ -87,7 +87,7 @@ search lock info filename text patterns strict = do
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy: running token search on " <> show filename <> "..."
 
-    runSearch opt lindex filename eligibleForSearch $ do
+    runSearch lindex filename eligibleForSearch $ do
         let indices = textIndices patterns text''
 
         -- parse source code, get the token list...

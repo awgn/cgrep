@@ -239,9 +239,6 @@ options = Options
         ( long "null-output"
        <> help "Disable output for performance evaluation" )
     <*> switch
-        ( long "no-shallow"
-       <> help "Disable shallow-search" )
-    <*> switch
         ( long "palette"
        <> help "Show color palette" )
     <*> many (argument str (metavar "PATTERN FILES..."))

@@ -78,7 +78,6 @@ data Options = Options
     , stats :: Bool
     , debug :: Int
     , null_output :: Bool
-    , no_shallow :: Bool
     , show_palette :: Bool
     , others :: [String]
     }

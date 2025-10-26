@@ -80,13 +80,12 @@ subText indices txt = case T.findIndex (== '\n') (TU.dropWord8 maxOff txt) of
 {-# INLINE subText #-}
 
 runSearch ::
-    Options ->
     LineIndex ->
     OsPath ->
     Bool ->
     ReaderIO [Match] ->
     ReaderIO [Match]
-runSearch opt lindex filename eligible doSearch =
-    if eligible || no_shallow opt
+runSearch lindex filename eligible doSearch =
+    if eligible
         then doSearch
         else mkMatches lindex filename T.empty ([] :: [Chunk])

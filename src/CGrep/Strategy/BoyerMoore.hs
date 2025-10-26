@@ -61,7 +61,7 @@ search lock info filename text patterns _strict = do
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
-    runSearch opt lindex filename eligibleForSearch $ do
+    runSearch lindex filename eligibleForSearch $ do
         let lineOffsets = getLineOffsets text''
         let indices = textIndices patterns text''
 

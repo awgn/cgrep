@@ -92,7 +92,7 @@ search lock info filename text patterns strict = do
 
     let !eligibleForSearch = textContainsOneOf matchers text'
 
-    runSearch opt lindex filename eligibleForSearch $ do
+    runSearch lindex filename eligibleForSearch $ do
         putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
         putMessageLnVerb 1 lock stderr $ "strategy  : running generic semantic search on " <> show filename
         putMessageLnVerb 2 lock stderr $ "atoms     : " <> show patterns''
