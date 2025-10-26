@@ -20,7 +20,6 @@ module CGrep.Common (
     runSearch,
     getTargetName,
     getTargetContents,
-    expandMultiline,
     ignoreCase,
     subText,
     trim,
@@ -36,13 +35,10 @@ import CGrep.Parser.Chunk (Chunk)
 import qualified Data.Text as T
 import qualified Data.Text.IO.Utf8 as TIO
 import qualified Data.Text.Unsafe as TU
-import Options (
-    Options (Options, ignore_case, multiline, no_shallow),
- )
 import Reader (ReaderIO)
 import System.OsPath
 import qualified System.OsString as OS
-import Util (spanGroup)
+import Options (Options (..))
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -66,12 +62,6 @@ getTargetContents :: OsPath -> IO T.Text
 getTargetContents (OS.null -> True) = TIO.getContents
 getTargetContents xs = decodeUtf xs >>= TIO.readFile
 {-# INLINE getTargetContents #-}
-
-expandMultiline :: Options -> T.Text -> T.Text
-expandMultiline Options{multiline = n} xs
-    | n == 1 = xs
-    | otherwise = T.unlines $ map T.unwords $ spanGroup n (T.lines xs)
-{-# INLINE expandMultiline #-}
 
 ignoreCase :: Options -> T.Text -> T.Text
 ignoreCase opt

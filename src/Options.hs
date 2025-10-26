@@ -59,7 +59,6 @@ data Options = Options
     , force_type :: Maybe String
     , type_map :: Bool
     , invert_match :: Bool
-    , multiline :: Int
     , jobs :: Maybe Int
     , -- Output format:
       show_match :: Bool

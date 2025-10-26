@@ -23,7 +23,6 @@ import CGrep.Line (buildIndex)
 import Control.Monad.Trans.Reader (ask)
 
 import CGrep.Common (
-    expandMultiline,
     ignoreCase,
  )
 import CGrep.ContextFilter (mkContextFilter)
@@ -56,7 +55,7 @@ search lock info filename text patterns _strict = do
     let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
 
     let text' = ignoreCase opt text
-    let text'' = expandMultiline opt . contextFilter $ text'
+    let text'' = contextFilter $ text'
 
     -- parse source code, get the Cpp.Token list...
 

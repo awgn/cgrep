@@ -177,11 +177,6 @@ options = Options
         ( long "invert-match"
        <> short 'v'
        <> help "Select non-matching lines" )
-    <*> option auto
-        ( long "multiline"
-       <> metavar "INT"
-       <> value 1
-       <> help "Enable multi-line matching" )
     <*> optional (option auto
         ( long "threads"
        <> short 'j'

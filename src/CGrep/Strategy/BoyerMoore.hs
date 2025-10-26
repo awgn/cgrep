@@ -21,7 +21,7 @@ import Control.Monad.Trans.Reader (ask)
 
 -- expandMultiline,
 
-import CGrep.Common (expandMultiline, ignoreCase, runSearch)
+import CGrep.Common (ignoreCase, runSearch)
 import CGrep.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
@@ -52,7 +52,7 @@ search lock info filename text patterns _strict = do
     let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
 
     let text' = ignoreCase opt text
-    let text'' = expandMultiline opt . contextFilter $ text'
+    let text'' = contextFilter $ text'
 
     -- make shallow search
     let !eligibleForSearch = textContainsOneOf patterns text'

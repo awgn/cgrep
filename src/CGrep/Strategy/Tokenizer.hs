@@ -19,7 +19,6 @@
 module CGrep.Strategy.Tokenizer (search) where
 
 import CGrep.Common (
-    expandMultiline,
     ignoreCase,
     subText,
  )
@@ -80,7 +79,7 @@ search lock info filename text patterns strict = do
     let !contextFilter = mkContextFilterFn (fst <$> info) filt True
 
     let text' = ignoreCase opt text
-    let text'' = expandMultiline opt . contextFilter $ text'
+    let text'' = contextFilter $ text'
 
     -- make shallow search
     let !eligibleForSearch = textContainsOneOf patterns text'

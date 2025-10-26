@@ -18,7 +18,7 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (expandMultiline, ignoreCase, runSearch, subText, trimT)
+import CGrep.Common (ignoreCase, runSearch, subText, trimT)
 import CGrep.ContextFilter (
     contextBitComment,
     mkContextFilter,
@@ -64,7 +64,7 @@ search lock info filename text patterns strict = do
     let !contextFilter = mkContextFilterFn (fst <$> info) filt True
 
     let text' = ignoreCase opt text
-    let text'' = expandMultiline opt . contextFilter $ text'
+    let text'' = contextFilter $ text'
 
     -- pre-process patterns
     let pfilter =

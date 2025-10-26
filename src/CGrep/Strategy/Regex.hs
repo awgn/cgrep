@@ -32,7 +32,6 @@ import qualified Text.Regex.TDFA ((=~))
 import Data.Array (Array, elems)
 
 import CGrep.Common (
-    expandMultiline,
     ignoreCase,
  )
 import CGrep.ContextFilter (mkContextFilter)
@@ -65,7 +64,7 @@ search lock info filename text patterns _strict = do
 
     -- transform text
 
-    let text' = expandMultiline opt . contextFilter . ignoreCase opt $ text
+    let text' = contextFilter . ignoreCase opt $ text
 
         -- search for matching tokens
 #ifdef ENABLE_PCRE
