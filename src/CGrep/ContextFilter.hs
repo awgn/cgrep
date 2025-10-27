@@ -29,9 +29,10 @@ module CGrep.ContextFilter (
     mkContextFilter,
     mkParConfig,
     (~!),
+    (~?),
     runContextFilter,
-    start_literal,
-    end_literal,
+    startLiteralMarker,
+    endLiteralMarker,
 ) where
 
 import CGrep.Boundary (Boundary (..))
@@ -39,10 +40,16 @@ import CGrep.Parser.Char (chr, isSpace)
 import CGrep.Text (blankByWidth)
 import Data.Bits (Bits (complement, (.&.), (.|.)))
 import Data.Int (Int32)
-import Data.List (nub, sort)
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Options (Options (..))
+
+startLiteralMarker :: Char
+startLiteralMarker = chr 2
+
+endLiteralMarker :: Char
+endLiteralMarker = chr 3
 
 type FilterFunction = ContextFilter -> T.Text -> T.Text
 
@@ -102,58 +109,53 @@ literalFilter :: ContextFilter -> Bool
 literalFilter f = (unFilter f .&. contextBitLiteral) /= contextBitEmpty
 {-# INLINE literalFilter #-}
 
-data StreamBoundary = StreamBoundary
-    { sbBegin :: !(# Char, T.Text #)
-    , sbBeginLen :: {-# UNPACK #-} !Int
-    , sbEnd :: !(# Char, T.Text #)
-    , sbEndLen :: {-# UNPACK #-} !Int
+data RegionBoundary = RegionBoundary
+    { rbBegin :: !(# Char, T.Text #)
+    , rbBeginLen :: {-# UNPACK #-} !Int
+    , rbEnd :: !(# Char, T.Text #)
+    , rbEndLen :: {-# UNPACK #-} !Int
     }
 
-toStreamBoundary :: Boundary -> StreamBoundary
-toStreamBoundary Boundary{..} =
-    StreamBoundary
-        { sbBegin = (# T.head bBegin, T.tail bBegin #)
-        , sbBeginLen = bBeginLen
-        , sbEnd = (# T.head bEnd, T.tail bEnd #)
-        , sbEndLen = bEndLen
+toRegionBoundary :: Boundary -> RegionBoundary
+toRegionBoundary Boundary{..} =
+    RegionBoundary
+        { rbBegin = (# T.head bBegin, T.tail bBegin #)
+        , rbBeginLen = bBeginLen
+        , rbEnd = (# T.head bEnd, T.tail bEnd #)
+        , rbEndLen = bEndLen
         }
 
 data ParConfig = ParConfig
-    { commBound :: !(V.Vector StreamBoundary)
-    , litrBound :: !(V.Vector StreamBoundary)
-    , rawBound :: !(V.Vector StreamBoundary)
-    , chrBound :: !(V.Vector StreamBoundary)
+    { commBound :: !(V.Vector RegionBoundary)
+    , litrBound :: !(V.Vector RegionBoundary)
+    , rawBound :: !(V.Vector RegionBoundary)
+    , chrBound :: !(V.Vector RegionBoundary)
     , inits :: !T.Text
-    , alterBoundary :: !Bool
+    , useMakers :: !Bool
     }
-
-safeHead :: T.Text -> T.Text
-safeHead txt = case T.uncons txt of
-    Just (x, _) -> T.singleton x
-    Nothing -> T.empty
-{-# INLINE safeHead #-}
 
 mkParConfig :: [Boundary] -> [Boundary] -> [Boundary] -> [Boundary] -> Bool -> ParConfig
 mkParConfig cs ls rs chs ab =
     ParConfig
-        { commBound = V.fromList $ toStreamBoundary <$> cs
-        , litrBound = V.fromList $ toStreamBoundary <$> ls
-        , rawBound = V.fromList $ toStreamBoundary <$> rs
-        , chrBound = V.fromList $ toStreamBoundary <$> chs
+        { commBound = V.fromList $ toRegionBoundary <$> cs
+        , litrBound = V.fromList $ toRegionBoundary <$> ls
+        , rawBound = V.fromList $ toRegionBoundary <$> rs
+        , chrBound = V.fromList $ toRegionBoundary <$> chs
         , inits =
-            mconcat . nub . sort $
-                ((safeHead . bBegin) <$> cs)
-                    <> ((safeHead . bBegin) <$> ls)
-                    <> ((safeHead . bBegin) <$> rs)
-                    <> ((safeHead . bBegin) <$> chs)
-        , alterBoundary = ab
+            T.concat . Set.toList . Set.fromList $
+                (safeHead . bBegin <$> cs)
+                    <> (safeHead . bBegin <$> ls)
+                    <> (safeHead . bBegin <$> rs)
+                    <> (safeHead . bBegin <$> chs)
+        , useMakers = ab
         }
 
 data ParState = ParState
-    { ctxState :: !ContextState
-    , nextState :: !ContextState
-    , display :: !Bool
-    , skip :: {-# UNPACK #-} !Int
+    { parCtxState :: !ContextState
+    , parNextState :: !ContextState
+    , parDisplay :: !Bool
+    , parSkip :: {-# UNPACK #-} !Int
+    , parText :: !T.Text
     }
     deriving stock (Show)
 
@@ -188,180 +190,197 @@ getContext (ChrState _) = Literal
 -- contextFilterFun:
 --
 
-start_literal :: Char
-start_literal = chr 2
-
-end_literal :: Char
-end_literal = chr 3
-
--- Strict ParData to minimize allocations
-data ParData = ParData
-    { _pdText :: !T.Text
-    , _pdState :: !ParState
-    }
-
 runContextFilter :: ParConfig -> ContextFilter -> T.Text -> T.Text
 runContextFilter conf@ParConfig{..} f txt
-    | alterBoundary = T.unfoldr contextFilter' initialData
-    | otherwise = T.unfoldr contextFilter'' initialData
+    | useMakers = T.unfoldr contextFilter' initialState
+    | otherwise = T.unfoldr contextFilter'' initialState
   where
-    !initialData = ParData txt $! ParState CodeState1 CodeState1 (codeFilter f) 0
+    !initialState =
+        ParState
+            { parCtxState = CodeState1
+            , parNextState = CodeState1
+            , parDisplay = codeFilter f
+            , parSkip = 0
+            , parText = txt
+            }
 
-    contextFilter' :: ParData -> Maybe (Char, ParData)
-    contextFilter' !(ParData stream !state) = case T.uncons stream of
+    contextFilter' :: ParState -> Maybe (Char, ParState)
+    contextFilter' !state = case T.uncons (parText state) of
+        Nothing -> Nothing
         Just (!x, !xs) ->
             let !nextState = nextContextState conf state x xs f
-                !disp = display nextState
+                !nextState' = nextState{parText = xs}
+                !disp = parDisplay nextState
              in if disp
-                    then case (# getContext (ctxState state), getContext (ctxState nextState) #) of
-                        (# Code, Literal #) -> Just (start_literal, ParData xs nextState)
-                        (# Literal, Code #) -> Just (end_literal, ParData xs nextState)
-                        _ -> Just (x, ParData xs nextState)
-                    else
-                        let !isSp = isSpace x
-                         in if isSp
-                                then Just (x, ParData xs nextState)
-                                else Just (blankByWidth x, ParData xs nextState)
-        Nothing -> Nothing
+                    then
+                        let !currCtx = getContext (parCtxState state)
+                            !nextCtx = getContext (parCtxState nextState)
+                         in case currCtx of
+                                Code | nextCtx == Literal -> Just (startLiteralMarker, nextState')
+                                Literal | nextCtx == Code -> Just (endLiteralMarker, nextState')
+                                _ -> Just (x, nextState')
+                    else Just (if isSpace x then x else blankByWidth x, nextState')
     {-# INLINE contextFilter' #-}
 
-    contextFilter'' :: ParData -> Maybe (Char, ParData)
-    contextFilter'' !(ParData stream !state) = case T.uncons stream of
+    contextFilter'' :: ParState -> Maybe (Char, ParState)
+    contextFilter'' !state = case T.uncons (parText state) of
+        Nothing -> Nothing
         Just (!x, !xs) ->
             let !nextState = nextContextState conf state x xs f
-                !disp = display nextState
-                !isSp = isSpace x
-             in if disp || isSp
-                    then Just (x, ParData xs nextState)
-                    else Just (blankByWidth x, ParData xs nextState)
-        Nothing -> Nothing
+                !nextState' = nextState{parText = xs}
+                !shouldDisplay = parDisplay nextState || isSpace x
+             in Just (if shouldDisplay then x else blankByWidth x, nextState')
     {-# INLINE contextFilter'' #-}
 
 nextContextState :: ParConfig -> ParState -> Char -> T.Text -> ContextFilter -> ParState
-nextContextState !conf s@ParState{..} !c !cont !f
-    | skip > 0 = transState s{skip = skip - 1}
-    | CodeState1 <- ctxState =
+nextContextState !conf !s@ParState{..} !c !cont !f
+    | parSkip > 0 =
+        let !newSkip = parSkip - 1
+         in if newSkip == 0
+                then s{parCtxState = parNextState, parSkip = 0}
+                else s{parSkip = newSkip}
+    | CodeState1 <- parCtxState = handleCodeState True
+    | CodeStateN <- parCtxState = handleCodeState False
+    | CommState1 n <- parCtxState = handleCommentState n True
+    | CommStateN n <- parCtxState = handleCommentState n False
+    | LitrState1 n <- parCtxState = handleLiteralState n True
+    | LitrStateN n <- parCtxState = handleLiteralState n False
+    | ChrState n <- parCtxState = handleCharState n
+    | RawState n <- parCtxState = handleRawState n
+  where
+    !codeDisp = codeFilter f
+    !commDisp = commentFilter f
+    !litrDisp = literalFilter f
+
+    {-# INLINE transitionWith #-}
+    transitionWith !nextSt !disp !skipLen =
+        let !skip = skipLen - 1
+         in if skip == 0
+                then s{parCtxState = nextSt, parNextState = nextSt, parDisplay = disp, parSkip = 0}
+                else s{parNextState = nextSt, parDisplay = disp, parSkip = skip}
+
+    {-# INLINE handleCodeState #-}
+    handleCodeState !isFirst =
         if c `T.elem` inits conf
             then case findPrefixBoundary c cont (commBound conf) of
-                (# i, Just !b #) -> transState s{nextState = CommState1 i, display = commentFilter f, skip = (sbBeginLen b) - 1}
+                (# i, Just !b #) -> transitionWith (CommState1 i) commDisp (rbBeginLen b)
                 _ -> case findPrefixBoundary c cont (litrBound conf) of
-                    (# i, Just !b #) -> transState s{nextState = LitrState1 i, display = codeFilter f, skip = (sbBeginLen b) - 1}
+                    (# i, Just !b #) -> transitionWith (LitrState1 i) codeDisp (rbBeginLen b)
                     _ -> case findPrefixBoundary c cont (rawBound conf) of
-                        (# i, Just !b #) -> transState s{nextState = RawState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
+                        (# i, Just !b #) -> transitionWith (RawState i) codeDisp (rbBeginLen b)
                         _ -> case findPrefixBoundary' c cont (chrBound conf) of
-                            (# i, Just !b #) -> transState s{nextState = ChrState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
-                            _ -> s{ctxState = CodeStateN, nextState = CodeStateN, display = codeFilter f, skip = 0}
-            else s{ctxState = CodeStateN, nextState = CodeStateN, display = codeFilter f, skip = 0}
-    | CodeStateN <- ctxState =
-        if c `T.elem` inits conf
-            then case findPrefixBoundary c cont (commBound conf) of
-                (# i, Just !b #) -> transState s{nextState = CommState1 i, display = commentFilter f, skip = (sbBeginLen b) - 1}
-                _ -> case findPrefixBoundary c cont (litrBound conf) of
-                    (# i, Just !b #) -> transState s{nextState = LitrState1 i, display = codeFilter f, skip = (sbBeginLen b) - 1}
-                    _ -> case findPrefixBoundary c cont (rawBound conf) of
-                        (# i, Just !b #) -> transState s{nextState = RawState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
-                        _ -> case findPrefixBoundary' c cont (chrBound conf) of
-                            (# i, Just !b #) -> transState s{nextState = ChrState i, display = codeFilter f, skip = (sbBeginLen b) - 1}
-                            _ -> s
-            else s
-    | CommState1 n <- ctxState =
-        let !StreamBoundary{..} = V.unsafeIndex (commBound conf) n
-            (# ec, es #) = sbEnd
-         in if c == ec && es `T.isPrefixOf` cont
-                then transState s{nextState = CodeState1, display = commentFilter f, skip = sbEndLen - 1}
-                else s{ctxState = CommStateN n, nextState = CommStateN n, display = commentFilter f, skip = 0}
-    | CommStateN n <- ctxState =
-        let !StreamBoundary{..} = V.unsafeIndex (commBound conf) n
-            (# ec, es #) = sbEnd
-         in if c == ec && es `T.isPrefixOf` cont
-                then transState s{nextState = CodeState1, display = commentFilter f, skip = sbEndLen - 1}
-                else s
-    | LitrState1 n <- ctxState =
-        if c == '\\'
-            then s{display = displayContext ctxState f, skip = 1}
+                            (# i, Just !b #) -> transitionWith (ChrState i) codeDisp (rbBeginLen b)
+                            _ ->
+                                if isFirst
+                                    then s{parCtxState = CodeStateN, parNextState = CodeStateN, parDisplay = codeDisp, parSkip = 0}
+                                    else s
             else
-                let !StreamBoundary{..} = V.unsafeIndex (litrBound conf) n
-                    (# ec, es #) = sbEnd
-                 in if c == ec && es `T.isPrefixOf` cont
-                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
-                        else s{ctxState = LitrStateN n, nextState = LitrStateN n, display = literalFilter f, skip = 0}
-    | LitrStateN n <- ctxState =
-        if c == '\\'
-            then s{display = displayContext ctxState f, skip = 1}
-            else
-                let !StreamBoundary{..} = V.unsafeIndex (litrBound conf) n
-                    (# ec, es #) = sbEnd
-                 in if c == ec && es `T.isPrefixOf` cont
-                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
+                if isFirst
+                    then s{parCtxState = CodeStateN, parNextState = CodeStateN, parDisplay = codeDisp, parSkip = 0}
+                    else s
+
+    {-# INLINE handleCommentState #-}
+    handleCommentState !n !isFirst =
+        let !RegionBoundary{..} = V.unsafeIndex (commBound conf) n
+            (# ec, es #) = rbEnd
+         in if c == ec && es `T.isPrefixOf` cont
+                then transitionWith CodeState1 commDisp rbEndLen
+                else
+                    if isFirst
+                        then s{parCtxState = CommStateN n, parNextState = CommStateN n, parDisplay = commDisp, parSkip = 0}
                         else s
-    | ChrState n <- ctxState =
+
+    {-# INLINE handleLiteralState #-}
+    handleLiteralState !n !isFirst =
         if c == '\\'
-            then s{display = displayContext ctxState f, skip = 1}
+            then s{parDisplay = litrDisp, parSkip = 1}
             else
-                let !StreamBoundary{..} = V.unsafeIndex (chrBound conf) n
-                    (# ec, es #) = sbEnd
+                let !RegionBoundary{..} = V.unsafeIndex (litrBound conf) n
+                    (# ec, es #) = rbEnd
                  in if c == ec && es `T.isPrefixOf` cont
-                        then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
-                        else s{display = literalFilter f, skip = 0}
-    | RawState n <- ctxState =
-        let !StreamBoundary{..} = V.unsafeIndex (rawBound conf) n
-            (# ec, es #) = sbEnd
+                        then
+                            let !skip = rbEndLen - 1
+                             in if skip == 0
+                                    then s{parCtxState = CodeState1, parNextState = CodeState1, parDisplay = codeDisp, parSkip = 0}
+                                    else s{parCtxState = CodeState1, parNextState = CodeState1, parDisplay = codeDisp, parSkip = skip}
+                        else
+                            if isFirst
+                                then s{parCtxState = LitrStateN n, parNextState = LitrStateN n, parDisplay = litrDisp, parSkip = 0}
+                                else s
+
+    {-# INLINE handleCharState #-}
+    handleCharState !n =
+        if c == '\\'
+            then s{parDisplay = litrDisp, parSkip = 1}
+            else
+                let !RegionBoundary{..} = V.unsafeIndex (chrBound conf) n
+                    (# ec, es #) = rbEnd
+                 in if c == ec && es `T.isPrefixOf` cont
+                        then
+                            let !skip = rbEndLen - 1
+                             in if skip == 0
+                                    then s{parCtxState = CodeState1, parNextState = CodeState1, parDisplay = codeDisp, parSkip = 0}
+                                    else s{parCtxState = CodeState1, parNextState = CodeState1, parDisplay = codeDisp, parSkip = skip}
+                        else s{parDisplay = litrDisp, parSkip = 0}
+
+    {-# INLINE handleRawState #-}
+    handleRawState !n =
+        let !RegionBoundary{..} = V.unsafeIndex (rawBound conf) n
+            (# ec, es #) = rbEnd
          in if c == ec && es `T.isPrefixOf` cont
-                then s{ctxState = CodeState1, nextState = CodeState1, display = codeFilter f, skip = sbEndLen - 1}
-                else s{display = literalFilter f, skip = 0}
+                then
+                    let !skip = rbEndLen - 1
+                     in if skip == 0
+                            then s{parCtxState = CodeState1, parNextState = CodeState1, parDisplay = codeDisp, parSkip = 0}
+                            else s{parCtxState = CodeState1, parNextState = CodeState1, parDisplay = codeDisp, parSkip = skip}
+                else s{parDisplay = litrDisp, parSkip = 0}
 {-# INLINE nextContextState #-}
 
-displayContext :: ContextState -> ContextFilter -> Bool
-displayContext !s !cf = case s of
-    CodeState1 -> cf ~? contextBitCode
-    CodeStateN -> cf ~? contextBitCode
-    CommState1 _ -> cf ~? contextBitComment
-    CommStateN _ -> cf ~? contextBitComment
-    LitrState1 _ -> cf ~? contextBitLiteral
-    LitrStateN _ -> cf ~? contextBitLiteral
-    RawState _ -> cf ~? contextBitLiteral
-    ChrState _ -> cf ~? contextBitLiteral
-{-# INLINE displayContext #-}
-
-transState :: ParState -> ParState
-transState !s@ParState{..}
-    | skip == 0 = s{ctxState = nextState}
-    | otherwise = s
-{-# INLINE transState #-}
-
-findPrefixBoundary :: Char -> T.Text -> V.Vector StreamBoundary -> (# Int, Maybe StreamBoundary #)
-findPrefixBoundary x xs vb = go 0
+findPrefixBoundary :: Char -> T.Text -> V.Vector RegionBoundary -> (# Int, Maybe RegionBoundary #)
+findPrefixBoundary !x !xs !vb = go 0
   where
     !len = V.length vb
     go !i
         | i >= len = (# 0, Nothing #)
         | otherwise =
-            let !sb@StreamBoundary{..} = V.unsafeIndex vb i
-                (# c, cont #) = sbBegin
-             in if c == x && cont `T.isPrefixOf` xs
-                    then (# i, Just sb #)
+            let !RegionBoundary{..} = V.unsafeIndex vb i
+                (# !c, !cont #) = rbBegin
+             in if c == x
+                    then
+                        if cont `T.isPrefixOf` xs
+                            then (# i, Just (V.unsafeIndex vb i) #)
+                            else go (i + 1)
                     else go (i + 1)
 {-# INLINE findPrefixBoundary #-}
 
-findPrefixBoundary' :: Char -> T.Text -> V.Vector StreamBoundary -> (# Int, Maybe StreamBoundary #)
-findPrefixBoundary' x xs vb = go 0
+findPrefixBoundary' :: Char -> T.Text -> V.Vector RegionBoundary -> (# Int, Maybe RegionBoundary #)
+findPrefixBoundary' !x !xs !vb = go 0
   where
     !len = V.length vb
     go !i
         | i >= len = (# 0, Nothing #)
         | otherwise =
-            let !sb@StreamBoundary{..} = V.unsafeIndex vb i
-                (# c, cont #) = sbBegin
-             in if c == x && cont `T.isPrefixOf` xs
-                    then case xs of
-                        (T.uncons -> Just (y, ys)) ->
-                            let skip = if y == '\\' then 1 else 0
-                             in case T.drop skip ys of
-                                    (T.uncons -> Just (z, zs)) ->
-                                        let (# e, es #) = sbEnd
-                                         in if z == e && es `T.isPrefixOf` zs
-                                                then (# i, Just sb #)
-                                                else go (i + 1)
-                                    _ -> go (i + 1)
-                        _ -> go (i + 1)
-                    else go (i + 1)
+            let !RegionBoundary{..} = V.unsafeIndex vb i
+                (# !c, !cont #) = rbBegin
+             in if c /= x
+                    then go (i + 1)
+                    else
+                        if not (cont `T.isPrefixOf` xs)
+                            then go (i + 1)
+                            else case xs of
+                                (T.uncons -> Just (!y, !ys)) ->
+                                    let !skip = if y == '\\' then 1 else 0
+                                     in case T.drop skip ys of
+                                            (T.uncons -> Just (!z, !zs)) ->
+                                                let (# !e, !es #) = rbEnd
+                                                 in if z == e && es `T.isPrefixOf` zs
+                                                        then (# i, Just (V.unsafeIndex vb i) #)
+                                                        else go (i + 1)
+                                            _ -> go (i + 1)
+                                _ -> go (i + 1)
+
+safeHead :: T.Text -> T.Text
+safeHead txt = case T.uncons txt of
+    Just (x, _) -> T.singleton x
+    Nothing -> T.empty
+{-# INLINE safeHead #-}

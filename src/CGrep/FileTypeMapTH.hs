@@ -4808,11 +4808,11 @@ fileTypeInfoMap =
 mkContextFilterFn :: Maybe FileType -> ContextFilter -> Bool -> (T.Text -> T.Text)
 mkContextFilterFn _ (isContextFilterAll -> True) False = id
 mkContextFilterFn Nothing _ _ = id
-mkContextFilterFn (Just ftype) filt alterBoundary
+mkContextFilterFn (Just ftype) filt useMarkers
     | Just fun <- parFunc = fun filt
     | otherwise = id
   where
-    parFunc = mkFilterFunction alterBoundary =<< Map.lookup ftype (unMapInfo fileTypeInfoMap)
+    parFunc = mkFilterFunction useMarkers =<< Map.lookup ftype (unMapInfo fileTypeInfoMap)
 
 fileTypeLookup :: Options -> OS.OsPath -> Maybe (FileType, FileKind)
 fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (hdr_only opts)
@@ -4850,7 +4850,7 @@ forcedType Options{..}
     m = unMap fileTypeMap
 
 mkFilterFunction :: Bool -> FileTypeInfo -> Maybe FilterFunction
-mkFilterFunction alterBoundary FileTypeInfo{..} =
+mkFilterFunction useMarkers FileTypeInfo{..} =
     Just $
-        runContextFilter (mkParConfig ftComment ftString ftRawString ftChar alterBoundary)
+        runContextFilter (mkParConfig ftComment ftString ftRawString ftChar useMarkers)
 {-# INLINE mkFilterFunction #-}

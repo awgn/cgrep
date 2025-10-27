@@ -81,7 +81,7 @@ import Data.STRef (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 import CGrep.Parser.Chunk
 
 import CGrep.ContextFilter
-import CGrep.Parser.Char (chr, isBracket', isCharNumber, isDigit, isPunctuation, isSpace)
+import CGrep.Parser.Char (isBracket', isCharNumber, isDigit, isPunctuation, isSpace)
 import CGrep.Text (iterM, textOffsetWord8, textSlice)
 import Data.Coerce (coerce)
 import Data.Maybe (fromMaybe)
@@ -324,7 +324,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                 if
                     | isSpace x -> do accR <<~ Reset
                     | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta
-                    | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset
+                    | x == startLiteralMarker -> do stateR <~ StateLiteral; accR <<~ Reset
                     | isDigit x -> do stateR <~ StateDigit; accR <<~ Start cur delta
                     | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta
                     | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta
@@ -336,7 +336,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                         tokens <- readSTRef tokensR
                         if
                             | isSpace x -> do stateR <~ StateSpace; accR <<~ Reset; tokensR <~ (tokens |> buildTokenIf tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
-                            | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildTokenIf tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
+                            | x == startLiteralMarker -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildTokenIf tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
                             | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildTokenIf tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
                             | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildTokenIf tfIdentifier tfKeyword tfNativeType (mkTokenFromWord info) acc txt)
             StateDigit ->
@@ -347,12 +347,12 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                         tokens <- readSTRef tokensR
                         if
                             | isSpace x -> do stateR <~ StateSpace; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
-                            | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
+                            | x == startLiteralMarker -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
                             | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
                             | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
                             | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfNumber mkTokenDigit acc txt)
             StateLiteral ->
-                if x == chr 3
+                if x == endLiteralMarker
                     then do
                         acc <- readSTRef accR
                         tokens <- readSTRef tokensR
@@ -369,7 +369,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                         | inline (isValidChar @cs1 x) -> do stateR <~ StateIdentifier; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | isDigit x -> do stateR <~ StateDigit; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | isBracket' x -> do accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
-                        | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
+                        | x == startLiteralMarker -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | otherwise -> do stateR <~ StateOther; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
             StateOther ->
                 do
@@ -383,7 +383,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                                 then do stateR <~ StateDigit; accR <<~ Append cur delta
                                 else do stateR <~ StateDigit; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | isBracket' x -> do stateR <~ StateBracket; accR <<~ Append cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
-                        | x == start_literal -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
+                        | x == startLiteralMarker -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | isPunctuation x -> do accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | otherwise ->
                             if strict

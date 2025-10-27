@@ -2,7 +2,7 @@
 int
 main(int argc, char *argv[])
 {
-    const char * x = "hello world";
+    const char * x = "main hello world";
     int ab = 10;
      return 0;
 }
