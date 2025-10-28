@@ -22,7 +22,7 @@ import CGrep.Common (
     ignoreCase,
     sliceToMaxIndex,
  )
-import CGrep.ContextFilter (
+import CGrep.Semantic.ContextFilter (
     contextBitComment,
     mkContextFilter,
     (~!),

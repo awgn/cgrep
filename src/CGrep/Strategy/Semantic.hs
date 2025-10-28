@@ -19,7 +19,7 @@
 module CGrep.Strategy.Semantic (search) where
 
 import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex, trimT)
-import CGrep.ContextFilter (
+import CGrep.Semantic.ContextFilter (
     contextBitComment,
     mkContextFilter,
     (~!),
@@ -54,6 +54,8 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 import Util (unquoteT)
+import CGrep.Semantic.Tests (filterTests)
+import Options (Options(..))
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info filename text patterns strict = do
@@ -107,11 +109,17 @@ search lock info filename text patterns strict = do
 
         let tokens = toList $ parseTokens pfilter (snd <$> info) strict (sliceToMaxIndex indices' text'')
         putMessageLnVerb 3 lock stderr $ "indices   : " <> show indices'
-        putMessageLnVerb 3 lock stderr $ "tokens    : " <> show tokens
 
         -- get matching tokens ...
 
-        let allMatches = sortBy (compare `on` tOffset) $ findAllMatches opt patterns'' tokens
+        let tokens' = case (fst <$> info) of
+                        Nothing -> tokens
+                        Just ft -> filterTests ft (tests opt) tokens
+
+        putMessageLnVerb 3 lock stderr $ "tokens    : " <> show tokens
+        putMessageLnVerb 3 lock stderr $ "tokens'   : " <> show tokens'
+
+        let allMatches = sortBy (compare `on` tOffset) $ findAllMatches opt patterns'' tokens'
 
         -- convert Tokens to Chunks
         let matches = coerce allMatches :: [Chunk]

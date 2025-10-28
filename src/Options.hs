@@ -47,7 +47,7 @@ data Options = Options
     , kind_filter :: [String]
     , code_only :: Bool
     , hdr_only :: Bool
-    , skip_test :: Bool
+    , tests :: Maybe Bool
     , prune_dir :: [FilePath]
     , recursive :: Bool
     , follow :: Bool

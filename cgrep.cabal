@@ -82,7 +82,6 @@ executable cgrep
   other-modules:
     CGrep.Boundary
     CGrep.Common
-    CGrep.ContextFilter
     CGrep.Text
     CGrep.Line
     CGrep.Distance
@@ -92,6 +91,8 @@ executable cgrep
     CGrep.FileTypeMapTH
     CGrep.Match
     CGrep.Search
+    CGrep.Semantic.ContextFilter
+    CGrep.Semantic.Tests
     CGrep.Parser.Atom
     CGrep.Parser.Char
     CGrep.Parser.Chunk

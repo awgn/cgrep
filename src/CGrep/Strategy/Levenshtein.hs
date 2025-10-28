@@ -25,7 +25,7 @@ import Control.Monad.Trans.Reader (ask)
 import CGrep.Common (
     ignoreCase,
  )
-import CGrep.ContextFilter (mkContextFilter)
+import CGrep.Semantic.ContextFilter (mkContextFilter)
 import CGrep.Distance ((~==))
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (

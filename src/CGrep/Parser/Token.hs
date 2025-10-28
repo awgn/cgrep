@@ -80,7 +80,7 @@ import Data.STRef (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 
 import CGrep.Parser.Chunk
 
-import CGrep.ContextFilter
+import CGrep.Semantic.ContextFilter
 import CGrep.Parser.Char (isBracket', isCharNumber, isDigit, isPunctuation, isSpace)
 import CGrep.Text (iterM, textOffsetWord8, textSlice)
 import Data.Coerce (coerce)

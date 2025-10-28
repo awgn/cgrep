@@ -22,7 +22,7 @@ import Control.Monad.Trans.Reader (ask)
 -- expandMultiline,
 
 import CGrep.Common (ignoreCase, runSearch)
-import CGrep.ContextFilter (mkContextFilter)
+import CGrep.Semantic.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (mkContextFilterFn)

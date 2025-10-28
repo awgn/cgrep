@@ -19,7 +19,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UnboxedTuples #-}
 
-module CGrep.ContextFilter (
+module CGrep.Semantic.ContextFilter (
     FilterFunction,
     ContextFilter (..),
     isContextFilterAll,

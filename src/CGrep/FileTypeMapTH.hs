@@ -30,7 +30,7 @@ module CGrep.FileTypeMapTH (
     dumpFileTypeInfoMap,
 ) where
 
-import CGrep.ContextFilter (
+import CGrep.Semantic.ContextFilter (
     ContextFilter,
     FilterFunction,
     isContextFilterAll,

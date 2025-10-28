@@ -136,10 +136,10 @@ options = Options
     <*> switch
         ( long "hdr-only"
        <> help "Parse headers/interfaces only (skip modules)" )
-    <*> switch
-        ( long "skip-test"
+    <*> optional (option auto
+        ( long "tests"
        <> short 'T'
-       <> help "Skip files that have 'test' in the name" )
+       <> help "Filter tests: 'True' tests only, 'False' code only, omitted (search all)" ))
     <*> many (strOption
         ( long "prune-dir"
        <> metavar "DIR"

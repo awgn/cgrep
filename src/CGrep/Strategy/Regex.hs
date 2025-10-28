@@ -34,7 +34,7 @@ import Data.Array (Array, elems)
 import CGrep.Common (
     ignoreCase,
  )
-import CGrep.ContextFilter (mkContextFilter)
+import CGrep.Semantic.ContextFilter (mkContextFilter)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.FileTypeMapTH (mkContextFilterFn)

@@ -171,7 +171,7 @@ withRecursiveContents ctx@RecursiveContext{..} opt@Options{..} dir visited actio
     (dirs, files) <- partitionM (\p -> doesDirectoryExist (dir </> p)) xs
 
     -- filter the list of files
-    let files' :: [OsPath] = (dir </>) <$> filter (\f -> fileFilter opt rcFileTypes rcFileKinds f && (not skip_test || isNotTestFile f)) files
+    let files' :: [OsPath] = (dir </>) <$> filter (\f -> fileFilter opt rcFileTypes rcFileKinds f) files
     let dirs' :: [OsPath] = (dir </>) <$> filter (\d -> not $ isDot d) dirs
 
     -- run IO action
