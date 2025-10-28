@@ -382,7 +382,7 @@ parseToken' tf@TokenFilter{..} info strict txt = do
                             if tkString acc txt == "."
                                 then do stateR <~ StateDigit; accR <<~ Append cur delta
                                 else do stateR <~ StateDigit; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
-                        | isBracket' x -> do stateR <~ StateBracket; accR <<~ Append cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
+                        | isBracket' x -> do stateR <~ StateBracket; accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | x == startLiteralMarker -> do stateR <~ StateLiteral; accR <<~ Reset; tokensR <~ (tokens |> buildToken tfBracket mkTokenBracket acc txt)
                         | isPunctuation x -> do accR <<~ Start cur delta; tokensR <~ (tokens |> buildToken tfOperator mkTokenOperator acc txt)
                         | otherwise ->
