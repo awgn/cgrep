@@ -22,6 +22,14 @@ instance LanguageTestFilter 'Go where
         langFilter Nothing tokens = tokens
         langFilter (Just keepTests) tokens = processOutsideGo keepTests tokens
 
+instance LanguageTestFilter 'Java where
+        langFilter Nothing tokens = tokens
+        langFilter (Just keepTests) tokens = processOutsideJava keepTests tokens
+
+instance LanguageTestFilter 'Kotlin where
+        langFilter Nothing tokens = tokens
+        langFilter (Just keepTests) tokens = processOutsideJava keepTests tokens
+
 -- ------------------------------------------------------------------
 -- Main Dispatcher Function (Runtime-to-Type bridge)
 -- ------------------------------------------------------------------
@@ -31,6 +39,8 @@ filterTests fileType flag tokens =
     case fileType of
         Rust       -> langFilter @'Rust flag tokens
         Go         -> langFilter @'Go flag tokens
+        Java       -> langFilter @'Java flag tokens
+        Kotlin     -> langFilter @'Kotlin flag tokens
         _          -> tokens
 
 -- ------------------------------------------------------------------
@@ -104,6 +114,47 @@ processOutsideGo keepTests (t:ts) =
          processOutsideGo keepTests ts
     else -- We don't want test tokens, so keep this "outside" token
          t : processOutsideGo keepTests ts
+
+-- ------------------------------------------------------------------
+-- Java-Specific Implementation Helpers
+-- ------------------------------------------------------------------
+
+-- | (Java) Helper: Processes tokens *outside* a test method.
+processOutsideJava :: Bool -> [Token] -> [Token]
+processOutsideJava _ [] = [] -- End of stream
+processOutsideJava keepTests (t1:t2:ts)
+    -- Look for "@Test"
+    | isTokenOperator t1 && tToken t1 == "@" &&
+      isTokenIdentifier t2 && tToken t2 == "Test"
+    =
+        -- Found @Test annotation. Now find its opening brace.
+        case findOpeningBrace ts of
+            Nothing -> -- Malformed, no '{' found. Treat as non-test code.
+                if keepTests then processOutsideJava keepTests (t2:ts) else t1 : processOutsideJava keepTests (t2:ts)
+            Just (signatureTokens, tokensAfterBrace) ->
+                -- We found the method body's opening brace.
+                -- signatureTokens *includes* the opening brace.
+                -- tokensAfterBrace starts *after* the opening brace.
+                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                in if keepTests
+                   then -- Keep @Test + signature + body
+                        t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideJava keepTests remainingTokens
+                   else -- Discard the whole method
+                        processOutsideJava keepTests remainingTokens
+
+-- No test method found, process the current token
+processOutsideJava keepTests (t:ts) =
+    if keepTests
+    then -- We want test tokens, so discard this "outside" token
+         processOutsideJava keepTests ts
+    else -- We don't want test tokens, so keep this "outside" token
+         t : processOutsideJava keepTests ts
+
+
+
+-- ------------------------------------------------------------------
+-- Generic Helper Functions
+-- ------------------------------------------------------------------
 
 -- | (Generic) Helper: Processes tokens *inside* a braced block, handling nesting.
 -- Renamed from processInsideRust
