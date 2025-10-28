@@ -20,7 +20,7 @@ module CGrep.Strategy.Tokenizer (search) where
 
 import CGrep.Common (
     ignoreCase,
-    subText,
+    sliceToMaxIndex,
  )
 import CGrep.ContextFilter (
     contextBitComment,
@@ -103,7 +103,7 @@ search lock info filename text patterns strict = do
                     , tfBracket = False
                     }
 
-        let tokens = parseTokens tfilter (snd <$> info) strict (subText indices text'')
+        let tokens = parseTokens tfilter (snd <$> info) strict (sliceToMaxIndex indices text'')
 
             -- filter tokens and make chunks
 

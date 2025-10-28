@@ -21,7 +21,7 @@ module CGrep.Common (
     getTargetName,
     getTargetContents,
     ignoreCase,
-    subText,
+    sliceToMaxIndex,
     trim,
     trimT,
     takeN,
@@ -69,15 +69,18 @@ ignoreCase opt
     | otherwise = id
 {-# INLINE ignoreCase #-}
 
-subText :: [[Int]] -> T.Text -> T.Text
-subText [] txt = txt
-subText indices txt = case T.findIndex (== '\n') (TU.dropWord8 maxOff txt) of
+sliceToMaxIndex
+ :: [[Int]] -> T.Text -> T.Text
+sliceToMaxIndex
+ [] txt = txt
+sliceToMaxIndex
+ indices txt = case T.findIndex (== '\n') (TU.dropWord8 maxOff txt) of
     Nothing -> txt
     (Just n) -> TU.takeWord8 (maxOff + n) txt
   where
     maxOff = maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
-{-# INLINE subText #-}
+{-# INLINE sliceToMaxIndex #-}
 
 runSearch ::
     LineIndex ->

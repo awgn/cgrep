@@ -18,7 +18,7 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (ignoreCase, runSearch, subText, trimT)
+import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex, trimT)
 import CGrep.ContextFilter (
     contextBitComment,
     mkContextFilter,
@@ -102,10 +102,11 @@ search lock info filename text patterns strict = do
         let indices' = textIndices matchers text''
 
         -- parse source code, get the Generic.Token list...
-        let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns'
-        putMessageLnVerb 3 lock stderr $ "filter    : " <> show tfilter
+        -- let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns'
+        -- putMessageLnVerb 3 lock stderr $ "filter    : " <> show tfilter
 
-        let tokens = toList $ parseTokens tfilter (snd <$> info) strict (subText indices' text'')
+        let tokens = toList $ parseTokens pfilter (snd <$> info) strict (sliceToMaxIndex indices' text'')
+        putMessageLnVerb 3 lock stderr $ "indices   : " <> show indices'
         putMessageLnVerb 3 lock stderr $ "tokens    : " <> show tokens
 
         -- get matching tokens ...
