@@ -20,7 +20,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 ### ✨ Enhanced Features
 
 - **Semantic Test Filtering** - New capability to filter out test code from search results across 27+ programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
-- **Improved Text Processing** - Native support for Unicode and multi-byte character encodings with accurate column positioning
+- **Improved Text Processing** - Native support for utf-8 character encodings with accurate column positioning
 
 ---
 
