@@ -78,11 +78,11 @@ search lock info filename text patterns _strict = do
                     patterns >>= (\p -> elems (getAllTextMatches $ text' =~~~ p :: (Array Int) (MatchText T.Text)))
 
     putMessageLnVerb 3 lock stderr $ "---\n" <> text' <> "\n---"
-    #ifdef ENABLE_PCRE
+#ifdef ENABLE_PCRE
     putMessageLnVerb 1 lock stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
-    #else
+#else
     putMessageLnVerb 1 lock stderr $ "strategy  : running regex (posix) search on " <> show filename
-    #endif
+#endif
     putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
 
     mkMatches lindex filename text' tokens
