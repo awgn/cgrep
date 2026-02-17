@@ -1,7 +1,7 @@
 cabal-version: 2.2
 name: cgrep
 description: Cgrep: a context-aware grep for source codes
-version: 9.0.0
+version: 9.1.0
 synopsis: Command line tool
 homepage: http://awgn.github.io/cgrep/
 license: GPL-2.0-or-later

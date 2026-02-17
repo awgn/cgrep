@@ -82,6 +82,7 @@ data FileType
     | PHP
     | Perl
     | Python
+    | ProtoBuf
     | R
     | Ruby
     | Rust

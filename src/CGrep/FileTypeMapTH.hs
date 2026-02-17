@@ -2929,6 +2929,62 @@ fileTypeInfoMap =
                         }
                     )
                 ,
+                    ( ProtoBuf
+                    , FileTypeInfo
+                        { ftSelector = [ext ".proto"]
+                        , ftKind = KindLanguage
+                        , ftComment = ["//" ~~ "\n", "/*" ~~ "*/"]
+                        , ftChar = []
+                        , ftString = ["\"" ~~ "\"", "'" ~~ "'"]
+                        , ftRawString = []
+                        , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
+                        , ftKeywords =
+                            types
+                                [ "double"
+                                , "float"
+                                , "int32"
+                                , "int64"
+                                , "uint32"
+                                , "uint64"
+                                , "sint32"
+                                , "sint64"
+                                , "fixed32"
+                                , "fixed64"
+                                , "sfixed32"
+                                , "sfixed64"
+                                , "bool"
+                                , "string"
+                                , "bytes"
+                                ]
+                                <> reserved
+                                    [ "syntax"
+                                    , "import"
+                                    , "weak"
+                                    , "public"
+                                    , "package"
+                                    , "option"
+                                    , "message"
+                                    , "enum"
+                                    , "service"
+                                    , "rpc"
+                                    , "returns"
+                                    , "required"
+                                    , "optional"
+                                    , "repeated"
+                                    , "oneof"
+                                    , "map"
+                                    , "extensions"
+                                    , "reserved"
+                                    , "to"
+                                    , "max"
+                                    , "true"
+                                    , "false"
+                                    , "group"   -- Deprecated but exists in proto2
+                                    , "stream"
+                                    ]
+                        }
+                    )
+                ,
                     ( R
                     , FileTypeInfo
                         { ftSelector = [ext ".r", ext ".rdata", ext ".rds", ext ".rda"]

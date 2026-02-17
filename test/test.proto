@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package orion.extensions.filters.http.ioa_gateway.v3;
+
+import "validate/validate.proto";
+import "google/protobuf/duration.proto";
+
+// [#protodoc-title: IoaGateway Filter]
+// configuration for IoaGateway
+message Gateway {
+    string cluster_name = 1 [(validate.rules).string = {min_len: 1}];
+    google.protobuf.Duration message_timeout = 2 [(validate.rules).duration = {gt {}}];
+    // List of headers to extract JWT from
+    repeated JwtHeader from_headers = 3;
+}
+
+message JwtHeader {
+    // The name of the HTTP header
+    string name = 1 [(validate.rules).string = {min_len: 1}];
+
+    // The prefix to remove from the header value (e.g., "Bearer ")
+    string value_prefix = 2;
+}
