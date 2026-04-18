@@ -10,6 +10,7 @@ import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (Token, isTokenOperator, tToken, isTokenBracket, isTokenIdentifier, isTokenKeyword)
 import qualified Data.Text as T
 
+
 class LanguageTestFilter (lang :: FileType) where
     langFilter :: Maybe Bool -> [Token] -> [Token]
 
@@ -784,30 +785,19 @@ processOutsideHaskell _ [] = [] -- End of stream
 
 -- Pattern 1: describe/it/context/testCase/testGroup/testProperty followed by string
 processOutsideHaskell keepTests (t1:ts)
-    | isTokenIdentifier t1 && 
+    | isTokenIdentifier t1 &&
       (tToken t1 == "describe" || tToken t1 == "it" || tToken t1 == "context" ||
        tToken t1 == "testCase" || tToken t1 == "testGroup" || tToken t1 == "testProperty")
     =
-        -- Found a test block. Try to find opening brace, otherwise collect until next definition.
-        case findOpeningBrace ts of
-            Just (signatureTokens, tokensAfterBrace) ->
-                -- Found braces, use them
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then t1 : signatureTokens ++ bodyTokens ++ processOutsideHaskell keepTests remainingTokens
-                   else processOutsideHaskell keepTests remainingTokens
-            Nothing ->
-                -- No braces, collect until next top-level definition
-                let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
-                in if keepTests
-                   then t1 : testTokens ++ processOutsideHaskell keepTests remainingTokens
-                   else processOutsideHaskell keepTests remainingTokens
+        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
+        in if keepTests
+           then t1 : testTokens ++ processOutsideHaskell keepTests remainingTokens
+           else processOutsideHaskell keepTests remainingTokens
 
 -- Pattern 2: prop_* function (QuickCheck convention)
 processOutsideHaskell keepTests (t1:ts)
     | isTokenIdentifier t1 && "prop_" `T.isPrefixOf` tToken t1
     =
-        -- Found a property test function. Collect until next definition.
         let (propTokens, remainingTokens) = collectUntilNextHaskellDef ts
         in if keepTests
            then t1 : propTokens ++ processOutsideHaskell keepTests remainingTokens
@@ -816,73 +806,123 @@ processOutsideHaskell keepTests (t1:ts)
 -- No test found, process the current token
 processOutsideHaskell keepTests (t:ts) =
     if keepTests
-    then -- We want test tokens, so discard this "outside" token
-         processOutsideHaskell keepTests ts
-    else -- We don't want test tokens, so keep this "outside" token
-         t : processOutsideHaskell keepTests ts
+    then processOutsideHaskell keepTests ts
+    else t : processOutsideHaskell keepTests ts
 
 -- | Helper: Collect tokens until we find the next top-level Haskell definition.
--- This looks for common patterns that indicate a new definition:
--- - describe, it, context, testCase, testGroup, testProperty (test keywords)
--- - main (main function)
--- - Keywords that start definitions at module level
+-- | Helper: Collect tokens until we find the next top-level Haskell definition.
+-- | Helper: Collect tokens until we find the next top-level Haskell definition.
 collectUntilNextHaskellDef :: [Token] -> ([Token], [Token])
 collectUntilNextHaskellDef [] = ([], [])
-collectUntilNextHaskellDef (t:ts)
-    -- Found another test keyword or common top-level definition
-    | isTokenIdentifier t && 
-      (tToken t == "describe" || tToken t == "it" || tToken t == "context" ||
-       tToken t == "testCase" || tToken t == "testGroup" || tToken t == "testProperty" ||
-       tToken t == "main" || "prop_" `T.isPrefixOf` tToken t) =
-        ([], t:ts) -- Found next definition, stop here
-    -- Found a type signature (identifier followed by ::)
-    | isTokenIdentifier t =
-        case ts of
-            (t2:_) | isTokenOperator t2 && tToken t2 == "::" ->
-                ([], t:ts) -- Likely a new function definition
-            _ ->
-                let (collected, remaining) = collectUntilNextHaskellDef ts
-                in (t : collected, remaining)
+-- The Haskell tokenizer splits the `::` operator into two adjacent `:` tokens.
+-- Detect that sequence here to recognize the start of a new top-level type signature.
+collectUntilNextHaskellDef (x1:x2:xs)
+    | isTokenOperator x1 && tToken x1 == ":" &&
+      isTokenOperator x2 && tToken x2 == ":" =
+        ([], x1:x2:xs)
+collectUntilNextHaskellDef (x:xs)
+    | isTokenIdentifier x &&
+      (tToken x == "describe" || tToken x == "it" || tToken x == "context" ||
+       tToken x == "testCase" || tToken x == "testGroup" || tToken x == "testProperty" ||
+       tToken x == "main" || "prop_" `T.isPrefixOf` tToken x) =
+        ([], x:xs)
+    | isTokenOperator x && tToken x == "::" =
+        ([], x:xs)
+    | isTokenKeyword x && (tToken x == "data" || tToken x == "type" || tToken x == "class" || tToken x == "instance" || tToken x == "newtype" || tToken x == "module") =
+        ([], x:xs)
+    | isTokenIdentifier x && (tToken x == "let" || tToken x == "in") =
+        let (collected, remaining) = collectUntilNextHaskellDef xs
+        in (x : collected, remaining)
+    | isTokenOperator x && tToken x == "=" =
+        let (collected, remaining) = collectUntilNextHaskellDef xs
+        in (x : collected, remaining)
     | otherwise =
-        let (collected, remaining) = collectUntilNextHaskellDef ts
-        in (t : collected, remaining)
-
+        let (collected, remaining) = collectUntilNextHaskellDef xs
+        in (x : collected, remaining)
 -- ------------------------------------------------------------------
 -- C#-Specific Implementation Helpers
 -- ------------------------------------------------------------------
 
 -- | (C#) Helper: Processes tokens *outside* a test method.
--- Recognizes:
---   1. [Test] - NUnit
---   2. [TestFixture] - NUnit
---   3. [Fact] - xUnit
---   4. [Theory] - xUnit
---   5. [TestMethod] - MSTest
---   6. [TestClass] - MSTest
--- 
--- C# uses attributes (annotations) similar to Java.
+-- Recognizes C# attributes from multiple test frameworks:
+--   NUnit:  [Test], [TestFixture], [TestCase(...)], [TestCaseSource(...)],
+--           [SetUp], [TearDown], [OneTimeSetUp], [OneTimeTearDown]
+--   xUnit:  [Fact], [Theory], [InlineData(...)], [MemberData(...)], [ClassData(...)]
+--   MSTest: [TestClass], [TestMethod], [DataTestMethod], [DataRow(...)],
+--           [TestInitialize], [TestCleanup], [ClassInitialize], [ClassCleanup],
+--           [AssemblyInitialize], [AssemblyCleanup]
+--
+-- Handles:
+--   - Parameterized attributes, e.g. [Fact(Skip = "reason")], [TestMethod("Name")]
+--   - Fully-qualified attributes, e.g. [NUnit.Framework.Test]
+--   - Stacked attributes, e.g. [Theory] [InlineData(1,2)] [InlineData(3,4)]
+
+-- | Extracts a single C# attribute block `[...]`, including nested brackets/parens.
+extractCsharpAttribute :: [Token] -> Maybe ([Token], [Token])
+extractCsharpAttribute (t1:ts)
+    | isTokenBracket t1 && tToken t1 == "[" =
+        let (insideTokens, remaining) = processInsideBrackets "[" "]" 1 ts
+        in Just (t1 : insideTokens, remaining)
+extractCsharpAttribute _ = Nothing
+
+-- | True if any identifier inside the attribute is a known C# test-framework attribute.
+isCsharpTestAttribute :: [Token] -> Bool
+isCsharpTestAttribute = any (\t -> isTokenIdentifier t && isCsharpTestAttrName (tToken t))
+  where
+    isCsharpTestAttrName n =
+        -- NUnit
+        n == "Test" || n == "TestFixture" ||
+        n == "TestCase" || n == "TestCaseSource" ||
+        n == "SetUp" || n == "TearDown" ||
+        n == "OneTimeSetUp" || n == "OneTimeTearDown" ||
+        -- xUnit
+        n == "Fact" || n == "Theory" ||
+        n == "InlineData" || n == "MemberData" || n == "ClassData" ||
+        -- MSTest
+        n == "TestClass" || n == "TestMethod" || n == "DataTestMethod" ||
+        n == "DataRow" ||
+        n == "TestInitialize" || n == "TestCleanup" ||
+        n == "ClassInitialize" || n == "ClassCleanup" ||
+        n == "AssemblyInitialize" || n == "AssemblyCleanup"
+
+-- | Collects a contiguous run of C# attributes at the head of the stream.
+collectCsharpAttributes :: [Token] -> ([[Token]], [Token])
+collectCsharpAttributes ts = case extractCsharpAttribute ts of
+    Just (attr, rest) ->
+        let (more, final) = collectCsharpAttributes rest
+        in (attr : more, final)
+    Nothing -> ([], ts)
+
 processOutsideCsharp :: Bool -> [Token] -> [Token]
 processOutsideCsharp _ [] = [] -- End of stream
 
--- Pattern: [Test] or [Fact] or [Theory] or [TestMethod] etc.
-processOutsideCsharp keepTests (t1:t2:t3:ts)
-    | isTokenBracket t1 && tToken t1 == "[" &&
-      isTokenIdentifier t2 && 
-      (tToken t2 == "Test" || tToken t2 == "TestFixture" || tToken t2 == "Fact" || 
-       tToken t2 == "Theory" || tToken t2 == "TestMethod" || tToken t2 == "TestClass") &&
-      isTokenBracket t3 && tToken t3 == "]"
-    =
-        -- Found a test attribute. Find the opening brace of the method/class.
-        case findOpeningBrace ts of
-            Nothing -> -- Malformed, no '{' found. Treat as non-test code.
-                if keepTests then processOutsideCsharp keepTests (t3:ts) else t1 : processOutsideCsharp keepTests (t2:t3:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then t1 : t2 : t3 : signatureTokens ++ bodyTokens ++ processOutsideCsharp keepTests remainingTokens
-                   else processOutsideCsharp keepTests remainingTokens
+-- Pattern: one or more contiguous attributes, at least one of which is a test attribute.
+processOutsideCsharp keepTests tokens@(t1:_)
+    | isTokenBracket t1 && tToken t1 == "[" =
+        let (attrs, afterAttrs) = collectCsharpAttributes tokens
+            flatAttrs = concat attrs
+        in if not (null attrs) && any isCsharpTestAttribute attrs
+           then
+               -- Found at least one test attribute in the stack.
+               -- Skip any surrounding modifiers/signature and consume the following braced body.
+               case findOpeningBraceBounded 200 afterAttrs of
+                   Nothing ->
+                       -- No brace found within lookahead: drop attributes gracefully.
+                       if keepTests
+                       then processOutsideCsharp keepTests afterAttrs
+                       else flatAttrs ++ processOutsideCsharp keepTests afterAttrs
+                   Just (signatureTokens, tokensAfterBrace) ->
+                       let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
+                       in if keepTests
+                          then flatAttrs ++ signatureTokens ++ bodyTokens ++ processOutsideCsharp keepTests remainingTokens
+                          else processOutsideCsharp keepTests remainingTokens
+           else
+               -- Attributes are present but none are test-related: emit them as-is and continue.
+               if keepTests
+               then processOutsideCsharp keepTests afterAttrs
+               else flatAttrs ++ processOutsideCsharp keepTests afterAttrs
 
--- No test found, process the current token
+-- No attribute / no test: pass through
 processOutsideCsharp keepTests (t:ts) =
     if keepTests
     then processOutsideCsharp keepTests ts
