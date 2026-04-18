@@ -700,23 +700,17 @@ processOutsideJavascript _ [] = [] -- End of stream
 
 -- Pattern 1: describe( or it( or test( or context(
 processOutsideJavascript keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
+    | isTokenIdentifier t1 &&
       (tToken t1 == "describe" || tToken t1 == "it" || tToken t1 == "test" || tToken t1 == "context") &&
       isTokenBracket t2 && tToken t2 == "("
     =
-        -- Found a test function call. Find the opening brace of the test body.
-        case findOpeningBrace ts of
-            Nothing -> -- Malformed, no '{' found. Treat as non-test code.
-                if keepTests then processOutsideJavascript keepTests (t2:ts) else t1 : processOutsideJavascript keepTests (t2:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                -- signatureTokens includes everything up to and including the opening brace
-                -- tokensAfterBrace starts after the opening brace
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then -- Keep test function call + signature + body
-                        t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideJavascript keepTests remainingTokens
-                   else -- Discard the whole test block
-                        processOutsideJavascript keepTests remainingTokens
+        -- Found a test function call. Capture everything inside the parentheses.
+        let (bodyTokens, remainingTokens) = processInsideBrackets "(" ")" 1 ts
+        in if keepTests
+           then -- Keep test function call + signature + body
+                t1 : t2 : bodyTokens ++ processOutsideJavascript keepTests remainingTokens
+           else -- Discard the whole test block
+                processOutsideJavascript keepTests remainingTokens
 
 -- No test found, process the current token
 processOutsideJavascript keepTests (t:ts) =
@@ -725,7 +719,6 @@ processOutsideJavascript keepTests (t:ts) =
          processOutsideJavascript keepTests ts
     else -- We don't want test tokens, so keep this "outside" token
          t : processOutsideJavascript keepTests ts
-
 -- ------------------------------------------------------------------
 -- Scala-Specific Implementation Helpers
 -- ------------------------------------------------------------------

@@ -82,3 +82,40 @@ const API_URL = 'https://api.example.com';
 function fetchData(endpoint) {
     return fetch(API_URL + endpoint);
 }
+// --- CGREP SEMANTIC TESTS ---
+
+// Normal function
+function add_cgrep(a, b) {
+    const CGREP_IDENTIFIER = 1;
+    return a + b;
+}
+
+// describe
+describe('basic addition cgrep', () => {
+    const CGREP_IDENTIFIER_TEST = 1;
+    expect(add_cgrep(3, 7)).toBe(10);
+});
+
+// it
+it('basic addition cgrep', () => {
+    const CGREP_IDENTIFIER_TEST = 2;
+    expect(add_cgrep(3, 7)).toBe(10);
+});
+
+// test
+test('basic addition cgrep', () => {
+    const CGREP_IDENTIFIER_TEST = 3;
+    expect(add_cgrep(3, 7)).toBe(10);
+});
+
+// context
+context('basic addition cgrep', () => {
+    const CGREP_IDENTIFIER_TEST = 4;
+    expect(add_cgrep(3, 7)).toBe(10);
+});
+
+// describe with function
+describe('basic addition cgrep', function() {
+    const CGREP_IDENTIFIER_TEST = 5;
+    expect(add_cgrep(3, 7)).toBe(10);
+});
