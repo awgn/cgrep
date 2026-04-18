@@ -9,6 +9,7 @@ module CGrep.Semantic.Tests (
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (Token, isTokenOperator, tToken, isTokenBracket, isTokenIdentifier, isTokenKeyword)
 import qualified Data.Text as T
+import Debug.Trace (trace)
 
 
 
@@ -1140,27 +1141,26 @@ processOutsideFsharp keepTests (t:ts) =
 -- | (Dart) Helper: Processes tokens *outside* a test block.
 -- Recognizes:
 --   1. test('...') or test("...") - Dart test package
---   2. group('...') or group("...") - Test group
---   3. testWidgets('...') - Flutter widget tests
+--   2. group('...') or group("...") - Dart test package
+--   3. testWidgets('...') - Flutter test package
+--   4. setUp(...), tearDown(...), setUpAll(...), tearDownAll(...)
 -- 
 -- Similar to JavaScript but with Dart-specific functions.
 processOutsideDart :: Bool -> [Token] -> [Token]
 processOutsideDart _ [] = [] -- End of stream
 
--- Pattern: test( or group( or testWidgets(
+-- Pattern: test( or group( or testWidgets( or setUp( etc.
 processOutsideDart keepTests (t1:t2:ts)
     | isTokenIdentifier t1 && 
-      (tToken t1 == "test" || tToken t1 == "group" || tToken t1 == "testWidgets") &&
+      (tToken t1 == "test" || tToken t1 == "group" || tToken t1 == "testWidgets" ||
+       tToken t1 == "setUp" || tToken t1 == "tearDown" || 
+       tToken t1 == "setUpAll" || tToken t1 == "tearDownAll") &&
       isTokenBracket t2 && tToken t2 == "("
     =
-        case findOpeningBrace ts of
-            Nothing ->
-                if keepTests then processOutsideDart keepTests (t2:ts) else t1 : processOutsideDart keepTests (t2:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideDart keepTests remainingTokens
-                   else processOutsideDart keepTests remainingTokens
+        let (bodyTokens, remainingTokens) = processInsideBrackets "(" ")" 1 ts
+        in if keepTests
+           then t1 : t2 : bodyTokens ++ processOutsideDart keepTests remainingTokens
+           else processOutsideDart keepTests remainingTokens
 
 -- No test found, process the current token
 processOutsideDart keepTests (t:ts) =
@@ -1182,19 +1182,19 @@ processOutsideDart keepTests (t:ts) =
 processOutsideElixir :: Bool -> [Token] -> [Token]
 processOutsideElixir _ [] = [] -- End of stream
 
--- Pattern 1: test or describe followed by string
+-- Pattern 1: test, describe, setup, setup_all followed by string/block
 processOutsideElixir keepTests (t1:ts)
-    | isTokenIdentifier t1 && (tToken t1 == "test" || tToken t1 == "describe")
+    | isTokenIdentifier t1 && (tToken t1 == "test" || tToken t1 == "describe" || tToken t1 == "setup" || tToken t1 == "setup_all")
     =
-        -- Collect until we find 'end' keyword or next test/describe
+        -- Collect until we find 'end' keyword
         let (testTokens, remainingTokens) = collectUntilElixirEnd ts
         in if keepTests
            then t1 : testTokens ++ processOutsideElixir keepTests remainingTokens
            else processOutsideElixir keepTests remainingTokens
 
--- Pattern 2: defmodule *Test
+-- Pattern 2: defmodule ...Test
 processOutsideElixir keepTests (t1:t2:ts)
-    | isTokenKeyword t1 && tToken t1 == "defmodule" &&
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "defmodule" &&
       isTokenIdentifier t2 && "Test" `T.isSuffixOf` tToken t2
     =
         -- Collect test module until 'end'
@@ -1217,17 +1217,19 @@ collectUntilElixirEnd = go 0
     go :: Int -> [Token] -> ([Token], [Token])
     go _ [] = ([], [])
     go depth (t:ts)
-        -- Found 'do' - increase depth
-        | isTokenKeyword t && tToken t == "do" =
+        -- Found 'do' or 'fn' - increase depth
+        | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "do" || tToken t == "fn") =
             let (collected, remaining) = go (depth + 1) ts
             in (t : collected, remaining)
         -- Found 'end' - decrease depth or finish
-        | isTokenKeyword t && tToken t == "end" =
+        | (isTokenKeyword t || isTokenIdentifier t) && tToken t == "end" =
             if depth <= 1
             then ([t], ts) -- Include final 'end' and finish
-            else let (collected, remaining) = go (depth - 1) ts
-                 in (t : collected, remaining)
-        -- Other tokens
+            else
+                let (collected, remaining) = go (depth - 1) ts
+                in (t : collected, remaining)
+        -- Found another definition that doesn't use 'do' but might need tracking
+        -- Note: this is simplified, Elixir macros can be complex
         | otherwise =
             let (collected, remaining) = go depth ts
             in (t : collected, remaining)

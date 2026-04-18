@@ -152,3 +152,68 @@ defmodule Person do
     %Person{name: name, age: age}
   end
 end
+# =========================================================================
+# --- CGREP SEMANTIC TESTS (appended) ---
+# =========================================================================
+
+defmodule ProductionModule_Cgrep do
+  def run(x) do
+    CGREP_IDENTIFIER = 1
+    x * 2
+  end
+  
+  def run_test_harness(x) do
+    CGREP_IDENTIFIER = 2
+    x + 1
+  end
+end
+
+defmodule MyFeatureTest do
+  use ExUnit.Case
+
+  setup do
+    CGREP_IDENTIFIER_TEST = 1
+    :ok
+  end
+
+  setup_all do
+    CGREP_IDENTIFIER_TEST = 2
+    :ok
+  end
+
+  test "simple test cgrep" do
+    CGREP_IDENTIFIER_TEST = 3
+    assert 1 == 1
+  end
+
+  describe "nested group cgrep" do
+    CGREP_IDENTIFIER_TEST = 4
+    
+    test "inside group" do
+      CGREP_IDENTIFIER_TEST = 5
+      assert 3 == 3
+    end
+  end
+end
+
+# An ExUnit test not in a *Test module (valid in scripts, though uncommon)
+test "standalone test cgrep" do
+  CGREP_IDENTIFIER_TEST = 6
+  assert 2 == 2
+end
+
+describe "standalone describe cgrep" do
+  CGREP_IDENTIFIER_TEST = 7
+  
+  test "standalone inside describe" do
+    CGREP_IDENTIFIER_TEST = 8
+    assert 4 == 4
+  end
+end
+
+defmodule FinalProduction_Cgrep do
+  def tripled(x) do
+    CGREP_IDENTIFIER = 3
+    x * 3
+  end
+end

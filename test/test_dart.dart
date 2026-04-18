@@ -111,3 +111,59 @@ void widgetTests() {
 String reverseString(String s) {
   return s.split('').reversed.join('');
 }
+// =========================================================================
+// --- CGREP SEMANTIC TESTS (appended) ---
+// =========================================================================
+
+int compute_cgrep(int x) {
+  var CGREP_IDENTIFIER = 1;
+  return x * 2;
+}
+
+// Name contains "test" but is a regular function
+int runTestHarness_cgrep(int x) {
+  var CGREP_IDENTIFIER = 2;
+  return x + 1;
+}
+
+void dartTests_cgrep() {
+  setUp(() {
+    var CGREP_IDENTIFIER_TEST = 1;
+  });
+
+  tearDown(() {
+    var CGREP_IDENTIFIER_TEST = 2;
+  });
+
+  setUpAll(() {
+    var CGREP_IDENTIFIER_TEST = 3;
+  });
+
+  tearDownAll(() {
+    var CGREP_IDENTIFIER_TEST = 4;
+  });
+
+  test('simple test cgrep', () {
+    var CGREP_IDENTIFIER_TEST = 5;
+    expect(1, 1);
+  });
+
+  testWidgets('widget test cgrep', (WidgetTester tester) async {
+    var CGREP_IDENTIFIER_TEST = 6;
+    expect(2, 2);
+  });
+
+  group('nested group cgrep', () {
+    var CGREP_IDENTIFIER_TEST = 7;
+    test('inside group', () {
+      var CGREP_IDENTIFIER_TEST = 8;
+      expect(3, 3);
+    });
+  });
+}
+
+// Production code after tests
+int tripled_cgrep(int x) {
+  var CGREP_IDENTIFIER = 3;
+  return x * 3;
+}
