@@ -120,3 +120,42 @@ class StringFeatureSpec extends AnyFunSpec {
 def sumList(numbers: List[Int]): Int = {
   numbers.sum
 }
+// --- CGREP SEMANTIC TESTS ---
+
+// Normal function
+def add_cgrep(a: Int, b: Int): Int = {
+  val CGREP_IDENTIFIER = 1
+  a + b
+}
+
+class CgrepSuite extends AnyFunSuite {
+  // test
+  test("basic addition cgrep") {
+    val CGREP_IDENTIFIER_TEST = 1
+    assert(add_cgrep(3, 7) == 10)
+  }
+
+  // it
+  it("basic addition it cgrep") {
+    val CGREP_IDENTIFIER_TEST = 2
+    assert(add_cgrep(3, 7) == 10)
+  }
+
+  // describe
+  describe("basic addition describe cgrep") {
+    val CGREP_IDENTIFIER_TEST = 3
+    assert(add_cgrep(3, 7) == 10)
+  }
+
+  // scenario
+  scenario("basic addition scenario cgrep") {
+    val CGREP_IDENTIFIER_TEST = 4
+    assert(add_cgrep(3, 7) == 10)
+  }
+
+  // feature
+  feature("basic addition feature cgrep") {
+    val CGREP_IDENTIFIER_TEST = 5
+    assert(add_cgrep(3, 7) == 10)
+  }
+}

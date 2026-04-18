@@ -737,19 +737,19 @@ processOutsideScala _ [] = [] -- End of stream
 
 -- Pattern: test( or it( or describe( or scenario( or feature(
 processOutsideScala keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
-      (tToken t1 == "test" || tToken t1 == "it" || tToken t1 == "describe" || 
+    | isTokenIdentifier t1 &&
+      (tToken t1 == "test" || tToken t1 == "it" || tToken t1 == "describe" ||
        tToken t1 == "scenario" || tToken t1 == "feature") &&
       isTokenBracket t2 && tToken t2 == "("
     =
         -- Found a test function call. Find the opening brace of the test body.
-        case findOpeningBrace ts of
+        case findOpeningBracketBounded "{" 20 ts of
             Nothing -> -- Malformed, no '{' found. Treat as non-test code.
                 if keepTests then processOutsideScala keepTests (t2:ts) else t1 : processOutsideScala keepTests (t2:ts)
             Just (signatureTokens, tokensAfterBrace) ->
                 -- signatureTokens includes everything up to and including the opening brace
                 -- tokensAfterBrace starts after the opening brace
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
                 in if keepTests
                    then -- Keep test function call + signature + body
                         t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideScala keepTests remainingTokens
@@ -763,7 +763,6 @@ processOutsideScala keepTests (t:ts) =
          processOutsideScala keepTests ts
     else -- We don't want test tokens, so keep this "outside" token
          t : processOutsideScala keepTests ts
-
 -- ------------------------------------------------------------------
 -- Haskell-Specific Implementation Helpers
 -- ------------------------------------------------------------------
