@@ -304,36 +304,59 @@ processOutsideGo keepTests (t:ts) =
 -- Java-Specific Implementation Helpers
 -- ------------------------------------------------------------------
 
+-- | Estrae una singola annotazione Java (es. @Test o @ValueSource(ints = {1}))
+extractJavaAnnotation :: [Token] -> Maybe ([Token], [Token])
+extractJavaAnnotation (t1:t2:ts)
+    | isTokenOperator t1 && tToken t1 == "@" && isTokenIdentifier t2 =
+        case ts of
+            (t3:ts') | isTokenBracket t3 && tToken t3 == "(" ->
+                let (insideTokens, remaining) = processInsideBrackets "(" ")" 1 ts'
+                in Just (t1 : t2 : t3 : insideTokens, remaining)
+            _ -> Just ([t1, t2], ts)
+extractJavaAnnotation _ = Nothing
+
+isJavaTestAnnotation :: [Token] -> Bool
+isJavaTestAnnotation = any (\t -> isTokenIdentifier t && 
+    ("Test" `T.isInfixOf` tToken t || "Before" `T.isPrefixOf` tToken t || "After" `T.isPrefixOf` tToken t))
+
+collectJavaAnnotations :: [Token] -> ([Token], Bool, [Token])
+collectJavaAnnotations = go [] False
+  where
+    go acc isTest remaining =
+        case extractJavaAnnotation remaining of
+            Just (attrTokens, rest) ->
+                let testAttr = isJavaTestAnnotation attrTokens
+                in go (acc ++ attrTokens) (isTest || testAttr) rest
+            Nothing -> (acc, isTest, remaining)
+
 -- | (Java) Helper: Processes tokens *outside* a test method.
 processOutsideJava :: Bool -> [Token] -> [Token]
 processOutsideJava _ [] = [] -- End of stream
-processOutsideJava keepTests (t1:t2:ts)
-    -- Look for "@Test"
-    | isTokenOperator t1 && tToken t1 == "@" &&
-      isTokenIdentifier t2 && tToken t2 == "Test"
-    =
-        -- Found @Test annotation. Now find its opening brace.
-        case findOpeningBrace ts of
-            Nothing -> -- Malformed, no '{' found. Treat as non-test code.
-                if keepTests then processOutsideJava keepTests (t2:ts) else t1 : processOutsideJava keepTests (t2:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                -- We found the method body's opening brace.
-                -- signatureTokens *includes* the opening brace.
-                -- tokensAfterBrace starts *after* the opening brace.
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then -- Keep @Test + signature + body
-                        t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideJava keepTests remainingTokens
-                   else -- Discard the whole method
-                        processOutsideJava keepTests remainingTokens
-
--- No test method found, process the current token
-processOutsideJava keepTests (t:ts) =
-    if keepTests
-    then -- We want test tokens, so discard this "outside" token
-         processOutsideJava keepTests ts
-    else -- We don't want test tokens, so keep this "outside" token
-         t : processOutsideJava keepTests ts
+processOutsideJava keepTests tokens =
+    let (attrTokens, isTest, restAfterAttrs) = collectJavaAnnotations tokens
+    in if not (null attrTokens)
+       then
+           if isTest
+           then
+               case findOpeningBraceC 100 restAfterAttrs of
+                   Nothing ->
+                       if keepTests
+                       then processOutsideJava keepTests restAfterAttrs
+                       else attrTokens ++ processOutsideJava keepTests restAfterAttrs
+                   Just (sigTokens, restAfterBrace) ->
+                       let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
+                       in if keepTests
+                          then attrTokens ++ sigTokens ++ bodyTokens ++ processOutsideJava keepTests finalRest
+                          else processOutsideJava keepTests finalRest
+           else
+               if keepTests
+               then processOutsideJava keepTests restAfterAttrs
+               else attrTokens ++ processOutsideJava keepTests restAfterAttrs
+       else
+           let (t:ts) = tokens
+           in if keepTests
+              then processOutsideJava keepTests ts
+              else t : processOutsideJava keepTests ts
 
 -- ------------------------------------------------------------------
 -- C/C++-Specific Implementation Helpers
