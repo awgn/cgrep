@@ -171,7 +171,7 @@ findOpeningBracketBounded _ 0 _  = Nothing
 findOpeningBracketBounded _ _ [] = Nothing
 findOpeningBracketBounded openBracket n (t:ts)
     | isTokenBracket t && tToken t == openBracket = Just ([t], ts)
-    | otherwise = 
+    | otherwise =
         case findOpeningBracketBounded openBracket (n - 1) ts of
             Nothing -> Nothing
             Just (pre, post) -> Just (t : pre, post)
@@ -281,7 +281,7 @@ processOutsideGo keepTests (t1:t2:ts)
     =
         let (receiverTokens, afterReceiver) = processInsideBrackets "(" ")" 1 ts
         in case afterReceiver of
-            (t3:t4:ts') | isTokenIdentifier t3 && 
+            (t3:t4:ts') | isTokenIdentifier t3 &&
                           ("Test" `T.isPrefixOf` tToken t3 || "Benchmark" `T.isPrefixOf` tToken t3 || "Example" `T.isPrefixOf` tToken t3 || "Fuzz" `T.isPrefixOf` tToken t3) &&
                           isTokenBracket t4 && tToken t4 == "(" ->
                 case findOpeningBraceBounded 50 ts' of
@@ -307,7 +307,6 @@ processOutsideGo keepTests (t:ts) =
 -- Java-Specific Implementation Helpers
 -- ------------------------------------------------------------------
 
--- | Estrae una singola annotazione Java (es. @Test o @ValueSource(ints = {1}))
 extractJavaAnnotation :: [Token] -> Maybe ([Token], [Token])
 extractJavaAnnotation (t1:t2:ts)
     | isTokenOperator t1 && tToken t1 == "@" && isTokenIdentifier t2 =
@@ -326,7 +325,7 @@ extractJavaAnnotation (t1:t2:ts)
 extractJavaAnnotation _ = Nothing
 
 isJavaTestAnnotation :: [Token] -> Bool
-isJavaTestAnnotation = any (\t -> isTokenIdentifier t && 
+isJavaTestAnnotation = any (\t -> isTokenIdentifier t &&
     ("Test" `T.isInfixOf` tToken t || "Before" `T.isPrefixOf` tToken t || "After" `T.isPrefixOf` tToken t))
 
 collectJavaAnnotations :: [Token] -> ([Token], Bool, [Token])
@@ -378,13 +377,13 @@ findOpeningBraceKotlin _ 0 _  = Nothing
 findOpeningBraceKotlin _ _ [] = Nothing
 findOpeningBraceKotlin canSeeDecl n (t:ts)
     | isTokenBracket t && tToken t == "{" = Just ([t], ts)
-    | isTokenKeyword t && (tToken t == "fun" || tToken t == "class" || tToken t == "interface" || tToken t == "val" || tToken t == "var") = 
+    | isTokenKeyword t && (tToken t == "fun" || tToken t == "class" || tToken t == "interface" || tToken t == "val" || tToken t == "var") =
         if canSeeDecl
         then case findOpeningBraceKotlin False (n - 1) ts of
                  Nothing -> Nothing
                  Just (pre, post) -> Just (t : pre, post)
         else Nothing
-    | otherwise = 
+    | otherwise =
         case findOpeningBraceKotlin canSeeDecl (n - 1) ts of
             Nothing -> Nothing
             Just (pre, post) -> Just (t : pre, post)
@@ -412,7 +411,7 @@ processOutsideKotlin keepTests tokens
                else attrTokens ++ processOutsideKotlin keepTests restAfterAttrs
 
 processOutsideKotlin keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
+    | isTokenIdentifier t1 &&
       (tToken t1 == "test" || tToken t1 == "xtest" || tToken t1 == "describe" || tToken t1 == "xdescribe" || tToken t1 == "it" || tToken t1 == "xit" || tToken t1 == "context" || tToken t1 == "xcontext") &&
       isTokenBracket t2 && tToken t2 == "("
     =
@@ -441,14 +440,13 @@ processOutsideKotlin keepTests (t:ts) =
 --   3. TEST(...) macro (Google Test)
 --   4. TEST_F(...) macro (Google Test with fixture)
 --   5. TEST_CASE(...) macro (Catch2)
--- | Helper per C/C++ che si ferma al punto e virgola per evitare forward declarations
 findOpeningBraceC :: Int -> [Token] -> Maybe ([Token], [Token])
 findOpeningBraceC 0 _  = Nothing
 findOpeningBraceC _ [] = Nothing
 findOpeningBraceC n (t:ts)
     | isTokenBracket t && tToken t == "{" = Just ([t], ts)
     | tToken t == ";" = Nothing
-    | otherwise = 
+    | otherwise =
         case findOpeningBraceC (n - 1) ts of
             Nothing -> Nothing
             Just (pre, post) -> Just (t : pre, post)
@@ -458,8 +456,8 @@ processOutsideC _ [] = [] -- End of stream
 
 -- Pattern 1: C/C++ Test Macros (Google Test, Catch2, etc.)
 processOutsideC keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
-      (tToken t1 == "TEST" || tToken t1 == "TEST_F" || tToken t1 == "TEST_CASE" || 
+    | isTokenIdentifier t1 &&
+      (tToken t1 == "TEST" || tToken t1 == "TEST_F" || tToken t1 == "TEST_CASE" ||
        tToken t1 == "TYPED_TEST" || tToken t1 == "SECTION" || tToken t1 == "SUITE") &&
       isTokenBracket t2 && tToken t2 == "("
     =
@@ -619,8 +617,8 @@ collectTestClassBody (t:ts)
     | isTokenKeyword t && tToken t == "class" = ([], t:ts)
     | isTokenKeyword t && tToken t == "def" =
         case ts of
-            (name:openParen:firstArg:_) 
-                | isTokenIdentifier name && 
+            (name:openParen:firstArg:_)
+                | isTokenIdentifier name &&
                   isTokenBracket openParen && tToken openParen == "(" &&
                   isTokenIdentifier firstArg && (tToken firstArg == "self" || tToken firstArg == "cls") ->
                     let (methodTokens, remaining) = collectUntilNextDefOrClass ts
@@ -631,8 +629,8 @@ collectTestClassBody (t:ts)
         case ts of
             (t2:ts') | isTokenKeyword t2 && tToken t2 == "def" ->
                 case ts' of
-                    (name:openParen:firstArg:_) 
-                        | isTokenIdentifier name && 
+                    (name:openParen:firstArg:_)
+                        | isTokenIdentifier name &&
                           isTokenBracket openParen && tToken openParen == "(" &&
                           isTokenIdentifier firstArg && (tToken firstArg == "self" || tToken firstArg == "cls") ->
                             let (methodTokens, remaining) = collectUntilNextDefOrClass ts
@@ -696,7 +694,7 @@ processOutsideZig keepTests (t:ts) =
 --   5. test('...', function() { ... }) - Jest
 --   6. test('...', () => { ... }) - Jest modern syntax
 --   7. context('...', ...) - Mocha/Jasmine
--- 
+--
 -- All these frameworks use similar patterns with function calls.
 processOutsideJavascript :: Bool -> [Token] -> [Token]
 processOutsideJavascript _ [] = [] -- End of stream
@@ -733,7 +731,7 @@ processOutsideJavascript keepTests (t:ts) =
 --   3. describe("...") { ... } - ScalaTest FunSpec
 --   4. scenario("...") { ... } - ScalaTest FeatureSpec
 --   5. feature("...") { ... } - ScalaTest FeatureSpec
--- 
+--
 -- ScalaTest and MUnit are the most popular testing frameworks for Scala.
 processOutsideScala :: Bool -> [Token] -> [Token]
 processOutsideScala _ [] = [] -- End of stream
@@ -779,7 +777,7 @@ processOutsideScala keepTests (t:ts) =
 --   5. testGroup "..." - Tasty
 --   6. testProperty "..." - Tasty/QuickCheck
 --   7. prop_* functions - QuickCheck convention
--- 
+--
 -- Haskell tests often use do-notation or $ operator, so we look for
 -- these patterns and collect tokens until the next top-level definition.
 processOutsideHaskell :: Bool -> [Token] -> [Token]
@@ -811,8 +809,6 @@ processOutsideHaskell keepTests (t:ts) =
     then processOutsideHaskell keepTests ts
     else t : processOutsideHaskell keepTests ts
 
--- | Helper: Collect tokens until we find the next top-level Haskell definition.
--- | Helper: Collect tokens until we find the next top-level Haskell definition.
 -- | Helper: Collect tokens until we find the next top-level Haskell definition.
 collectUntilNextHaskellDef :: [Token] -> ([Token], [Token])
 collectUntilNextHaskellDef [] = ([], [])
@@ -1144,16 +1140,16 @@ processOutsideFsharp keepTests (t:ts) =
 --   2. group('...') or group("...") - Dart test package
 --   3. testWidgets('...') - Flutter test package
 --   4. setUp(...), tearDown(...), setUpAll(...), tearDownAll(...)
--- 
+--
 -- Similar to JavaScript but with Dart-specific functions.
 processOutsideDart :: Bool -> [Token] -> [Token]
 processOutsideDart _ [] = [] -- End of stream
 
 -- Pattern: test( or group( or testWidgets( or setUp( etc.
 processOutsideDart keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
+    | isTokenIdentifier t1 &&
       (tToken t1 == "test" || tToken t1 == "group" || tToken t1 == "testWidgets" ||
-       tToken t1 == "setUp" || tToken t1 == "tearDown" || 
+       tToken t1 == "setUp" || tToken t1 == "tearDown" ||
        tToken t1 == "setUpAll" || tToken t1 == "tearDownAll") &&
       isTokenBracket t2 && tToken t2 == "("
     =
@@ -1177,7 +1173,7 @@ processOutsideDart keepTests (t:ts) =
 --   1. test "..." - ExUnit test
 --   2. describe "..." - ExUnit describe block
 --   3. defmodule *Test - Test module
--- 
+--
 -- Elixir uses ExUnit with do...end blocks.
 processOutsideElixir :: Bool -> [Token] -> [Token]
 processOutsideElixir _ [] = [] -- End of stream
@@ -1245,40 +1241,40 @@ collectUntilElixirEnd = go 0
 --   3. it "..." - RSpec
 --   4. def test_* - Minitest
 --   5. class Test* - Minitest
--- 
+--
 -- Ruby uses RSpec (BDD) and Minitest frameworks.
 processOutsideRuby :: Bool -> [Token] -> [Token]
 processOutsideRuby _ [] = [] -- End of stream
 
 -- Pattern 1: describe/context/it (RSpec)
-processOutsideRuby keepTests (t1:ts)
-    | isTokenIdentifier t1 && 
+processOutsideRuby keepTests tokens@(t1:_)
+    | isTokenIdentifier t1 &&
       (tToken t1 == "describe" || tToken t1 == "context" || tToken t1 == "it")
     =
         -- Collect until 'end' keyword
-        let (testTokens, remainingTokens) = collectUntilElixirEnd ts -- Reuse Elixir helper
+        let (testTokens, remainingTokens) = collectUntilRubyEnd tokens
         in if keepTests
-           then t1 : testTokens ++ processOutsideRuby keepTests remainingTokens
+           then testTokens ++ processOutsideRuby keepTests remainingTokens
            else processOutsideRuby keepTests remainingTokens
 
--- Pattern 2: def test_* (Minitest)
-processOutsideRuby keepTests (t1:t2:ts)
-    | isTokenKeyword t1 && tToken t1 == "def" &&
-      isTokenIdentifier t2 && "test_" `T.isPrefixOf` tToken t2
+-- Pattern 2: def test_*, setup, teardown (Minitest)
+processOutsideRuby keepTests tokens@(t1:t2:_)
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "def" &&
+      isTokenIdentifier t2 && ("test_" `T.isPrefixOf` tToken t2 || tToken t2 == "setup" || tToken t2 == "teardown")
     =
-        let (testTokens, remainingTokens) = collectUntilElixirEnd ts
+        let (testTokens, remainingTokens) = collectUntilRubyEnd tokens
         in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideRuby keepTests remainingTokens
+           then testTokens ++ processOutsideRuby keepTests remainingTokens
            else processOutsideRuby keepTests remainingTokens
 
 -- Pattern 3: class Test* (Minitest)
-processOutsideRuby keepTests (t1:t2:ts)
-    | isTokenKeyword t1 && tToken t1 == "class" &&
+processOutsideRuby keepTests tokens@(t1:t2:_)
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "class" &&
       isTokenIdentifier t2 && "Test" `T.isPrefixOf` tToken t2
     =
-        let (testTokens, remainingTokens) = collectUntilElixirEnd ts
+        let (testTokens, remainingTokens) = collectUntilRubyEnd tokens
         in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideRuby keepTests remainingTokens
+           then testTokens ++ processOutsideRuby keepTests remainingTokens
            else processOutsideRuby keepTests remainingTokens
 
 -- No test found, process the current token
@@ -1286,6 +1282,32 @@ processOutsideRuby keepTests (t:ts) =
     if keepTests
     then processOutsideRuby keepTests ts
     else t : processOutsideRuby keepTests ts
+
+-- | Helper: Collect tokens until we find 'end' keyword in Ruby.
+-- This handles do...end, def...end, class...end blocks.
+collectUntilRubyEnd :: [Token] -> ([Token], [Token])
+collectUntilRubyEnd = go 0
+  where
+    go :: Int -> [Token] -> ([Token], [Token])
+    go _ [] = ([], [])
+    go depth (t:ts)
+        -- Found block starter - increase depth
+        | (isTokenKeyword t || isTokenIdentifier t) &&
+          (tToken t == "do" || tToken t == "def" || tToken t == "class" || tToken t == "module" ||
+           tToken t == "if" || tToken t == "unless" || tToken t == "while" || tToken t == "until" ||
+           tToken t == "for" || tToken t == "case" || tToken t == "begin") =
+            let (collected, remaining) = go (depth + 1) ts
+            in (t : collected, remaining)
+        -- Found 'end' - decrease depth or finish
+        | (isTokenKeyword t || isTokenIdentifier t) && tToken t == "end" =
+            if depth <= 1
+            then ([t], ts) -- Include final 'end' and finish
+            else let (collected, remaining) = go (depth - 1) ts
+                 in (t : collected, remaining)
+        -- Other tokens
+        | otherwise =
+            let (collected, remaining) = go depth ts
+            in (t : collected, remaining)
 
 -- ------------------------------------------------------------------
 -- PHP-Specific Implementation Helpers
@@ -1296,7 +1318,7 @@ processOutsideRuby keepTests (t:ts) =
 --   1. @test annotation in docblock
 --   2. test* method naming
 --   3. class *Test
--- 
+--
 -- PHP uses PHPUnit framework.
 processOutsidePHP :: Bool -> [Token] -> [Token]
 processOutsidePHP _ [] = [] -- End of stream
@@ -1357,7 +1379,7 @@ processOutsidePHP keepTests (t:ts) =
 -- Recognizes:
 --   1. class *Test: XCTestCase
 --   2. func test*()
--- 
+--
 -- Swift and Objective-C use XCTest framework.
 processOutsideSwift :: Bool -> [Token] -> [Token]
 processOutsideSwift _ [] = [] -- End of stream
@@ -1405,14 +1427,14 @@ processOutsideSwift keepTests (t:ts) =
 --   1. test_that("...", { ... })
 --   2. describe("...", { ... })
 --   3. context("...", { ... })
--- 
+--
 -- R uses testthat framework.
 processOutsideR :: Bool -> [Token] -> [Token]
 processOutsideR _ [] = [] -- End of stream
 
 -- Pattern: test_that( or describe( or context(
 processOutsideR keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
+    | isTokenIdentifier t1 &&
       (tToken t1 == "test_that" || tToken t1 == "describe" || tToken t1 == "context") &&
       isTokenBracket t2 && tToken t2 == "("
     =
@@ -1439,7 +1461,7 @@ processOutsideR keepTests (t:ts) =
 -- Recognizes:
 --   1. @testset "..." begin ... end
 --   2. @test expression
--- 
+--
 -- Julia uses Test standard library.
 processOutsideJulia :: Bool -> [Token] -> [Token]
 processOutsideJulia _ [] = [] -- End of stream
@@ -1480,7 +1502,7 @@ processOutsideJulia keepTests (t:ts) =
 -- Recognizes:
 --   1. Test files (*.t)
 --   2. subtest blocks
--- 
+--
 -- Perl uses Test::More, Test::Simple frameworks.
 -- Note: Perl tests are less structured, so this is a simplified approach.
 processOutsidePerl :: Bool -> [Token] -> [Token]
@@ -1517,7 +1539,7 @@ processOutsidePerl keepTests (t:ts) =
 -- Recognizes:
 --   1. let test_* = ... - OUnit convention
 --   2. test_case - Alcotest
--- 
+--
 -- OCaml uses OUnit and Alcotest frameworks.
 processOutsideOCaml :: Bool -> [Token] -> [Token]
 processOutsideOCaml _ [] = [] -- End of stream
@@ -1556,14 +1578,14 @@ processOutsideOCaml keepTests (t:ts) =
 -- Recognizes:
 --   1. *_test() - EUnit convention
 --   2. *_test_() - EUnit generator convention
--- 
+--
 -- Erlang uses EUnit framework.
 processOutsideErlang :: Bool -> [Token] -> [Token]
 processOutsideErlang _ [] = [] -- End of stream
 
 -- Pattern: function ending with _test or _test_
 processOutsideErlang keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && 
+    | isTokenIdentifier t1 &&
       ("_test" `T.isSuffixOf` tToken t1 || "_test_" `T.isSuffixOf` tToken t1) &&
       isTokenBracket t2 && tToken t2 == "("
     =
@@ -1595,7 +1617,7 @@ processOutsideErlang keepTests (t:ts) =
 -- Recognizes:
 --   1. suite "..."
 --   2. test "..."
--- 
+--
 -- Nim uses unittest module.
 processOutsideNim :: Bool -> [Token] -> [Token]
 processOutsideNim _ [] = [] -- End of stream
@@ -1624,7 +1646,7 @@ processOutsideNim keepTests (t:ts) =
 -- Recognizes:
 --   1. (deftest ...)
 --   2. (testing ...)
--- 
+--
 -- Clojure uses clojure.test.
 processOutsideClojure :: Bool -> [Token] -> [Token]
 processOutsideClojure _ [] = [] -- End of stream
@@ -1680,7 +1702,7 @@ collectUntilMatchingParen depth (t:ts)
 -- | (D) Helper: Processes tokens *outside* a test block.
 -- Recognizes:
 --   1. unittest { ... } - D's built-in test blocks
--- 
+--
 -- D has built-in unittest blocks.
 processOutsideD :: Bool -> [Token] -> [Token]
 processOutsideD _ [] = [] -- End of stream
