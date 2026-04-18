@@ -2124,7 +2124,7 @@ fileTypeInfoMap =
                 ,
                     ( Javascript
                     , FileTypeInfo
-                        { ftSelector = [ext ".js"]
+                        { ftSelector = [ext ".js", ext ".ts", ext ".tsx"]
                         , ftKind = KindLanguage
                         , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                         , ftChar = ["'" ~~ "'"]
@@ -2868,7 +2868,7 @@ fileTypeInfoMap =
                 ,
                     ( Perl
                     , FileTypeInfo
-                        { ftSelector = [ext ".pl", ext ".pm", ext ".pm6", ext ".plx", ext ".perl"]
+                        { ftSelector = [ext ".pl", ext ".pm", ext ".pm6", ext ".plx", ext ".perl", ext ".t"]
                         , ftKind = KindScript
                         , ftComment = ["=pod" ~~ "=cut", "#" ~~ "\n"]
                         , ftChar = []
