@@ -3,13 +3,13 @@
 [![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep)
 [![Join the chat at https://gitter.im/awgn/cgrep](https://badges.gitter.im/awgn/cgrep.svg)](https://gitter.im/awgn/cgrep?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-**Version 9.0.0** - A powerful, context-aware search tool designed specifically for source code.
+**Version 9.2.0** - A powerful, context-aware search tool designed specifically for source code.
 
 CGrep extends the capabilities of traditional grep by understanding the structure and semantics of source code across multiple programming languages. It allows developers to search within specific contexts like code, comments, or string literals, and provides advanced pattern matching with semantic awareness.
 
 ---
 
-## What's New in Version 9.0
+## What's New in Version 9.2
 
 ### 🚀 Major Performance Improvements
 
@@ -19,7 +19,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ### ✨ Enhanced Features
 
-- **Semantic Test Filtering** - New capability to filter out test code from search results across 27+ programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
+- **Semantic Test Filtering** - New capability to filter out test code from search results across 28+ programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
 - **Improved Text Processing** - Native support for utf-8 character encodings with accurate column positioning
 
 ---
@@ -53,7 +53,7 @@ stack install
 ## Usage
 
 ```
-cgrep 9.0.0 - Usage: cgrep [OPTION] [PATTERN] files...
+cgrep 9.2.0 - Usage: cgrep [OPTION] [PATTERN] files...
 
 Usage: cgrep [--file FILE] [-w|--word] [-p|--prefix] [-s|--suffix] [-e|--edit]
              [-G|--regex] [-i|--ignore-case] [-c|--code] [-m|--comment]
@@ -369,36 +369,36 @@ cgrep "Hello" test.utf8
 
 ## Test Framework Support
 
-Version 9 introduces intelligent test code filtering across 27+ programming languages. When using the `-T` flag, cgrep can automatically detect and filter test code based on language-specific conventions and testing frameworks.
+Version 9 introduces intelligent test code filtering across 28+ programming languages. When using the `-T` flag, cgrep can automatically detect and filter test code based on language-specific conventions and testing frameworks.
 
 | Language | Testing Frameworks Detected | Detection Patterns |
 |----------|----------------------------|-------------------|
-| **Rust** | Built-in, cargo test | `#[test]`, `#[cfg(test)]` modules |
-| **Go** | Built-in testing | `func Test*`, `func Benchmark*` |
-| **Java** | JUnit | `@Test` annotations |
-| **Kotlin** | JUnit | `@Test` annotations |
-| **C** | Google Test, Catch2 | `TEST()`, `TEST_F()`, `TEST_CASE()`, `test_*` functions |
-| **C++** | Google Test, Catch2, Boost.Test | `TEST()`, `TEST_F()`, `TEST_CASE()`, `BOOST_AUTO_TEST`, `Test*` functions |
-| **Python** | pytest, unittest | `test_*` functions, `Test*` classes, `@pytest`, `@unittest` decorators |
+| **Rust** | Built-in, cargo test | `#[test]`, `#[rstest]`, `#[test_case]` modules |
+| **Go** | Built-in testing | `func Test*`, `func Benchmark*`, `func Example*`, `func Fuzz*` |
+| **Java** | JUnit, TestNG | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`, `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll`, `@Before`, `@After`, `@BeforeClass`, `@AfterClass`, `@DataProvider`, `@Depends` annotations |
+| **Kotlin** | JUnit, TestNG | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`, `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll`, `@Before`, `@After`, `@BeforeClass`, `@AfterClass`, `@DataProvider`, `@Depends` annotations |
+| **C** | Google Test, Catch2 | `TEST()`, `TEST_F()`, `TEST_CASE()`, `TYPED_TEST()`, `SECTION()`, `SUITE()`, `test_*`, `Test*` functions |
+| **C++** | Google Test, Catch2, Boost.Test | `TEST()`, `TEST_F()`, `TEST_CASE()`, `TYPED_TEST()`, `SECTION()`, `SUITE()`, `test_*`, `Test*` functions |
+| **Python** | pytest, unittest | `test_*` functions, `async def test_*`, `Test*` classes, `*(unittest.TestCase)` classes, `@pytest`, `@unittest`, `@patch`, `@mock` decorators |
 | **Zig** | Built-in | `test "..."` blocks |
-| **JavaScript** | Mocha, Jasmine, Jest | `describe()`, `it()`, `test()`, `context()` |
-| **TypeScript** | Mocha, Jasmine, Jest | `describe()`, `it()`, `test()`, `context()` |
+| **JavaScript** | Mocha, Jasmine, Jest | `describe()`, `it()`, `test()`, `context()`, `xdescribe()`, `xit()`, `xtest()`, `xcontext()` |
+| **TypeScript** | Mocha, Jasmine, Jest | `describe()`, `it()`, `test()`, `context()`, `xdescribe()`, `xit()`, `xtest()`, `xcontext()` |
 | **Scala** | ScalaTest, MUnit | `test()`, `it()`, `describe()`, `scenario()`, `feature()` |
-| **Haskell** | HSpec, Tasty, QuickCheck, HUnit | `describe`, `it`, `context`, `testCase`, `testGroup`, `testProperty`, `prop_*` functions |
-| **C#** | NUnit, xUnit, MSTest | `[Test]`, `[Fact]`, `[Theory]`, `[TestMethod]`, `[TestFixture]`, `[TestClass]` |
-| **F#** | NUnit, xUnit, Expecto | `[<Test>]`, `[<Fact>]`, `[<Theory>]`, `testCase`, `testList`, `test` |
-| **Dart** | Built-in test package, Flutter | `test()`, `group()`, `testWidgets()` |
-| **Elixir** | ExUnit | `test "..."`, `describe "..."`, `defmodule *Test` |
-| **Ruby** | RSpec, Minitest | `describe`, `context`, `it`, `test_*`, `def test_*` |
-| **PHP** | PHPUnit | `@test` annotations, `test*` methods, `*Test` classes |
-| **Swift** | XCTest | `XCTestCase` classes, `func test*()` |
-| **Objective-C** | XCTest | `XCTestCase` classes, test methods |
-| **R** | testthat | `test_that()`, `describe()`, `context()` |
+| **Haskell** | HSpec, Tasty, QuickCheck, HUnit | `describe`, `it`, `context`, `testCase`, `testGroup`, `testProperty`, `prop_*` functions, `main` |
+| **C#** | NUnit, xUnit, MSTest | `[Test]`, `[Fact]`, `[Theory]`, `[TestCase]`, `[TestCaseSource]`, `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]`, `[OneTimeTearDown]`, `[InlineData]`, `[MemberData]`, `[ClassData]`, `[TestClass]`, `[TestMethod]`, `[DataTestMethod]`, `[DataRow]`, `[TestInitialize]`, `[TestCleanup]`, `[ClassInitialize]`, `[ClassCleanup]`, `[AssemblyInitialize]`, `[AssemblyCleanup]`, `[TestFixture]` |
+| **F#** | NUnit, xUnit, Expecto | `[<Test>]`, `[<Fact>]`, `[<Theory>]`, `[<TestCase>]`, `[<TestCaseSource>]`, `[<SetUp>]`, `[<TearDown>]`, `[<OneTimeSetUp>]`, `[<OneTimeTearDown>]`, `[<Category>]`, `[<InlineData>]`, `[<MemberData>]`, `[<ClassData>]`, `[<Property>]`, `testCase`, `testCaseAsync`, `testList`, `test`, `ftest`, `ptest`, `ftestCase`, `ptestCase`, `testProperty`, `testPropertyWithConfig`, `testAsync`, `testSequenced` |
+| **Dart** | Built-in test package, Flutter | `test()`, `group()`, `testWidgets()`, `setUp()`, `tearDown()`, `setUpAll()`, `tearDownAll()` |
+| **Elixir** | ExUnit | `test`, `describe`, `setup`, `setup_all`, `defmodule *Test` |
+| **Ruby** | RSpec, Minitest | `describe`, `context`, `it`, `def test_*`, `setup`, `teardown`, `class Test*` |
+| **PHP** | PHPUnit, Codeception | `@test`, `@dataProvider`, `@depends`, `@before`, `@after`, `test*`, `setUp`, `tearDown`, `setUpBeforeClass`, `tearDownAfterClass`, `*Test` classes, `extends TestCase` |
+| **Swift** | XCTest, Swift Testing | `@Test`, `@Suite`, `func test*()`, `setUp`, `tearDown`, `setUpWithError`, `tearDownWithError`, `XCTestCase` classes |
+| **Objective-C** | XCTest | `XCTestCase` classes, `- (void)test*`, `+ (void)test*`, `setUp`, `tearDown` |
+| **R** | testthat | `test_that()`, `describe()`, `context()`, `it()`, `test_dir()`, `test_file()` |
 | **Julia** | Built-in Test | `@testset`, `@test` |
-| **Perl** | Test::More, Test::Simple | `subtest`, `*.t` files |
-| **OCaml** | OUnit, Alcotest | `let test_*`, `test_case` |
+| **Perl** | Test::More, Test::Simple | `subtest`, `test` |
+| **OCaml** | OUnit, Alcotest, ppx_inline_test | `let%test`, `let%expect_test`, `let test_*`, `module Test = struct` |
 | **Erlang** | EUnit | `*_test()`, `*_test_()` functions |
-| **Nim** | unittest | `unittest` module, `test "..."` |
+| **Nim** | unittest | `suite`, `test` |
 | **Clojure** | clojure.test | `(deftest ...)`, `(testing ...)` |
 | **D** | Built-in | `unittest { ... }` blocks |
 
