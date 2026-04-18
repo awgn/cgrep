@@ -117,3 +117,168 @@ namespace TestExample
         }
     }
 }
+
+namespace CgrepExtended
+{
+    // --- Production code (should survive -T False) ---
+    public class ProductionHelper
+    {
+        public int Compute(int x)
+        {
+            var CGREP_IDENTIFIER = 1;
+            return x * 2;
+        }
+
+        // Method whose name contains the word "Test" but is NOT a test (no attribute)
+        public int RunTestHarness(int x)
+        {
+            var CGREP_IDENTIFIER = 2;
+            return x + 1;
+        }
+    }
+
+    // --- NUnit with parametrized TestCase attribute ---
+    [TestFixture]
+    public class NUnitParametrizedTests
+    {
+        [TestCase(1, 2, 3)]
+        [TestCase(4, 5, 9)]
+        public void Add_WithMultipleInputs(int a, int b, int expected)
+        {
+            var CGREP_IDENTIFIER_TEST = 1;
+            Assert.AreEqual(expected, a + b);
+        }
+
+        [SetUp]
+        public void Init()
+        {
+            var CGREP_IDENTIFIER_TEST = 2;
+        }
+
+        [TearDown]
+        public void Cleanup()
+        {
+            var CGREP_IDENTIFIER_TEST = 3;
+        }
+
+        [OneTimeSetUp]
+        public void ClassInit()
+        {
+            var CGREP_IDENTIFIER_TEST = 4;
+        }
+
+        [OneTimeTearDown]
+        public void ClassCleanup()
+        {
+            var CGREP_IDENTIFIER_TEST = 5;
+        }
+
+        [Test]
+        [Category("unit")]
+        public void StackedAttributes_IsTest()
+        {
+            var CGREP_IDENTIFIER_TEST = 6;
+        }
+    }
+
+    // --- xUnit without any class-level attribute ---
+    public class XunitNoClassAttributeTests
+    {
+        [Fact]
+        public void PlainFact()
+        {
+            var CGREP_IDENTIFIER_TEST = 7;
+        }
+
+        [Fact(Skip = "temp")]
+        public void FactWithParameter()
+        {
+            var CGREP_IDENTIFIER_TEST = 8;
+        }
+
+        [Theory]
+        [InlineData(1, 2)]
+        [InlineData(3, 4)]
+        public void TheoryWithInlineData(int a, int b)
+        {
+            var CGREP_IDENTIFIER_TEST = 9;
+        }
+
+        [Theory]
+        [MemberData(nameof(DataSource))]
+        public void TheoryWithMemberData(int value)
+        {
+            var CGREP_IDENTIFIER_TEST = 10;
+        }
+    }
+
+    // --- MSTest with DataTestMethod / DataRow ---
+    [TestClass]
+    public class MSTestExtendedTests
+    {
+        [TestInitialize]
+        public void Initialize()
+        {
+            var CGREP_IDENTIFIER_TEST = 11;
+        }
+
+        [TestCleanup]
+        public void Finalize()
+        {
+            var CGREP_IDENTIFIER_TEST = 12;
+        }
+
+        [ClassInitialize]
+        public static void ClassInit(TestContext ctx)
+        {
+            var CGREP_IDENTIFIER_TEST = 13;
+        }
+
+        [ClassCleanup]
+        public static void ClassDispose()
+        {
+            var CGREP_IDENTIFIER_TEST = 14;
+        }
+
+        [DataTestMethod]
+        [DataRow(1, 2, 3)]
+        [DataRow(4, 5, 9)]
+        public void DataDriven(int a, int b, int expected)
+        {
+            var CGREP_IDENTIFIER_TEST = 15;
+        }
+
+        [TestMethod("Friendly Name")]
+        public void TestMethodWithArgument()
+        {
+            var CGREP_IDENTIFIER_TEST = 16;
+        }
+    }
+
+    // --- Fully qualified attributes ---
+    [NUnit.Framework.TestFixture]
+    public class FullyQualifiedAttrTests
+    {
+        [NUnit.Framework.Test]
+        public void FullyQualifiedTest()
+        {
+            var CGREP_IDENTIFIER_TEST = 17;
+        }
+    }
+
+    // --- Production code AFTER all tests (confinement check) ---
+    public static class FinalProductionUtils
+    {
+        public static int Tripled(int x)
+        {
+            var CGREP_IDENTIFIER = 3;
+            return x * 3;
+        }
+
+        public static string Describe(int n)
+        {
+            var CGREP_IDENTIFIER = 4;
+            return $"n={n}";
+        }
+    }
+}

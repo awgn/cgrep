@@ -107,3 +107,42 @@ main :: IO ()
 main = do
   hspec spec
   defaultMain tests
+-- --- CGREP SEMANTIC TESTS ---
+
+-- Normal function
+add_cgrep :: Int -> Int -> Int
+add_cgrep a b =
+    let CGREP_IDENTIFIER = 1
+    in a + b
+
+-- Hspec style tests
+hspecTestsCgrep :: Spec
+hspecTestsCgrep = describe "Math operations cgrep" $ do
+    let CGREP_IDENTIFIER_TEST = 1
+    it "adds two numbers correctly cgrep" $ do
+        add_cgrep 2 3 `shouldBe` 5
+    context "edge cases cgrep" $ do
+        add_cgrep 0 0 `shouldBe` 0
+
+-- Tasty/HUnit style tests
+unitTestsCgrep :: TestTree
+unitTestsCgrep = testGroup "Unit tests cgrep"
+  [ testCase "Addition works cgrep" $
+      add_cgrep 2 3 @?= 5
+      let CGREP_IDENTIFIER_TEST = 2
+  ]
+
+-- QuickCheck property tests (prop_ convention)
+prop_additionCommutativeCgrep :: Int -> Int -> Bool
+prop_additionCommutativeCgrep a b =
+    let CGREP_IDENTIFIER_TEST = 3
+    in add_cgrep a b == add_cgrep b a
+
+-- QuickCheck properties using testProperty
+propertyTestsCgrep :: TestTree
+propertyTestsCgrep = testProperty "Addition is commutative cgrep" prop_additionCommutativeCgrep
+
+foo_cgrep :: Int -> Int
+foo_cgrep x =
+    let CGREP_IDENTIFIER = 2
+    in x
