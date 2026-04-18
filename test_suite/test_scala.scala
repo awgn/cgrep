@@ -124,38 +124,38 @@ def sumList(numbers: List[Int]): Int = {
 
 // Normal function
 def add_cgrep(a: Int, b: Int): Int = {
-  val CGREP_IDENTIFIER = 1
+  val cgrep_prod_1 = 1
   a + b
 }
 
 class CgrepSuite extends AnyFunSuite {
   // test
   test("basic addition cgrep") {
-    val CGREP_IDENTIFIER_TEST = 1
+    val cgrep_test_1 = 1
     assert(add_cgrep(3, 7) == 10)
   }
 
   // it
   it("basic addition it cgrep") {
-    val CGREP_IDENTIFIER_TEST = 2
+    val cgrep_test_2 = 2
     assert(add_cgrep(3, 7) == 10)
   }
 
   // describe
   describe("basic addition describe cgrep") {
-    val CGREP_IDENTIFIER_TEST = 3
+    val cgrep_test_3 = 3
     assert(add_cgrep(3, 7) == 10)
   }
 
   // scenario
   scenario("basic addition scenario cgrep") {
-    val CGREP_IDENTIFIER_TEST = 4
+    val cgrep_test_4 = 4
     assert(add_cgrep(3, 7) == 10)
   }
 
   // feature
   feature("basic addition feature cgrep") {
-    val CGREP_IDENTIFIER_TEST = 5
+    val cgrep_test_5 = 5
     assert(add_cgrep(3, 7) == 10)
   }
 }

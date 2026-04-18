@@ -133,43 +133,43 @@ end
 # =========================================================================
 
 function compute_cgrep(x)
-  CGREP_IDENTIFIER = 1
+  cgrep_prod_1 = 1
   return x * 2
 end
 
 function runTestHarness_cgrep(x)
-  CGREP_IDENTIFIER = 2
+  cgrep_prod_2 = 2
   return x + 1
 end
 
 # test blocks
 @testset "simple test cgrep" begin
-  CGREP_IDENTIFIER_TEST = 1
+  cgrep_test_1 = 1
   @test 1 == 1
 end
 
 @testset "describe block cgrep" begin
-  CGREP_IDENTIFIER_TEST = 2
+  cgrep_test_2 = 2
   @testset "it block cgrep" begin
-    CGREP_IDENTIFIER_TEST = 3
+    cgrep_test_3 = 3
     @test true
   end
 end
 
 @test begin
-  CGREP_IDENTIFIER_TEST = 4
+  cgrep_test_4 = 4
   1 == 1
 end
 
-@test CGREP_IDENTIFIER_TEST = 5
+@test cgrep_test_5 = 5
 
 # Production
 function tripled_cgrep(x)
-  CGREP_IDENTIFIER = 3
+  cgrep_prod_3 = 3
   return x * 3
 end
 
 @test_throws ErrorException begin
-  CGREP_IDENTIFIER_TEST = 6
+  cgrep_test_6 = 6
   error("Test")
 end

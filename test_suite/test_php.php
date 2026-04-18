@@ -207,32 +207,32 @@ function formatNumber($n)
 
 class ProductionHelper_Cgrep {
     public function compute($x) {
-        $CGREP_IDENTIFIER = 1;
+        $cgrep_prod_1 = 1;
         return $x * 2;
     }
     
     public function runTestHarness($x) {
-        $CGREP_IDENTIFIER = 2;
+        $cgrep_prod_2 = 2;
         return $x + 1;
     }
 }
 
 // Pest framework support
 test('pest simple test cgrep', function () {
-    $CGREP_IDENTIFIER_TEST = 1;
+    $cgrep_test_1 = 1;
     expect(true)->toBeTrue();
 });
 
 it('does something in pest cgrep', function () {
-    $CGREP_IDENTIFIER_TEST = 2;
+    $cgrep_test_2 = 2;
     expect(1)->toEqual(1);
 });
 
 describe('pest group cgrep', function () {
-    $CGREP_IDENTIFIER_TEST = 3;
+    $cgrep_test_3 = 3;
     
     it('is nested', function () {
-        $CGREP_IDENTIFIER_TEST = 4;
+        $cgrep_test_4 = 4;
         expect(2)->toEqual(2);
     });
 });
@@ -240,43 +240,43 @@ describe('pest group cgrep', function () {
 class AttributesTest_Cgrep extends TestCase {
     #[Test]
     public function nativeAttributeCgrep() {
-        $CGREP_IDENTIFIER_TEST = 5;
+        $cgrep_test_5 = 5;
     }
     
     #[DataProvider('foo')]
     public function dataDrivenCgrep() {
-        $CGREP_IDENTIFIER_TEST = 6;
+        $cgrep_test_6 = 6;
     }
 
     /** @test */
     public function docblockTestCgrep() {
-        $CGREP_IDENTIFIER_TEST = 7;
+        $cgrep_test_7 = 7;
     }
 
     public function testRegularFunctionCgrep() {
-        $CGREP_IDENTIFIER_TEST = 8;
+        $cgrep_test_8 = 8;
     }
 
     protected function setUp(): void {
-        $CGREP_IDENTIFIER_TEST = 9;
+        $cgrep_test_9 = 9;
     }
     
     public function tearDown(): void {
-        $CGREP_IDENTIFIER_TEST = 10;
+        $cgrep_test_10 = 10;
     }
     
     public static function setUpBeforeClass(): void {
-        $CGREP_IDENTIFIER_TEST = 11;
+        $cgrep_test_11 = 11;
     }
     
     public static function tearDownAfterClass(): void {
-        $CGREP_IDENTIFIER_TEST = 12;
+        $cgrep_test_12 = 12;
     }
 }
 
 class FinalProduction_Cgrep {
     public function tripled($x) {
-        $CGREP_IDENTIFIER = 3;
+        $cgrep_prod_3 = 3;
         return $x * 3;
     }
 }

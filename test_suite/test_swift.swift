@@ -163,64 +163,64 @@ import Testing
 
 class ProductionCode_Cgrep {
     func compute(x: Int) -> Int {
-        let CGREP_IDENTIFIER = 1
+        let cgrep_prod_1 = 1
         return x * 2
     }
 
     func runTestHarness(x: Int) -> Int {
-        let CGREP_IDENTIFIER = 2
+        let cgrep_prod_2 = 2
         return x + 1
     }
 }
 
 // Swift Testing (macro based)
 @Test func macroTestCgrep() {
-    let CGREP_IDENTIFIER_TEST = 1
+    let cgrep_test_1 = 1
     #expect(1 == 1)
 }
 
 @Test("Custom Name")
 func parameterizedMacroCgrep() {
-    let CGREP_IDENTIFIER_TEST = 2
+    let cgrep_test_2 = 2
 }
 
 @Test(arguments: [1, 2, 3])
 func argumentsMacroCgrep(value: Int) {
-    let CGREP_IDENTIFIER_TEST = 3
+    let cgrep_test_3 = 3
 }
 
 @Suite("A descriptive suite name")
 struct SuiteCgrep {
     @Test func insideSuiteCgrep() {
-        let CGREP_IDENTIFIER_TEST = 4
+        let cgrep_test_4 = 4
     }
 }
 
 class ClassicXCTest_Cgrep: XCTestCase {
     override func setUp() {
-        let CGREP_IDENTIFIER_TEST = 5
+        let cgrep_test_5 = 5
     }
     
     override func tearDown() {
-        let CGREP_IDENTIFIER_TEST = 6
+        let cgrep_test_6 = 6
     }
     
     override class func setUp() {
-        let CGREP_IDENTIFIER_TEST = 7
+        let cgrep_test_7 = 7
     }
     
     override class func tearDown() {
-        let CGREP_IDENTIFIER_TEST = 8
+        let cgrep_test_8 = 8
     }
 
     func testClassicCgrep() {
-        let CGREP_IDENTIFIER_TEST = 9
+        let cgrep_test_9 = 9
     }
 }
 
 class FinalProduction_Cgrep {
     func tripled(x: Int) -> Int {
-        let CGREP_IDENTIFIER = 3
+        let cgrep_prod_3 = 3
         return x * 3
     }
 }

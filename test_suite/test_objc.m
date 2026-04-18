@@ -7,7 +7,7 @@
 
 @implementation ProductionCode_Cgrep
 - (int)compute:(int)x {
-    int CGREP_IDENTIFIER = 1;
+    int cgrep_prod_1 = 1;
     return x * 2;
 }
 @end
@@ -18,23 +18,23 @@
 @implementation MyFeatureTests
 - (void)setUp {
     [super setUp];
-    int CGREP_IDENTIFIER_TEST = 1;
+    int cgrep_test_1 = 1;
 }
 
 - (void)tearDown {
-    int CGREP_IDENTIFIER_TEST = 2;
+    int cgrep_test_2 = 2;
     [super tearDown];
 }
 
 - (void)testSomething_cgrep {
-    int CGREP_IDENTIFIER_TEST = 3;
+    int cgrep_test_3 = 3;
     XCTAssertEqual(1, 1);
 }
 @end
 
 @implementation FinalProduction_Cgrep
 - (int)tripled:(int)x {
-    int CGREP_IDENTIFIER = 2;
+    int cgrep_prod_2 = 2;
     return x * 3;
 }
 @end

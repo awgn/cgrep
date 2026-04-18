@@ -112,13 +112,13 @@ main = do
 -- Normal function
 add_cgrep :: Int -> Int -> Int
 add_cgrep a b =
-    let CGREP_IDENTIFIER = 1
+    let cgrep_prod_1 = 1
     in a + b
 
 -- Hspec style tests
 hspecTestsCgrep :: Spec
 hspecTestsCgrep = describe "Math operations cgrep" $ do
-    let CGREP_IDENTIFIER_TEST = 1
+    let cgrep_test_1 = 1
     it "adds two numbers correctly cgrep" $ do
         add_cgrep 2 3 `shouldBe` 5
     context "edge cases cgrep" $ do
@@ -129,13 +129,13 @@ unitTestsCgrep :: TestTree
 unitTestsCgrep = testGroup "Unit tests cgrep"
   [ testCase "Addition works cgrep" $
       add_cgrep 2 3 @?= 5
-      let CGREP_IDENTIFIER_TEST = 2
+      let cgrep_test_2 = 2
   ]
 
 -- QuickCheck property tests (prop_ convention)
 prop_additionCommutativeCgrep :: Int -> Int -> Bool
 prop_additionCommutativeCgrep a b =
-    let CGREP_IDENTIFIER_TEST = 3
+    let cgrep_test_3 = 3
     in add_cgrep a b == add_cgrep b a
 
 -- QuickCheck properties using testProperty
@@ -144,5 +144,5 @@ propertyTestsCgrep = testProperty "Addition is commutative cgrep" prop_additionC
 
 foo_cgrep :: Int -> Int
 foo_cgrep x =
-    let CGREP_IDENTIFIER = 2
+    let cgrep_prod_2 = 2
     in x

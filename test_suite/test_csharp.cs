@@ -13,12 +13,14 @@ namespace TestExample
 
         public int Add(int n)
         {
+            var cgrep_prod_1 = 1;
             value += n;
             return value;
         }
 
         public int GetValue()
         {
+            var cgrep_prod_2 = 2;
             return value;
         }
     }
@@ -28,11 +30,13 @@ namespace TestExample
     {
         public static int Add(int a, int b)
         {
+            var cgrep_prod_3 = 3;
             return a + b;
         }
 
         public static int Multiply(int x, int y)
         {
+            var cgrep_prod_4 = 4;
             return x * y;
         }
     }
@@ -44,6 +48,7 @@ namespace TestExample
         [Test]
         public void AddTwoNumbers_ReturnsCorrectSum()
         {
+            var cgrep_test_1 = 1;
             var result = MathHelper.Add(2, 3);
             Assert.AreEqual(5, result);
         }
@@ -51,6 +56,7 @@ namespace TestExample
         [Test]
         public void Multiply_ReturnsCorrectProduct()
         {
+            var cgrep_test_2 = 2;
             var result = MathHelper.Multiply(4, 5);
             Assert.AreEqual(20, result);
         }
@@ -61,6 +67,7 @@ namespace TestExample
     {
         public static string Reverse(string s)
         {
+            var cgrep_prod_5 = 5;
             char[] arr = s.ToCharArray();
             Array.Reverse(arr);
             return new string(arr);
@@ -73,6 +80,7 @@ namespace TestExample
         [Fact]
         public void Calculator_InitialValue_IsZero()
         {
+            var cgrep_test_3 = 3;
             var calc = new Calculator();
             Assert.Equal(0, calc.GetValue());
         }
@@ -82,6 +90,7 @@ namespace TestExample
         [InlineData(1, 2, 3)]
         public void Calculator_Add_WorksCorrectly(int first, int second, int expected)
         {
+            var cgrep_test_4 = 4;
             var calc = new Calculator();
             calc.Add(first);
             calc.Add(second);
@@ -96,6 +105,7 @@ namespace TestExample
         [TestMethod]
         public void ReverseString_ReturnsReversed()
         {
+            var cgrep_test_5 = 5;
             var result = StringHelper.Reverse("hello");
             Assert.AreEqual("olleh", result);
         }
@@ -103,6 +113,7 @@ namespace TestExample
         [TestMethod]
         public void ReverseEmptyString_ReturnsEmpty()
         {
+            var cgrep_test_6 = 6;
             var result = StringHelper.Reverse("");
             Assert.AreEqual("", result);
         }
@@ -113,6 +124,7 @@ namespace TestExample
     {
         public static int[] FilterPositive(int[] data)
         {
+            var cgrep_prod_6 = 6;
             return Array.FindAll(data, x => x > 0);
         }
     }
@@ -125,14 +137,14 @@ namespace CgrepExtended
     {
         public int Compute(int x)
         {
-            var CGREP_IDENTIFIER = 1;
+            var cgrep_prod_7 = 7;
             return x * 2;
         }
 
         // Method whose name contains the word "Test" but is NOT a test (no attribute)
         public int RunTestHarness(int x)
         {
-            var CGREP_IDENTIFIER = 2;
+            var cgrep_prod_8 = 8;
             return x + 1;
         }
     }
@@ -145,39 +157,39 @@ namespace CgrepExtended
         [TestCase(4, 5, 9)]
         public void Add_WithMultipleInputs(int a, int b, int expected)
         {
-            var CGREP_IDENTIFIER_TEST = 1;
+            var cgrep_test_7 = 7;
             Assert.AreEqual(expected, a + b);
         }
 
         [SetUp]
         public void Init()
         {
-            var CGREP_IDENTIFIER_TEST = 2;
+            var cgrep_test_8 = 8;
         }
 
         [TearDown]
         public void Cleanup()
         {
-            var CGREP_IDENTIFIER_TEST = 3;
+            var cgrep_test_9 = 9;
         }
 
         [OneTimeSetUp]
         public void ClassInit()
         {
-            var CGREP_IDENTIFIER_TEST = 4;
+            var cgrep_test_10 = 10;
         }
 
         [OneTimeTearDown]
         public void ClassCleanup()
         {
-            var CGREP_IDENTIFIER_TEST = 5;
+            var cgrep_test_11 = 11;
         }
 
         [Test]
         [Category("unit")]
         public void StackedAttributes_IsTest()
         {
-            var CGREP_IDENTIFIER_TEST = 6;
+            var cgrep_test_12 = 12;
         }
     }
 
@@ -187,13 +199,13 @@ namespace CgrepExtended
         [Fact]
         public void PlainFact()
         {
-            var CGREP_IDENTIFIER_TEST = 7;
+            var cgrep_test_13 = 13;
         }
 
         [Fact(Skip = "temp")]
         public void FactWithParameter()
         {
-            var CGREP_IDENTIFIER_TEST = 8;
+            var cgrep_test_14 = 14;
         }
 
         [Theory]
@@ -201,14 +213,14 @@ namespace CgrepExtended
         [InlineData(3, 4)]
         public void TheoryWithInlineData(int a, int b)
         {
-            var CGREP_IDENTIFIER_TEST = 9;
+            var cgrep_test_15 = 15;
         }
 
         [Theory]
         [MemberData(nameof(DataSource))]
         public void TheoryWithMemberData(int value)
         {
-            var CGREP_IDENTIFIER_TEST = 10;
+            var cgrep_test_16 = 16;
         }
     }
 
@@ -219,25 +231,25 @@ namespace CgrepExtended
         [TestInitialize]
         public void Initialize()
         {
-            var CGREP_IDENTIFIER_TEST = 11;
+            var cgrep_test_17 = 17;
         }
 
         [TestCleanup]
         public void Finalize()
         {
-            var CGREP_IDENTIFIER_TEST = 12;
+            var cgrep_test_18 = 18;
         }
 
         [ClassInitialize]
         public static void ClassInit(TestContext ctx)
         {
-            var CGREP_IDENTIFIER_TEST = 13;
+            var cgrep_test_19 = 19;
         }
 
         [ClassCleanup]
         public static void ClassDispose()
         {
-            var CGREP_IDENTIFIER_TEST = 14;
+            var cgrep_test_20 = 20;
         }
 
         [DataTestMethod]
@@ -245,13 +257,13 @@ namespace CgrepExtended
         [DataRow(4, 5, 9)]
         public void DataDriven(int a, int b, int expected)
         {
-            var CGREP_IDENTIFIER_TEST = 15;
+            var cgrep_test_21 = 21;
         }
 
         [TestMethod("Friendly Name")]
         public void TestMethodWithArgument()
         {
-            var CGREP_IDENTIFIER_TEST = 16;
+            var cgrep_test_22 = 22;
         }
     }
 
@@ -262,7 +274,7 @@ namespace CgrepExtended
         [NUnit.Framework.Test]
         public void FullyQualifiedTest()
         {
-            var CGREP_IDENTIFIER_TEST = 17;
+            var cgrep_test_23 = 23;
         }
     }
 
@@ -271,13 +283,13 @@ namespace CgrepExtended
     {
         public static int Tripled(int x)
         {
-            var CGREP_IDENTIFIER = 3;
+            var cgrep_prod_9 = 9;
             return x * 3;
         }
 
         public static string Describe(int n)
         {
-            var CGREP_IDENTIFIER = 4;
+            var cgrep_prod_10 = 10;
             return $"n={n}";
         }
     }

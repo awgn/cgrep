@@ -7,18 +7,21 @@ use Test::More tests => 15;
 
 # Regular helper function (not a test)
 sub add {
+    my $cgrep_prod_1 = 1;
     my ($a, $b) = @_;
     return $a + $b;
 }
 
 # Another helper function
 sub multiply {
+    my $cgrep_prod_2 = 2;
     my ($x, $y) = @_;
     return $x * $y;
 }
 
 # Helper function
 sub factorial {
+    my $cgrep_prod_3 = 3;
     my ($n) = @_;
     return 1 if $n <= 0;
     return $n * factorial($n - 1);
@@ -41,6 +44,7 @@ sub new {
 }
 
 sub add {
+    my $cgrep_prod_4 = 4;
     my ($self, $n) = @_;
     $self->{value} += $n;
     return $self;
@@ -64,6 +68,7 @@ is(factorial(0), 1, 'factorial of 0 is 1');
 
 # Subtest block
 subtest 'Calculator tests' => sub {
+    my $cgrep_test_1 = 1;
     plan tests => 5;
     
     my $calc = Calculator->new();
@@ -93,6 +98,7 @@ sub process_array {
 
 # More tests
 subtest 'String operations' => sub {
+    my $cgrep_test_2 = 2;
     plan tests => 3;
     
     is(reverse_string("hello"), "olleh", 'String reversal works');

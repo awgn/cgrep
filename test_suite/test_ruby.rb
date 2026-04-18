@@ -176,50 +176,50 @@ end
 
 module ProductionCode_Cgrep
   def self.compute(x)
-    CGREP_IDENTIFIER = 1
+    cgrep_prod_1 = 1
     x * 2
   end
 
   def self.run_test_harness(x)
-    CGREP_IDENTIFIER = 2
+    cgrep_prod_2 = 2
     x + 1
   end
 end
 
 describe "simple rspec cgrep" do
-  CGREP_IDENTIFIER_TEST = 1
+  cgrep_test_1 = 1
   it "adds" do
-    CGREP_IDENTIFIER_TEST = 2
+    cgrep_test_2 = 2
     expect(1).to eq(1)
   end
 end
 
 context "context block cgrep" do
-  CGREP_IDENTIFIER_TEST = 3
+  cgrep_test_3 = 3
   it "subtracts" do
-    CGREP_IDENTIFIER_TEST = 4
+    cgrep_test_4 = 4
     expect(1).to eq(1)
   end
 end
 
 class TestMinitestCgrep < Minitest::Test
   def setup
-    CGREP_IDENTIFIER_TEST = 5
+    cgrep_test_5 = 5
   end
 
   def teardown
-    CGREP_IDENTIFIER_TEST = 6
+    cgrep_test_6 = 6
   end
 
   def test_something_cgrep
-    CGREP_IDENTIFIER_TEST = 7
+    cgrep_test_7 = 7
     assert_equal 2, 2
   end
 end
 
 class FinalProduction_Cgrep
   def tripled(x)
-    CGREP_IDENTIFIER = 3
+    cgrep_prod_3 = 3
     x * 3
   end
 end

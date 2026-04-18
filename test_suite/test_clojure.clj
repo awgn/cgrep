@@ -1,12 +1,12 @@
 (defn compute-cgrep [x]
-  (def CGREP_IDENTIFIER 1)
+  (def cgrep_prod_1 1)
   (* x 2))
 
 (deftest my-test
-  (def CGREP_IDENTIFIER_TEST 1)
+  (def cgrep_test_1 1)
   (testing "inner"
-    (def CGREP_IDENTIFIER_TEST 2)))
+    (def cgrep_test_2 2)))
 
 (defn runTestHarness-cgrep [x]
-  (def CGREP_IDENTIFIER 2)
+  (def cgrep_prod_2 2)
   (+ x 1))
