@@ -162,38 +162,91 @@ filterTests fileType flag tokens =
 -- Rust-Specific Implementation Helpers (Moved from old function)
 -- ------------------------------------------------------------------
 
+-- | Searches for an opening token (e.g., "{") within a lookahead limit.
+findOpeningBracketBounded :: T.Text -> Int -> [Token] -> Maybe ([Token], [Token])
+findOpeningBracketBounded _ 0 _  = Nothing
+findOpeningBracketBounded _ _ [] = Nothing
+findOpeningBracketBounded openBracket n (t:ts)
+    | isTokenBracket t && tToken t == openBracket = Just ([t], ts)
+    | otherwise = 
+        case findOpeningBracketBounded openBracket (n - 1) ts of
+            Nothing -> Nothing
+            Just (pre, post) -> Just (t : pre, post)
+
+-- | Specific helper for curly braces '{'
+findOpeningBraceBounded :: Int -> [Token] -> Maybe ([Token], [Token])
+findOpeningBraceBounded = findOpeningBracketBounded "{"
+
+-- | Processes tokens by balancing arbitrary brackets
+processInsideBrackets :: T.Text -> T.Text -> Int -> [Token] -> ([Token], [Token])
+processInsideBrackets _ _ 0 ts = ([], ts)
+processInsideBrackets _ _ _ [] = ([], [])
+processInsideBrackets open close nestingLevel (t:ts)
+    | isTokenBracket t && tToken t == open =
+        let (nestedInside, remaining) = processInsideBrackets open close (nestingLevel + 1) ts
+        in (t : nestedInside, remaining)
+    | isTokenBracket t && tToken t == close =
+        if nestingLevel == 1
+        then ([t], ts)
+        else
+             let (nestedInside, remaining) = processInsideBrackets open close (nestingLevel - 1) ts
+             in (t : nestedInside, remaining)
+    | otherwise =
+        let (nestedInside, remaining) = processInsideBrackets open close nestingLevel ts
+        in (t : nestedInside, remaining)
+
+-- | Extracts a single Rust attribute, e.g.: #[cfg(test)] or #[tokio::test]
+extractRustAttribute :: [Token] -> Maybe ([Token], [Token])
+extractRustAttribute (t1:t2:ts)
+    | isTokenOperator t1 && tToken t1 == "#" &&
+      isTokenBracket t2 && tToken t2 == "[" =
+        let (insideTokens, remaining) = processInsideBrackets "[" "]" 1 ts
+        in Just (t1 : t2 : insideTokens, remaining)
+extractRustAttribute _ = Nothing
+
+-- | An attribute is a "test attribute" if the identifier "test" (or similar) exists within it.
+isTestAttribute :: [Token] -> Bool
+isTestAttribute = any (\t -> isTokenIdentifier t && (tToken t == "test" || tToken t == "rstest" || tToken t == "test_case"))
+
+-- | Collects all contiguous attributes before a declaration.
+collectRustAttributes :: [Token] -> ([Token], Bool, [Token])
+collectRustAttributes = go [] False
+  where
+    go acc isTest remaining =
+        case extractRustAttribute remaining of
+            Just (attrTokens, rest) ->
+                let testAttr = isTestAttribute attrTokens
+                in go (acc ++ attrTokens) (isTest || testAttr) rest
+            Nothing -> (acc, isTest, remaining)
+
 -- | (Rust) Helper: Processes tokens *outside* a test block.
 processOutsideRust :: Bool -> [Token] -> [Token]
 processOutsideRust _ [] = [] -- End of stream
-processOutsideRust keepTests (t1:t2:t3:t4:t5:t6:t7:t8:t9:t10:ts)
-    -- Look for the exact sequence: #[cfg(test)] mod <name> {
-    | (isTokenOperator t1 && tToken t1 == "#") &&
-      (isTokenBracket t2 && tToken t2 == "[") &&
-      (isTokenIdentifier t3 && tToken t3 == "cfg") &&
-      (isTokenBracket t4 && tToken t4 == "(") &&
-      (isTokenIdentifier t5 && tToken t5 == "test") &&
-      (isTokenBracket t6 && tToken t6 == ")") &&
-      (isTokenBracket t7 && tToken t7 == "]") &&
-      (isTokenKeyword t8 && tToken t8 == "mod") &&
-      isTokenIdentifier t9 && -- Module name (any identifier)
-      (isTokenBracket t10 && tToken t10 == "{")
-    =
-        -- Found the start of a test block.
-        -- Find the matching closing brace.
-        let (insideTokens, remainingTokens) = processInsideBraces 1 ts
-        in if keepTests
-           then -- We want test tokens, so keep the *entire* block
-                t1:t2:t3:t4:t5:t6:t7:t8:t9:t10:insideTokens ++ processOutsideRust keepTests remainingTokens
-           else -- We don't want test tokens, so discard the entire block
-                processOutsideRust keepTests remainingTokens
-
--- No test block marker found, process the current token
-processOutsideRust keepTests (t:ts) =
-    if keepTests
-    then -- We want test tokens, so discard this "outside" token
-         processOutsideRust keepTests ts
-    else -- We don't want test tokens, so keep this "outside" token
-         t : processOutsideRust keepTests ts
+processOutsideRust keepTests tokens =
+    let (attrTokens, isTest, restAfterAttrs) = collectRustAttributes tokens
+    in if not (null attrTokens)
+       then
+           if isTest
+           then
+               case findOpeningBraceBounded 50 restAfterAttrs of
+                   Nothing ->
+                       if keepTests
+                       then processOutsideRust keepTests restAfterAttrs
+                       else attrTokens ++ processOutsideRust keepTests restAfterAttrs
+                   Just (sigTokens, restAfterBrace) ->
+                       let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
+                       in if keepTests
+                          then attrTokens ++ sigTokens ++ bodyTokens ++ processOutsideRust keepTests finalRest
+                          else processOutsideRust keepTests finalRest
+           else
+               if keepTests
+               then processOutsideRust keepTests restAfterAttrs
+               else attrTokens ++ processOutsideRust keepTests restAfterAttrs
+       else
+           let (t:ts) = tokens
+           in if keepTests
+              then processOutsideRust keepTests ts
+              else t : processOutsideRust keepTests ts
 
 -- ------------------------------------------------------------------
 -- Go-Specific Implementation Helpers
