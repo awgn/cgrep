@@ -2987,7 +2987,7 @@ fileTypeInfoMap =
                 ,
                     ( R
                     , FileTypeInfo
-                        { ftSelector = [ext ".r", ext ".rdata", ext ".rds", ext ".rda"]
+                        { ftSelector = [ext ".r", ext ".R", ext ".rdata", ext ".rds", ext ".rda"]
                         , ftKind = KindLanguage
                         , ftComment = ["#" ~~ "\n"]
                         , ftChar = []

@@ -9,7 +9,7 @@ module CGrep.Semantic.Tests (
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (Token, isTokenOperator, tToken, isTokenBracket, isTokenIdentifier, isTokenKeyword)
 import qualified Data.Text as T
-
+import Debug.Trace (trace)
 
 
 
@@ -1573,27 +1573,44 @@ processOutsideSwift keepTests (t:ts) =
 
 -- | (R) Helper: Processes tokens *outside* a test block.
 -- Recognizes:
---   1. test_that("...", { ... })
---   2. describe("...", { ... })
---   3. context("...", { ... })
+--   1. test_that("...") - testthat
+--   2. describe("...") - testthat
+--   3. context("...") - testthat
+--   4. it("...") - testthat
+--   5. test_dir/test_file
 --
 -- R uses testthat framework.
 processOutsideR :: Bool -> [Token] -> [Token]
 processOutsideR _ [] = [] -- End of stream
 
--- Pattern: test_that( or describe( or context(
-processOutsideR keepTests (t1:t2:ts)
+-- Pattern 1: test_that( or describe( or context( or it( etc.
+processOutsideR keepTests (t1:ts)
     | isTokenIdentifier t1 &&
-      (tToken t1 == "test_that" || tToken t1 == "describe" || tToken t1 == "context") &&
-      isTokenBracket t2 && tToken t2 == "("
+      (tToken t1 == "test_that" || tToken t1 == "describe" || tToken t1 == "context" || 
+       tToken t1 == "it" || tToken t1 == "test_dir" || tToken t1 == "test_file")
     =
-        case findOpeningBrace ts of
+        case findOpeningBracketBounded "(" 20 ts of
             Nothing ->
-                if keepTests then processOutsideR keepTests (t2:ts) else t1 : processOutsideR keepTests (t2:ts)
+                if keepTests then t1 : processOutsideR keepTests ts else t1 : processOutsideR keepTests ts
             Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                let (bodyTokens, remainingTokens) = processInsideBrackets "(" ")" 1 tokensAfterBrace
                 in if keepTests
-                   then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideR keepTests remainingTokens
+                   then t1 : signatureTokens ++ bodyTokens ++ processOutsideR keepTests remainingTokens
+                   else processOutsideR keepTests remainingTokens
+
+-- Pattern 2: Fallback for when test_that is tokenized as test, _, that
+processOutsideR keepTests (t1:t2:t3:ts)
+    | isTokenIdentifier t1 && tToken t1 == "test" &&
+      (isTokenOperator t2 || isTokenIdentifier t2) && tToken t2 == "_" &&
+      isTokenIdentifier t3 && (tToken t3 == "that" || tToken t3 == "dir" || tToken t3 == "file")
+    =
+        case findOpeningBracketBounded "(" 20 ts of
+            Nothing ->
+                if keepTests then t1 : t2 : t3 : processOutsideR keepTests ts else t1 : t2 : t3 : processOutsideR keepTests ts
+            Just (signatureTokens, tokensAfterBrace) ->
+                let (bodyTokens, remainingTokens) = processInsideBrackets "(" ")" 1 tokensAfterBrace
+                in if keepTests
+                   then t1 : t2 : t3 : signatureTokens ++ bodyTokens ++ processOutsideR keepTests remainingTokens
                    else processOutsideR keepTests remainingTokens
 
 -- No test found, process the current token
@@ -1615,24 +1632,12 @@ processOutsideR keepTests (t:ts) =
 processOutsideJulia :: Bool -> [Token] -> [Token]
 processOutsideJulia _ [] = [] -- End of stream
 
--- Pattern 1: @testset
+-- Pattern 1: @test, @testset, @test_throws, etc.
 processOutsideJulia keepTests (t1:t2:ts)
     | isTokenOperator t1 && tToken t1 == "@" &&
-      isTokenIdentifier t2 && tToken t2 == "testset"
+      isTokenIdentifier t2 && ("test" `T.isPrefixOf` tToken t2)
     =
-        -- Collect until 'end' keyword
-        let (testTokens, remainingTokens) = collectUntilElixirEnd ts
-        in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideJulia keepTests remainingTokens
-           else processOutsideJulia keepTests remainingTokens
-
--- Pattern 2: @test
-processOutsideJulia keepTests (t1:t2:ts)
-    | isTokenOperator t1 && tToken t1 == "@" &&
-      isTokenIdentifier t2 && tToken t2 == "test"
-    =
-        -- Single line test, collect until newline or next statement
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
+        let (testTokens, remainingTokens) = collectJuliaTest ts
         in if keepTests
            then t1 : t2 : testTokens ++ processOutsideJulia keepTests remainingTokens
            else processOutsideJulia keepTests remainingTokens
@@ -1642,6 +1647,38 @@ processOutsideJulia keepTests (t:ts) =
     if keepTests
     then processOutsideJulia keepTests ts
     else t : processOutsideJulia keepTests ts
+
+collectJuliaTest :: [Token] -> ([Token], [Token])
+collectJuliaTest [] = ([], [])
+collectJuliaTest (t:ts)
+    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "begin" || tToken t == "for") =
+        let (bodyTokens, remaining) = collectJuliaBlock 1 ts
+        in (t : bodyTokens, remaining)
+    | isTokenBracket t && tToken t == "(" =
+        let (bodyTokens, remaining) = processInsideBrackets "(" ")" 1 ts
+        in (t : bodyTokens, remaining)
+    | isTokenOperator t && tToken t == "@" = ([], t:ts)
+    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "function" || tToken t == "struct" || tToken t == "mutable" || tToken t == "macro" || tToken t == "module" || tToken t == "end") = ([], t:ts)
+    | otherwise =
+        let (collected, remaining) = collectJuliaTest ts
+        in (t : collected, remaining)
+
+collectJuliaBlock :: Int -> [Token] -> ([Token], [Token])
+collectJuliaBlock 0 ts = ([], ts)
+collectJuliaBlock _ [] = ([], [])
+collectJuliaBlock depth (t:ts)
+    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "begin" || tToken t == "function" || tToken t == "struct" || tToken t == "macro" || tToken t == "let" || tToken t == "quote" || tToken t == "do" || tToken t == "if" || tToken t == "for" || tToken t == "while" || tToken t == "try") =
+        let (collected, remaining) = collectJuliaBlock (depth + 1) ts
+        in (t : collected, remaining)
+    | (isTokenKeyword t || isTokenIdentifier t) && tToken t == "end" =
+        if depth == 1
+        then ([t], ts)
+        else
+            let (collected, remaining) = collectJuliaBlock (depth - 1) ts
+            in (t : collected, remaining)
+    | otherwise =
+        let (collected, remaining) = collectJuliaBlock depth ts
+        in (t : collected, remaining)
 
 -- ------------------------------------------------------------------
 -- Perl-Specific Implementation Helpers
@@ -1657,19 +1694,17 @@ processOutsideJulia keepTests (t:ts) =
 processOutsidePerl :: Bool -> [Token] -> [Token]
 processOutsidePerl _ [] = [] -- End of stream
 
--- Pattern: subtest
+-- Pattern 1: subtest
 processOutsidePerl keepTests (t1:ts)
-    | isTokenIdentifier t1 && tToken t1 == "subtest"
+    | isTokenIdentifier t1 && (tToken t1 == "subtest" || tToken t1 == "test")
     =
-        case findOpeningBrace ts of
+        case findOpeningBracketBounded "{" 20 ts of
             Nothing ->
-                -- Collect until next top-level statement
-                let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
-                in if keepTests
-                   then t1 : testTokens ++ processOutsidePerl keepTests remainingTokens
-                   else processOutsidePerl keepTests remainingTokens
+                if keepTests
+                then t1 : processOutsidePerl keepTests ts
+                else t1 : processOutsidePerl keepTests ts
             Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
                 in if keepTests
                    then t1 : signatureTokens ++ bodyTokens ++ processOutsidePerl keepTests remainingTokens
                    else processOutsidePerl keepTests remainingTokens
@@ -1693,24 +1728,15 @@ processOutsidePerl keepTests (t:ts) =
 processOutsideOCaml :: Bool -> [Token] -> [Token]
 processOutsideOCaml _ [] = [] -- End of stream
 
--- Pattern 1: let test_*
-processOutsideOCaml keepTests (t1:t2:ts)
+-- Pattern 1: let%test or let%expect_test
+processOutsideOCaml keepTests (t1:t2:t3:ts)
     | isTokenKeyword t1 && tToken t1 == "let" &&
-      isTokenIdentifier t2 && "test_" `T.isPrefixOf` tToken t2
+      isTokenOperator t2 && tToken t2 == "%" &&
+      isTokenIdentifier t3 && (tToken t3 == "test" || "test_" `T.isPrefixOf` tToken t3 || "expect_test" `T.isPrefixOf` tToken t3)
     =
-        -- Collect until next let or end of block
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
+        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts -- close enough approximation for OCaml
         in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideOCaml keepTests remainingTokens
-           else processOutsideOCaml keepTests remainingTokens
-
--- Pattern 2: test_case
-processOutsideOCaml keepTests (t1:ts)
-    | isTokenIdentifier t1 && tToken t1 == "test_case"
-    =
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
-        in if keepTests
-           then t1 : testTokens ++ processOutsideOCaml keepTests remainingTokens
+           then t1 : t2 : t3 : testTokens ++ processOutsideOCaml keepTests remainingTokens
            else processOutsideOCaml keepTests remainingTokens
 
 -- No test found, process the current token
@@ -1732,25 +1758,14 @@ processOutsideOCaml keepTests (t:ts) =
 processOutsideErlang :: Bool -> [Token] -> [Token]
 processOutsideErlang _ [] = [] -- End of stream
 
--- Pattern: function ending with _test or _test_
-processOutsideErlang keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 &&
-      ("_test" `T.isSuffixOf` tToken t1 || "_test_" `T.isSuffixOf` tToken t1) &&
-      isTokenBracket t2 && tToken t2 == "("
+-- Pattern 1: *_test() or *_test_()
+processOutsideErlang keepTests (t1:ts)
+    | isTokenIdentifier t1 && ("_test" `T.isSuffixOf` tToken t1 || "_test_" `T.isSuffixOf` tToken t1)
     =
-        -- Find the function body (might use -> or after parameters)
-        case findOpeningBrace ts of
-            Nothing ->
-                -- Collect until next function definition
-                let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
-                in if keepTests
-                   then t1 : t2 : testTokens ++ processOutsideErlang keepTests remainingTokens
-                   else processOutsideErlang keepTests remainingTokens
-            Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideErlang keepTests remainingTokens
-                   else processOutsideErlang keepTests remainingTokens
+        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts -- close enough
+        in if keepTests
+           then t1 : testTokens ++ processOutsideErlang keepTests remainingTokens
+           else processOutsideErlang keepTests remainingTokens
 
 -- No test found, process the current token
 processOutsideErlang keepTests (t:ts) =
@@ -1771,12 +1786,11 @@ processOutsideErlang keepTests (t:ts) =
 processOutsideNim :: Bool -> [Token] -> [Token]
 processOutsideNim _ [] = [] -- End of stream
 
--- Pattern: suite or test
+-- Pattern 1: suite "name": or test "name":
 processOutsideNim keepTests (t1:ts)
-    | isTokenIdentifier t1 && (tToken t1 == "suite" || tToken t1 == "test")
+    | (isTokenIdentifier t1 || isTokenKeyword t1) && (tToken t1 == "suite" || tToken t1 == "test")
     =
-        -- Collect until next suite/test or end
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts
+        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts -- Python-like indent logic might be better but this filters something
         in if keepTests
            then t1 : testTokens ++ processOutsideNim keepTests remainingTokens
            else processOutsideNim keepTests remainingTokens
@@ -1800,25 +1814,14 @@ processOutsideNim keepTests (t:ts) =
 processOutsideClojure :: Bool -> [Token] -> [Token]
 processOutsideClojure _ [] = [] -- End of stream
 
--- Pattern 1: (deftest
+-- Pattern 1: (deftest ...) or (testing ...)
 processOutsideClojure keepTests (t1:t2:ts)
     | isTokenBracket t1 && tToken t1 == "(" &&
-      isTokenIdentifier t2 && tToken t2 == "deftest"
+      isTokenIdentifier t2 && (tToken t2 == "deftest" || tToken t2 == "testing")
     =
-        -- Collect until matching closing paren
-        let (testTokens, remainingTokens) = collectUntilMatchingParen 1 ts
+        let (bodyTokens, remainingTokens) = processInsideBrackets "(" ")" 1 ts
         in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideClojure keepTests remainingTokens
-           else processOutsideClojure keepTests remainingTokens
-
--- Pattern 2: (testing
-processOutsideClojure keepTests (t1:t2:ts)
-    | isTokenBracket t1 && tToken t1 == "(" &&
-      isTokenIdentifier t2 && tToken t2 == "testing"
-    =
-        let (testTokens, remainingTokens) = collectUntilMatchingParen 1 ts
-        in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideClojure keepTests remainingTokens
+           then t1 : t2 : bodyTokens ++ processOutsideClojure keepTests remainingTokens
            else processOutsideClojure keepTests remainingTokens
 
 -- No test found, process the current token
@@ -1856,15 +1859,17 @@ collectUntilMatchingParen depth (t:ts)
 processOutsideD :: Bool -> [Token] -> [Token]
 processOutsideD _ [] = [] -- End of stream
 
--- Pattern: unittest {
+-- Pattern 1: unittest { ... }
 processOutsideD keepTests (t1:ts)
-    | isTokenKeyword t1 && tToken t1 == "unittest"
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "unittest"
     =
-        case findOpeningBrace ts of
+        case findOpeningBracketBounded "{" 20 ts of
             Nothing ->
-                if keepTests then processOutsideD keepTests ts else t1 : processOutsideD keepTests ts
+                if keepTests
+                then t1 : processOutsideD keepTests ts
+                else t1 : processOutsideD keepTests ts
             Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
                 in if keepTests
                    then t1 : signatureTokens ++ bodyTokens ++ processOutsideD keepTests remainingTokens
                    else processOutsideD keepTests remainingTokens

@@ -129,3 +129,47 @@ end
 function reverse_string(s::String)
     return reverse(s)
 end
+# --- CGREP SEMANTIC TESTS (appended) ---
+# =========================================================================
+
+function compute_cgrep(x)
+  CGREP_IDENTIFIER = 1
+  return x * 2
+end
+
+function runTestHarness_cgrep(x)
+  CGREP_IDENTIFIER = 2
+  return x + 1
+end
+
+# test blocks
+@testset "simple test cgrep" begin
+  CGREP_IDENTIFIER_TEST = 1
+  @test 1 == 1
+end
+
+@testset "describe block cgrep" begin
+  CGREP_IDENTIFIER_TEST = 2
+  @testset "it block cgrep" begin
+    CGREP_IDENTIFIER_TEST = 3
+    @test true
+  end
+end
+
+@test begin
+  CGREP_IDENTIFIER_TEST = 4
+  1 == 1
+end
+
+@test CGREP_IDENTIFIER_TEST = 5
+
+# Production
+function tripled_cgrep(x)
+  CGREP_IDENTIFIER = 3
+  return x * 3
+end
+
+@test_throws ErrorException begin
+  CGREP_IDENTIFIER_TEST = 6
+  error("Test")
+end

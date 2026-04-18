@@ -112,3 +112,48 @@ reverse_string <- function(str) {
 filter_positive <- function(data) {
   return(data[data > 0])
 }
+# =========================================================================
+# --- CGREP SEMANTIC TESTS (appended) ---
+# =========================================================================
+
+compute_cgrep <- function(x) {
+  CGREP_IDENTIFIER <- 1
+  return(x * 2)
+}
+
+runTestHarness_cgrep <- function(x) {
+  CGREP_IDENTIFIER <- 2
+  return(x + 1)
+}
+
+# testthat blocks
+test_that("simple test cgrep", {
+  CGREP_IDENTIFIER_TEST <- 1
+  expect_equal(1, 1)
+})
+
+describe("describe block cgrep", {
+  CGREP_IDENTIFIER_TEST <- 2
+  it("it block cgrep", {
+    CGREP_IDENTIFIER_TEST <- 3
+    expect_true(TRUE)
+  })
+})
+
+# Test execution wrappers (they don't encapsulate logic, so we don't put target identifiers here)
+context("context block cgrep")
+test_dir("tests")
+
+# Production
+tripled_cgrep <- function(x) {
+  CGREP_IDENTIFIER <- 3
+  return(x * 3)
+}
+
+test_that ( "weird spaces", {
+  CGREP_IDENTIFIER_TEST <- 4
+} )
+
+test _ that("weird tokenization", {
+  CGREP_IDENTIFIER_TEST <- 5
+})
