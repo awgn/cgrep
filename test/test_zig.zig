@@ -64,3 +64,39 @@ test "nested operations" {
 fn divide(a: i32, b: i32) i32 {
     return @divTrunc(a, b);
 }
+// --- CGREP SEMANTIC TESTS ---
+
+// Normal function
+pub fn add_cgrep(a: i32, b: i32) i32 {
+    const CGREP_IDENTIFIER = 1;
+    return a + b;
+}
+
+// Built-in test
+test "basic addition cgrep" {
+    const CGREP_IDENTIFIER_TEST = 1;
+    try std.testing.expect(add_cgrep(3, 7) == 10);
+}
+
+// Unnamed test
+test {
+    const CGREP_IDENTIFIER_TEST = 2;
+    try std.testing.expect(true);
+}
+
+// Test with test in the name
+pub fn test_helper_cgrep() void {
+    const CGREP_IDENTIFIER = 2;
+}
+
+// Struct with test
+const MyStructCgrep = struct {
+    pub fn doSomething() void {
+        const CGREP_IDENTIFIER = 3;
+    }
+
+    test "struct test cgrep" {
+        const CGREP_IDENTIFIER_TEST = 3;
+        try std.testing.expect(true);
+    }
+};
