@@ -1729,12 +1729,23 @@ processOutsideOCaml :: Bool -> [Token] -> [Token]
 processOutsideOCaml _ [] = [] -- End of stream
 
 -- Pattern 1: let%test or let%expect_test
+processOutsideOCaml keepTests (t1:t2:t3:t4:ts)
+    | isTokenKeyword t1 && tToken t1 == "module" &&
+      isTokenIdentifier t2 && (tToken t2 == "Test" || "Test" `T.isPrefixOf` tToken t2) &&
+      isTokenOperator t3 && tToken t3 == "=" &&
+      isTokenKeyword t4 && tToken t4 == "struct"
+    =
+        let (testTokens, remainingTokens) = collectUntilOCamlEnd ts
+        in if keepTests
+           then t1 : t2 : t3 : t4 : testTokens ++ processOutsideOCaml keepTests remainingTokens
+           else processOutsideOCaml keepTests remainingTokens
+
 processOutsideOCaml keepTests (t1:t2:t3:ts)
     | isTokenKeyword t1 && tToken t1 == "let" &&
       isTokenOperator t2 && tToken t2 == "%" &&
       isTokenIdentifier t3 && (tToken t3 == "test" || "test_" `T.isPrefixOf` tToken t3 || "expect_test" `T.isPrefixOf` tToken t3)
     =
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts -- close enough approximation for OCaml
+        let (testTokens, remainingTokens) = collectUntilOCamlLet ts
         in if keepTests
            then t1 : t2 : t3 : testTokens ++ processOutsideOCaml keepTests remainingTokens
            else processOutsideOCaml keepTests remainingTokens
@@ -1746,6 +1757,16 @@ processOutsideOCaml keepTests (t:ts) =
     else t : processOutsideOCaml keepTests ts
 
 -- ------------------------------------------------------------------
+
+collectUntilOCamlEnd :: [Token] -> ([Token], [Token])
+collectUntilOCamlEnd [] = ([], [])
+collectUntilOCamlEnd (t:ts)
+    | isTokenKeyword t && tToken t == "end" =
+        ([t], ts)
+    | otherwise =
+        let (collected, remaining) = collectUntilOCamlEnd ts
+        in (t : collected, remaining)
+
 -- Erlang-Specific Implementation Helpers
 -- ------------------------------------------------------------------
 
@@ -1755,6 +1776,16 @@ processOutsideOCaml keepTests (t:ts) =
 --   2. *_test_() - EUnit generator convention
 --
 -- Erlang uses EUnit framework.
+
+collectUntilErlangEnd :: [Token] -> ([Token], [Token])
+collectUntilErlangEnd [] = ([], [])
+collectUntilErlangEnd (t:ts)
+    | isTokenOperator t && tToken t == "." =
+        ([t], ts)
+    | otherwise =
+        let (collected, remaining) = collectUntilErlangEnd ts
+        in (t : collected, remaining)
+
 processOutsideErlang :: Bool -> [Token] -> [Token]
 processOutsideErlang _ [] = [] -- End of stream
 
@@ -1762,7 +1793,7 @@ processOutsideErlang _ [] = [] -- End of stream
 processOutsideErlang keepTests (t1:ts)
     | isTokenIdentifier t1 && ("_test" `T.isSuffixOf` tToken t1 || "_test_" `T.isSuffixOf` tToken t1)
     =
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts -- close enough
+        let (testTokens, remainingTokens) = collectUntilErlangEnd ts
         in if keepTests
            then t1 : testTokens ++ processOutsideErlang keepTests remainingTokens
            else processOutsideErlang keepTests remainingTokens
@@ -1772,6 +1803,7 @@ processOutsideErlang keepTests (t:ts) =
     if keepTests
     then processOutsideErlang keepTests ts
     else t : processOutsideErlang keepTests ts
+
 
 -- ------------------------------------------------------------------
 -- Nim-Specific Implementation Helpers
@@ -1790,7 +1822,7 @@ processOutsideNim _ [] = [] -- End of stream
 processOutsideNim keepTests (t1:ts)
     | (isTokenIdentifier t1 || isTokenKeyword t1) && (tToken t1 == "suite" || tToken t1 == "test")
     =
-        let (testTokens, remainingTokens) = collectUntilNextHaskellDef ts -- Python-like indent logic might be better but this filters something
+        let (testTokens, remainingTokens) = collectUntilNimDef ts
         in if keepTests
            then t1 : testTokens ++ processOutsideNim keepTests remainingTokens
            else processOutsideNim keepTests remainingTokens
@@ -1802,6 +1834,17 @@ processOutsideNim keepTests (t:ts) =
     else t : processOutsideNim keepTests ts
 
 -- ------------------------------------------------------------------
+
+-- | (Nim) Helper: Collects tokens until the next top-level def.
+collectUntilNimDef :: [Token] -> ([Token], [Token])
+collectUntilNimDef [] = ([], [])
+collectUntilNimDef (t:ts)
+    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "proc" || tToken t == "func" || tToken t == "iterator" || tToken t == "macro" || tToken t == "template" || tToken t == "method" || tToken t == "suite") =
+        ([], t:ts)
+    | otherwise =
+        let (collected, remaining) = collectUntilNimDef ts
+        in (t : collected, remaining)
+
 -- Clojure-Specific Implementation Helpers
 -- ------------------------------------------------------------------
 
@@ -1919,3 +1962,14 @@ findOpeningBrace = go []
     go acc (t:ts)
         | isTokenBracket t && tToken t == "{" = Just (reverse (t:acc), ts)
         | otherwise = go (t:acc) ts
+
+
+-- | (OCaml) Helper: Collects tokens until the next top-level let.
+collectUntilOCamlLet :: [Token] -> ([Token], [Token])
+collectUntilOCamlLet [] = ([], [])
+collectUntilOCamlLet (t:ts)
+    | isTokenKeyword t && tToken t == "let" =
+        ([], t:ts)
+    | otherwise =
+        let (collected, remaining) = collectUntilOCamlLet ts
+        in (t : collected, remaining)
