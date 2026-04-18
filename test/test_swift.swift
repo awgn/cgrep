@@ -155,3 +155,72 @@ extension Array where Element == Int {
         return self.map { $0 * 2 }
     }
 }
+// =========================================================================
+// --- CGREP SEMANTIC TESTS (appended) ---
+// =========================================================================
+
+import Testing
+
+class ProductionCode_Cgrep {
+    func compute(x: Int) -> Int {
+        let CGREP_IDENTIFIER = 1
+        return x * 2
+    }
+
+    func runTestHarness(x: Int) -> Int {
+        let CGREP_IDENTIFIER = 2
+        return x + 1
+    }
+}
+
+// Swift Testing (macro based)
+@Test func macroTestCgrep() {
+    let CGREP_IDENTIFIER_TEST = 1
+    #expect(1 == 1)
+}
+
+@Test("Custom Name")
+func parameterizedMacroCgrep() {
+    let CGREP_IDENTIFIER_TEST = 2
+}
+
+@Test(arguments: [1, 2, 3])
+func argumentsMacroCgrep(value: Int) {
+    let CGREP_IDENTIFIER_TEST = 3
+}
+
+@Suite("A descriptive suite name")
+struct SuiteCgrep {
+    @Test func insideSuiteCgrep() {
+        let CGREP_IDENTIFIER_TEST = 4
+    }
+}
+
+class ClassicXCTest_Cgrep: XCTestCase {
+    override func setUp() {
+        let CGREP_IDENTIFIER_TEST = 5
+    }
+    
+    override func tearDown() {
+        let CGREP_IDENTIFIER_TEST = 6
+    }
+    
+    override class func setUp() {
+        let CGREP_IDENTIFIER_TEST = 7
+    }
+    
+    override class func tearDown() {
+        let CGREP_IDENTIFIER_TEST = 8
+    }
+
+    func testClassicCgrep() {
+        let CGREP_IDENTIFIER_TEST = 9
+    }
+}
+
+class FinalProduction_Cgrep {
+    func tripled(x: Int) -> Int {
+        let CGREP_IDENTIFIER = 3
+        return x * 3
+    }
+}

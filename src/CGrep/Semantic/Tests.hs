@@ -1445,40 +1445,100 @@ processOutsidePHP keepTests (t:ts) =
 -- ------------------------------------------------------------------
 
 -- | (Swift/Objective-C) Helper: Processes tokens *outside* a test method.
--- Recognizes:
---   1. class *Test: XCTestCase
---   2. func test*()
+-- | Extracts a Swift attribute `@...`
+extractSwiftAttribute :: [Token] -> Maybe ([Token], [Token])
+extractSwiftAttribute (t1:t2:ts)
+    | isTokenOperator t1 && tToken t1 == "@" && isTokenIdentifier t2 =
+        case ts of
+            (t3:ts') | isTokenBracket t3 && tToken t3 == "(" ->
+                let (insideTokens, remaining) = processInsideBrackets "(" ")" 1 ts'
+                in Just (t1 : t2 : t3 : insideTokens, remaining)
+            _ -> Just (t1 : t2 : [], ts)
+extractSwiftAttribute _ = Nothing
+
+-- | Checks if a Swift attribute is test-related
+isSwiftTestAttribute :: [Token] -> Bool
+isSwiftTestAttribute = any (\t -> isTokenIdentifier t && (tToken t == "Test" || tToken t == "Suite"))
+
+-- | Collects contiguous Swift attributes
+collectSwiftAttributes :: [Token] -> ([[Token]], [Token])
+collectSwiftAttributes ts = case extractSwiftAttribute ts of
+    Just (attr, rest) ->
+        let (more, final) = collectSwiftAttributes rest
+        in (attr : more, final)
+    Nothing -> ([], ts)
+
+-- | (Swift) Helper: Processes tokens *outside* a test function.
 --
--- Swift and Objective-C use XCTest framework.
+-- Swift and Objective-C use XCTest framework and Swift Testing framework.
 processOutsideSwift :: Bool -> [Token] -> [Token]
 processOutsideSwift _ [] = [] -- End of stream
 
--- Pattern 1: func test*
+-- Pattern 1: Swift Testing Attributes @Test, @Suite
+processOutsideSwift keepTests tokens@(t1:_)
+    | isTokenOperator t1 && tToken t1 == "@" =
+        let (attrs, afterAttrs) = collectSwiftAttributes tokens
+            flatAttrs = concat attrs
+        in if not (null attrs) && any isSwiftTestAttribute attrs
+           then
+               case findOpeningBraceBounded 200 afterAttrs of
+                   Nothing ->
+                       if keepTests
+                       then processOutsideSwift keepTests afterAttrs
+                       else flatAttrs ++ processOutsideSwift keepTests afterAttrs
+                   Just (sigTokens, tokensAfterBrace) ->
+                       let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
+                       in if keepTests
+                          then flatAttrs ++ sigTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
+                          else processOutsideSwift keepTests remainingTokens
+           else
+               if keepTests
+               then processOutsideSwift keepTests afterAttrs
+               else flatAttrs ++ processOutsideSwift keepTests afterAttrs
+
+-- Pattern 2: func test*, setUp, tearDown
 processOutsideSwift keepTests (t1:t2:ts)
-    | isTokenKeyword t1 && tToken t1 == "func" &&
-      isTokenIdentifier t2 && "test" `T.isPrefixOf` tToken t2
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "func" &&
+      isTokenIdentifier t2 && 
+      ("test" `T.isPrefixOf` tToken t2 || tToken t2 == "setUp" || tToken t2 == "tearDown" || tToken t2 == "setUpWithError" || tToken t2 == "tearDownWithError")
     =
-        case findOpeningBrace ts of
+        case findOpeningBraceBounded 100 ts of
             Nothing ->
                 if keepTests then processOutsideSwift keepTests (t2:ts) else t1 : processOutsideSwift keepTests (t2:ts)
             Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
                 in if keepTests
                    then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
                    else processOutsideSwift keepTests remainingTokens
 
--- Pattern 2: class *Test (could also check for XCTestCase inheritance)
+-- Pattern 3: class *Test* or struct *Test*
 processOutsideSwift keepTests (t1:t2:ts)
-    | isTokenKeyword t1 && tToken t1 == "class" &&
-      isTokenIdentifier t2 && "Test" `T.isSuffixOf` tToken t2
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && (tToken t1 == "class" || tToken t1 == "struct" || tToken t1 == "extension") &&
+      isTokenIdentifier t2 && "Test" `T.isInfixOf` tToken t2
     =
-        case findOpeningBrace ts of
+        case findOpeningBraceBounded 200 ts of
             Nothing ->
                 if keepTests then processOutsideSwift keepTests (t2:ts) else t1 : processOutsideSwift keepTests (t2:ts)
             Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
                 in if keepTests
                    then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
+                   else processOutsideSwift keepTests remainingTokens
+
+-- Pattern 4: class ... : XCTestCase
+processOutsideSwift keepTests (t1:t2:t3:t4:ts)
+    | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "class" &&
+      isTokenIdentifier t2 &&
+      isTokenOperator t3 && tToken t3 == ":" &&
+      isTokenIdentifier t4 && tToken t4 == "XCTestCase"
+    =
+        case findOpeningBraceBounded 200 ts of
+            Nothing ->
+                if keepTests then processOutsideSwift keepTests (t2:t3:t4:ts) else t1 : processOutsideSwift keepTests (t2:t3:t4:ts)
+            Just (signatureTokens, tokensAfterBrace) ->
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
+                in if keepTests
+                   then t1 : t2 : t3 : t4 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
                    else processOutsideSwift keepTests remainingTokens
 
 -- No test found, process the current token
