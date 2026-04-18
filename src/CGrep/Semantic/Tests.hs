@@ -9,7 +9,7 @@ module CGrep.Semantic.Tests (
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (Token, isTokenOperator, tToken, isTokenBracket, isTokenIdentifier, isTokenKeyword)
 import qualified Data.Text as T
-import Debug.Trace (trace)
+
 
 
 
@@ -1475,7 +1475,7 @@ processOutsideSwift :: Bool -> [Token] -> [Token]
 processOutsideSwift _ [] = [] -- End of stream
 
 -- Pattern 1: Swift Testing Attributes @Test, @Suite
-processOutsideSwift keepTests tokens@(t1:_)
+processOutsideSwift keepTests tokens@(t1:ts)
     | isTokenOperator t1 && tToken t1 == "@" =
         let (attrs, afterAttrs) = collectSwiftAttributes tokens
             flatAttrs = concat attrs
@@ -1491,6 +1491,10 @@ processOutsideSwift keepTests tokens@(t1:_)
                        in if keepTests
                           then flatAttrs ++ sigTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
                           else processOutsideSwift keepTests remainingTokens
+           else if null attrs then
+               if keepTests
+               then processOutsideSwift keepTests ts
+               else t1 : processOutsideSwift keepTests ts
            else
                if keepTests
                then processOutsideSwift keepTests afterAttrs
@@ -1539,6 +1543,22 @@ processOutsideSwift keepTests (t1:t2:t3:t4:ts)
                 let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
                 in if keepTests
                    then t1 : t2 : t3 : t4 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
+                   else processOutsideSwift keepTests remainingTokens
+
+-- Pattern 5: Objective-C - (void)testSomething
+processOutsideSwift keepTests (t1:t2:t3:t4:t5:ts)
+    | isTokenOperator t1 && (tToken t1 == "-" || tToken t1 == "+") &&
+      isTokenBracket t2 && tToken t2 == "(" &&
+      isTokenBracket t4 && tToken t4 == ")" &&
+      isTokenIdentifier t5 && ("test" `T.isPrefixOf` tToken t5 || tToken t5 == "setUp" || tToken t5 == "tearDown")
+    =
+        case findOpeningBraceBounded 100 ts of
+            Nothing ->
+                if keepTests then processOutsideSwift keepTests (t2:t3:t4:t5:ts) else t1 : processOutsideSwift keepTests (t2:t3:t4:t5:ts)
+            Just (signatureTokens, tokensAfterBrace) ->
+                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
+                in if keepTests
+                   then t1 : t2 : t3 : t4 : t5 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
                    else processOutsideSwift keepTests remainingTokens
 
 -- No test found, process the current token
