@@ -255,25 +255,42 @@ processOutsideRust keepTests tokens =
 -- | (Go) Helper: Processes tokens *outside* a test function.
 processOutsideGo :: Bool -> [Token] -> [Token]
 processOutsideGo _ [] = [] -- End of stream
-processOutsideGo keepTests (t1:t2:ts)
-    -- Look for "func Test..."
+
+-- Pattern 1: func Test...
+processOutsideGo keepTests (t1:t2:t3:ts)
     | isTokenKeyword t1 && tToken t1 == "func" &&
-      isTokenIdentifier t2 && "Test" `T.isPrefixOf` (tToken t2)
+      isTokenIdentifier t2 && ("Test" `T.isPrefixOf` tToken t2 || "Benchmark" `T.isPrefixOf` tToken t2 || "Example" `T.isPrefixOf` tToken t2 || "Fuzz" `T.isPrefixOf` tToken t2) &&
+      isTokenBracket t3 && tToken t3 == "("
     =
-        -- Found the start of a test function. Now find its opening brace.
-        case findOpeningBrace ts of
-            Nothing -> -- Malformed, no '{' found. Treat as non-test code.
-                if keepTests then processOutsideGo keepTests (t2:ts) else t1 : processOutsideGo keepTests (t2:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                -- We found the function body's opening brace.
-                -- signatureTokens *includes* the opening brace.
-                -- tokensAfterBrace starts *after* the opening brace.
+        case findOpeningBraceBounded 50 ts of
+            Nothing ->
+                if keepTests then processOutsideGo keepTests (t2:t3:ts) else t1 : processOutsideGo keepTests (t2:t3:ts)
+            Just (sigTokens, tokensAfterBrace) ->
                 let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
                 in if keepTests
-                   then -- Keep func + name + signature + body
-                        t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
-                   else -- Discard the whole function
-                        processOutsideGo keepTests remainingTokens
+                   then t1 : t2 : t3 : sigTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
+                   else processOutsideGo keepTests remainingTokens
+
+-- Pattern 2: func (receiver) Test...
+processOutsideGo keepTests (t1:t2:ts)
+    | isTokenKeyword t1 && tToken t1 == "func" &&
+      isTokenBracket t2 && tToken t2 == "("
+    =
+        let (receiverTokens, afterReceiver) = processInsideBrackets "(" ")" 1 ts
+        in case afterReceiver of
+            (t3:t4:ts') | isTokenIdentifier t3 && 
+                          ("Test" `T.isPrefixOf` tToken t3 || "Benchmark" `T.isPrefixOf` tToken t3 || "Example" `T.isPrefixOf` tToken t3 || "Fuzz" `T.isPrefixOf` tToken t3) &&
+                          isTokenBracket t4 && tToken t4 == "(" ->
+                case findOpeningBraceBounded 50 ts' of
+                    Nothing ->
+                        if keepTests then processOutsideGo keepTests (t2:ts) else t1 : processOutsideGo keepTests (t2:ts)
+                    Just (sigTokens, tokensAfterBrace) ->
+                        let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
+                        in if keepTests
+                           then t1 : t2 : receiverTokens ++ t3 : t4 : sigTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
+                           else processOutsideGo keepTests remainingTokens
+            _ ->
+                if keepTests then processOutsideGo keepTests (t2:ts) else t1 : processOutsideGo keepTests (t2:ts)
 
 -- No test function found, process the current token
 processOutsideGo keepTests (t:ts) =
