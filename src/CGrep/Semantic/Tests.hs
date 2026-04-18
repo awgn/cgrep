@@ -329,16 +329,30 @@ processOutsideJava keepTests (t:ts) =
 --   3. TEST(...) macro (Google Test)
 --   4. TEST_F(...) macro (Google Test with fixture)
 --   5. TEST_CASE(...) macro (Catch2)
+-- | Helper per C/C++ che si ferma al punto e virgola per evitare forward declarations
+findOpeningBraceC :: Int -> [Token] -> Maybe ([Token], [Token])
+findOpeningBraceC 0 _  = Nothing
+findOpeningBraceC _ [] = Nothing
+findOpeningBraceC n (t:ts)
+    | isTokenBracket t && tToken t == "{" = Just ([t], ts)
+    | tToken t == ";" = Nothing
+    | otherwise = 
+        case findOpeningBraceC (n - 1) ts of
+            Nothing -> Nothing
+            Just (pre, post) -> Just (t : pre, post)
+
 processOutsideC :: Bool -> [Token] -> [Token]
 processOutsideC _ [] = [] -- End of stream
 
--- Pattern 1: TEST( macro (Google Test)
+-- Pattern 1: C/C++ Test Macros (Google Test, Catch2, etc.)
 processOutsideC keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && tToken t1 == "TEST" &&
+    | isTokenIdentifier t1 && 
+      (tToken t1 == "TEST" || tToken t1 == "TEST_F" || tToken t1 == "TEST_CASE" || 
+       tToken t1 == "TYPED_TEST" || tToken t1 == "SECTION" || tToken t1 == "SUITE") &&
       isTokenBracket t2 && tToken t2 == "("
     =
-        -- Found TEST( macro. Find the opening brace of the test body.
-        case findOpeningBrace ts of
+        -- Found a test macro. Look ahead for the opening brace of the test body (limit 100 tokens).
+        case findOpeningBraceC 100 ts of
             Nothing -> -- Malformed, no '{' found. Treat as non-test code.
                 if keepTests then processOutsideC keepTests (t2:ts) else t1 : processOutsideC keepTests (t2:ts)
             Just (signatureTokens, tokensAfterBrace) ->
@@ -347,47 +361,21 @@ processOutsideC keepTests (t1:t2:ts)
                    then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideC keepTests remainingTokens
                    else processOutsideC keepTests remainingTokens
 
--- Pattern 2: TEST_F( macro (Google Test with fixture)
+-- Pattern 2: Functions starting with "test_" or "Test"
 processOutsideC keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && tToken t1 == "TEST_F" &&
-      isTokenBracket t2 && tToken t2 == "("
-    =
-        case findOpeningBrace ts of
-            Nothing ->
-                if keepTests then processOutsideC keepTests (t2:ts) else t1 : processOutsideC keepTests (t2:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideC keepTests remainingTokens
-                   else processOutsideC keepTests remainingTokens
-
--- Pattern 3: TEST_CASE( macro (Catch2)
-processOutsideC keepTests (t1:t2:ts)
-    | isTokenIdentifier t1 && tToken t1 == "TEST_CASE" &&
-      isTokenBracket t2 && tToken t2 == "("
-    =
-        case findOpeningBrace ts of
-            Nothing ->
-                if keepTests then processOutsideC keepTests (t2:ts) else t1 : processOutsideC keepTests (t2:ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
-                in if keepTests
-                   then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideC keepTests remainingTokens
-                   else processOutsideC keepTests remainingTokens
-
--- Pattern 4: Function starting with "test_" or "Test"
-processOutsideC keepTests (t1:ts)
     | isTokenIdentifier t1 &&
-      (("test_" `T.isPrefixOf` tToken t1) || ("Test" `T.isPrefixOf` tToken t1))
+      (("test_" `T.isPrefixOf` tToken t1) || ("Test" `T.isPrefixOf` tToken t1)) &&
+      isTokenBracket t2 && tToken t2 == "("
     =
-        -- Found a test function. Find the opening brace.
-        case findOpeningBrace ts of
-            Nothing -> -- Malformed, no '{' found. Treat as non-test code.
-                if keepTests then processOutsideC keepTests ts else t1 : processOutsideC keepTests ts
+        -- Found a test function. Require the next token to be '(' to avoid matching variables.
+        -- Find the opening brace within a bounded lookahead to avoid swallowing forward declarations.
+        case findOpeningBraceC 50 ts of
+            Nothing -> -- Malformed or forward declaration. Treat as non-test code.
+                if keepTests then processOutsideC keepTests (t2:ts) else t1 : processOutsideC keepTests (t2:ts)
             Just (signatureTokens, tokensAfterBrace) ->
                 let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
                 in if keepTests
-                   then t1 : signatureTokens ++ bodyTokens ++ processOutsideC keepTests remainingTokens
+                   then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideC keepTests remainingTokens
                    else processOutsideC keepTests remainingTokens
 
 -- No test found, process the current token
