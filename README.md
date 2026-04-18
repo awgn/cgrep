@@ -3,13 +3,13 @@
 [![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep)
 [![Join the chat at https://gitter.im/awgn/cgrep](https://badges.gitter.im/awgn/cgrep.svg)](https://gitter.im/awgn/cgrep?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-**Version 9.0.0** - A powerful, context-aware search tool designed specifically for source code.
+**Version 9.2.0** - A powerful, context-aware search tool designed specifically for source code.
 
 CGrep extends the capabilities of traditional grep by understanding the structure and semantics of source code across multiple programming languages. It allows developers to search within specific contexts like code, comments, or string literals, and provides advanced pattern matching with semantic awareness.
 
 ---
 
-## What's New in Version 9.0
+## What's New in Version 9.2
 
 ### 🚀 Major Performance Improvements
 
@@ -19,7 +19,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ### ✨ Enhanced Features
 
-- **Semantic Test Filtering** - New capability to filter out test code from search results across 27+ programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
+- **Semantic Test Filtering** - New capability to filter out test code from search results across 28+ programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
 - **Improved Text Processing** - Native support for utf-8 character encodings with accurate column positioning
 
 ---
@@ -53,7 +53,7 @@ stack install
 ## Usage
 
 ```
-cgrep 9.0.0 - Usage: cgrep [OPTION] [PATTERN] files...
+cgrep 9.2.0 - Usage: cgrep [OPTION] [PATTERN] files...
 
 Usage: cgrep [--file FILE] [-w|--word] [-p|--prefix] [-s|--suffix] [-e|--edit]
              [-G|--regex] [-i|--ignore-case] [-c|--code] [-m|--comment]
@@ -369,7 +369,7 @@ cgrep "Hello" test.utf8
 
 ## Test Framework Support
 
-Version 9 introduces intelligent test code filtering across 27+ programming languages. When using the `-T` flag, cgrep can automatically detect and filter test code based on language-specific conventions and testing frameworks.
+Version 9 introduces intelligent test code filtering across 28+ programming languages. When using the `-T` flag, cgrep can automatically detect and filter test code based on language-specific conventions and testing frameworks.
 
 | Language | Testing Frameworks Detected | Detection Patterns |
 |----------|----------------------------|-------------------|
