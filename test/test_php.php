@@ -201,3 +201,82 @@ function formatNumber($n)
 }
 
 ?>
+// =========================================================================
+// --- CGREP SEMANTIC TESTS (appended) ---
+// =========================================================================
+
+class ProductionHelper_Cgrep {
+    public function compute($x) {
+        $CGREP_IDENTIFIER = 1;
+        return $x * 2;
+    }
+    
+    public function runTestHarness($x) {
+        $CGREP_IDENTIFIER = 2;
+        return $x + 1;
+    }
+}
+
+// Pest framework support
+test('pest simple test cgrep', function () {
+    $CGREP_IDENTIFIER_TEST = 1;
+    expect(true)->toBeTrue();
+});
+
+it('does something in pest cgrep', function () {
+    $CGREP_IDENTIFIER_TEST = 2;
+    expect(1)->toEqual(1);
+});
+
+describe('pest group cgrep', function () {
+    $CGREP_IDENTIFIER_TEST = 3;
+    
+    it('is nested', function () {
+        $CGREP_IDENTIFIER_TEST = 4;
+        expect(2)->toEqual(2);
+    });
+});
+
+class AttributesTest_Cgrep extends TestCase {
+    #[Test]
+    public function nativeAttributeCgrep() {
+        $CGREP_IDENTIFIER_TEST = 5;
+    }
+    
+    #[DataProvider('foo')]
+    public function dataDrivenCgrep() {
+        $CGREP_IDENTIFIER_TEST = 6;
+    }
+
+    /** @test */
+    public function docblockTestCgrep() {
+        $CGREP_IDENTIFIER_TEST = 7;
+    }
+
+    public function testRegularFunctionCgrep() {
+        $CGREP_IDENTIFIER_TEST = 8;
+    }
+
+    protected function setUp(): void {
+        $CGREP_IDENTIFIER_TEST = 9;
+    }
+    
+    public function tearDown(): void {
+        $CGREP_IDENTIFIER_TEST = 10;
+    }
+    
+    public static function setUpBeforeClass(): void {
+        $CGREP_IDENTIFIER_TEST = 11;
+    }
+    
+    public static function tearDownAfterClass(): void {
+        $CGREP_IDENTIFIER_TEST = 12;
+    }
+}
+
+class FinalProduction_Cgrep {
+    public function tripled($x) {
+        $CGREP_IDENTIFIER = 3;
+        return $x * 3;
+    }
+}
