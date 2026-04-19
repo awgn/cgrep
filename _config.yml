@@ -1,8 +1,8 @@
 title: Cgrep
 description: "Cgrep: a context-aware grep for source codes"
-google_analytics: 
+google_analytics:
 show_downloads: true
-theme: jekyll-theme-minimal
+theme: jekyll-theme-hacker
 
-gems:
+plugins:
   - jekyll-mentions
