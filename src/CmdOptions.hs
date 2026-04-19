@@ -25,6 +25,7 @@ import Options.Applicative (
     ParserInfo,
     argument,
     auto,
+    flag',
     fullDesc,
     header,
     help,
@@ -42,6 +43,7 @@ import Options.Applicative (
     switch,
     value,
     (<**>),
+    (<|>),
  )
 
 import Options (Options (..))
@@ -136,10 +138,14 @@ options = Options
     <*> switch
         ( long "hdr-only"
        <> help "Parse headers/interfaces only (skip modules)" )
-    <*> optional (option auto
-        ( long "tests"
+    <*> ( flag' (Just True)
+        ( long "tests-only"
        <> short 'T'
-       <> help "Filter tests: 'True' tests only, 'False' code only, omitted (search all)" ))
+       <> help "Search only in test files" )
+      <|> flag' (Just False)
+        ( long "no-tests"
+       <> help "Exclude test files from search" )
+      <|> pure Nothing )
     <*> many (strOption
         ( long "prune-dir"
        <> metavar "DIR"

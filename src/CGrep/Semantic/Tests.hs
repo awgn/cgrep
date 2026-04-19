@@ -2,6 +2,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module CGrep.Semantic.Tests (
     filterTests,
@@ -9,8 +10,6 @@ module CGrep.Semantic.Tests (
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (Token, isTokenOperator, tToken, isTokenBracket, isTokenIdentifier, isTokenKeyword)
 import qualified Data.Text as T
-import Debug.Trace (trace)
-
 
 
 class LanguageTestFilter (lang :: FileType) where
@@ -1324,8 +1323,8 @@ extractPhpAttribute _ = Nothing
 
 -- | Checks if an attribute is test-related
 isPhpTestAttribute :: [Token] -> Bool
-isPhpTestAttribute = any (\t -> isTokenIdentifier t && 
-    (tToken t == "Test" || tToken t == "DataProvider" || tToken t == "Depends" || 
+isPhpTestAttribute = any (\t -> isTokenIdentifier t &&
+    (tToken t == "Test" || tToken t == "DataProvider" || tToken t == "Depends" ||
      tToken t == "Before" || tToken t == "After" || tToken t == "BeforeClass" || tToken t == "AfterClass"))
 
 -- | Collects all PHP attributes before a declaration
@@ -1392,7 +1391,7 @@ processOutsidePHP keepTests (t1:t2:ts)
 -- Pattern 4: function test* or lifecycle methods
 processOutsidePHP keepTests (t1:t2:ts)
     | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "function" &&
-      isTokenIdentifier t2 && 
+      isTokenIdentifier t2 &&
       ("test" `T.isPrefixOf` tToken t2 || tToken t2 == "setUp" || tToken t2 == "tearDown" || tToken t2 == "setUpBeforeClass" || tToken t2 == "tearDownAfterClass")
     =
         case findOpeningBraceBounded 100 ts of
@@ -1503,7 +1502,7 @@ processOutsideSwift keepTests tokens@(t1:ts)
 -- Pattern 2: func test*, setUp, tearDown
 processOutsideSwift keepTests (t1:t2:ts)
     | (isTokenKeyword t1 || isTokenIdentifier t1) && tToken t1 == "func" &&
-      isTokenIdentifier t2 && 
+      isTokenIdentifier t2 &&
       ("test" `T.isPrefixOf` tToken t2 || tToken t2 == "setUp" || tToken t2 == "tearDown" || tToken t2 == "setUpWithError" || tToken t2 == "tearDownWithError")
     =
         case findOpeningBraceBounded 100 ts of
@@ -1586,7 +1585,7 @@ processOutsideR _ [] = [] -- End of stream
 -- Pattern 1: test_that( or describe( or context( or it( etc.
 processOutsideR keepTests (t1:ts)
     | isTokenIdentifier t1 &&
-      (tToken t1 == "test_that" || tToken t1 == "describe" || tToken t1 == "context" || 
+      (tToken t1 == "test_that" || tToken t1 == "describe" || tToken t1 == "context" ||
        tToken t1 == "it" || tToken t1 == "test_dir" || tToken t1 == "test_file")
     =
         case findOpeningBracketBounded "(" 20 ts of

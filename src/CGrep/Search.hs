@@ -166,7 +166,7 @@ withRecursiveContents ::
     S.HashSet OsPath ->
     ([OsPath] -> IO ()) ->
     IO ()
-withRecursiveContents ctx@RecursiveContext{..} opt@Options{..} dir visited action = do
+withRecursiveContents ctx@RecursiveContext{..} opt dir visited action = do
     xs <- getDirectoryContents dir
     (dirs, files) <- partitionM (\p -> doesDirectoryExist (dir </> p)) xs
 
@@ -361,8 +361,8 @@ fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKind
     fileFilterTypes = maybe False (liftA2 (||) (const $ null fTypes) (`elem` fTypes))
     fileFilterKinds = maybe False (liftA2 (||) (const $ null fKinds) (`elem` fKinds))
 
-isNotTestFile :: OsPath -> Bool
-isNotTestFile f =
+_isNotTestFile :: OsPath -> Bool
+_isNotTestFile f =
     let fs =
             [ ([osp|_test|] `OS.isSuffixOf`)
             , ([osp|-test|] `OS.isSuffixOf`)
@@ -373,7 +373,7 @@ isNotTestFile f =
                 [OsString -> Bool]
         basename = takeBaseName f
      in not $ any ($ basename) fs
-{-# INLINE isNotTestFile #-}
+{-# INLINE _isNotTestFile #-}
 
 isDot :: OsPath -> Bool
 isDot p = p == [osp|.|] || p == [osp|..|]

@@ -9,6 +9,10 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ---
 
+## What's New in Version 9.2.1
+
+- Replaced the somewhat awkward `-T True`/`-T False` options with the more standard `--tests-only` (or `-T`) and `--no-tests` flags for test filtering.
+
 ## What's New in Version 9.2
 
 ### 🚀 Major Performance Improvements
@@ -19,7 +23,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ### ✨ Enhanced Features
 
-- **Semantic Test Filtering** - New capability to filter out test code from search results across 28+ programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
+- **Semantic Test Filtering** - Improved capability to filter out test code from search results across 28+ programming languages and their respective testing frameworks implemented largely with the help of Google Gemini 3.1 (see [Test Framework Support](#test-framework-support) below)
 - **Improved Text Processing** - Native support for utf-8 character encodings with accurate column positioning
 
 ---
@@ -53,14 +57,15 @@ stack install
 ## Usage
 
 ```
-cgrep 9.2.0 - Usage: cgrep [OPTION] [PATTERN] files...
+cgrep 9.2.1 - Usage: cgrep [OPTION] [PATTERN] files...
 
 Usage: cgrep [--file FILE] [-w|--word] [-p|--prefix] [-s|--suffix] [-e|--edit]
              [-G|--regex] [-i|--ignore-case] [-c|--code] [-m|--comment]
              [-l|--literal] [--identifier|--name] [--native|--type] [--keyword]
              [--number] [--string] [--op] [--type TYPE] [--kind KIND]
-             [--code-only] [--hdr-only] [-T|--tests ARG] [--prune-dir DIR]
-             [-r|--recursive] [-L|--follow] [-S|--semantic] [--strict]
+             [--code-only] [--hdr-only] [-T|--tests-only] [--no-tests]
+             [--prune-dir DIR] [-r|--recursive] [-L|--follow] [-S|--semantic]
+             [--strict]
              [--max-count INT] [--force-type TYPE] [--type-list]
              [-v|--invert-match] [-j|--threads INT] [--show-match] [--color]
              [--no-color] [-h|--no-filename] [--no-numbers] [--no-column]
@@ -92,8 +97,8 @@ Available options:
                            Markup or Script
   --code-only              Parse code modules only (skip headers/interfaces)
   --hdr-only               Parse headers/interfaces only (skip modules)
-  -T,--tests ARG           Filter tests: 'True' tests only, 'False' code only,
-                           omitted (search all)
+  -T,--tests-only          Search only in test files
+  --no-tests               Exclude test files from search
   --prune-dir DIR          Do not descend into dir
   -r,--recursive           Enable recursive search (don't follow symlinks)
   -L,--follow              Follow symlinks
@@ -209,7 +214,7 @@ cgrep --type=Cpp -r "char" test/
 Search in Haskell files, but exclude test code:
 
 ```bash
-cgrep --type=Haskell -T False "function" -r .
+cgrep --type=Haskell --no-tests "function" -r .
 ```
 
 Search by file kind (configuration files):
@@ -223,13 +228,13 @@ cgrep --kind=Config "database" -r /etc/
 Search only in production code, excluding all tests:
 
 ```bash
-cgrep -T False "function" -r src/
+cgrep --no-tests "function" -r src/
 ```
 
 Search only in test code:
 
 ```bash
-cgrep -T True "mock" -r tests/
+cgrep --tests-only "mock" -r tests/
 ```
 
 This feature automatically detects and filters test code based on language-specific conventions (see [Test Framework Support](#test-framework-support)).
