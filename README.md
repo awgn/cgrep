@@ -411,10 +411,10 @@ Version 9 introduces intelligent test code filtering across 28+ programming lang
 
 ```bash
 # Search for "config" only in production code, skipping all tests
-cgrep -T False "config" -r src/
+cgrep --no-tests "config" -r src/
 
 # Search for mock usage only in test files
-cgrep -T True "mock" -r .
+cgrep --tests-only "mock" -r .
 ```
 
 ---
@@ -471,7 +471,7 @@ jobs: 8
 
 4. **Use test filtering** to focus on production code:
    ```bash
-   cgrep -T False "pattern" -r .  # Exclude all test code
+   cgrep --no-tests "pattern" -r .  # Exclude all test code
    ```
 
 5. **Adjust thread count** for optimal performance on your system:
