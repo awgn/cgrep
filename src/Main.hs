@@ -28,8 +28,9 @@ import GHC.Conc (getNumCapabilities, setNumCapabilities)
 import GHC.IO.Handle (hIsTerminalDevice)
 
 import Options.Applicative (execParser)
+import Data.Maybe (isJust)
 import System.Environment (withArgs)
-import System.Exit (exitSuccess)
+import System.Exit (die, exitSuccess)
 import System.IO (stdin, stdout)
 
 import CGrep.Common (trimT)
@@ -83,10 +84,7 @@ main = do
     when show_palette $
         dumpPalette >> exitSuccess
 
-    -- check whether the pattern list is empty, display help message if it's the case
-    when (null others && isTermIn && null file) $
-        withArgs ["--help"] $
-            void (execParser parserInfo)
+    validateOptions opt isTermIn
 
     let others' = T.pack <$> others
 
@@ -123,6 +121,15 @@ readPatternsFromFile :: OsPath -> IO [T.Text]
 readPatternsFromFile f
     | OS.null f = return []
     | otherwise = map trimT . T.lines <$> TIO.readFile (OS.toFilePath f)
+
+validateOptions :: Options -> Bool -> IO ()
+validateOptions Options{..} isTermIn = do
+    when (null others && isTermIn && null file) $
+        withArgs ["--help"] $
+            void (execParser parserInfo)
+            
+    when (isJust tests && not semantic) $
+        die "cgrep: the options --tests-only and --no-tests require semantic search (-S or --semantic)."
 
 splitPatternsAndFiles :: [T.Text] -> ([T.Text], [OsPath])
 splitPatternsAndFiles [] = ([], [])

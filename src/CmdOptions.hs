@@ -52,7 +52,7 @@ import Options.Applicative.Builder (infoOption)
 import Options.Applicative (hidden)
 import Data.Version (showVersion)
 
--- Parser per le opzioni
+--  Parser options
 options :: Parser Options
 options = Options
     <$> optional(strOption
