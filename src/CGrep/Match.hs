@@ -184,7 +184,7 @@ buildLineCol :: Options -> Match -> TLB.Builder
 buildLineCol Options{no_numbers = True} _ = mempty
 buildLineCol Options{no_numbers = False, no_column = True} (Match _ n _ _) = TLB.decimal n
 buildLineCol Options{no_numbers = False, no_column = False} (Match _ n _ []) = TLB.decimal n
-buildLineCol Options{no_numbers = False, no_column = False} (Match _ n l (t : _)) = TLB.decimal n <> TLB.singleton ':' <> TLB.decimal (bytesToCharOffset l (cOffset t) + 1)
+buildLineCol Options{no_numbers = False, no_column = False} (Match _ n l (t : _)) = TLB.decimal n <> TLB.singleton ':' <> TLB.decimal (bytesToCharOffset l (cOffset t - textOffsetWord8 l) + 1)
 {-# INLINE buildLineCol #-}
 
 bytesToCharOffset :: T.Text -> Int -> Int
