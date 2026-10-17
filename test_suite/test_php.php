@@ -8,20 +8,14 @@ class MathHelper
 {
     public static function add($a, $b)
     {
+        $cgrep_prod_1 = 1;
         return $a + $b;
     }
 
     public static function multiply($x, $y)
     {
+        $cgrep_prod_2 = 2;
         return $x * $y;
-    }
-
-    public static function factorial($n)
-    {
-        if ($n <= 0) {
-            return 1;
-        }
-        return $n * self::factorial($n - 1);
     }
 }
 
@@ -37,246 +31,152 @@ class Calculator
 
     public function add($n)
     {
+        $cgrep_prod_3 = 3;
         $this->value += $n;
         return $this;
     }
 
     public function getValue()
     {
+        $cgrep_prod_4 = 4;
         return $this->value;
     }
 
-    public function reset()
+    // Regular method named `test` or `describe` - NOT a Pest block!
+    public function describe($cgrep_prod_5 = 'default')
     {
-        $this->value = 0;
+        $cgrep_prod_6 = 6;
+        return $cgrep_prod_5;
     }
 }
 
-// PHPUnit test class
-class MathHelperTest extends PHPUnit\Framework\TestCase
+// Regular production function calling `$obj->test(...)` - NOT a Pest block!
+function validateCalculator($calc)
 {
-    public function testAddition()
-    {
-        $result = MathHelper::add(2, 3);
-        $this->assertEquals(5, $result);
-    }
-
-    public function testMultiplication()
-    {
-        $result = MathHelper::multiply(4, 5);
-        $this->assertEquals(20, $result);
-    }
-
-    /**
-     * @test
-     */
-    public function factorialCalculation()
-    {
-        $result = MathHelper::factorial(5);
-        $this->assertEquals(120, $result);
-    }
-
-    /**
-     * @test
-     */
-    public function factorialOfZero()
-    {
-        $result = MathHelper::factorial(0);
-        $this->assertEquals(1, $result);
-    }
+    $cgrep_prod_7 = 7;
+    return $calc->describe($cgrep_prod_7);
 }
 
-// Helper function (not a test)
-function processArray($array)
+// Production class whose name contains "Test" as part of a domain word (Testimonial):
+// NOT a test class!
+class TestimonialManager
 {
-    return array_map(function($x) {
-        return $x * 2;
-    }, array_filter($array, function($x) {
-        return $x > 0;
-    }));
+    public function getLatest()
+    {
+        $cgrep_prod_8 = 8;
+        return $cgrep_prod_8;
+    }
 }
 
-// PHPUnit test class for Calculator
-class CalculatorTest extends PHPUnit\Framework\TestCase
+// Production function whose name starts with lowercase `test` as part of a word (`testify`):
+// NOT a PHPUnit test method!
+function testifyUser($user)
 {
-    public function testInitialValueIsZero()
-    {
-        $calc = new Calculator();
-        $this->assertEquals(0, $calc->getValue());
-    }
-
-    public function testCanBeInitializedWithValue()
-    {
-        $calc = new Calculator(10);
-        $this->assertEquals(10, $calc->getValue());
-    }
-
-    public function testAddWorksCorrectly()
-    {
-        $calc = new Calculator();
-        $calc->add(5)->add(10);
-        $this->assertEquals(15, $calc->getValue());
-    }
-
-    /**
-     * @test
-     */
-    public function handlesNegativeNumbers()
-    {
-        $calc = new Calculator();
-        $calc->add(-5);
-        $this->assertEquals(-5, $calc->getValue());
-    }
-
-    public function testResetWorks()
-    {
-        $calc = new Calculator();
-        $calc->add(100);
-        $calc->reset();
-        $this->assertEquals(0, $calc->getValue());
-    }
+    $cgrep_prod_9 = 9;
+    return $cgrep_prod_9;
 }
 
-// Regular class (not a test)
-class StringHelper
+// Abstract test method in a base class followed by a production class:
+// Must NOT swallow the subsequent production class!
+abstract class BaseSpec
 {
-    public static function reverse($str)
-    {
-        return strrev($str);
-    }
-
-    public static function capitalize($str)
-    {
-        return strtoupper($str);
-    }
+    abstract public function testMustBeImplemented();
 }
 
-// PHPUnit test class for StringHelper
-class StringHelperTest extends PHPUnit\Framework\TestCase
+class ProdServiceAfterAbstractMethod
 {
-    public function testReverseString()
+    public function keepMe()
     {
-        $result = StringHelper::reverse("hello");
-        $this->assertEquals("olleh", $result);
-    }
-
-    /**
-     * @test
-     */
-    public function capitalizeString()
-    {
-        $result = StringHelper::capitalize("world");
-        $this->assertEquals("WORLD", $result);
-    }
-
-    public function testEmptyString()
-    {
-        $result = StringHelper::reverse("");
-        $this->assertEquals("", $result);
+        $cgrep_prod_10 = 10;
+        return $cgrep_prod_10;
     }
 }
 
-// Helper class
-class Person
-{
-    public $name;
-    public $age;
-
-    public function __construct($name, $age)
-    {
-        $this->name = $name;
-        $this->age = $age;
-    }
-
-    public function greeting()
-    {
-        return "Hello, I'm " . $this->name;
-    }
-}
-
-// Helper function
-function formatNumber($n)
-{
-    return number_format($n, 2);
-}
-
-?>
-// =========================================================================
-// --- CGREP SEMANTIC TESTS (appended) ---
-// =========================================================================
-
-class ProductionHelper_Cgrep {
-    public function compute($x) {
-        $cgrep_prod_1 = 1;
-        return $x * 2;
-    }
-    
-    public function runTestHarness($x) {
-        $cgrep_prod_2 = 2;
-        return $x + 1;
-    }
-}
-
-// Pest framework support
+// Pest framework support (including chained expectation methods `->throws(...)` after `test(...)`!)
 test('pest simple test cgrep', function () {
     $cgrep_test_1 = 1;
     expect(true)->toBeTrue();
-});
+})->throws(Exception::class, $cgrep_test_2 = 'expected error');
 
 it('does something in pest cgrep', function () {
-    $cgrep_test_2 = 2;
+    $cgrep_test_3 = 3;
     expect(1)->toEqual(1);
 });
 
 describe('pest group cgrep', function () {
-    $cgrep_test_3 = 3;
-    
+    $cgrep_test_4 = 4;
+
     it('is nested', function () {
-        $cgrep_test_4 = 4;
+        $cgrep_test_5 = 5;
         expect(2)->toEqual(2);
     });
 });
 
-class AttributesTest_Cgrep extends TestCase {
-    #[Test]
-    public function nativeAttributeCgrep() {
-        $cgrep_test_5 = 5;
-    }
-    
-    #[DataProvider('foo')]
-    public function dataDrivenCgrep() {
-        $cgrep_test_6 = 6;
-    }
+// Pest lifecycle hooks: beforeEach, afterEach, beforeAll, afterAll
+beforeEach(function () {
+    $cgrep_test_6 = 6;
+});
 
-    /** @test */
-    public function docblockTestCgrep() {
-        $cgrep_test_7 = 7;
-    }
+afterEach(function () {
+    $cgrep_test_7 = 7;
+});
 
-    public function testRegularFunctionCgrep() {
+// PHPUnit test class with namespace path `extends \PHPUnit\Framework\TestCase`
+// even when class name does NOT contain "Test"!
+class CalculatorSpec extends \PHPUnit\Framework\TestCase
+{
+    public function helperInsideSpec()
+    {
         $cgrep_test_8 = 8;
+        return $cgrep_test_8;
     }
 
-    protected function setUp(): void {
+    public function testInitialValueIsZero()
+    {
         $cgrep_test_9 = 9;
-    }
-    
-    public function tearDown(): void {
-        $cgrep_test_10 = 10;
-    }
-    
-    public static function setUpBeforeClass(): void {
-        $cgrep_test_11 = 11;
-    }
-    
-    public static function tearDownAfterClass(): void {
-        $cgrep_test_12 = 12;
+        $calc = new Calculator();
+        $this->assertEquals(0, $calc->getValue());
     }
 }
 
-class FinalProduction_Cgrep {
-    public function tripled($x) {
-        $cgrep_prod_3 = 3;
+class AttributesTest_Cgrep extends TestCase
+{
+    public function testRegularFunctionCgrep()
+    {
+        $cgrep_test_10 = 10;
+    }
+
+    public function test_snake_case_method()
+    {
+        $cgrep_test_11 = 11;
+    }
+
+    protected function setUp(): void
+    {
+        $cgrep_test_12 = 12;
+    }
+
+    public function tearDown(): void
+    {
+        $cgrep_test_13 = 13;
+    }
+
+    public static function setUpBeforeClass(): void
+    {
+        $cgrep_test_14 = 14;
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        $cgrep_test_15 = 15;
+    }
+}
+
+class FinalProduction_Cgrep
+{
+    public function tripled($x)
+    {
+        $cgrep_prod_11 = 11;
         return $x * 3;
     }
 }

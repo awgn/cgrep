@@ -1,7 +1,7 @@
 cabal-version: 2.2
 name: cgrep
 description: Cgrep: a context-aware grep for source codes
-version: 9.2.3
+version: 9.3.0
 synopsis: Command line tool
 homepage: http://awgn.github.io/cgrep/
 license: GPL-2.0-or-later
@@ -93,6 +93,35 @@ executable cgrep
     CGrep.Search
     CGrep.Semantic.ContextFilter
     CGrep.Semantic.Tests
+    CGrep.Semantic.Tests.Common
+    CGrep.Semantic.Tests.Bash
+    CGrep.Semantic.Tests.C
+    CGrep.Semantic.Tests.Clojure
+    CGrep.Semantic.Tests.Csharp
+    CGrep.Semantic.Tests.D
+    CGrep.Semantic.Tests.Dart
+    CGrep.Semantic.Tests.Elixir
+    CGrep.Semantic.Tests.Elm
+    CGrep.Semantic.Tests.Erlang
+    CGrep.Semantic.Tests.Fsharp
+    CGrep.Semantic.Tests.Go
+    CGrep.Semantic.Tests.Haskell
+    CGrep.Semantic.Tests.Java
+    CGrep.Semantic.Tests.Javascript
+    CGrep.Semantic.Tests.Julia
+    CGrep.Semantic.Tests.Kotlin
+    CGrep.Semantic.Tests.Lua
+    CGrep.Semantic.Tests.Nim
+    CGrep.Semantic.Tests.OCaml
+    CGrep.Semantic.Tests.PHP
+    CGrep.Semantic.Tests.Perl
+    CGrep.Semantic.Tests.Python
+    CGrep.Semantic.Tests.R
+    CGrep.Semantic.Tests.Ruby
+    CGrep.Semantic.Tests.Rust
+    CGrep.Semantic.Tests.Scala
+    CGrep.Semantic.Tests.Swift
+    CGrep.Semantic.Tests.Zig
     CGrep.Parser.Atom
     CGrep.Parser.Char
     CGrep.Parser.Chunk

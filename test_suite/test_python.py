@@ -38,6 +38,13 @@ class HelperClass:
         self.value = 10
         self.test_variable = "Not a test" # false positive check
 
+# Production class starting with "Test" followed by lowercase (`Testimonial`):
+# NOT a pytest `Test*` class!
+class Testimonial:
+    def get_author(self):
+        cgrep_prod_7 = 7
+        return cgrep_prod_7
+
 # Test class with naming convention
 class TestMathOperations:
     def test_multiplication(self):
@@ -92,3 +99,21 @@ def normal_function_with_test_vars():
     test_count = 0
     cgrep_prod_5 = 5
     return test_count
+
+# Test function followed by a decorated production function (should NOT swallow @app.route into the test!)
+def test_before_decorated_prod():
+    cgrep_test_12 = 12
+
+@app.route("/api")
+def prod_endpoint():
+    cgrep_prod_6 = 6
+
+# TestCase subclass imported directly (`class ...(TestCase):`) with @classmethod and @pytest.mark
+class DirectTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cgrep_test_13 = 13
+
+    @staticmethod
+    def static_helper():
+        cgrep_test_14 = 14

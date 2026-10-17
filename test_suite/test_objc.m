@@ -3,12 +3,27 @@
 
 @interface ProductionCode_Cgrep : NSObject
 - (int)compute:(int)x;
+- (BOOL)testConnection:(NSString *)host;
+- (int)testifyAccount;
 @end
 
 @implementation ProductionCode_Cgrep
 - (int)compute:(int)x {
     int cgrep_prod_1 = 1;
     return x * 2;
+}
+
+// Production method whose selector starts with `testConnection:` but takes a parameter (`:`):
+// XCTest methods are strictly 0-argument `- (void)test...` methods!
+- (BOOL)testConnection:(NSString *)host {
+    int cgrep_prod_3 = 3;
+    return cgrep_prod_3 > 0;
+}
+
+// Production method whose name starts with `test` followed by lowercase (`testifyAccount`):
+- (int)testifyAccount {
+    int cgrep_prod_4 = 4;
+    return cgrep_prod_4;
 }
 @end
 

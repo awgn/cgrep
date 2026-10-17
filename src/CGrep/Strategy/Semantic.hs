@@ -114,7 +114,7 @@ search lock info filename text patterns strict = do
 
         let tokens' = case (fst <$> info) of
                         Nothing -> tokens
-                        Just ft -> filterTests ft (tests opt) tokens
+                        Just ft -> filterTests filename ft (tests opt) tokens
 
         putMessageLnVerb 3 lock stderr $ "tokens    : " <> show tokens
         putMessageLnVerb 3 lock stderr $ "tokens'   : " <> show tokens'

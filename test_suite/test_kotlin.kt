@@ -68,3 +68,44 @@ class MyDescribeSpec : DescribeSpec({
         }
     }
 })
+
+// 7. Test method with default lambda in parameter list (`= {}` inside parens)
+class DefaultLambdaTest {
+    @Test
+    fun testWithDefaultLambda(cb: () -> Unit = {}) {
+        val cgrep_test_9 = 9
+    }
+}
+
+// 8. Kotest StringSpec and FreeSpec styles
+class MyStringAndFreeSpec {
+    init {
+        "a StringSpec test" {
+            val cgrep_test_10 = 10
+        }
+
+        "a FreeSpec container" - {
+            "nested test" {
+                val cgrep_test_11 = 11
+            }
+        }
+    }
+}
+
+// 9. Production call to `test("...")` without trailing lambda block
+fun callNormalTestHelper() {
+    val res = test("not a block")
+    val cgrep_prod_4 = 4
+}
+
+// 10. Production Kotlin `when (status) { ... }` expression:
+// Must NEVER be mistaken for a Kotest `when("description") { ... }` block!
+fun evaluateStatus(status: Int): Int {
+    return when (status) {
+        1 -> {
+            val cgrep_prod_5 = 5
+            cgrep_prod_5
+        }
+        else -> 0
+    }
+}

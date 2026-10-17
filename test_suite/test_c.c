@@ -59,10 +59,37 @@ TEST_CASE("Complex test", "[tag]") {
     }
 }
 
-// 12. C++ Class starting with Test (False Positive check - should be normal code)
+// 12. C++ Class starting with Test (False Positive check - should be normal code),
+// including an inline constructor `TestRunner(int v) { ... }` without `: member(v)`!
 class TestRunner {
 public:
+    TestRunner(int v) {
+        int cgrep_prod_7 = v;
+    }
+
     void run() {
         int cgrep_prod_5 = 5;
     }
 };
+
+// 12b. Production function starting with "Test" followed by lowercase (`TestifyAccount`):
+// Part of a domain word, NOT a `Test*` function!
+void TestifyAccount() {
+    int cgrep_prod_8 = 8;
+}
+
+// 13. Conditional calling a test_check() helper in production (False Positive check)
+void prod_with_if_condition() {
+    if (test_condition_is_ready()) {
+        int cgrep_prod_6 = 6;
+    }
+}
+
+// 14. doctest / Boost.Test macros
+SUBCASE("doctest subcase") {
+    int cgrep_test_8 = 8;
+}
+
+BOOST_AUTO_TEST_CASE(boost_test_example) {
+    int cgrep_test_9 = 9;
+}

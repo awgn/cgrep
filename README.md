@@ -3,11 +3,17 @@
 [![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep)
 [![Join the chat at https://gitter.im/awgn/cgrep](https://badges.gitter.im/awgn/cgrep.svg)](https://gitter.im/awgn/cgrep?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-**Version 9.2.0** - A powerful, context-aware search tool designed specifically for source code.
+**Version 9.3.0** - A powerful, context-aware search tool designed specifically for source code.
 
 CGrep extends the capabilities of traditional grep by understanding the structure and semantics of source code across multiple programming languages. It allows developers to search within specific contexts like code, comments, or string literals, and provides advanced pattern matching with semantic awareness.
 
 ---
+
+## What's New in Version 9.3.0
+
+- **Modular Semantic Test Filtering Across 29 Languages** - Refactored the semantic test filter (`--tests-only` / `--no-tests`) into a type-safe per-language architecture and added support for **Lua** (Busted, Lust, LuaUnit), **Elm** (`elm-test`), and **Bash** (BATS, shUnit2, bashunit).
+- **Expanded Testing Framework Coverage** - Added detection for Kotest (Kotlin), ZIO Test and Specs2 (Scala), Pest and PHP 8 `#[Test]` attributes (PHP), Swift Testing `@Test`/`@Suite` macros and Quick/Nimble (Swift), `Deno.test` and `.each`/`.concurrent` chains (JS/TS), Doctest (`TEST_SUITE`, `SUBCASE`), `RUnit` (R), `Test::Class` and `Test::Spec` (Perl), Common Test (Erlang), and Midje (Clojure).
+- **Comprehensive False-Positive Hardening** - Eliminated false positives on domain identifiers (`testify`, `@Testimonial`, `[Testable]`), forward/abstract declarations, record/method field accesses (`regex.test()`, `#state.value`, `[1:end]`), and nested block boundaries across all 29 languages in both default and `--strict` modes.
 
 ## What's New in Version 9.2.1
 
@@ -23,7 +29,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ### ✨ Enhanced Features
 
-- **Semantic Test Filtering** - Improved capability to filter out test code from search results across 28+ programming languages and their respective testing frameworks implemented largely with the help of Google Gemini 3.1 (see [Test Framework Support](#test-framework-support) below)
+- **Semantic Test Filtering** - Improved capability to filter out test code from search results across 29 programming languages and their respective testing frameworks (see [Test Framework Support](#test-framework-support) below)
 - **Improved Text Processing** - Native support for utf-8 character encodings with accurate column positioning
 
 ---
@@ -57,7 +63,7 @@ stack install
 ## Usage
 
 ```
-cgrep 9.2.1 - Usage: cgrep [OPTION] [PATTERN] files...
+cgrep 9.3.0 - Usage: cgrep [OPTION] [PATTERN] files...
 
 Usage: cgrep [--file FILE] [-w|--word] [-p|--prefix] [-s|--suffix] [-e|--edit]
              [-G|--regex] [-i|--ignore-case] [-c|--code] [-m|--comment]
@@ -374,38 +380,41 @@ cgrep "Hello" test.utf8
 
 ## Test Framework Support
 
-Version 9 introduces intelligent test code filtering across 28+ programming languages. When using the `-T` flag, cgrep can automatically detect and filter test code based on language-specific conventions and testing frameworks.
+Version 9.3 provides intelligent test code filtering across 29 programming languages. When using `--tests-only` (`-T`) or `--no-tests`, cgrep automatically detects and filters test code based on language-specific conventions and testing frameworks.
 
 | Language | Testing Frameworks Detected | Detection Patterns |
 |----------|----------------------------|-------------------|
-| **Rust** | Built-in, cargo test | `#[test]`, `#[rstest]`, `#[test_case]` modules |
-| **Go** | Built-in testing | `func Test*`, `func Benchmark*`, `func Example*`, `func Fuzz*` |
-| **Java** | JUnit, TestNG | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`, `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll`, `@Before`, `@After`, `@BeforeClass`, `@AfterClass`, `@DataProvider`, `@Depends` annotations |
-| **Kotlin** | JUnit, TestNG | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`, `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll`, `@Before`, `@After`, `@BeforeClass`, `@AfterClass`, `@DataProvider`, `@Depends` annotations |
-| **C** | Google Test, Catch2 | `TEST()`, `TEST_F()`, `TEST_CASE()`, `TYPED_TEST()`, `SECTION()`, `SUITE()`, `test_*`, `Test*` functions |
-| **C++** | Google Test, Catch2, Boost.Test | `TEST()`, `TEST_F()`, `TEST_CASE()`, `TYPED_TEST()`, `SECTION()`, `SUITE()`, `test_*`, `Test*` functions |
-| **Python** | pytest, unittest | `test_*` functions, `async def test_*`, `Test*` classes, `*(unittest.TestCase)` classes, `@pytest`, `@unittest`, `@patch`, `@mock` decorators |
-| **Zig** | Built-in | `test "..."` blocks |
-| **JavaScript** | Mocha, Jasmine, Jest | `describe()`, `it()`, `test()`, `context()`, `xdescribe()`, `xit()`, `xtest()`, `xcontext()` |
-| **TypeScript** | Mocha, Jasmine, Jest | `describe()`, `it()`, `test()`, `context()`, `xdescribe()`, `xit()`, `xtest()`, `xcontext()` |
-| **Scala** | ScalaTest, MUnit | `test()`, `it()`, `describe()`, `scenario()`, `feature()` |
-| **Haskell** | HSpec, Tasty, QuickCheck, HUnit | `describe`, `it`, `context`, `testCase`, `testGroup`, `testProperty`, `prop_*` functions, `main` |
-| **C#** | NUnit, xUnit, MSTest | `[Test]`, `[Fact]`, `[Theory]`, `[TestCase]`, `[TestCaseSource]`, `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]`, `[OneTimeTearDown]`, `[InlineData]`, `[MemberData]`, `[ClassData]`, `[TestClass]`, `[TestMethod]`, `[DataTestMethod]`, `[DataRow]`, `[TestInitialize]`, `[TestCleanup]`, `[ClassInitialize]`, `[ClassCleanup]`, `[AssemblyInitialize]`, `[AssemblyCleanup]`, `[TestFixture]` |
-| **F#** | NUnit, xUnit, Expecto | `[<Test>]`, `[<Fact>]`, `[<Theory>]`, `[<TestCase>]`, `[<TestCaseSource>]`, `[<SetUp>]`, `[<TearDown>]`, `[<OneTimeSetUp>]`, `[<OneTimeTearDown>]`, `[<Category>]`, `[<InlineData>]`, `[<MemberData>]`, `[<ClassData>]`, `[<Property>]`, `testCase`, `testCaseAsync`, `testList`, `test`, `ftest`, `ptest`, `ftestCase`, `ptestCase`, `testProperty`, `testPropertyWithConfig`, `testAsync`, `testSequenced` |
-| **Dart** | Built-in test package, Flutter | `test()`, `group()`, `testWidgets()`, `setUp()`, `tearDown()`, `setUpAll()`, `tearDownAll()` |
-| **Elixir** | ExUnit | `test`, `describe`, `setup`, `setup_all`, `defmodule *Test` |
-| **Ruby** | RSpec, Minitest | `describe`, `context`, `it`, `def test_*`, `setup`, `teardown`, `class Test*` |
-| **PHP** | PHPUnit, Codeception | `@test`, `@dataProvider`, `@depends`, `@before`, `@after`, `test*`, `setUp`, `tearDown`, `setUpBeforeClass`, `tearDownAfterClass`, `*Test` classes, `extends TestCase` |
-| **Swift** | XCTest, Swift Testing | `@Test`, `@Suite`, `func test*()`, `setUp`, `tearDown`, `setUpWithError`, `tearDownWithError`, `XCTestCase` classes |
-| **Objective-C** | XCTest | `XCTestCase` classes, `- (void)test*`, `+ (void)test*`, `setUp`, `tearDown` |
-| **R** | testthat | `test_that()`, `describe()`, `context()`, `it()`, `test_dir()`, `test_file()` |
-| **Julia** | Built-in Test | `@testset`, `@test` |
-| **Perl** | Test::More, Test::Simple | `subtest`, `test` |
-| **OCaml** | OUnit, Alcotest, ppx_inline_test | `let%test`, `let%expect_test`, `let test_*`, `module Test = struct` |
-| **Erlang** | EUnit | `*_test()`, `*_test_()` functions |
-| **Nim** | unittest | `suite`, `test` |
-| **Clojure** | clojure.test | `(deftest ...)`, `(testing ...)` |
-| **D** | Built-in | `unittest { ... }` blocks |
+| **Rust** | Built-in, cargo test, tokio, rstest | `#[test]`, `#[tokio::test]`, `#[rstest]`, `#[test_case]`, `#[cfg(test)]` modules/items |
+| **Go** | Built-in testing | `func Test*`, `func Benchmark*`, `func Example*`, `func Fuzz*`, `t.Run()`, `b.Run()`, `*_test.go` |
+| **Java** | JUnit 4/5, TestNG | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate`, `@Before*`, `@After*`, `@Nested`, `@DataProvider` |
+| **Kotlin** | JUnit 4/5, TestNG, Kotest | `@Test`, `@ParameterizedTest`, `@Before*`, `@After*`, Kotest `FunSpec`, `StringSpec`, `BehaviorSpec`, `DescribeSpec`, `ShouldSpec`, `WordSpec`, `FreeSpec`, `FeatureSpec`, `ExpectSpec` |
+| **C** | Google Test, Catch2, Doctest, Unity/Check | `TEST()`, `TEST_F()`, `TEST_CASE()`, `SCENARIO()`, `SECTION()`, `SUBCASE()`, `START_TEST()`, `test_*` functions |
+| **C++** | Google Test, Catch2, Doctest, Boost.Test | `TEST()`, `TEST_F()`, `TEST_P()`, `TYPED_TEST()`, `TEST_CASE()`, `SCENARIO()`, `TEST_SUITE()`, `SUBCASE()`, `BOOST_AUTO_TEST_CASE()`, `BOOST_FIXTURE_TEST_CASE()` |
+| **Python** | pytest, unittest | `def test_*`, `async def test_*`, `class Test*`, `unittest.TestCase` subclasses, `@pytest.*`, `@unittest.*` stacked decorators |
+| **Zig** | Built-in | `test "..." { ... }`, `test { ... }`, `test Identifier { ... }` blocks |
+| **JavaScript** | Jest, Mocha, Jasmine, Vitest, Deno | `describe()`, `it()`, `test()`, `suite()`, `.only`/`.skip`/`.each`/`.concurrent` chains, `Deno.test()`, lifecycle hooks |
+| **TypeScript** | Jest, Mocha, Jasmine, Vitest, Deno | `describe()`, `it()`, `test()`, `suite()`, `.only`/`.skip`/`.each`/`.concurrent` chains, `Deno.test()`, lifecycle hooks |
+| **Scala** | ScalaTest, MUnit, Specs2, ZIO Test | `AnyFunSuite`, `AnyFlatSpec`, `AnyWordSpec`, `AnyFreeSpec`, `AnyFunSpec`, `AnyPropSpec`, `FunSuite`, `Specification`, `ZIOSpecDefault`, `test()`, `describe()`, `suite()` |
+| **Haskell** | HSpec, Tasty, QuickCheck, Hedgehog, HUnit | `describe`, `it`, `specify`, `context`, `testCase`, `testGroup`, `testProperty`, `prop_*` signatures & bindings |
+| **C#** | NUnit, xUnit, MSTest | `[Test]`, `[Fact]`, `[Theory]`, `[TestCase]`, `[TestCaseSource]`, `[InlineData]`, `[MemberData]`, `[ClassData]`, `[TestClass]`, `[TestMethod]`, `[DataTestMethod]`, `[TestFixture]`, `[SetUp]`, `[TearDown]` |
+| **F#** | NUnit, xUnit, MSTest, Expecto | `[<Test>]`, `[<Fact>]`, `[<Theory>]`, `[<TestCase>]`, `[<Property>]`, `test`, `testCase`, `testCaseAsync`, `testList`, `testTheory`, `testProperty`, `ftest*`, `ptest*` |
+| **Dart** | Built-in test package, Flutter | `test()`, `group()`, `testWidgets()`, `setUp()`, `tearDown()`, `setUpAll()`, `tearDownAll()` with callbacks |
+| **Elixir** | ExUnit | `test`, `describe`, `setup`, `setup_all`, `doctest` (`do ... end` and `, do:` forms) |
+| **Ruby** | RSpec, Minitest, Test::Unit | `RSpec.describe`, `describe`, `context`, `it`, `specify`, `example`, `before`, `after`, `let`, `let!`, `subject`, `def test_*`, `class ... < Minitest::Test` |
+| **PHP** | PHPUnit, Pest, Codeception | `#[Test]`, `#[DataProvider]`, `@test`, `extends TestCase`, `function test*()`, `setUp()`, `tearDown()`, Pest `test()`, `it()`, `describe()` |
+| **Swift** | XCTest, Swift Testing, Quick/Nimble | `@Test`, `@Suite`, `XCTestCase` subclasses, `func test*()`, `setUp*()`, `tearDown*()`, `describe()`, `context()`, `it()` |
+| **Objective-C** | XCTest | `XCTestCase` subclasses, `- (void)test*`, `setUp`, `tearDown` |
+| **R** | testthat, RUnit | `test_that()`, `describe()`, `it()`, `test.* <- function()` |
+| **Julia** | Built-in Test | `@testset`, `@test`, `@test_throws`, `@test_broken`, `@test_skip`, `@test_warn`, `@test_nowarn`, `@inferred` |
+| **Perl** | Test::More, Test::Class, Test::Spec | `subtest`, `sub test_*`, `: Test(...)` / `: Tests(...)` attributes, `describe`, `context`, `it`, `they` |
+| **OCaml** | OUnit2, Alcotest, Jane Street PPX | `let%test`, `let%test_unit`, `let%test_module`, `let%expect_test`, `test_case`, `>::`, `>:::` |
+| **Erlang** | EUnit, Common Test | `*_test()`, `*_test_()`, `all()`, `groups()`, `init_per_suite()`, `end_per_suite()`, `init_per_testcase()`, `end_per_testcase()` |
+| **Nim** | unittest | `suite`, `test`, `setup:`, `teardown:`, `check()` |
+| **Clojure** | clojure.test, Expectations, Midje | `(deftest ...)`, `(deftest- ...)`, `(testing ...)`, `(defexpect ...)`, `(facts ...)`, `(fact ...)` |
+| **D** | Built-in | `unittest { ... }` (including attributed and `version(unittest)` blocks) |
+| **Lua** | Busted, Lust, LuaUnit | `describe()`, `insulate()`, `expose()`, `context()`, `it()`, `spec()`, `test()`, `pending()`, `setup()`, `teardown()`, `before_each()`, `after_each()`, `function test*()`, `Test*:test*()` |
+| **Elm** | elm-test | `suite : Test`, `describe`, `test`, `fuzz`, `fuzz2`, `fuzz3`, `fuzzWith`, `todo` |
+| **Bash** | BATS, shUnit2, bashunit | `@test "..." { ... }`, `test_*() { ... }`, `test*() { ... }`, `function test_*`, `oneTimeSetUp()`, `setUp()`, `tearDown()`, `set_up()`, `tear_down()` |
 
 ### Example: Finding Production Code Only
 
@@ -423,9 +432,9 @@ cgrep --tests-only "mock" -r .
 
 CGrep supports a wide range of programming languages and file formats:
 
-**Programming Languages:** C, C++, C#, Java, Kotlin, Scala, JavaScript, TypeScript, CoffeeScript, Python, Ruby, Perl, PHP, Go, Rust, Haskell, OCaml, F#, Erlang, Elixir, Clojure, Lisp, Scheme, Lua, R, Julia, Dart, Nim, Zig, D, Swift, Objective-C, Chapel, Awk, Shell scripts (Bash, Fish)
+**Programming Languages:** C, C++, C#, Java, Kotlin, Scala, JavaScript, TypeScript, CoffeeScript, Python, Ruby, Perl, PHP, Go, Rust, Haskell, OCaml, F#, Erlang, Elixir, Elm, Clojure, Lisp, Scheme, Lua, R, Julia, Dart, Nim, Zig, D, Swift, Objective-C, Chapel, Awk, Shell scripts (Bash, Fish, Ksh, Zsh)
 
-**Markup & Config:** HTML, XML, LaTeX, Markdown, YAML, JSON, TOML, INI, Dhall, CMake, Makefile, Cabal
+**Markup & Config:** HTML, XML, LaTeX, Markdown, YAML, JSON, TOML, INI, Dhall, CMake, Makefile, Cabal, ProtoBuf
 
 To see the complete list of supported file types:
 

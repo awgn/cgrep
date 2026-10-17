@@ -30,11 +30,25 @@ class Calculator {
     var cgrep_prod_4 = 4;
     _value = 0;
   }
+
+  // Regular class method named test() with default parameter - NOT a test block!
+  bool test(String cgrep_prod_5) {
+    var cgrep_prod_6 = 6;
+    return cgrep_prod_5.isNotEmpty;
+  }
+}
+
+// Regular production function calling a method `.test(...)` and `.group(...)` - NOT a test!
+bool validateInput(Calculator calc, RegExp regex) {
+  var cgrep_prod_7 = 'hello';
+  var match = regex.firstMatch(cgrep_prod_7);
+  var cgrep_prod_8 = 1;
+  return calc.test(cgrep_prod_7) && (match?.group(cgrep_prod_8) != null);
 }
 
 // Test cases using test()
 void main() {
-  var cgrep_prod_5 = 5;
+  var cgrep_prod_9 = 9;
   test('addition works correctly', () {
     var cgrep_test_1 = 1;
     final result = add(2, 3);
@@ -49,7 +63,7 @@ void main() {
 
   // Helper function inside main (not a test)
   String formatNumber(int n) {
-    var cgrep_prod_6 = 6;
+    var cgrep_prod_10 = 10;
     return n.toString();
   }
 
@@ -89,66 +103,49 @@ void main() {
         expect(add(0, 0), equals(0));
       });
 
-      test('handles negatives', () {
-        var cgrep_test_10 = 10;
-        expect(add(-5, 5), equals(0));
-      });
+      // Expression-bodied test callback `() => expect(...)`
+      test('handles negatives', () => expect(add(-5, 5), equals(cgrep_test_10)));
     });
   });
 }
 
 // Regular function outside tests
 List<int> filterPositive(List<int> numbers) {
-  var cgrep_prod_7 = 7;
+  var cgrep_prod_11 = 11;
   return numbers.where((n) => n > 0).toList();
-}
-
-// Helper class
-class Person {
-  final String name;
-  final int age;
-
-  Person(this.name, this.age);
 }
 
 // Widget tests (Flutter)
 void widgetTests() {
-  var cgrep_prod_8 = 8;
+  var cgrep_prod_12 = 12;
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     var cgrep_test_11 = 11;
-    // Widget test code here
     expect(true, isTrue);
   });
 
   testWidgets('Widget displays correct text', (WidgetTester tester) async {
     var cgrep_test_12 = 12;
-    // More widget test code
     expect(1 + 1, equals(2));
   });
 }
 
-// More helper code
-String reverseString(String s) {
-  var cgrep_prod_9 = 9;
-  return s.split('').reversed.join('');
-}
 // =========================================================================
 // --- CGREP SEMANTIC TESTS (appended) ---
 // =========================================================================
 
 int compute_cgrep(int x) {
-  var cgrep_prod_10 = 10;
+  var cgrep_prod_13 = 13;
   return x * 2;
 }
 
 // Name contains "test" but is a regular function
 int runTestHarness_cgrep(int x) {
-  var cgrep_prod_11 = 11;
+  var cgrep_prod_14 = 14;
   return x + 1;
 }
 
 void dartTests_cgrep() {
-  var cgrep_prod_12 = 12;
+  var cgrep_prod_15 = 15;
   setUp(() {
     var cgrep_test_13 = 13;
   });
@@ -186,6 +183,6 @@ void dartTests_cgrep() {
 
 // Production code after tests
 int tripled_cgrep(int x) {
-  var cgrep_prod_13 = 13;
+  var cgrep_prod_16 = 16;
   return x * 3;
 }
