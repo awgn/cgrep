@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
@@ -16,33 +15,10 @@ import CGrep.Parser.Token (
  )
 import CGrep.Semantic.Tests.Common
 import qualified Data.Text as T
-import System.OsPath (OsPath, osp, splitDirectories, takeBaseName, takeFileName)
-import qualified System.OsString as OS
+
 instance LanguageTestFilter 'Java where
-    isTestFile = isJavaTestFilePath
     langFilter Nothing tokens = tokens
     langFilter (Just keepTests) tokens = processOutsideJava keepTests tokens
-
--- | Checks if a Java file path is a test file according to Maven/Gradle conventions
--- (e.g. under `test/` or `tests/` directory, or named `*Test.java`, `*Tests.java`,
--- `*TestCase.java`, `Test*.java`, `*IT.java`).
-isJavaTestFilePath :: OsPath -> Bool
-isJavaTestFilePath path =
-    let parts = splitDirectories path
-        dirs  = case reverse parts of
-                    (_:ds) -> ds
-                    []     -> []
-        base  = takeBaseName path
-        inTestDir  = any (\d -> let n = takeFileName d in n == [osp|test|] || n == [osp|tests|]) dirs
-        isTestName =
-            base == [osp|Test|]
-                || base == [osp|Tests|]
-                || ([osp|Test|] `OS.isPrefixOf` base)
-                || ([osp|Test|] `OS.isSuffixOf` base)
-                || ([osp|Tests|] `OS.isSuffixOf` base)
-                || ([osp|TestCase|] `OS.isSuffixOf` base)
-                || ([osp|IT|] `OS.isSuffixOf` base)
-    in inTestDir || isTestName
 
 -- | (Java) Helper: Processes tokens *outside* a test method.
 processOutsideJava :: Bool -> [Token] -> [Token]

@@ -66,3 +66,19 @@ public:
         int cgrep_prod_5 = 5;
     }
 };
+
+// 13. Conditional calling a test_check() helper in production (False Positive check)
+void prod_with_if_condition() {
+    if (test_condition_is_ready()) {
+        int cgrep_prod_6 = 6;
+    }
+}
+
+// 14. doctest / Boost.Test macros
+SUBCASE("doctest subcase") {
+    int cgrep_test_8 = 8;
+}
+
+BOOST_AUTO_TEST_CASE(boost_test_example) {
+    int cgrep_test_9 = 9;
+}
