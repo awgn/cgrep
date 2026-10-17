@@ -1,181 +1,96 @@
 // Swift test example file
 
 import XCTest
+import Testing
 
 // Regular helper class (not a test)
 class MathHelper {
     static func add(_ a: Int, _ b: Int) -> Int {
+        let cgrep_prod_1 = 1
         return a + b
     }
-    
+
     static func multiply(_ x: Int, _ y: Int) -> Int {
+        let cgrep_prod_2 = 2
         return x * y
-    }
-    
-    static func factorial(_ n: Int) -> Int {
-        if n <= 0 {
-            return 1
-        }
-        return n * factorial(n - 1)
     }
 }
 
 // Regular class (not a test)
 class Calculator {
     private var value: Int = 0
-    
+
     init(initial: Int = 0) {
         self.value = initial
     }
-    
+
     func add(_ n: Int) -> Calculator {
+        let cgrep_prod_3 = 3
         value += n
         return self
     }
-    
+
     func getValue() -> Int {
+        let cgrep_prod_4 = 4
         return value
     }
-    
-    func reset() {
-        value = 0
+}
+
+// Production struct whose name contains "Test" as part of a domain word (`Testimonial`):
+// NOT a test struct!
+struct Testimonial {
+    let author: String
+
+    func format() -> String {
+        let cgrep_prod_5 = 5
+        return author
     }
 }
 
-// XCTest test class
-class MathHelperTests: XCTestCase {
-    
-    func testAddition() {
-        let result = MathHelper.add(2, 3)
-        XCTAssertEqual(result, 5)
-    }
-    
-    func testMultiplication() {
-        let result = MathHelper.multiply(4, 5)
-        XCTAssertEqual(result, 20)
-    }
-    
-    func testFactorialCalculation() {
-        let result = MathHelper.factorial(5)
-        XCTAssertEqual(result, 120)
-    }
-    
-    func testFactorialOfZero() {
-        let result = MathHelper.factorial(0)
-        XCTAssertEqual(result, 1)
-    }
+// Production function whose name starts with lowercase `test` as part of a word (`testify`):
+// NOT an XCTest method!
+func testifyAccount() -> Int {
+    let cgrep_prod_6 = 6
+    return cgrep_prod_6
 }
 
-// Helper function (not a test)
-func processData(_ array: [Int]) -> [Int] {
-    return array.filter { $0 > 0 }.map { $0 * 2 }
+// Production function with non-test attribute whose argument references `Test`:
+// NOT a Swift Testing `@Test` attribute!
+@CustomAttr(mode: Test)
+func legacyProductionFunc() -> Int {
+    let cgrep_prod_7 = 7
+    return cgrep_prod_7
 }
 
-// XCTest for Calculator
-class CalculatorTests: XCTestCase {
-    
-    func testInitialValueIsZero() {
-        let calc = Calculator()
-        XCTAssertEqual(calc.getValue(), 0)
-    }
-    
-    func testCanBeInitializedWithValue() {
-        let calc = Calculator(initial: 10)
-        XCTAssertEqual(calc.getValue(), 10)
-    }
-    
-    func testAddWorksCorrectly() {
-        let calc = Calculator()
-        calc.add(5).add(10)
-        XCTAssertEqual(calc.getValue(), 15)
-    }
-    
-    func testHandlesNegativeNumbers() {
-        let calc = Calculator()
-        calc.add(-5)
-        XCTAssertEqual(calc.getValue(), -5)
-    }
-    
-    func testResetWorks() {
-        let calc = Calculator()
-        calc.add(100)
-        calc.reset()
-        XCTAssertEqual(calc.getValue(), 0)
-    }
+// Protocol with `func testSomething()` requirement (no body `{}`) followed by a production struct:
+// Must NOT swallow the subsequent production struct's `{ ... }`!
+protocol Verifiable {
+    func testConnection() -> Bool
 }
 
-// Regular class (not a test)
-class StringHelper {
-    static func reverse(_ str: String) -> String {
-        return String(str.reversed())
-    }
-    
-    static func capitalize(_ str: String) -> String {
-        return str.uppercased()
+struct ProdStructAfterProtocol {
+    func keepMe() -> Int {
+        let cgrep_prod_8 = 8
+        return cgrep_prod_8
     }
 }
-
-// XCTest for StringHelper
-class StringHelperTests: XCTestCase {
-    
-    func testReverseString() {
-        let result = StringHelper.reverse("hello")
-        XCTAssertEqual(result, "olleh")
-    }
-    
-    func testCapitalizeString() {
-        let result = StringHelper.capitalize("world")
-        XCTAssertEqual(result, "WORLD")
-    }
-    
-    func testEmptyString() {
-        let result = StringHelper.reverse("")
-        XCTAssertEqual(result, "")
-    }
-}
-
-// Helper struct
-struct Person {
-    let name: String
-    let age: Int
-    
-    func greeting() -> String {
-        return "Hello, I'm \(name)"
-    }
-}
-
-// Helper function
-func formatNumber(_ n: Double) -> String {
-    return String(format: "%.2f", n)
-}
-
-// More helper code
-extension Array where Element == Int {
-    func doubled() -> [Int] {
-        return self.map { $0 * 2 }
-    }
-}
-// =========================================================================
-// --- CGREP SEMANTIC TESTS (appended) ---
-// =========================================================================
-
-import Testing
 
 class ProductionCode_Cgrep {
     func compute(x: Int) -> Int {
-        let cgrep_prod_1 = 1
+        let cgrep_prod_9 = 9
         return x * 2
     }
 
     func runTestHarness(x: Int) -> Int {
-        let cgrep_prod_2 = 2
+        let cgrep_prod_10 = 10
         return x + 1
     }
 }
 
-// Swift Testing (macro based)
-@Test func macroTestCgrep() {
+// Swift Testing (macro based), including default closure parameter `= {}` in signature!
+@Test func macroTestCgrep(onComplete: () -> Void = {}) {
     let cgrep_test_1 = 1
+    onComplete()
     #expect(1 == 1)
 }
 
@@ -196,31 +111,40 @@ struct SuiteCgrep {
     }
 }
 
+// Generic XCTestCase subclass `class GenericSpec<T>: XCTestCase`
+// (where class name does NOT contain "Test"!)
+class GenericSpec<T>: XCTestCase {
+    func helperInGenericSpec() -> Int {
+        let cgrep_test_5 = 5
+        return cgrep_test_5
+    }
+}
+
 class ClassicXCTest_Cgrep: XCTestCase {
     override func setUp() {
-        let cgrep_test_5 = 5
-    }
-    
-    override func tearDown() {
         let cgrep_test_6 = 6
     }
-    
-    override class func setUp() {
+
+    override func tearDown() {
         let cgrep_test_7 = 7
     }
-    
-    override class func tearDown() {
+
+    override class func setUp() {
         let cgrep_test_8 = 8
     }
 
-    func testClassicCgrep() {
+    override class func tearDown() {
         let cgrep_test_9 = 9
+    }
+
+    func testClassicCgrep() {
+        let cgrep_test_10 = 10
     }
 }
 
 class FinalProduction_Cgrep {
     func tripled(x: Int) -> Int {
-        let cgrep_prod_3 = 3
+        let cgrep_prod_11 = 11
         return x * 3
     }
 }
