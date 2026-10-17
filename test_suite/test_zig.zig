@@ -100,3 +100,9 @@ const MyStructCgrep = struct {
         try std.testing.expect(true);
     }
 };
+
+// Decl-named test (Zig 0.11+ syntax: `test identifier { ... }`)
+test add_cgrep {
+    const cgrep_test_4 = 4;
+    try std.testing.expect(add_cgrep(1, 2) == 3);
+}
