@@ -23,5 +23,9 @@ BEGIN {
 END {
     # Print the final count of matching lines
     print "--- Summary ---"
-    print "Total matching lines found: " count
+    if (count > 0) {
+        print "Total matching lines found: " count
+    } else {
+        print "No matching lines"
+    }
 }

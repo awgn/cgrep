@@ -10,6 +10,19 @@ Maecenas elementum duis porttitor facilisis lectus eleifend nec. Arcu et pellent
 tellus non tristique suscipit nec. Tempor iaculis orci nec enim ac.
 --]]
 
+local function compute(x, label)
+    local base = 42
+    local tag = "default"
+    if x > 0 then
+        return x + base
+    else
+        return 0
+    end
+end
+
+local count = 10
+local res = compute(count, "prod")
+
     print "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\""
     print 'Sed etiam a suspendisse. "Aliquam nulla erat risus.'
 
@@ -17,4 +30,3 @@ tellus non tristique suscipit nec. Tempor iaculis orci nec enim ac.
     print [==[Sed etiam a suspendisse. [=[ Aliquam nulla erat risus. ]==]
     print [=[Sed etiam a suspendisse. [[ Aliquam nulla erat risus. ]=]
     print [[Sed etiam a suspendisse. Aliquam nulla erat risus. ]]
-

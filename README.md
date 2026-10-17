@@ -3,11 +3,18 @@
 [![Hackage](https://img.shields.io/hackage/v/cgrep.svg?style=flat)](https://hackage.haskell.org/package/cgrep)
 [![Join the chat at https://gitter.im/awgn/cgrep](https://badges.gitter.im/awgn/cgrep.svg)](https://gitter.im/awgn/cgrep?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-**Version 9.3.0** - A powerful, context-aware search tool designed specifically for source code.
+**Version 9.3.1** - A powerful, context-aware search tool designed specifically for source code.
 
 CGrep extends the capabilities of traditional grep by understanding the structure and semantics of source code across multiple programming languages. It allows developers to search within specific contexts like code, comments, or string literals, and provides advanced pattern matching with semantic awareness.
 
 ---
+
+## What's New in Version 9.3.1 (powered by Google Argon 4)
+
+- **New Semantic Wildcards (`TYP`, `OP`, `LIT`)** - Match native types (`TYP`), operators (`OP`), and any string or numeric literal (`LIT`, distinct from `STR` which matches only string literals).
+- **Structural Ellipsis Operator (`...`)** - Match zero or more tokens across expressions, argument lists, or statements while automatically respecting balanced brackets (`()`, `[]`, `{}`) and statement boundaries (`;`).
+- **Semantic Combinators (`NOT`, `OR`)** - Combine or negate semantic atoms and wildcards directly in `-S` patterns (e.g., `TYP OR KEY _ ( ... )`, `_ = NOT STR`, `STR OR NUM`).
+- **Improved Placeholder Unification (`_`, `_0`, `_1`, ...)** - Language-agnostic unification for numbered identifier placeholders and preserved leading underscores on normal identifiers (`_foo`, `__init__`).
 
 ## What's New in Version 9.3.0 (powered by Google Argon 4)
 
@@ -63,7 +70,7 @@ stack install
 ## Usage
 
 ```
-cgrep 9.3.0 - Usage: cgrep [OPTION] [PATTERN] files...
+cgrep 9.3.1 - Usage: cgrep [OPTION] [PATTERN] files...
 
 Usage: cgrep [--file FILE] [-w|--word] [-p|--prefix] [-s|--suffix] [-e|--edit]
              [-G|--regex] [-i|--ignore-case] [-c|--code] [-m|--comment]
@@ -108,8 +115,8 @@ Available options:
   --prune-dir DIR          Do not descend into dir
   -r,--recursive           Enable recursive search (don't follow symlinks)
   -L,--follow              Follow symlinks
-  -S,--semantic            "code" pattern: _, _1, _2... (identifiers), ANY, KEY,
-                           STR, LIT, NUM, HEX, OCT
+  -S,--semantic            "code" pattern: _, _1, _2... (identifiers), ..., ANY,
+                           KEY, TYP, OP, STR, LIT, NUM, HEX, OCT, OR, NOT
   --strict                 Enable strict semantic for operators
   --max-count INT          Stop search in files after INT matches
   --force-type TYPE        Force the type of file
@@ -247,21 +254,42 @@ This feature automatically detects and filters test code based on language-speci
 
 ### Semantic Search
 
-Semantic search allows you to match code patterns using wildcards:
+Semantic search (`-S` / `--semantic`) allows you to match structural code patterns using wildcards and combinators:
 
-- `_`, `_1`, `_2`, ... : Match any identifier
-- `ANY` : Match any token
+- `_` : Match any identifier (anonymous wildcard)
+- `_0`, `_1`, `_2`, ... : Match any identifier with unification (same placeholder in a pattern must bind to the same identifier token)
+- `...` : Match zero or more tokens (bracket-balanced across `()`, `[]`, `{}` and stopping at `;` at top depth)
+- `ANY` : Match any single token
 - `KEY` : Match any keyword
+- `TYP` : Match any native type
+- `OP` : Match any operator
 - `STR` : Match any string literal
-- `LIT` : Match any literal
+- `LIT` : Match any literal (string or number)
 - `NUM` : Match any number
 - `HEX` : Match any hexadecimal number
 - `OCT` : Match any octal number
+- `NOT <atom>` : Match any token that does not match `<atom>`
+- `<atom1> OR <atom2>` : Match either `<atom1>` or `<atom2>`
+
+*(Prefix any wildcard or combinator keyword with `_`, e.g. `_ANY`, `_NOT`, `_OR`, to search for it as a literal identifier.)*
 
 Find variable assignments with numeric literals:
 
 ```bash
 cgrep -S "_ = NUM" *.c
+```
+
+Find self-assignments (`x = x`) using unified placeholders:
+
+```bash
+cgrep -S "_1 = _1" *.c
+```
+
+Find function calls or definitions with arbitrary arguments using `...` and combinators:
+
+```bash
+cgrep -S "TYP OR KEY _ ( ... )" *.c
+cgrep -S "_ = NOT STR" *.py
 ```
 
 ### Advanced Pattern Matching

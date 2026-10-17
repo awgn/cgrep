@@ -16,8 +16,17 @@
  */
 
 <?php
+function compute($x, $label) {
+    $base = 42;
+    $tag = "default";
+    if ($x > 0) {
+        return $x + $base;
+    }
+    return 0;
+}
+
+$count = 10;
+$res = compute($count, "prod");
 echo "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\""; 
 echo 'Sed etiam a suspendisse. "Aliquam nulla erat risus."'; 
 ?>
-
-

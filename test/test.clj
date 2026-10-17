@@ -5,6 +5,7 @@
 ;; Reserved Keyword: 'def' is a special form for defining a variable (Var).
 ;; Identifier: 'greeting-message'
 (def greeting-message "Hello from Clojure!") ; String Literal (double quotes)
+(def default-count (int 42)) ; Native type 'int' and numeric literal
 
 ;; 1. Multi-line String Literal (not standard, but common via function, or triple quotes in some contexts)
 ;; Since triple quotes aren't standard Clojure syntax, we show a standard string with a newline.

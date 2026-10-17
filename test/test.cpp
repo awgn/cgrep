@@ -10,6 +10,15 @@
  * tellus non tristique suscipit nec. Tempor iaculis orci nec enim ac.
  */
 
+double compute(int x, double scale)
+{
+    int offset = 42;
+    if (x > 0) {
+        return (x + offset) * scale;
+    }
+    return 0.0;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -17,6 +26,7 @@ main(int argc, char *argv[])
 
     const char * msg = "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
     const char * raw = R"P(This is a raw string)P";
+    int count = 10;
+    double result = compute(count, 2.5);
     return 0;
 }
-
