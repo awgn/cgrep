@@ -10,139 +10,95 @@ import Test.Tasty.QuickCheck
 
 -- Regular helper function (not a test)
 add :: Int -> Int -> Int
-add x y = x + y
+add x y =
+  let cgrep_prod_1 = 1
+  in x + y
 
 -- Another helper function
 multiply :: Int -> Int -> Int
-multiply x y = x * y
+multiply x y =
+  let cgrep_prod_2 = 2
+  in x * y
 
--- Helper function
-factorial :: Int -> Int
-factorial 0 = 1
-factorial n = n * factorial (n - 1)
+-- Helper function using `it` as a local variable name (NOT an Hspec test!)
+processWithIt :: Int -> Int
+processWithIt x =
+  let it = x + 1
+      cgrep_prod_3 = 3
+  in it * cgrep_prod_3
 
--- HSpec test suite
+-- HSpec test suite with internal type annotation `:: Int`
 spec :: Spec
 spec = do
   describe "Math operations" $ do
     it "adds two numbers correctly" $ do
+      let cgrep_test_1 = (1 :: Int)
+      let cgrep_test_2 = 2
       add 2 3 `shouldBe` 5
-      add 10 20 `shouldBe` 30
-    
+
     it "multiplies numbers" $ do
+      let cgrep_test_3 = 3
       multiply 4 5 `shouldBe` 20
-    
+
     context "when dealing with factorials" $ do
-      it "calculates factorial of 5" $ do
-        factorial 5 `shouldBe` 120
-      
-      it "handles zero" $ do
-        factorial 0 `shouldBe` 1
+      specify "handles zero" $ do
+        let cgrep_test_4 = 4
+        add 0 0 `shouldBe` 0
+
+  xit "disabled hspec test" $ do
+    let cgrep_test_5 = 5
+    add 1 1 `shouldBe` 2
+
+-- Standalone HSpec specify block
+standaloneSpec :: Spec
+standaloneSpec = specify "standalone specify block" $ do
+  let cgrep_test_6 = 6
+  add 3 3 `shouldBe` 6
 
 -- Regular data type (not a test)
 data Calculator = Calculator
   { value :: Int
   } deriving (Show, Eq)
 
--- Helper functions for Calculator
-makeCalculator :: Int -> Calculator
-makeCalculator n = Calculator { value = n }
-
-addToCalc :: Int -> Calculator -> Calculator
-addToCalc n calc = calc { value = value calc + n }
-
 -- QuickCheck properties
 prop_reverseReverse :: [Int] -> Bool
-prop_reverseReverse xs = reverse (reverse xs) == xs
+prop_reverseReverse xs =
+  let cgrep_test_7 = 7
+  in reverse (reverse xs) == xs
 
 prop_addCommutative :: Int -> Int -> Bool
-prop_addCommutative x y = add x y == add y x
+prop_addCommutative x y =
+  let cgrep_test_8 = 8
+  in add x y == add y x
 
-prop_multiplyAssociative :: Int -> Int -> Int -> Bool
-prop_multiplyAssociative x y z = multiply x (multiply y z) == multiply (multiply x y) z
-
--- Regular function
+-- Regular function with signature right after prop_*
 processData :: [Int] -> [Int]
-processData = filter (> 0) . map (* 2)
+processData xs =
+  let cgrep_prod_4 = 4
+  in filter (> 0) (map (* cgrep_prod_4) xs)
 
 -- Tasty test tree
 tests :: TestTree
 tests = testGroup "All Tests"
   [ testCase "addition works" $ do
+      let cgrep_test_9 = 9
       add 1 1 @?= 2
-      add 5 7 @?= 12
-  
-  , testCase "Calculator initialization" $ do
-      let calc = makeCalculator 10
-      value calc @?= 10
-  
+
+  , testCaseSteps "stepwise test" $ \step -> do
+      let cgrep_test_10 = 10
+      step "step 1"
+      add 2 2 @?= 4
+
   , testGroup "QuickCheck properties"
-      [ testProperty "reverse is involutive" prop_reverseReverse
-      , testProperty "addition is commutative" prop_addCommutative
-      ]
-  
-  , testGroup "Nested group"
-      [ testCase "nested test 1" $
-          multiply 2 3 @?= 6
-      , testCase "nested test 2" $
-          factorial 3 @?= 6
+      [ testProperty "reverse is involutive" $ \xs ->
+          let cgrep_test_11 = (11 :: Int)
+              cgrep_test_12 = 12
+          in reverse (reverse xs) == (xs :: [Int])
       ]
   ]
 
 -- Helper function at the end
 formatNumber :: Double -> String
-formatNumber n = show n ++ " units"
-
--- More regular code
-data Person = Person
-  { name :: String
-  , age :: Int
-  } deriving (Show, Eq)
-
-makePerson :: String -> Int -> Person
-makePerson n a = Person { name = n, age = a }
-
--- Main function (not a test, but test runner)
-main :: IO ()
-main = do
-  hspec spec
-  defaultMain tests
--- --- CGREP SEMANTIC TESTS ---
-
--- Normal function
-add_cgrep :: Int -> Int -> Int
-add_cgrep a b =
-    let cgrep_prod_1 = 1
-    in a + b
-
--- Hspec style tests
-hspecTestsCgrep :: Spec
-hspecTestsCgrep = describe "Math operations cgrep" $ do
-    let cgrep_test_1 = 1
-    it "adds two numbers correctly cgrep" $ do
-        add_cgrep 2 3 `shouldBe` 5
-    context "edge cases cgrep" $ do
-        add_cgrep 0 0 `shouldBe` 0
-
--- Tasty/HUnit style tests
-unitTestsCgrep :: TestTree
-unitTestsCgrep = testGroup "Unit tests cgrep"
-  [ testCase "Addition works cgrep" $
-      add_cgrep 2 3 @?= 5
-      let cgrep_test_2 = 2
-  ]
-
--- QuickCheck property tests (prop_ convention)
-prop_additionCommutativeCgrep :: Int -> Int -> Bool
-prop_additionCommutativeCgrep a b =
-    let cgrep_test_3 = 3
-    in add_cgrep a b == add_cgrep b a
-
--- QuickCheck properties using testProperty
-propertyTestsCgrep :: TestTree
-propertyTestsCgrep = testProperty "Addition is commutative cgrep" prop_additionCommutativeCgrep
-
-foo_cgrep :: Int -> Int
-foo_cgrep x =
-    let cgrep_prod_2 = 2
-    in x
+formatNumber n =
+  let cgrep_prod_5 = 5
+  in show n ++ " units"
