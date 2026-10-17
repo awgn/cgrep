@@ -16,66 +16,115 @@ import CGrep.Parser.Token (
     tToken,
  )
 import CGrep.Semantic.Tests.Common
+import Data.Text (Text)
 import qualified Data.Text as T
+
 instance LanguageTestFilter 'Julia where
     langFilter Nothing tokens = tokens
     langFilter (Just keepTests) tokens = processOutsideJulia keepTests tokens
 
+-- | Check if a macro identifier (after `@`) is a Julia test macro
+-- (`@test`, `@testset`, `@test_throws`, `@test_broken`, `@test_skip`, `@test_warn`,
+-- `@test_nowarn`, `@test_logs`, `@test_deprecated`, `@inferred`, `@testitem`, etc.)
+-- without matching unrelated words like `@testify`.
+isJuliaTestMacro :: Text -> Bool
+isJuliaTestMacro name =
+    name
+        `elem` ([ "test"
+                , "testset"
+                , "inferred"
+                , "testitem"
+                , "testmodule"
+                , "testsnippet"
+                ] :: [Text])
+        || "test_" `T.isPrefixOf` name
+
 -- | (Julia) Helper: Processes tokens *outside* a test block.
--- Recognizes:
---   1. @testset "..." begin ... end
---   2. @test expression
---
--- Julia uses Test standard library.
 processOutsideJulia :: Bool -> [Token] -> [Token]
-processOutsideJulia _ [] = [] -- End of stream
-
+processOutsideJulia _ [] = []
 -- Pattern 1: @test, @testset, @test_throws, etc.
-processOutsideJulia keepTests (t1:t2:ts)
-    | isTokenOperator t1 && tToken t1 == "@" &&
-      isTokenIdentifier t2 && ("test" `T.isPrefixOf` tToken t2)
-    =
+processOutsideJulia keepTests (t1 : t2 : ts)
+    | isTokenOperator t1 && tToken t1 == "@"
+    , isTokenIdentifier t2 && isJuliaTestMacro (tToken t2) =
         let (testTokens, remainingTokens) = collectJuliaTest ts
-        in if keepTests
-           then t1 : t2 : testTokens ++ processOutsideJulia keepTests remainingTokens
-           else processOutsideJulia keepTests remainingTokens
-
+         in if keepTests
+                then t1 : t2 : testTokens ++ processOutsideJulia keepTests remainingTokens
+                else processOutsideJulia keepTests remainingTokens
 -- No test found, process the current token
-processOutsideJulia keepTests (t:ts) =
+processOutsideJulia keepTests (t : ts) =
     if keepTests
-    then processOutsideJulia keepTests ts
-    else t : processOutsideJulia keepTests ts
+        then processOutsideJulia keepTests ts
+        else t : processOutsideJulia keepTests ts
 
 collectJuliaTest :: [Token] -> ([Token], [Token])
 collectJuliaTest [] = ([], [])
-collectJuliaTest (t:ts)
-    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "begin" || tToken t == "for") =
+collectJuliaTest (t : ts)
+    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "begin" || tToken t == "for" || tToken t == "let") =
         let (bodyTokens, remaining) = collectJuliaBlock 1 ts
-        in (t : bodyTokens, remaining)
+         in (t : bodyTokens, remaining)
     | isTokenBracket t && tToken t == "(" =
-        let (bodyTokens, remaining) = processInsideBrackets "(" ")" 1 ts
-        in (t : bodyTokens, remaining)
-    | isTokenOperator t && tToken t == "@" = ([], t:ts)
-    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "function" || tToken t == "struct" || tToken t == "mutable" || tToken t == "macro" || tToken t == "module" || tToken t == "end") = ([], t:ts)
+        let (parenTokens, afterParen) = processInsideBrackets "(" ")" 1 ts
+            (restTokens, remaining) = collectJuliaTest afterParen
+         in (t : parenTokens ++ restTokens, remaining)
+    | isTokenBracket t && tToken t == "[" =
+        let (bracketTokens, afterBracket) = processInsideBrackets "[" "]" 1 ts
+            (restTokens, remaining) = collectJuliaTest afterBracket
+         in (t : bracketTokens ++ restTokens, remaining)
+    | isTokenOperator t && tToken t == "@" = ([], t : ts)
+    | (isTokenKeyword t || isTokenIdentifier t)
+        && ( tToken t
+                `elem` ([ "function"
+                        , "struct"
+                        , "mutable"
+                        , "abstract"
+                        , "primitive"
+                        , "macro"
+                        , "module"
+                        , "baremodule"
+                        , "end"
+                        ] :: [Text])
+           ) =
+        ([], t : ts)
     | otherwise =
         let (collected, remaining) = collectJuliaTest ts
-        in (t : collected, remaining)
+         in (t : collected, remaining)
 
+-- | Collect tokens inside a Julia `begin ... end` / `for ... end` block,
+-- consuming `[...]` index expressions via `processInsideBrackets` so that
+-- array slice indexing like `arr[2:end]` does NOT decrement the `begin ... end` depth!
 collectJuliaBlock :: Int -> [Token] -> ([Token], [Token])
 collectJuliaBlock 0 ts = ([], ts)
 collectJuliaBlock _ [] = ([], [])
-collectJuliaBlock depth (t:ts)
-    | (isTokenKeyword t || isTokenIdentifier t) && (tToken t == "begin" || tToken t == "function" || tToken t == "struct" || tToken t == "macro" || tToken t == "let" || tToken t == "quote" || tToken t == "do" || tToken t == "if" || tToken t == "for" || tToken t == "while" || tToken t == "try") =
+collectJuliaBlock depth (t : ts)
+    | isTokenBracket t && tToken t == "[" =
+        let (bracketTokens, afterBracket) = processInsideBrackets "[" "]" 1 ts
+            (collected, remaining) = collectJuliaBlock depth afterBracket
+         in (t : bracketTokens ++ collected, remaining)
+    | (isTokenKeyword t || isTokenIdentifier t)
+        && ( tToken t
+                `elem` ([ "begin"
+                        , "function"
+                        , "struct"
+                        , "macro"
+                        , "let"
+                        , "quote"
+                        , "do"
+                        , "if"
+                        , "for"
+                        , "while"
+                        , "try"
+                        , "module"
+                        , "baremodule"
+                        ] :: [Text])
+           ) =
         let (collected, remaining) = collectJuliaBlock (depth + 1) ts
-        in (t : collected, remaining)
+         in (t : collected, remaining)
     | (isTokenKeyword t || isTokenIdentifier t) && tToken t == "end" =
         if depth == 1
-        then ([t], ts)
-        else
-            let (collected, remaining) = collectJuliaBlock (depth - 1) ts
-            in (t : collected, remaining)
+            then ([t], ts)
+            else
+                let (collected, remaining) = collectJuliaBlock (depth - 1) ts
+                 in (t : collected, remaining)
     | otherwise =
         let (collected, remaining) = collectJuliaBlock depth ts
-        in (t : collected, remaining)
-
--- ------------------------------------------------------------------
+         in (t : collected, remaining)

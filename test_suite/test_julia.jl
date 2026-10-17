@@ -142,6 +142,10 @@ function runTestHarness_cgrep(x)
   return x + 1
 end
 
+# Production macro whose name starts with `test` as part of a word (`@testify`):
+# NOT a Julia Test macro!
+@testify cgrep_prod_4 = 4
+
 # test blocks
 @testset "simple test cgrep" begin
   cgrep_test_1 = 1
@@ -172,4 +176,16 @@ end
 @test_throws ErrorException begin
   cgrep_test_6 = 6
   error("Test")
+end
+
+# `@test` with function call `( ... )` on LHS of `==`:
+# Must NOT stop collecting the test expression at `)` of `add(2, 3)`!
+@test add(2, 3) == cgrep_test_7
+
+# `@testset` using Julia's `arr[2:end]` array indexing inside `begin ... end`:
+# The `end` inside `[2:end]` must NOT prematurely close the `@testset` block!
+@testset "array slice indexing with end" begin
+  slice = [10, 20, 30][2:end]
+  cgrep_test_8 = 8
+  @test length(slice) == 2
 end
