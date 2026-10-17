@@ -108,6 +108,7 @@ executable cgrep
     CGrep.Semantic.Tests.Javascript
     CGrep.Semantic.Tests.Julia
     CGrep.Semantic.Tests.Kotlin
+    CGrep.Semantic.Tests.Lua
     CGrep.Semantic.Tests.Nim
     CGrep.Semantic.Tests.OCaml
     CGrep.Semantic.Tests.PHP

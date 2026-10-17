@@ -26,6 +26,7 @@ import CGrep.Semantic.Tests.Java ()
 import CGrep.Semantic.Tests.Javascript ()
 import CGrep.Semantic.Tests.Julia ()
 import CGrep.Semantic.Tests.Kotlin ()
+import CGrep.Semantic.Tests.Lua ()
 import CGrep.Semantic.Tests.Nim ()
 import CGrep.Semantic.Tests.OCaml ()
 import CGrep.Semantic.Tests.PHP ()
@@ -68,4 +69,5 @@ filterTests filename fileType flag tokens =
         Nim        -> runLangFilter @'Nim filename flag tokens
         Clojure    -> runLangFilter @'Clojure filename flag tokens
         D          -> runLangFilter @'D filename flag tokens
+        Lua        -> runLangFilter @'Lua filename flag tokens
         _          -> tokens
