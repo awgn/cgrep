@@ -78,16 +78,15 @@ mkAtomFromToken t
 {-# INLINE isAtomPlaceholder #-}
 isAtomPlaceholder :: T.Text -> Bool
 isAtomPlaceholder s =
-    if
-        | Just (x, T.uncons -> Just (y, _)) <- T.uncons s -> wprefix x && isDigit y
-        | Just (x, "") <- T.uncons s -> wprefix x
-        | otherwise -> errorWithoutStackTrace "CGrep: isAtomIdentifier"
-  where
-    wprefix x = x == '$' || x == '_'
+    case T.uncons s of
+        Just ('_', "") -> True
+        Just ('_', xs) -> T.all isDigit xs
+        _ -> False
 
 unescapeAtom :: T.Text -> T.Text
-unescapeAtom (T.uncons -> Just ('$', xs)) = xs
-unescapeAtom (T.uncons -> Just ('_', xs)) = xs
+unescapeAtom s@(T.uncons -> Just ('_', xs))
+    | M.member xs wildCardMap || isAtomPlaceholder xs = xs
+    | otherwise = s
 unescapeAtom xs = xs
 {-# INLINE unescapeAtom #-}
 
@@ -111,10 +110,11 @@ extractSlice :: Int -> Int -> [a] -> [a]
 extractSlice i n xs = take n (drop i xs)
 {-# INLINE extractSlice #-}
 
--- The pattern _ matches any token, whereas _1, _2, etc. match tokens that must be equal across their respective occurrences.
+-- The pattern _ matches any identifier token, whereas _0, _1, _2, etc. match
+-- identifier tokens that must be equal across their respective occurrences.
 
 atomsCheckOccurrences :: [Atom] -> [T.Token] -> Bool
-atomsCheckOccurrences as ts = M.foldr checkAndFold True (m)
+atomsCheckOccurrences as ts = M.foldr checkAndFold True m
   where
     checkAndFold xs acc =
         acc && case xs of
@@ -124,16 +124,7 @@ atomsCheckOccurrences as ts = M.foldr checkAndFold True (m)
         M.mapWithKey
             ( \k xs ->
                 case k of
-                    Placeholder "_0" -> xs
-                    Placeholder "_1" -> xs
-                    Placeholder "_2" -> xs
-                    Placeholder "_3" -> xs
-                    Placeholder "_4" -> xs
-                    Placeholder "_5" -> xs
-                    Placeholder "_6" -> xs
-                    Placeholder "_7" -> xs
-                    Placeholder "_8" -> xs
-                    Placeholder "_9" -> xs
+                    Placeholder p | p /= "_" -> xs
                     _ -> []
             )
             $ M.fromListWith (<>)
