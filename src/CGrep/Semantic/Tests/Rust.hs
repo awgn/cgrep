@@ -19,6 +19,7 @@ import CGrep.Parser.Token (
 import CGrep.Semantic.Tests.Common
 import System.OsPath (OsPath, osp, splitDirectories, takeBaseName, takeFileName)
 import qualified System.OsString as OS
+
 instance LanguageTestFilter 'Rust where
     isTestFile = isRustTestModulePath
     langFilter Nothing tokens = tokens
@@ -31,10 +32,10 @@ instance LanguageTestFilter 'Rust where
 isRustTestModulePath :: OsPath -> Bool
 isRustTestModulePath path =
     let parts = splitDirectories path
-        dirs  = case reverse parts of
-                    (_:ds) -> ds
-                    []     -> []
-        base  = takeBaseName path
+        dirs = case reverse parts of
+            (_ : ds) -> ds
+            [] -> []
+        base = takeBaseName path
         inCargoTestDir = any (\d -> let n = takeFileName d in n == [osp|tests|] || n == [osp|benches|]) dirs
         isTestModFile =
             base == [osp|tests|]
@@ -42,36 +43,50 @@ isRustTestModulePath path =
                 || ([osp|_tests|] `OS.isSuffixOf` base)
                 || ([osp|-test|] `OS.isSuffixOf` base)
                 || ([osp|-tests|] `OS.isSuffixOf` base)
-    in inCargoTestDir || isTestModFile
+     in inCargoTestDir || isTestModFile
 
 -- | Extracts a single outer Rust attribute, e.g.: #[cfg(test)] or #[tokio::test]
 extractRustAttribute :: [Token] -> Maybe ([Token], [Token])
-extractRustAttribute (t1:t2:ts)
-    | isTokenOperator t1 && tToken t1 == "#" &&
-      isTokenBracket t2 && tToken t2 == "[" =
+extractRustAttribute (t1 : t2 : ts)
+    | isTokenOperator t1 && tToken t1 == "#"
+    , isTokenBracket t2 && tToken t2 == "[" =
         let (insideTokens, remaining) = processInsideBrackets "[" "]" 1 ts
-        in Just (t1 : t2 : insideTokens, remaining)
+         in Just (t1 : t2 : insideTokens, remaining)
 extractRustAttribute _ = Nothing
 
 -- | Extracts a single inner Rust attribute, e.g.: #![cfg(test)]
 -- Handles both strict mode (`#!` as single operator token) and non-strict mode (`#` + `!`).
 extractRustInnerAttribute :: [Token] -> Maybe ([Token], [Token])
-extractRustInnerAttribute (t1:t2:ts)
-    | isTokenOperator t1 && tToken t1 == "#!" &&
-      isTokenBracket t2 && tToken t2 == "[" =
+extractRustInnerAttribute (t1 : t2 : ts)
+    | isTokenOperator t1 && tToken t1 == "#!"
+    , isTokenBracket t2 && tToken t2 == "[" =
         let (insideTokens, remaining) = processInsideBrackets "[" "]" 1 ts
-        in Just (t1 : t2 : insideTokens, remaining)
-extractRustInnerAttribute (t1:t2:t3:ts)
-    | isTokenOperator t1 && tToken t1 == "#" &&
-      isTokenOperator t2 && tToken t2 == "!" &&
-      isTokenBracket t3 && tToken t3 == "[" =
+         in Just (t1 : t2 : insideTokens, remaining)
+extractRustInnerAttribute (t1 : t2 : t3 : ts)
+    | isTokenOperator t1 && tToken t1 == "#"
+    , isTokenOperator t2 && tToken t2 == "!"
+    , isTokenBracket t3 && tToken t3 == "[" =
         let (insideTokens, remaining) = processInsideBrackets "[" "]" 1 ts
-        in Just (t1 : t2 : t3 : insideTokens, remaining)
+         in Just (t1 : t2 : t3 : insideTokens, remaining)
 extractRustInnerAttribute _ = Nothing
 
--- | An attribute is a "test attribute" if the identifier "test" (or similar) exists within it.
+-- | Strip `not(...)` subtrees from attribute tokens so `#[cfg(not(test))]`
+-- (which marks production-only code!) is not mistaken for a test attribute.
+stripNegatedCfg :: [Token] -> [Token]
+stripNegatedCfg [] = []
+stripNegatedCfg (t1 : t2 : ts)
+    | (isTokenIdentifier t1 || isTokenKeyword t1) && tToken t1 == "not"
+    , isTokenBracket t2 && tToken t2 == "(" =
+        let (_, remaining) = processInsideBrackets "(" ")" 1 ts
+         in stripNegatedCfg remaining
+stripNegatedCfg (t : ts) = t : stripNegatedCfg ts
+
+-- | An attribute is a "test attribute" if the non-negated identifier "test" (or similar) exists within it.
 isTestAttribute :: [Token] -> Bool
-isTestAttribute = any (\t -> isTokenIdentifier t && (tToken t == "test" || tToken t == "rstest" || tToken t == "test_case"))
+isTestAttribute tokens =
+    any
+        (\t -> isTokenIdentifier t && (tToken t == "test" || tToken t == "rstest" || tToken t == "test_case"))
+        (stripNegatedCfg tokens)
 
 -- | Collects all contiguous outer attributes before a declaration.
 collectRustAttributes :: [Token] -> ([Token], Bool, [Token])
@@ -81,7 +96,7 @@ collectRustAttributes = go [] False
         case extractRustAttribute remaining of
             Just (attrTokens, rest) ->
                 let testAttr = isTestAttribute attrTokens
-                in go (acc ++ attrTokens) (isTest || testAttr) rest
+                 in go (acc ++ attrTokens) (isTest || testAttr) rest
             Nothing -> (acc, isTest, remaining)
 
 -- | Collects all contiguous inner attributes (#![...]) at the beginning of a module/block.
@@ -92,7 +107,7 @@ collectRustInnerAttributes = go [] False
         case extractRustInnerAttribute remaining of
             Just (attrTokens, rest) ->
                 let testAttr = isTestAttribute attrTokens
-                in go (acc ++ attrTokens) (isTest || testAttr) rest
+                 in go (acc ++ attrTokens) (isTest || testAttr) rest
             Nothing -> (acc, isTest, remaining)
 
 data RustItemTarget
@@ -107,9 +122,9 @@ findRustItemTarget :: Int -> [Token] -> RustItemTarget
 findRustItemTarget = go 0
   where
     go :: Int -> Int -> [Token] -> RustItemTarget
-    go _ 0 _  = RustNoTarget
+    go _ 0 _ = RustNoTarget
     go _ _ [] = RustNoTarget
-    go depth n (t:ts)
+    go depth n (t : ts)
         | isTokenBracket t && (tToken t == "(" || tToken t == "[") =
             step (depth + 1) (n - 1) t ts
         | isTokenBracket t && (tToken t == ")" || tToken t == "]") =
@@ -124,9 +139,9 @@ findRustItemTarget = go 0
     step :: Int -> Int -> Token -> [Token] -> RustItemTarget
     step d m tok rest =
         case go d m rest of
-            RustBraced pre post    -> RustBraced (tok : pre) post
+            RustBraced pre post -> RustBraced (tok : pre) post
             RustSemicolon pre post -> RustSemicolon (tok : pre) post
-            RustNoTarget           -> RustNoTarget
+            RustNoTarget -> RustNoTarget
 
 -- | (Rust) Helper: Processes tokens *outside* a test block.
 processOutsideRust :: Bool -> [Token] -> [Token]
@@ -135,56 +150,53 @@ processOutsideRust keepTests tokens
     | let (innerAttrs, isInnerTest, restAfterInner) = collectRustInnerAttributes tokens
     , not (null innerAttrs) =
         if isInnerTest
-        then
-            -- Inner test attribute (e.g. #![cfg(test)]): the entire enclosing module/file is test code
-            if keepTests
-            then tokens
-            else []
-        else
-            if keepTests
-            then processOutsideRust keepTests restAfterInner
-            else innerAttrs ++ processOutsideRust keepTests restAfterInner
+            then
+                -- Inner test attribute (e.g. #![cfg(test)]): the entire enclosing module/file is test code
+                if keepTests
+                    then tokens
+                    else []
+            else
+                if keepTests
+                    then processOutsideRust keepTests restAfterInner
+                    else innerAttrs ++ processOutsideRust keepTests restAfterInner
 processOutsideRust keepTests tokens =
     let (attrTokens, isTest, restAfterAttrs) = collectRustAttributes tokens
-    in if not (null attrTokens)
-       then
-           if isTest
-           then
-               case findRustItemTarget 50 restAfterAttrs of
-                   RustNoTarget ->
-                       if keepTests
-                       then processOutsideRust keepTests restAfterAttrs
-                       else attrTokens ++ processOutsideRust keepTests restAfterAttrs
-                   RustSemicolon declTokens finalRest ->
-                       if keepTests
-                       then attrTokens ++ declTokens ++ processOutsideRust keepTests finalRest
-                       else processOutsideRust keepTests finalRest
-                   RustBraced sigTokens restAfterBrace ->
-                       let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
-                       in if keepTests
-                          then attrTokens ++ sigTokens ++ bodyTokens ++ processOutsideRust keepTests finalRest
-                          else processOutsideRust keepTests finalRest
-           else
-               case findRustModInnerTest restAfterAttrs of
-                   Just (modTokens, finalRest) ->
-                       if keepTests
-                       then attrTokens ++ modTokens ++ processOutsideRust keepTests finalRest
-                       else processOutsideRust keepTests finalRest
-                   Nothing ->
-                       if keepTests
-                       then processOutsideRust keepTests restAfterAttrs
-                       else attrTokens ++ processOutsideRust keepTests restAfterAttrs
-       else
-           case findRustModInnerTest tokens of
-               Just (modTokens, finalRest) ->
-                   if keepTests
-                   then modTokens ++ processOutsideRust keepTests finalRest
-                   else processOutsideRust keepTests finalRest
-               Nothing ->
-                   let (t:ts) = tokens
-                   in if keepTests
-                      then processOutsideRust keepTests ts
-                      else t : processOutsideRust keepTests ts
+     in if not (null attrTokens)
+            then
+                if isTest
+                    then case findRustItemTarget 50 restAfterAttrs of
+                        RustNoTarget ->
+                            if keepTests
+                                then processOutsideRust keepTests restAfterAttrs
+                                else attrTokens ++ processOutsideRust keepTests restAfterAttrs
+                        RustSemicolon declTokens finalRest ->
+                            if keepTests
+                                then attrTokens ++ declTokens ++ processOutsideRust keepTests finalRest
+                                else processOutsideRust keepTests finalRest
+                        RustBraced sigTokens restAfterBrace ->
+                            let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
+                             in if keepTests
+                                    then attrTokens ++ sigTokens ++ bodyTokens ++ processOutsideRust keepTests finalRest
+                                    else processOutsideRust keepTests finalRest
+                    else case findRustModInnerTest restAfterAttrs of
+                        Just (modTokens, finalRest) ->
+                            if keepTests
+                                then attrTokens ++ modTokens ++ processOutsideRust keepTests finalRest
+                                else processOutsideRust keepTests finalRest
+                        Nothing ->
+                            if keepTests
+                                then processOutsideRust keepTests restAfterAttrs
+                                else attrTokens ++ processOutsideRust keepTests restAfterAttrs
+            else case findRustModInnerTest tokens of
+                Just (modTokens, finalRest) ->
+                    if keepTests
+                        then modTokens ++ processOutsideRust keepTests finalRest
+                        else processOutsideRust keepTests finalRest
+                Nothing ->
+                    let (t : ts) = tokens
+                     in if keepTests
+                            then processOutsideRust keepTests ts
+                            else t : processOutsideRust keepTests ts
 
 -- | Checks if the token stream starts with `[pub [(...)]] mod <ident> { #![cfg(test)] ... }`
 -- and if so returns the entire module tokens and the remaining tokens after `}`.
@@ -193,21 +205,21 @@ findRustModInnerTest tokens =
     case skipModHeader tokens of
         Just (hdrTokens, afterBrace) ->
             let (_, isInnerTest, _) = collectRustInnerAttributes afterBrace
-            in if isInnerTest
-               then
-                   let (bodyTokens, finalRest) = processInsideBraces 1 afterBrace
-                   in Just (hdrTokens ++ bodyTokens, finalRest)
-               else Nothing
+             in if isInnerTest
+                    then
+                        let (bodyTokens, finalRest) = processInsideBraces 1 afterBrace
+                         in Just (hdrTokens ++ bodyTokens, finalRest)
+                    else Nothing
         Nothing -> Nothing
   where
     skipModHeader :: [Token] -> Maybe ([Token], [Token])
-    skipModHeader (t1:t2:ts)
+    skipModHeader (t1 : t2 : ts)
         | isTokenKeyword t1 && tToken t1 == "pub" && isTokenBracket t2 && tToken t2 == "(" =
             let (visTokens, afterVis) = processInsideBrackets "(" ")" 1 ts
-            in case skipModDecl afterVis of
-                Just (modHdr, rest) -> Just (t1 : t2 : visTokens ++ modHdr, rest)
-                Nothing -> Nothing
-    skipModHeader (t1:ts)
+             in case skipModDecl afterVis of
+                    Just (modHdr, rest) -> Just (t1 : t2 : visTokens ++ modHdr, rest)
+                    Nothing -> Nothing
+    skipModHeader (t1 : ts)
         | isTokenKeyword t1 && tToken t1 == "pub" =
             case skipModDecl ts of
                 Just (modHdr, rest) -> Just (t1 : modHdr, rest)
@@ -215,11 +227,9 @@ findRustModInnerTest tokens =
     skipModHeader ts = skipModDecl ts
 
     skipModDecl :: [Token] -> Maybe ([Token], [Token])
-    skipModDecl (t1:t2:t3:ts)
-        | isTokenKeyword t1 && tToken t1 == "mod" &&
-          isTokenIdentifier t2 &&
-          isTokenBracket t3 && tToken t3 == "{" =
+    skipModDecl (t1 : t2 : t3 : ts)
+        | isTokenKeyword t1 && tToken t1 == "mod"
+        , isTokenIdentifier t2
+        , isTokenBracket t3 && tToken t3 == "{" =
             Just ([t1, t2, t3], ts)
     skipModDecl _ = Nothing
-
--- ------------------------------------------------------------------

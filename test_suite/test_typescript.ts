@@ -43,6 +43,13 @@ class Calculator {
   }
 }
 
+// Regular function named `test` with default arrow function in parameter list:
+// Preceded by `function`, NOT a Jest/Vitest `test(...)` call!
+function test(onDone: () => number = () => { const cgrep_prod_8 = 8; return cgrep_prod_8; }): number {
+  const cgrep_prod_9 = 9;
+  return onDone() + cgrep_prod_9;
+}
+
 // Regular production function using RegExp.prototype.test() - NOT a test!
 function validateEmail(email: string): boolean {
   const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -63,7 +63,7 @@ isJsTestModifier name =
                 , "for"
                 ] :: [Text])
 
--- | Check whether a sequence of tokens contains `=>` (either as single token `"= >"`
+-- | Check whether a sequence of tokens contains `=>` (either as single token `"=>"`
 -- in strict mode or two tokens `"="` `">"` in non-strict mode) or the `function` keyword.
 hasCallbackTokens :: [Token] -> Bool
 hasCallbackTokens [] = False
@@ -77,6 +77,15 @@ isCallbackSingleToken t =
     tToken t == "=>"
         || (isTokenKeyword t && tToken t == "function")
         || tToken t == "function"
+
+-- | Check if the tokens immediately following a `(...)` parameter list indicate a
+-- class method / function declaration body (`{ ... }` or `: ReturnType { ... }` in TS),
+-- rather than a test runner call `test('name', () => { ... });`.
+isFollowedByMethodBody :: [Token] -> Bool
+isFollowedByMethodBody (t : _)
+    | isTokenBracket t && tToken t == "{" = True
+    | isTokenOperator t && tToken t == ":" = True
+isFollowedByMethodBody _ = False
 
 -- | Consume optional chained modifiers `.only`, `.skip`, `.each(...)`, etc.,
 -- starting after the root test identifier (e.g. `describe`, `it`, `test`).
@@ -118,14 +127,15 @@ matchJsTestCall (tDot : tMod : rest) _
 matchJsTestCall (tOpen : afterOpen) seenMod
     | isTokenBracket tOpen && tToken tOpen == "(" =
         let (bodyTokens, remaining) = processInsideBrackets "(" ")" 1 afterOpen
-         in if hasCallbackTokens bodyTokens || seenMod
+         in if not (isFollowedByMethodBody remaining) && (hasCallbackTokens bodyTokens || seenMod)
                 then Just (tOpen : bodyTokens, remaining)
                 else Nothing
 matchJsTestCall _ _ = Nothing
 
 -- | (Javascript / TypeScript) Helper: Processes tokens *outside* a test block.
--- The `Bool` parameter `afterDot` tracks whether the immediately preceding token
--- was `.` (or `?.`), preventing `regex.test(...)` from being mistaken for a test block.
+-- The `Bool` parameter `prevBlocker` tracks whether the immediately preceding token
+-- was `.`, `?.`, or `function`, preventing `regex.test(...)` or `function test(...)`
+-- from being mistaken for a test block.
 processOutsideJavascript :: Bool -> Bool -> [Token] -> [Token]
 processOutsideJavascript _ _ [] = []
 processOutsideJavascript keepTests False (t1 : ts)
@@ -135,7 +145,9 @@ processOutsideJavascript keepTests False (t1 : ts)
             then t1 : callTokens ++ processOutsideJavascript keepTests False remainingTokens
             else processOutsideJavascript keepTests False remainingTokens
 processOutsideJavascript keepTests _ (t : ts) =
-    let isDot = isTokenOperator t && (tToken t == "." || tToken t == "?.")
+    let isBlocker =
+            (isTokenOperator t && (tToken t == "." || tToken t == "?."))
+                || ((isTokenKeyword t || isTokenIdentifier t) && tToken t == "function")
      in if keepTests
-            then processOutsideJavascript keepTests isDot ts
-            else t : processOutsideJavascript keepTests isDot ts
+            then processOutsideJavascript keepTests isBlocker ts
+            else t : processOutsideJavascript keepTests isBlocker ts

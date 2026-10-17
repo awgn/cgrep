@@ -33,6 +33,18 @@ class Calculator {
         const cgrep_prod_5 = 5;
         return cgrep_prod_4.length > 0;
     }
+
+    // Regular method named test() with default arrow callback parameter `= () => {}`:
+    // Followed by `{` (method body), so NOT a Jest/Vitest `test(...)` call!
+    testWithDefaultCallback(cgrep_prod_8 = () => {}) {
+        return cgrep_prod_8;
+    }
+}
+
+// Regular function named `test` with default arrow function in parameter list:
+// Preceded by `function` and followed by `{`, NOT a Jest/Mocha `test(...)` call!
+function test(onDone = () => { const cgrep_prod_9 = 9; return cgrep_prod_9; }) {
+    return onDone();
 }
 
 // Regular function using RegExp.prototype.test() - NOT a test!

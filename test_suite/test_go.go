@@ -29,9 +29,24 @@ func (suite *MyTestSuite) TestCalculation() {
 	var cgrep_test_3 = 3
 }
 
+// 4b. Testify method whose return type contains `struct{}` or `interface{}`:
+// Must NOT mistake the `{}` of `struct{}` in the return type for the function body!
+func (suite *MyTestSuite) TestReturnEmptyStruct() struct{} {
+	var cgrep_test_7 = 7
+	return struct{}{}
+}
+
 // 5. Normal method on a struct (Not a test)
 func (suite *MyTestSuite) SetupTest() {
 	var cgrep_prod_3 = 3
+}
+
+// 5b. Bodyless Go function declaration (e.g. assembly-backed) starting with `Test*`
+// followed by a normal production function: must NOT swallow the next function's `{ ... }`!
+func TestCpuFeatureSupport() bool
+
+func NormalAfterBodylessDecl() {
+	var cgrep_prod_4 = 4
 }
 
 // 6. Benchmark Test

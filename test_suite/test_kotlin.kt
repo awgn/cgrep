@@ -97,3 +97,15 @@ fun callNormalTestHelper() {
     val res = test("not a block")
     val cgrep_prod_4 = 4
 }
+
+// 10. Production Kotlin `when (status) { ... }` expression:
+// Must NEVER be mistaken for a Kotest `when("description") { ... }` block!
+fun evaluateStatus(status: Int): Int {
+    return when (status) {
+        1 -> {
+            val cgrep_prod_5 = 5
+            cgrep_prod_5
+        }
+        else -> 0
+    }
+}

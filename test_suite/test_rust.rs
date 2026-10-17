@@ -89,6 +89,13 @@ mod inner_attr_tests {
     }
 }
 
+// 13. Production-only function guarded by `#[cfg(not(test))]`:
+// `not(test)` means compiled ONLY in non-test builds (100% production code)!
+#[cfg(not(test))]
+pub fn prod_only_entrypoint() {
+    let cgrep_prod_6 = 6;
+}
+
 pub fn final_prod_fn() {
     let cgrep_prod_5 = 5;
 }

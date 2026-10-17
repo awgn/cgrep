@@ -73,6 +73,12 @@ public void annotatedProdMethod() {
     int cgrep_prod_4 = 4;
 }
 
+// 11b. Production method with domain annotation `@Testimonial` ("Test" followed by lowercase):
+@Testimonial
+public void domainTestimonialMethod() {
+    int cgrep_prod_5 = 5;
+}
+
 // 12. Test method with array braces inside parameter annotation
 @Test
 public void testWithParamArrayAnno(@MyAnno({1, 2}) String input) {
@@ -84,5 +90,12 @@ public void testWithParamArrayAnno(@MyAnno({1, 2}) String input) {
 class WhenSomethingHappens {
     void helperInNested() {
         int cgrep_test_9 = 9;
+    }
+}
+
+// 14. Generic JUnit 3 class extending TestCase (`class GenericLegacy<T> extends TestCase`)
+class GenericLegacy<T> extends TestCase {
+    public void testLegacy() {
+        int cgrep_test_10 = 10;
     }
 }

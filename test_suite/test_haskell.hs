@@ -71,6 +71,14 @@ prop_addCommutative x y =
   let cgrep_test_8 = 8
   in add x y == add y x
 
+-- Regular function referencing a `prop_*` identifier inside an expression (NOT defining it!):
+-- Must NOT swallow the rest of `verifyConfiguredProps` as a `prop_*` definition!
+verifyConfiguredProps :: Bool
+verifyConfiguredProps =
+  let ok = prop_reverseReverse [1, 2, 3]
+      cgrep_prod_6 = 6
+  in ok && (cgrep_prod_6 == 6)
+
 -- Regular function with signature right after prop_*
 processData :: [Int] -> [Int]
 processData xs =

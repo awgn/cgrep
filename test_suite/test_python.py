@@ -38,6 +38,13 @@ class HelperClass:
         self.value = 10
         self.test_variable = "Not a test" # false positive check
 
+# Production class starting with "Test" followed by lowercase (`Testimonial`):
+# NOT a pytest `Test*` class!
+class Testimonial:
+    def get_author(self):
+        cgrep_prod_7 = 7
+        return cgrep_prod_7
+
 # Test class with naming convention
 class TestMathOperations:
     def test_multiplication(self):
