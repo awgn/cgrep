@@ -36,7 +36,7 @@ import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Atom (
     Atom (..),
     findAllMatches,
-    mkAtomFromToken,
+    mkAtomsFromTokens,
  )
 import CGrep.Parser.Chunk
 import CGrep.Parser.Token
@@ -81,7 +81,7 @@ search lock info filename text patterns strict = do
                 }
 
     let patterns' = map (parseTokens pfilter (snd <$> info) strict . contextFilter) patterns
-        patterns'' = map (toList . (mkAtomFromToken <$>)) patterns'
+        patterns'' = map (mkAtomsFromTokens . toList) patterns'
 
     let matchers =
             mapMaybe

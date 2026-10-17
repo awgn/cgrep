@@ -19,17 +19,19 @@
 module CGrep.Parser.Atom (
     Atom (..),
     mkAtomFromToken,
+    mkAtomsFromTokens,
     findAllMatches,
     wildCardMap,
 ) where
 
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 
 import CGrep.Common (trimT)
 import CGrep.Distance ((~==))
 import CGrep.Parser.Char (isDigit)
 
 import Data.List (tails)
+import Data.Maybe (mapMaybe)
 
 import Options (
     Options (edit_dist, prefix_match, suffix_match, word_match),
@@ -42,6 +44,7 @@ import qualified Data.Text as T
 
 data Atom
     = Any
+    | Ellipsis
     | Keyword
     | NativeType
     | Operator
@@ -67,6 +70,27 @@ wildCardMap =
         , ("STR", String)
         , ("LIT", Literal)
         ]
+
+-- | Converts a sequence of pattern tokens into semantic Atoms, recognizing
+-- three contiguous dots `...` (or a single `"..."` token) as `Ellipsis`.
+mkAtomsFromTokens :: [T.Token] -> [Atom]
+mkAtomsFromTokens [] = []
+mkAtomsFromTokens (t1 : t2 : t3 : rest)
+    | T.tToken t1 == "."
+    , T.tToken t2 == "."
+    , T.tToken t3 == "."
+    , T.tOffset t2 == T.tOffset t1 + 1
+    , T.tOffset t3 == T.tOffset t2 + 1 =
+        collapseEllipsis (Ellipsis : mkAtomsFromTokens rest)
+mkAtomsFromTokens (t : rest)
+    | T.tToken t == "..." =
+        collapseEllipsis (Ellipsis : mkAtomsFromTokens rest)
+    | otherwise =
+        mkAtomFromToken t : mkAtomsFromTokens rest
+
+collapseEllipsis :: [Atom] -> [Atom]
+collapseEllipsis (Ellipsis : Ellipsis : xs) = collapseEllipsis (Ellipsis : xs)
+collapseEllipsis xs = xs
 
 mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
@@ -94,45 +118,73 @@ unescapeAtom s@(T.uncons -> Just ('_', xs))
 unescapeAtom xs = xs
 {-# INLINE unescapeAtom #-}
 
+maxEllipsisTokens :: Int
+maxEllipsisTokens = 64
+
 findAllMatches :: Options -> [[Atom]] -> [T.Token] -> [T.Token]
 findAllMatches opt ws ts = concatMap (\w -> findAllMatches' opt w ts) ws
 {-# INLINE findAllMatches #-}
 
 findAllMatches' :: Options -> [Atom] -> [T.Token] -> [T.Token]
+findAllMatches' _ [] _ = []
 findAllMatches' opt as ts =
-    let indices = findIndicesBy (doesAtomMatchToken opt) as ts
-     in concatMap
-            ( \i ->
-                let s = extractSlice i (length as) ts
-                 in if atomsCheckOccurrences as s
-                        then s
-                        else []
-            )
-            indices
+    concat $ mapMaybe (matchAtoms opt M.empty as) (tails ts)
 
-extractSlice :: Int -> Int -> [a] -> [a]
-extractSlice i n xs = take n (drop i xs)
-{-# INLINE extractSlice #-}
-
--- The pattern _ matches any identifier token, whereas _0, _1, _2, etc. match
--- identifier tokens that must be equal across their respective occurrences.
-
-atomsCheckOccurrences :: [Atom] -> [T.Token] -> Bool
-atomsCheckOccurrences as ts = M.foldr checkAndFold True m
+-- | Matches a pattern of `Atom`s against the prefix of a token stream,
+-- verifying placeholder unification (`_0`, `_1`, ...) on the fly and
+-- supporting bracket-balanced `Ellipsis` (`...`) matching.
+matchAtoms :: Options -> M.Map T.Text T.Token -> [Atom] -> [T.Token] -> Maybe [T.Token]
+matchAtoms _ _ [] _ = Just []
+matchAtoms _ _ [Ellipsis] _ = Just []
+matchAtoms opt bindings (Ellipsis : as) ts =
+    matchEllipsis 0 maxEllipsisTokens [] ts
   where
-    checkAndFold xs acc =
-        acc && case xs of
-            [] -> True
-            (y : ys) -> all (== y) ys
-    m =
-        M.mapWithKey
-            ( \k xs ->
-                case k of
-                    Placeholder p | p /= "_" -> xs
-                    _ -> []
-            )
-            $ M.fromListWith (<>)
-            $ zip as (take (length as) (map (: []) ts))
+    matchEllipsis :: Int -> Int -> [T.Token] -> [T.Token] -> Maybe [T.Token]
+    matchEllipsis !depth !remaining acc curTs =
+        let tryHere =
+                if depth == 0
+                    then case matchAtoms opt bindings as curTs of
+                        Just restMatched -> Just (reverse acc ++ restMatched)
+                        Nothing -> Nothing
+                    else Nothing
+         in case tryHere of
+                Just matched -> Just matched
+                Nothing
+                    | remaining <= 0 -> Nothing
+                    | otherwise ->
+                        case curTs of
+                            [] -> Nothing
+                            (t : rest)
+                                | T.isTokenBracket t && isOpenBracket (T.tToken t) ->
+                                    matchEllipsis (depth + 1) (remaining - 1) (t : acc) rest
+                                | T.isTokenBracket t && isCloseBracket (T.tToken t) ->
+                                    if depth == 0
+                                        then Nothing
+                                        else matchEllipsis (depth - 1) (remaining - 1) (t : acc) rest
+                                | depth == 0 && T.isTokenOperator t && T.tToken t == ";" ->
+                                    Nothing
+                                | otherwise ->
+                                    matchEllipsis depth (remaining - 1) (t : acc) rest
+
+    isOpenBracket :: T.Text -> Bool
+    isOpenBracket b = b == "(" || b == "[" || b == "{"
+
+    isCloseBracket :: T.Text -> Bool
+    isCloseBracket b = b == ")" || b == "]" || b == "}"
+matchAtoms _ _ (_ : _) [] = Nothing
+matchAtoms opt bindings (Placeholder p : as) (t : ts)
+    | not (T.isTokenIdentifier t) = Nothing
+    | p == "_" = (t :) <$> matchAtoms opt bindings as ts
+    | otherwise =
+        case M.lookup p bindings of
+            Just boundTok
+                | boundTok == t -> (t :) <$> matchAtoms opt bindings as ts
+                | otherwise -> Nothing
+            Nothing ->
+                (t :) <$> matchAtoms opt (M.insert p t bindings) as ts
+matchAtoms opt bindings (a : as) (t : ts)
+    | doesAtomMatchToken opt a t = (t :) <$> matchAtoms opt bindings as ts
+    | otherwise = Nothing
 
 doesAtomMatchToken :: Options -> Atom -> T.Token -> Bool
 doesAtomMatchToken opt (Exact l) r
@@ -155,6 +207,7 @@ doesAtomMatchToken opt (Exact l) r
     ls = (unquoteT . trimT) (T.tToken l)
     rs = (unquoteT . trimT) (T.tToken r)
 doesAtomMatchToken _ Any _ = True
+doesAtomMatchToken _ Ellipsis _ = True
 doesAtomMatchToken _ (Placeholder _) t = T.isTokenIdentifier t
 doesAtomMatchToken _ Keyword t = T.isTokenKeyword t
 doesAtomMatchToken _ NativeType t = T.isTokenNativeType t
@@ -164,14 +217,3 @@ doesAtomMatchToken _ Literal t = T.isTokenString t || T.isTokenNumber t
 doesAtomMatchToken _ Number t = T.isTokenNumber t
 doesAtomMatchToken _ Oct t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (d, _)) -> isDigit d; _ -> False
 doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just ('x', _)) -> True; _ -> False
-
-isPrefixOfBy :: (a -> b -> Bool) -> [a] -> [b] -> Bool
-isPrefixOfBy _ [] _ = True
-isPrefixOfBy _ (_ : _) [] = False
-isPrefixOfBy p (x : xs) (y : ys) = p x y && isPrefixOfBy p xs ys
-{-# INLINEABLE isPrefixOfBy #-}
-
-findIndicesBy :: (a -> b -> Bool) -> [a] -> [b] -> [Int]
-findIndicesBy p needle haystack =
-    [i | (i, tail') <- zip [0 ..] (tails haystack), isPrefixOfBy p needle tail']
-{-# INLINE findIndicesBy #-}
