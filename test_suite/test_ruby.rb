@@ -6,16 +6,19 @@ require 'minitest/autorun'
 # Regular helper module (not a test)
 module MathHelper
   def self.add(a, b)
+    cgrep_prod_1 = 1
     a + b
   end
 
   def self.multiply(x, y)
+    cgrep_prod_2 = 2
     x * y
   end
 
-  def self.factorial(n)
-    return 1 if n <= 0
-    n * factorial(n - 1)
+  # Regular method named `describe` - NOT an RSpec block!
+  def self.describe(item)
+    cgrep_prod_3 = 3
+    item.to_s
   end
 end
 
@@ -28,198 +31,117 @@ class Calculator
   end
 
   def add(n)
+    cgrep_prod_4 = 4
     @value += n
     self
   end
 
-  def reset
-    @value = 0
+  # Regular method using a local variable named `context` - NOT an RSpec block!
+  def evaluate(x)
+    context = x + 1
+    cgrep_prod_5 = 5
+    context * cgrep_prod_5
   end
 end
 
-# RSpec tests
-describe 'MathHelper' do
-  describe 'basic arithmetic' do
-    it 'adds two numbers correctly' do
-      result = MathHelper.add(2, 3)
-      expect(result).to eq(5)
-    end
+# RSpec tests with `RSpec.describe`, `before`, `after`, `let`, and inline `{ ... }`
+RSpec.describe Calculator do
+  let(:calc) { cgrep_test_1 = 1; Calculator.new }
 
-    it 'multiplies numbers' do
-      result = MathHelper.multiply(4, 5)
-      expect(result).to eq(20)
-    end
+  before(:each) do
+    cgrep_test_2 = 2
   end
 
-  context 'when calculating factorials' do
-    it 'calculates factorial of 5' do
-      result = MathHelper.factorial(5)
-      expect(result).to eq(120)
-    end
-
-    it 'handles zero' do
-      result = MathHelper.factorial(0)
-      expect(result).to eq(1)
-    end
+  after(:each) do
+    cgrep_test_3 = 3
   end
-end
 
-# Helper function
-def process_data(array)
-  array.select { |x| x > 0 }.map { |x| x * 2 }
-end
-
-# RSpec tests for Calculator
-describe Calculator do
   it 'starts with zero by default' do
-    calc = Calculator.new
+    cgrep_test_4 = 4
     expect(calc.value).to eq(0)
-  end
-
-  it 'can be initialized with a value' do
-    calc = Calculator.new(10)
-    expect(calc.value).to eq(10)
   end
 
   describe '#add' do
     it 'adds numbers correctly' do
-      calc = Calculator.new
+      cgrep_test_5 = 5
       calc.add(5).add(10)
       expect(calc.value).to eq(15)
     end
-
-    it 'handles negative numbers' do
-      calc = Calculator.new
-      calc.add(-5)
-      expect(calc.value).to eq(-5)
-    end
   end
 
-  describe '#reset' do
-    it 'resets to zero' do
-      calc = Calculator.new
-      calc.add(100)
-      calc.reset
-      expect(calc.value).to eq(0)
+  context 'when disabled' do
+    xit 'is skipped' do
+      cgrep_test_6 = 6
     end
   end
 end
 
-# Minitest style tests
-class TestMathHelper < Minitest::Test
+# Top-level one-liner RSpec block with `{ ... }` instead of `do...end`,
+# followed by a production class: must NOT swallow the production class!
+it { cgrep_test_7 = 7; is_expected.to be_a(Calculator) }
+
+class StringHelper
+  def self.reverse(str)
+    cgrep_prod_6 = 6
+    str.reverse
+  end
+end
+
+# Minitest class named `CalculatorTest < Minitest::Test` (suffix `Test`)
+class CalculatorTest < Minitest::Test
+  def setup
+    cgrep_test_8 = 8
+  end
+
+  def teardown
+    cgrep_test_9 = 9
+  end
+
+  # Helper method inside Minitest class
+  def helper_in_test_class(n)
+    cgrep_test_10 = 10
+    n + cgrep_test_10
+  end
+
   def test_addition_works
+    cgrep_test_11 = 11
     result = MathHelper.add(1, 1)
     assert_equal 2, result
   end
 
-  def test_multiplication_works
-    result = MathHelper.multiply(3, 4)
-    assert_equal 12, result
-  end
-
-  def test_factorial_calculation
-    result = MathHelper.factorial(3)
-    assert_equal 6, result
+  # Rails ActiveSupport::TestCase style: `test "..." do ... end`
+  test "active support style test" do
+    cgrep_test_12 = 12
+    assert true
   end
 end
 
-# Regular class (not a test)
-class StringHelper
-  def self.reverse(str)
-    str.reverse
-  end
-
-  def self.capitalize_all(str)
-    str.upcase
-  end
-end
-
-# Minitest for StringHelper
-class TestStringHelper < Minitest::Test
-  def test_reverse_string
-    result = StringHelper.reverse("hello")
-    assert_equal "olleh", result
-  end
-
-  def test_capitalize_string
-    result = StringHelper.capitalize_all("world")
-    assert_equal "WORLD", result
-  end
-
-  def test_empty_string
-    result = StringHelper.reverse("")
-    assert_equal "", result
+# Minitest class with prefix `Test*` AND containing a one-line modifier `return 1 if n <= 0` inside!
+# Followed by a production module: must NOT swallow `ProductionCode_Cgrep`!
+class TestMinitestPrefix < Minitest::Test
+  def test_with_modifier_if
+    cgrep_test_13 = 13
+    n = 5
+    return 1 if n <= 0
+    assert_equal 5, n
   end
 end
-
-# More helper code
-class Person
-  attr_accessor :name, :age
-
-  def initialize(name, age)
-    @name = name
-    @age = age
-  end
-
-  def greeting
-    "Hello, I'm #{@name}"
-  end
-end
-
-# Helper method
-def format_number(n)
-  "%.2f" % n
-end
-# =========================================================================
-# --- CGREP SEMANTIC TESTS (appended) ---
-# =========================================================================
 
 module ProductionCode_Cgrep
   def self.compute(x)
-    cgrep_prod_1 = 1
+    cgrep_prod_7 = 7
     x * 2
   end
 
   def self.run_test_harness(x)
-    cgrep_prod_2 = 2
+    cgrep_prod_8 = 8
     x + 1
-  end
-end
-
-describe "simple rspec cgrep" do
-  cgrep_test_1 = 1
-  it "adds" do
-    cgrep_test_2 = 2
-    expect(1).to eq(1)
-  end
-end
-
-context "context block cgrep" do
-  cgrep_test_3 = 3
-  it "subtracts" do
-    cgrep_test_4 = 4
-    expect(1).to eq(1)
-  end
-end
-
-class TestMinitestCgrep < Minitest::Test
-  def setup
-    cgrep_test_5 = 5
-  end
-
-  def teardown
-    cgrep_test_6 = 6
-  end
-
-  def test_something_cgrep
-    cgrep_test_7 = 7
-    assert_equal 2, 2
   end
 end
 
 class FinalProduction_Cgrep
   def tripled(x)
-    cgrep_prod_3 = 3
+    cgrep_prod_9 = 9
     x * 3
   end
 end
