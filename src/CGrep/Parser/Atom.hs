@@ -43,6 +43,8 @@ import qualified Data.Text as T
 data Atom
     = Any
     | Keyword
+    | NativeType
+    | Operator
     | Number
     | Oct
     | Hex
@@ -57,23 +59,25 @@ wildCardMap =
     M.fromList
         [ ("ANY", Any)
         , ("KEY", Keyword)
+        , ("TYP", NativeType)
+        , ("OP", Operator)
         , ("OCT", Oct)
         , ("HEX", Hex)
         , ("NUM", Number)
         , ("STR", String)
-        , ("LIT", String)
+        , ("LIT", Literal)
         ]
 
 mkAtomFromToken :: T.Token -> Atom
 mkAtomFromToken t
-    | T.isTokenIdentifier t = case () of
-        _
-            | Just wc <- M.lookup txt wildCardMap -> wc
-            | isAtomPlaceholder txt -> Placeholder txt
-            | otherwise -> Exact $ T.mkTokenIdentifier (unescapeAtom txt)
-          where
-            txt = T.tToken t
+    | Just wc <- M.lookup txt wildCardMap = wc
+    | T.isTokenIdentifier t =
+        if isAtomPlaceholder txt
+            then Placeholder txt
+            else Exact $ T.mkTokenIdentifier (unescapeAtom txt)
     | otherwise = Exact t
+  where
+    txt = T.tToken t
 
 {-# INLINE isAtomPlaceholder #-}
 isAtomPlaceholder :: T.Text -> Bool
@@ -153,8 +157,10 @@ doesAtomMatchToken opt (Exact l) r
 doesAtomMatchToken _ Any _ = True
 doesAtomMatchToken _ (Placeholder _) t = T.isTokenIdentifier t
 doesAtomMatchToken _ Keyword t = T.isTokenKeyword t
+doesAtomMatchToken _ NativeType t = T.isTokenNativeType t
+doesAtomMatchToken _ Operator t = T.isTokenOperator t
 doesAtomMatchToken _ String t = T.isTokenString t
-doesAtomMatchToken _ Literal t = T.isTokenString t
+doesAtomMatchToken _ Literal t = T.isTokenString t || T.isTokenNumber t
 doesAtomMatchToken _ Number t = T.isTokenNumber t
 doesAtomMatchToken _ Oct t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (d, _)) -> isDigit d; _ -> False
 doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just ('x', _)) -> True; _ -> False
