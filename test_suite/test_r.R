@@ -167,6 +167,21 @@ tripled_cgrep <- function(x) {
   return(x * 3)
 }
 
+# Production variable named `it` or `context` assigned a function call:
+# Must NOT swallow the function call's parentheses `(...)`!
+use_iterator <- function(items) {
+  it <- filter_positive(cgrep_prod_15 <- items)
+  context <- format_number(cgrep_prod_16 <- 16)
+  return(list(it = it, context = context))
+}
+
+# Production `describe(df)` call (e.g. psych::describe / Hmisc::describe on data):
+# First argument is an identifier/expression, NOT a testthat string description!
+summarize_dataframe <- function(df) {
+  stats <- describe(cgrep_prod_17 <- df)
+  return(stats)
+}
+
 test_that ( "weird spaces", {
   cgrep_test_14 <- 14
 } )
