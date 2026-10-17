@@ -132,7 +132,7 @@ namespace TestExample
 
 namespace CgrepExtended
 {
-    // --- Production code (should survive -T False) ---
+    // --- Production code (should survive --no-tests) ---
     public class ProductionHelper
     {
         public int Compute(int x)
@@ -146,6 +146,42 @@ namespace CgrepExtended
         {
             var cgrep_prod_8 = 8;
             return x + 1;
+        }
+
+        // Production method with non-test attribute whose argument references an identifier named `Test`
+        [Obsolete(nameof(Test))]
+        public int LegacyMethod(int Test)
+        {
+            var cgrep_prod_9 = 9;
+            return Test;
+        }
+
+        // Production array indexing `arr[Test]` - NOT a C# attribute!
+        public int LookupInArray(int[] arr, int Test)
+        {
+            var val = arr[Test];
+            if (val > 0)
+            {
+                var cgrep_prod_10 = 10;
+                return cgrep_prod_10;
+            }
+            return 0;
+        }
+    }
+
+    // --- Abstract test method followed by a production class ---
+    public abstract class BaseSpec
+    {
+        [Fact]
+        public abstract void MustBeImplemented();
+    }
+
+    public class ProdClassAfterAbstractFact
+    {
+        public int KeepMe()
+        {
+            var cgrep_prod_11 = 11;
+            return cgrep_prod_11;
         }
     }
 
@@ -222,6 +258,17 @@ namespace CgrepExtended
         {
             var cgrep_test_16 = 16;
         }
+
+        // Comma-separated attribute list AND expression-bodied test method `=>`
+        // followed by a non-test helper method inside the same class!
+        [Test, Category("fast")]
+        public void CommaSeparatedAndExpressionBodied(int cgrep_test_17 = 17) => Assert.True(cgrep_test_17 == 17);
+
+        private int NonTestHelperInsideClass()
+        {
+            var cgrep_prod_12 = 12;
+            return cgrep_prod_12;
+        }
     }
 
     // --- MSTest with DataTestMethod / DataRow ---
@@ -231,25 +278,25 @@ namespace CgrepExtended
         [TestInitialize]
         public void Initialize()
         {
-            var cgrep_test_17 = 17;
+            var cgrep_test_18 = 18;
         }
 
         [TestCleanup]
         public void Finalize()
         {
-            var cgrep_test_18 = 18;
+            var cgrep_test_19 = 19;
         }
 
         [ClassInitialize]
         public static void ClassInit(TestContext ctx)
         {
-            var cgrep_test_19 = 19;
+            var cgrep_test_20 = 20;
         }
 
         [ClassCleanup]
         public static void ClassDispose()
         {
-            var cgrep_test_20 = 20;
+            var cgrep_test_21 = 21;
         }
 
         [DataTestMethod]
@@ -257,13 +304,13 @@ namespace CgrepExtended
         [DataRow(4, 5, 9)]
         public void DataDriven(int a, int b, int expected)
         {
-            var cgrep_test_21 = 21;
+            var cgrep_test_22 = 22;
         }
 
         [TestMethod("Friendly Name")]
         public void TestMethodWithArgument()
         {
-            var cgrep_test_22 = 22;
+            var cgrep_test_23 = 23;
         }
     }
 
@@ -274,7 +321,7 @@ namespace CgrepExtended
         [NUnit.Framework.Test]
         public void FullyQualifiedTest()
         {
-            var cgrep_test_23 = 23;
+            var cgrep_test_24 = 24;
         }
     }
 
@@ -283,13 +330,13 @@ namespace CgrepExtended
     {
         public static int Tripled(int x)
         {
-            var cgrep_prod_9 = 9;
+            var cgrep_prod_13 = 13;
             return x * 3;
         }
 
         public static string Describe(int n)
         {
-            var cgrep_prod_10 = 10;
+            var cgrep_prod_14 = 14;
             return $"n={n}";
         }
     }
