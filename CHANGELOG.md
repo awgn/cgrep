@@ -1,5 +1,12 @@
 ## Changelog
 
+# cgrep v9.3.1
+
+- **New Semantic Wildcards (`TYP`, `OP`, `LIT`):** Extended semantic search (`-S` / `--semantic`) with `TYP` (native types), `OP` (operators), and `LIT` (any string or numeric literal, distinct from `STR` which matches only string literals).
+- **Structural Ellipsis Operator (`...`):** Added the `...` operator to semantic patterns to match zero or more tokens across expressions or argument lists while respecting balanced brackets (`()`, `[]`, `{}`) and statement terminators (`;`).
+- **Semantic Combinators (`NOT`, `OR`):** Added prefix negation (`NOT <atom>`) and infix alternation (`<atom1> OR <atom2>`) to semantic search patterns (with `_NOT` and `_OR` escaping for literal identifiers).
+- **Placeholder & Identifier Unescaping Fixes:** Fixed numbered placeholder recognition (`_`, `_0`, `_1`, ...) across all languages without relying on `$` in identifier character sets, and preserved leading underscores on regular identifiers (e.g. `_foo`, `__init__`) unless escaping a reserved semantic wildcard or placeholder.
+
 # cgrep v9.3.0
 
 - **Modular Semantic Test Filter Architecture:** Refactored the semantic test filter (`--tests-only` / `--no-tests`) from a single monolithic file into a typeclass-based (`LanguageTestFilter (lang :: FileType)`) modular architecture with dedicated per-language modules under `CGrep.Semantic.Tests.*`.
