@@ -12,6 +12,7 @@ import CGrep.Parser.Token (Token)
 import CGrep.Semantic.Tests.Common (LanguageTestFilter (..), runLangFilter)
 import System.OsPath (OsPath)
 
+import CGrep.Semantic.Tests.Bash ()
 import CGrep.Semantic.Tests.C ()
 import CGrep.Semantic.Tests.Clojure ()
 import CGrep.Semantic.Tests.Csharp ()
@@ -72,4 +73,5 @@ filterTests filename fileType flag tokens =
         D          -> runLangFilter @'D filename flag tokens
         Lua        -> runLangFilter @'Lua filename flag tokens
         Elm        -> runLangFilter @'Elm filename flag tokens
+        Bash       -> runLangFilter @'Bash filename flag tokens
         _          -> tokens
