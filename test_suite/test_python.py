@@ -92,3 +92,21 @@ def normal_function_with_test_vars():
     test_count = 0
     cgrep_prod_5 = 5
     return test_count
+
+# Test function followed by a decorated production function (should NOT swallow @app.route into the test!)
+def test_before_decorated_prod():
+    cgrep_test_12 = 12
+
+@app.route("/api")
+def prod_endpoint():
+    cgrep_prod_6 = 6
+
+# TestCase subclass imported directly (`class ...(TestCase):`) with @classmethod and @pytest.mark
+class DirectTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cgrep_test_13 = 13
+
+    @staticmethod
+    def static_helper():
+        cgrep_test_14 = 14
