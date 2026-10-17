@@ -70,3 +70,25 @@ fn parameterized_test() {
 fn advanced_macro_test() {
     let cgrep_test_8 = 8;
 }
+
+// 11. External test module declaration followed by production function
+#[cfg(test)]
+mod cgrep_test_9;
+
+pub fn after_external_test_mod() {
+    let cgrep_prod_4 = 4;
+}
+
+// 12. Inline module with inner #![cfg(test)] attribute
+mod inner_attr_tests {
+    #![allow(unused)]
+    #![cfg(test)]
+
+    fn helper() {
+        let cgrep_test_10 = 10;
+    }
+}
+
+pub fn final_prod_fn() {
+    let cgrep_prod_5 = 5;
+}
