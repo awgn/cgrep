@@ -18,6 +18,7 @@ import CGrep.Semantic.Tests.Csharp ()
 import CGrep.Semantic.Tests.D ()
 import CGrep.Semantic.Tests.Dart ()
 import CGrep.Semantic.Tests.Elixir ()
+import CGrep.Semantic.Tests.Elm ()
 import CGrep.Semantic.Tests.Erlang ()
 import CGrep.Semantic.Tests.Fsharp ()
 import CGrep.Semantic.Tests.Go ()
@@ -70,4 +71,5 @@ filterTests filename fileType flag tokens =
         Clojure    -> runLangFilter @'Clojure filename flag tokens
         D          -> runLangFilter @'D filename flag tokens
         Lua        -> runLangFilter @'Lua filename flag tokens
+        Elm        -> runLangFilter @'Elm filename flag tokens
         _          -> tokens

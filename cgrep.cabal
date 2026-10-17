@@ -3,8 +3,7 @@ name: cgrep
 description: Cgrep: a context-aware grep for source codes
 version: 9.2.3
 synopsis: Command line tool
-homepage: http://awgn.github.io/cgrep/
-license: GPL-2.0-or-later
+homepage: http://awgn.github.io/cgrep/\nlicense: GPL-2.0-or-later
 license-file: LICENSE
 author: Nicola Bonelli
 maintainer: Nicola Bonelli <nicola@larthia.com>
@@ -100,6 +99,7 @@ executable cgrep
     CGrep.Semantic.Tests.D
     CGrep.Semantic.Tests.Dart
     CGrep.Semantic.Tests.Elixir
+    CGrep.Semantic.Tests.Elm
     CGrep.Semantic.Tests.Erlang
     CGrep.Semantic.Tests.Fsharp
     CGrep.Semantic.Tests.Go
