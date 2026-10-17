@@ -20,18 +20,21 @@ module CGrep.Parser.Atom (
     Atom (..),
     mkAtomFromToken,
     mkAtomsFromTokens,
+    extractAtomMatchers,
     findAllMatches,
     wildCardMap,
 ) where
 
+import Control.Applicative ((<|>))
 import qualified Data.Map.Strict as M
 
 import CGrep.Common (trimT)
 import CGrep.Distance ((~==))
 import CGrep.Parser.Char (isDigit)
+import CGrep.Parser.Chunk (Chunk (..), pattern ChunkString)
 
 import Data.List (tails)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (isNothing, mapMaybe)
 
 import Options (
     Options (edit_dist, prefix_match, suffix_match, word_match),
@@ -53,6 +56,8 @@ data Atom
     | Hex
     | String
     | Literal
+    | Not Atom
+    | Or Atom Atom
     | Placeholder T.Text
     | Exact T.Token
     deriving stock (Eq, Ord, Show)
@@ -71,22 +76,82 @@ wildCardMap =
         , ("LIT", Literal)
         ]
 
--- | Converts a sequence of pattern tokens into semantic Atoms, recognizing
--- three contiguous dots `...` (or a single `"..."` token) as `Ellipsis`.
+isCombinatorKeyword :: T.Text -> Bool
+isCombinatorKeyword txt = txt == "NOT" || txt == "OR"
+
+-- | Extracts literal text matchers from a pattern for shallow file pre-filtering (`textContainsOneOf`).
+-- Note: `Not` atoms are excluded so negated tokens are not required to exist in the file.
+-- `Or` atoms contribute matchers only if both branches are `Exact` (when there are no other
+-- mandatory `Exact` tokens in the pattern).
+extractAtomMatchers :: [Atom] -> [T.Text]
+extractAtomMatchers atoms =
+    let mandatory = mapMaybe exactText atoms
+     in if not (null mandatory)
+            then mandatory
+            else concatMap orTexts atoms
+  where
+    exactText :: Atom -> Maybe T.Text
+    exactText (Exact (T.Token (Chunk ChunkString xs))) = Just ((unquoteT . trimT) xs)
+    exactText (Exact t) = Just (T.tToken t)
+    exactText _ = Nothing
+
+    orTexts :: Atom -> [T.Text]
+    orTexts (Or a b) =
+        let la = orBranchTexts a
+            lb = orBranchTexts b
+         in if not (null la) && not (null lb) then la ++ lb else []
+    orTexts _ = []
+
+    orBranchTexts :: Atom -> [T.Text]
+    orBranchTexts (Or a b) = orBranchTexts a ++ orBranchTexts b
+    orBranchTexts a = case exactText a of
+        Just txt -> [txt]
+        Nothing -> []
+
+-- | Converts a sequence of pattern tokens into semantic Atoms, recognizing:
+-- * `...` as `Ellipsis`
+-- * `NOT <atom>` as `Not <atom>`
+-- * `<atom1> OR <atom2>` as `Or <atom1> <atom2>`
 mkAtomsFromTokens :: [T.Token] -> [Atom]
-mkAtomsFromTokens [] = []
-mkAtomsFromTokens (t1 : t2 : t3 : rest)
-    | T.tToken t1 == "."
-    , T.tToken t2 == "."
-    , T.tToken t3 == "."
-    , T.tOffset t2 == T.tOffset t1 + 1
-    , T.tOffset t3 == T.tOffset t2 + 1 =
-        collapseEllipsis (Ellipsis : mkAtomsFromTokens rest)
-mkAtomsFromTokens (t : rest)
-    | T.tToken t == "..." =
-        collapseEllipsis (Ellipsis : mkAtomsFromTokens rest)
-    | otherwise =
-        mkAtomFromToken t : mkAtomsFromTokens rest
+mkAtomsFromTokens = collapseEllipsis . parseOrTokens . parseNotAndBaseTokens
+  where
+    -- Step 1: Parse Ellipsis (`...`), `NOT`, and base Atoms, tagging `"OR"` tokens via `Left ()`
+    parseNotAndBaseTokens :: [T.Token] -> [Either () Atom]
+    parseNotAndBaseTokens [] = []
+    parseNotAndBaseTokens (t1 : t2 : t3 : rest)
+        | T.tToken t1 == "."
+        , T.tToken t2 == "."
+        , T.tToken t3 == "."
+        , T.tOffset t2 == T.tOffset t1 + 1
+        , T.tOffset t3 == T.tOffset t2 + 1 =
+            Right Ellipsis : parseNotAndBaseTokens rest
+    parseNotAndBaseTokens (t : rest)
+        | T.tToken t == "..." =
+            Right Ellipsis : parseNotAndBaseTokens rest
+        | T.tToken t == "OR" =
+            Left () : parseNotAndBaseTokens rest
+        | T.tToken t == "NOT" =
+            case parseNotAndBaseTokens rest of
+                (Right nextAtom : remAtoms) | nextAtom /= Ellipsis ->
+                    Right (Not nextAtom) : remAtoms
+                other ->
+                    Right (Exact (T.mkTokenIdentifier "NOT")) : other
+        | otherwise =
+            Right (mkAtomFromToken t) : parseNotAndBaseTokens rest
+
+    -- Step 2: Combine `Right a : Left () : ...` into right-associative `Or a b`
+    parseOrTokens :: [Either () Atom] -> [Atom]
+    parseOrTokens [] = []
+    parseOrTokens (Right a : Left () : rest) =
+        case parseOrTokens rest of
+            (b : remAtoms) | a /= Ellipsis && b /= Ellipsis ->
+                Or a b : remAtoms
+            other ->
+                a : Exact (T.mkTokenIdentifier "OR") : other
+    parseOrTokens (Left () : rest) =
+        Exact (T.mkTokenIdentifier "OR") : parseOrTokens rest
+    parseOrTokens (Right a : rest) =
+        a : parseOrTokens rest
 
 collapseEllipsis :: [Atom] -> [Atom]
 collapseEllipsis (Ellipsis : Ellipsis : xs) = collapseEllipsis (Ellipsis : xs)
@@ -113,7 +178,7 @@ isAtomPlaceholder s =
 
 unescapeAtom :: T.Text -> T.Text
 unescapeAtom s@(T.uncons -> Just ('_', xs))
-    | M.member xs wildCardMap || isAtomPlaceholder xs = xs
+    | M.member xs wildCardMap || isCombinatorKeyword xs || isAtomPlaceholder xs = xs
     | otherwise = s
 unescapeAtom xs = xs
 {-# INLINE unescapeAtom #-}
@@ -131,8 +196,8 @@ findAllMatches' opt as ts =
     concat $ mapMaybe (matchAtoms opt M.empty as) (tails ts)
 
 -- | Matches a pattern of `Atom`s against the prefix of a token stream,
--- verifying placeholder unification (`_0`, `_1`, ...) on the fly and
--- supporting bracket-balanced `Ellipsis` (`...`) matching.
+-- verifying placeholder unification (`_0`, `_1`, ...), `Not`, `Or`, and
+-- bracket-balanced `Ellipsis` (`...`) matching on the fly.
 matchAtoms :: Options -> M.Map T.Text T.Token -> [Atom] -> [T.Token] -> Maybe [T.Token]
 matchAtoms _ _ [] _ = Just []
 matchAtoms _ _ [Ellipsis] _ = Just []
@@ -172,18 +237,28 @@ matchAtoms opt bindings (Ellipsis : as) ts =
     isCloseBracket :: T.Text -> Bool
     isCloseBracket b = b == ")" || b == "]" || b == "}"
 matchAtoms _ _ (_ : _) [] = Nothing
-matchAtoms opt bindings (Placeholder p : as) (t : ts)
+matchAtoms opt bindings (a : as) (t : ts) = do
+    bindings' <- matchSingleAtom opt bindings a t
+    (t :) <$> matchAtoms opt bindings' as ts
+
+-- | Matches a single non-Ellipsis Atom against a single Token, updating placeholder bindings.
+matchSingleAtom :: Options -> M.Map T.Text T.Token -> Atom -> T.Token -> Maybe (M.Map T.Text T.Token)
+matchSingleAtom _ bindings (Placeholder p) t
     | not (T.isTokenIdentifier t) = Nothing
-    | p == "_" = (t :) <$> matchAtoms opt bindings as ts
+    | p == "_" = Just bindings
     | otherwise =
         case M.lookup p bindings of
             Just boundTok
-                | boundTok == t -> (t :) <$> matchAtoms opt bindings as ts
+                | boundTok == t -> Just bindings
                 | otherwise -> Nothing
-            Nothing ->
-                (t :) <$> matchAtoms opt (M.insert p t bindings) as ts
-matchAtoms opt bindings (a : as) (t : ts)
-    | doesAtomMatchToken opt a t = (t :) <$> matchAtoms opt bindings as ts
+            Nothing -> Just (M.insert p t bindings)
+matchSingleAtom opt bindings (Not a) t
+    | isNothing (matchSingleAtom opt bindings a t) = Just bindings
+    | otherwise = Nothing
+matchSingleAtom opt bindings (Or a b) t =
+    matchSingleAtom opt bindings a t <|> matchSingleAtom opt bindings b t
+matchSingleAtom opt bindings a t
+    | doesAtomMatchToken opt a t = Just bindings
     | otherwise = Nothing
 
 doesAtomMatchToken :: Options -> Atom -> T.Token -> Bool
@@ -217,3 +292,5 @@ doesAtomMatchToken _ Literal t = T.isTokenString t || T.isTokenNumber t
 doesAtomMatchToken _ Number t = T.isTokenNumber t
 doesAtomMatchToken _ Oct t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (d, _)) -> isDigit d; _ -> False
 doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just ('x', _)) -> True; _ -> False
+doesAtomMatchToken opt (Not a) t = not (doesAtomMatchToken opt a t)
+doesAtomMatchToken opt (Or a b) t = doesAtomMatchToken opt a t || doesAtomMatchToken opt b t

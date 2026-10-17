@@ -18,7 +18,7 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex, trimT)
+import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex)
 import CGrep.Semantic.ContextFilter (
     contextBitComment,
     mkContextFilter,
@@ -34,7 +34,7 @@ import CGrep.FileTypeMapTH (
 import CGrep.Line (buildIndex)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Atom (
-    Atom (..),
+    extractAtomMatchers,
     findAllMatches,
     mkAtomsFromTokens,
  )
@@ -47,13 +47,11 @@ import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
 import Data.Function (on)
 import Data.List (sortBy)
-import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
-import Util (unquoteT)
 import CGrep.Semantic.Tests (filterTests)
 import Options (Options(..))
 
@@ -83,14 +81,7 @@ search lock info filename text patterns strict = do
     let patterns' = map (parseTokens pfilter (snd <$> info) strict . contextFilter) patterns
         patterns'' = map (mkAtomsFromTokens . toList) patterns'
 
-    let matchers =
-            mapMaybe
-                ( \case
-                    Exact (Token (Chunk ChunkString xs)) -> Just ((unquoteT . trimT) xs)
-                    Exact t -> Just (tToken t)
-                    _ -> Nothing
-                )
-                (concatMap toList patterns'')
+    let matchers = concatMap extractAtomMatchers patterns''
 
     let !eligibleForSearch = textContainsOneOf matchers text'
 

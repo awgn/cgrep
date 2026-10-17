@@ -99,7 +99,7 @@ main = do
     let patterns' = map (if ignore_case then ic else id) patterns
           where
             ic
-                | (not . isRegexp) opt && semantic = T.unwords . map (\p -> if p `elem` (M.keys wildCardMap) then p else T.map toLower p) . T.words
+                | (not . isRegexp) opt && semantic = T.unwords . map (\p -> if p `elem` ("NOT" : "OR" : M.keys wildCardMap) then p else T.map toLower p) . T.words
                 | otherwise = T.map toLower
 
     -- parse cmd line language list:
