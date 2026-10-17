@@ -5,105 +5,9 @@ module TestExample
 open NUnit.Framework
 open Xunit
 open Expecto
-
-// Regular helper function (not a test)
-let add x y = x + y
-
-// Another helper function
-let multiply x y = x * y
-
-// Helper function
-let factorial n =
-    let rec loop acc n =
-        if n <= 0 then acc
-        else loop (acc * n) (n - 1)
-    loop 1 n
-
-// NUnit style test with F# attributes
-[<Test>]
-let ``add two numbers returns correct sum`` () =
-    let result = add 2 3
-    Assert.AreEqual(5, result)
-
-[<Test>]
-let ``multiply returns correct product`` () =
-    let result = multiply 4 5
-    Assert.AreEqual(20, result)
-
-// xUnit style tests
-[<Fact>]
-let ``factorial of 5 is 120`` () =
-    let result = factorial 5
-    Assert.Equal(120, result)
-
-[<Fact>]
-let ``factorial of 0 is 1`` () =
-    let result = factorial 0
-    Assert.Equal(1, result)
-
-// Regular type (not a test)
-type Calculator = {
-    Value: int
-}
-
-// Helper functions
-let makeCalculator initial = { Value = initial }
-
-let addToCalculator n calc = 
-    { calc with Value = calc.Value + n }
-
-// xUnit Theory
-[<Theory>]
-[<InlineData(2, 3, 5)>]
-[<InlineData(10, 20, 30)>]
-let ``add is correct for various inputs`` x y expected =
-    let result = add x y
-    Assert.Equal(expected, result)
-
-// Expecto tests
-let tests =
-    testList "Math operations" [
-        testCase "addition works" <| fun () ->
-            let result = add 1 1
-            Expect.equal result 2 "1 + 1 should equal 2"
-        
-        testCase "multiplication works" <| fun () ->
-            let result = multiply 3 4
-            Expect.equal result 12 "3 * 4 should equal 12"
-        
-        testList "Nested tests" [
-            test "factorial test" {
-                let result = factorial 3
-                Expect.equal result 6 "3! should equal 6"
-            }
-        ]
-    ]
-
-// Helper function at the end
-let processData data =
-    data
-    |> List.filter (fun x -> x > 0)
-    |> List.map (fun x -> x * 2)
-
-// More regular code
-type Person = {
-    Name: string
-    Age: int
-}
-
-let makePerson name age = { Name = name; Age = age }
-// =========================================================================
-// --- CGREP SEMANTIC TESTS (appended) ---
-// =========================================================================
-
-module CgrepExtended
-
-open NUnit.Framework
-open Xunit
-open Expecto
 open FsCheck
 
-// --- Production code (should survive -T False) ---
+// --- Production code (should survive --no-tests) ---
 let compute_cgrep x =
     let cgrep_prod_1 = 1
     x * 2
@@ -120,6 +24,18 @@ type CalculatorCgrep = {
 let makeCalculatorCgrep initial =
     let cgrep_prod_3 = 3
     { Value = initial }
+
+// Production function using a local variable named `test` (NOT an Expecto test block!)
+let validateWithLocalVar x =
+    let test = x > 0
+    let cgrep_prod_4 = 4
+    if test then cgrep_prod_4 else 0
+
+// Production function with non-test attribute whose argument references `Test`
+[< System.Obsolete(nameof(Test)) >]
+let legacyProdFunction Test =
+    let cgrep_prod_5 = 5
+    Test + cgrep_prod_5
 
 // --- NUnit-style tests ---
 [<TestFixture>]
@@ -197,11 +113,15 @@ let fullyQualifiedXunitCgrep () =
     let cgrep_test_13 = 13
     Assert.Equal(1, 1)
 
-// --- FsCheck property ---
+// --- FsCheck property followed immediately by an unattributed top-level production `let`! ---
 [<Property>]
 let propReverseCgrep (xs: int list) =
     let cgrep_test_14 = 14
     List.rev (List.rev xs) = xs
+
+let prodFunctionRightAfterAttributeTest x =
+    let cgrep_prod_6 = 6
+    x + cgrep_prod_6
 
 // --- Expecto testList / testCase / test / ftest / ptest ---
 let expectoTestsCgrep =
@@ -233,11 +153,11 @@ let expectoTestsCgrep =
 
 // --- Production code AFTER all tests (confinement check) ---
 let tripled_cgrep x =
-    let cgrep_prod_4 = 4
+    let cgrep_prod_7 = 7
     x * 3
 
 let describe_cgrep n =
-    let cgrep_prod_5 = 5
+    let cgrep_prod_8 = 8
     sprintf "n=%d" n
 
 type PersonCgrep = {
@@ -246,5 +166,5 @@ type PersonCgrep = {
 }
 
 let makePersonCgrep name age =
-    let cgrep_prod_6 = 6
+    let cgrep_prod_9 = 9
     { Name = name; Age = age }
