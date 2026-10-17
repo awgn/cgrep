@@ -9,7 +9,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ---
 
-## What's New in Version 9.3.0
+## What's New in Version 9.3.0 (powered by Google Argon 4)
 
 - **Modular Semantic Test Filtering Across 29 Languages** - Refactored the semantic test filter (`--tests-only` / `--no-tests`) into a type-safe per-language architecture and added support for **Lua** (Busted, Lust, LuaUnit), **Elm** (`elm-test`), and **Bash** (BATS, shUnit2, bashunit).
 - **Expanded Testing Framework Coverage** - Added detection for Kotest (Kotlin), ZIO Test and Specs2 (Scala), Pest and PHP 8 `#[Test]` attributes (PHP), Swift Testing `@Test`/`@Suite` macros and Quick/Nimble (Swift), `Deno.test` and `.each`/`.concurrent` chains (JS/TS), Doctest (`TEST_SUITE`, `SUBCASE`), `RUnit` (R), `Test::Class` and `Test::Spec` (Perl), Common Test (Erlang), and Midje (Clojure).
