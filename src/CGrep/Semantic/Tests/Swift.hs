@@ -204,20 +204,18 @@ processOutsideSwift keepTests (t1 : t2 : ts)
                         then t1 : t2 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
                         else processOutsideSwift keepTests remainingTokens
 
--- Pattern 4: Objective-C `- (void)testSomething` / `- (void)setUp` / `- (void)tearDown`
-processOutsideSwift keepTests (t1 : t2 : t3 : t4 : t5 : ts)
+-- Pattern 4: Objective-C 0-argument `- (void)testSomething { ... }` / `- (void)setUp { ... }` / `- (void)tearDown { ... }`
+processOutsideSwift keepTests (t1 : t2 : t3 : t4 : t5 : t6 : ts)
     | isTokenOperator t1 && (tToken t1 == "-" || tToken t1 == "+")
     , isTokenBracket t2 && tToken t2 == "("
+    , tToken t3 == "void" || tToken t3 == "IBAction"
     , isTokenBracket t4 && tToken t4 == ")"
-    , isTokenIdentifier t5 && isSwiftTestMethodName (tToken t5) =
-        case findOpeningBraceC 100 ts of
-            Nothing ->
-                if keepTests then processOutsideSwift keepTests (t2 : t3 : t4 : t5 : ts) else t1 : processOutsideSwift keepTests (t2 : t3 : t4 : t5 : ts)
-            Just (signatureTokens, tokensAfterBrace) ->
-                let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
-                 in if keepTests
-                        then t1 : t2 : t3 : t4 : t5 : signatureTokens ++ bodyTokens ++ processOutsideSwift keepTests remainingTokens
-                        else processOutsideSwift keepTests remainingTokens
+    , isTokenIdentifier t5 && isSwiftTestMethodName (tToken t5)
+    , isTokenBracket t6 && tToken t6 == "{" =
+        let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 ts
+         in if keepTests
+                then t1 : t2 : t3 : t4 : t5 : t6 : bodyTokens ++ processOutsideSwift keepTests remainingTokens
+                else processOutsideSwift keepTests remainingTokens
 
 -- No test found, process the current token
 processOutsideSwift keepTests (t : ts) =
