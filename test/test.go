@@ -13,6 +13,14 @@ package main
 
 import "fmt"
 
+func compute(x int, label string) int {
+	var base = 42
+	if x > 0 {
+		return x + base
+	}
+	return 0
+}
+
 func main() {
 	var a = `a`
 	var b = `"`
@@ -22,5 +30,8 @@ func main() {
 	var msg1 = "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\""
 	var msg2 = `Sed etiam a suspendisse. "Aliquam nulla erat risus."\`
 
-	fmt.Print(a, b, c, d, msg1, msg2)
+	var count int = 10
+	var res int = compute(count, msg1)
+
+	fmt.Print(a, b, c, d, msg1, msg2, res)
 }

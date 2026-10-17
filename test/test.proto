@@ -12,6 +12,8 @@ message Gateway {
     google.protobuf.Duration message_timeout = 2 [(validate.rules).duration = {gt {}}];
     // List of headers to extract JWT from
     repeated JwtHeader from_headers = 3;
+    int32 port = 4;
+    bool enabled = 5;
 }
 
 message JwtHeader {
@@ -20,4 +22,8 @@ message JwtHeader {
 
     // The prefix to remove from the header value (e.g., "Bearer ")
     string value_prefix = 2;
+}
+
+service GatewayService {
+    rpc Configure (Gateway) returns (Gateway);
 }

@@ -10,7 +10,15 @@
  * tellus non tristique suscipit nec. Tempor iaculis orci nec enim ac.
  *)
 
- 
- printfn "%s" "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
- printfn "%s" @"Sed etiam a suspendisse. ""Aliquam nulla erat risus.""";
+let compute (x: int) (label: string) : int =
+    let baseVal = 42
+    if x > 0 then
+        x + baseVal
+    else
+        0
 
+let count : int = 10
+let result : int = compute count "prod"
+
+printfn "%s" "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
+printfn "%s" @"Sed etiam a suspendisse. ""Aliquam nulla erat risus.""";

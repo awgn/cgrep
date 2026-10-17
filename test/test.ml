@@ -5,6 +5,11 @@
  * tellus non tristique suscipit nec. Tempor iaculis orci nec enim ac.
  *)
 
- 
- print_endline "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";
+let compute (x : int) (label : string) : int =
+  let base = 42 in
+  if x > 0 then x + base else 0
 
+let count : int = 10
+let result : int = compute count "prod"
+
+ print_endline "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\"";

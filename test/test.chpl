@@ -8,6 +8,7 @@ proc processData(count: int): int {
     // Identifier: 'my_status'
     // Reserved keyword: 'var' for mutable variables.
     var my_status: string; 
+    var initial_count: int = 42;
     
     // 1. Standard String Literal (String Literal)
     my_status = "Processing start..."; 
@@ -19,7 +20,7 @@ proc processData(count: int): int {
         const local_flag = true; 
         
         // Reserved keyword: 'return'
-        return 1;
+        return initial_count + 1;
     } else { // Reserved keyword: 'else' (Keyword)
         return 0;
     }

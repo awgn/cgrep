@@ -14,6 +14,14 @@
 
 import Data.String.Here
 
+compute :: Int -> String -> Int
+compute x label =
+    let base = 42
+     in if x > 0 then x + base else 0
+
+main :: IO ()
 main = do
+       let res = compute 10 "default"
        putStrLn "Sed etiam a suspendisse. \"Aliquam nulla erat risus.\""
        putStrLn [here| Sed etiam a suspendisse. "Aliquam nulla erat risus." |]
+       print res
