@@ -10,6 +10,7 @@ module CGrep.Semantic.Tests (
 ) where
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (Token, isTokenOperator, tToken, isTokenBracket, isTokenIdentifier, isTokenKeyword)
+import Data.Char (isAsciiLower)
 import qualified Data.Text as T
 import System.OsPath (OsPath, osp, splitDirectories, takeBaseName, takeFileName)
 import qualified System.OsString as OS
@@ -152,6 +153,17 @@ isRustTestModulePath path =
                 || ([osp|-tests|] `OS.isSuffixOf` base)
     in not inTestSuite && (inCargoTestDir || isTestModFile)
 
+-- | Checks if a Go file path is a test file (`*_test.go`), excluding `test_suite/`.
+isGoTestFilePath :: OsPath -> Bool
+isGoTestFilePath path =
+    let parts = splitDirectories path
+        dirs  = case reverse parts of
+                    (_:ds) -> ds
+                    []     -> []
+        base  = takeBaseName path
+        inTestSuite = any (\d -> takeFileName d == [osp|test_suite|]) dirs
+    in not inTestSuite && ([osp|_test|] `OS.isSuffixOf` base)
+
 filterTests :: OsPath -> FileType -> Maybe Bool -> [Token] -> [Token]
 filterTests filename fileType flag tokens =
     case fileType of
@@ -160,7 +172,11 @@ filterTests filename fileType flag tokens =
                 Just keepTests | isRustTestModulePath filename ->
                     if keepTests then tokens else []
                 _ -> langFilter @'Rust flag tokens
-        Go         -> langFilter @'Go flag tokens
+        Go ->
+            case flag of
+                Just keepTests | isGoTestFilePath filename ->
+                    if keepTests then tokens else []
+                _ -> langFilter @'Go flag tokens
         Java       -> langFilter @'Java flag tokens
         Kotlin     -> langFilter @'Kotlin flag tokens
         C          -> langFilter @'C flag tokens
@@ -407,6 +423,21 @@ findRustModInnerTest tokens =
 -- Go-Specific Implementation Helpers
 -- ------------------------------------------------------------------
 
+-- | Checks if a Go function name is a test, benchmark, example, or fuzz function:
+-- must start with Test, Benchmark, Example, or Fuzz followed by either end-of-string
+-- or a non-lowercase character (uppercase, digit, underscore, etc.).
+isGoTestFuncName :: T.Text -> Bool
+isGoTestFuncName name =
+    any checkPrefix (["Test", "Benchmark", "Example", "Fuzz"] :: [T.Text])
+  where
+    checkPrefix p =
+        case T.stripPrefix p name of
+            Nothing   -> False
+            Just rest ->
+                case T.uncons rest of
+                    Nothing     -> True
+                    Just (c, _) -> not (isAsciiLower c)
+
 -- | (Go) Helper: Processes tokens *outside* a test function.
 processOutsideGo :: Bool -> [Token] -> [Token]
 processOutsideGo _ [] = [] -- End of stream
@@ -414,16 +445,17 @@ processOutsideGo _ [] = [] -- End of stream
 -- Pattern 1: func Test...
 processOutsideGo keepTests (t1:t2:t3:ts)
     | isTokenKeyword t1 && tToken t1 == "func" &&
-      isTokenIdentifier t2 && ("Test" `T.isPrefixOf` tToken t2 || "Benchmark" `T.isPrefixOf` tToken t2 || "Example" `T.isPrefixOf` tToken t2 || "Fuzz" `T.isPrefixOf` tToken t2) &&
+      isTokenIdentifier t2 && isGoTestFuncName (tToken t2) &&
       isTokenBracket t3 && tToken t3 == "("
     =
-        case findOpeningBraceBounded 50 ts of
+        let (paramTokens, afterParams) = processInsideBrackets "(" ")" 1 ts
+        in case findOpeningBraceBounded 50 afterParams of
             Nothing ->
                 if keepTests then processOutsideGo keepTests (t2:t3:ts) else t1 : processOutsideGo keepTests (t2:t3:ts)
             Just (sigTokens, tokensAfterBrace) ->
                 let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
                 in if keepTests
-                   then t1 : t2 : t3 : sigTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
+                   then t1 : t2 : t3 : paramTokens ++ sigTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
                    else processOutsideGo keepTests remainingTokens
 
 -- Pattern 2: func (receiver) Test...
@@ -434,15 +466,16 @@ processOutsideGo keepTests (t1:t2:ts)
         let (receiverTokens, afterReceiver) = processInsideBrackets "(" ")" 1 ts
         in case afterReceiver of
             (t3:t4:ts') | isTokenIdentifier t3 &&
-                          ("Test" `T.isPrefixOf` tToken t3 || "Benchmark" `T.isPrefixOf` tToken t3 || "Example" `T.isPrefixOf` tToken t3 || "Fuzz" `T.isPrefixOf` tToken t3) &&
+                          isGoTestFuncName (tToken t3) &&
                           isTokenBracket t4 && tToken t4 == "(" ->
-                case findOpeningBraceBounded 50 ts' of
+                let (paramTokens, afterParams) = processInsideBrackets "(" ")" 1 ts'
+                in case findOpeningBraceBounded 50 afterParams of
                     Nothing ->
                         if keepTests then processOutsideGo keepTests (t2:ts) else t1 : processOutsideGo keepTests (t2:ts)
                     Just (sigTokens, tokensAfterBrace) ->
                         let (bodyTokens, remainingTokens) = processInsideBraces 1 tokensAfterBrace
                         in if keepTests
-                           then t1 : t2 : receiverTokens ++ t3 : t4 : sigTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
+                           then t1 : t2 : receiverTokens ++ t3 : t4 : paramTokens ++ sigTokens ++ bodyTokens ++ processOutsideGo keepTests remainingTokens
                            else processOutsideGo keepTests remainingTokens
             _ ->
                 if keepTests then processOutsideGo keepTests (t2:ts) else t1 : processOutsideGo keepTests (t2:ts)

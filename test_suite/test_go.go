@@ -7,11 +7,13 @@ func normalProductionFunction() {
 	var cgrep_prod_1 = 1
 }
 
-// 2. Normal function or helper that might start with Test (depending on exact parser logic, it might be caught if we only check prefix)
-// For Go, usually any `func Test...` in a test file is considered a test, but let's test a helper.
+// 2. Normal function starting with "Test" followed by lowercase (NOT a Go test according to Go spec)
 func TestifySetupHelper() {
-	// If the parser strictly expects (t *testing.T), this might be skipped, but usually just "Test" prefix is enough for a basic regex/token parser.
-	// Let's assume we want to identify it as a test if it starts with Test and has `(`.
+	var cgrep_prod_2 = 2
+}
+
+// 2b. Test function with interface{}/struct{} in parameters
+func TestWithEmptyInterface(x interface{}, y struct{}) {
 	var cgrep_test_1 = 1
 }
 
@@ -29,7 +31,7 @@ func (suite *MyTestSuite) TestCalculation() {
 
 // 5. Normal method on a struct (Not a test)
 func (suite *MyTestSuite) SetupTest() {
-	var cgrep_prod_2 = 2
+	var cgrep_prod_3 = 3
 }
 
 // 6. Benchmark Test
