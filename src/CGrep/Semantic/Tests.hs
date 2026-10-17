@@ -164,6 +164,28 @@ isGoTestFilePath path =
         inTestSuite = any (\d -> takeFileName d == [osp|test_suite|]) dirs
     in not inTestSuite && ([osp|_test|] `OS.isSuffixOf` base)
 
+-- | Checks if a Java file path is a test file according to Maven/Gradle conventions
+-- (e.g. under `test/` or `tests/` directory, or named `*Test.java`, `*Tests.java`,
+-- `*TestCase.java`, `Test*.java`, `*IT.java`), excluding `test_suite/`.
+isJavaTestFilePath :: OsPath -> Bool
+isJavaTestFilePath path =
+    let parts = splitDirectories path
+        dirs  = case reverse parts of
+                    (_:ds) -> ds
+                    []     -> []
+        base  = takeBaseName path
+        inTestSuite = any (\d -> takeFileName d == [osp|test_suite|]) dirs
+        inTestDir   = any (\d -> let n = takeFileName d in n == [osp|test|] || n == [osp|tests|]) dirs
+        isTestFile  =
+            base == [osp|Test|]
+                || base == [osp|Tests|]
+                || ([osp|Test|] `OS.isPrefixOf` base)
+                || ([osp|Test|] `OS.isSuffixOf` base)
+                || ([osp|Tests|] `OS.isSuffixOf` base)
+                || ([osp|TestCase|] `OS.isSuffixOf` base)
+                || ([osp|IT|] `OS.isSuffixOf` base)
+    in not inTestSuite && (inTestDir || isTestFile)
+
 filterTests :: OsPath -> FileType -> Maybe Bool -> [Token] -> [Token]
 filterTests filename fileType flag tokens =
     case fileType of
@@ -177,7 +199,11 @@ filterTests filename fileType flag tokens =
                 Just keepTests | isGoTestFilePath filename ->
                     if keepTests then tokens else []
                 _ -> langFilter @'Go flag tokens
-        Java       -> langFilter @'Java flag tokens
+        Java ->
+            case flag of
+                Just keepTests | isJavaTestFilePath filename ->
+                    if keepTests then tokens else []
+                _ -> langFilter @'Java flag tokens
         Kotlin     -> langFilter @'Kotlin flag tokens
         C          -> langFilter @'C flag tokens
         Cpp        -> langFilter @'Cpp flag tokens
@@ -509,9 +535,20 @@ extractJavaAnnotation (t1:t2:ts)
     collectDotPath rest = ([], rest)
 extractJavaAnnotation _ = Nothing
 
+-- | Checks only the annotation name (excluding arguments inside `(...)`) to avoid
+-- false positives when production annotations reference identifiers containing "Test".
 isJavaTestAnnotation :: [Token] -> Bool
-isJavaTestAnnotation = any (\t -> isTokenIdentifier t &&
-    ("Test" `T.isInfixOf` tToken t || "Before" `T.isPrefixOf` tToken t || "After" `T.isPrefixOf` tToken t))
+isJavaTestAnnotation tokens =
+    let headerTokens = takeWhile (\t -> not (isTokenBracket t && tToken t == "(")) tokens
+        identTokens  = filter isTokenIdentifier headerTokens
+    in any (isJavaTestAttrName . tToken) identTokens
+  where
+    isJavaTestAttrName n =
+        "Test" `T.isInfixOf` n
+            || "Before" `T.isPrefixOf` n
+            || "After" `T.isPrefixOf` n
+            || n == "Nested"
+            || n == "DataProvider"
 
 collectJavaAnnotations :: [Token] -> ([Token], Bool, [Token])
 collectJavaAnnotations = go [] False
@@ -526,10 +563,11 @@ collectJavaAnnotations = go [] False
 -- | (Java) Helper: Processes tokens *outside* a test method.
 processOutsideJava :: Bool -> [Token] -> [Token]
 processOutsideJava _ [] = [] -- End of stream
-processOutsideJava keepTests tokens =
-    let (attrTokens, isTest, restAfterAttrs) = collectJavaAnnotations tokens
-    in if not (null attrTokens)
-       then
+
+-- Pattern 1: Annotated method or class (JUnit 4/5, TestNG, etc.)
+processOutsideJava keepTests tokens
+    | let (attrTokens, isTest, restAfterAttrs) = collectJavaAnnotations tokens
+    , not (null attrTokens) =
            if isTest
            then
                case findOpeningBraceC 100 restAfterAttrs of
@@ -546,11 +584,28 @@ processOutsideJava keepTests tokens =
                if keepTests
                then processOutsideJava keepTests restAfterAttrs
                else attrTokens ++ processOutsideJava keepTests restAfterAttrs
-       else
-           let (t:ts) = tokens
-           in if keepTests
-              then processOutsideJava keepTests ts
-              else t : processOutsideJava keepTests ts
+
+-- Pattern 2: JUnit 3 class extending TestCase (`class Foo extends TestCase { ... }`)
+processOutsideJava keepTests (t1:t2:t3:t4:ts)
+    | isTokenKeyword t1 && tToken t1 == "class" &&
+      isTokenIdentifier t2 &&
+      isTokenKeyword t3 && tToken t3 == "extends" &&
+      isTokenIdentifier t4 && "TestCase" `T.isSuffixOf` tToken t4
+    =
+        case findOpeningBraceC 100 ts of
+            Nothing ->
+                if keepTests then processOutsideJava keepTests (t2:t3:t4:ts) else t1 : processOutsideJava keepTests (t2:t3:t4:ts)
+            Just (sigTokens, restAfterBrace) ->
+                let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
+                in if keepTests
+                   then t1 : t2 : t3 : t4 : sigTokens ++ bodyTokens ++ processOutsideJava keepTests finalRest
+                   else processOutsideJava keepTests finalRest
+
+-- No test found, process the current token
+processOutsideJava keepTests (t:ts) =
+    if keepTests
+    then processOutsideJava keepTests ts
+    else t : processOutsideJava keepTests ts
 
 -- ------------------------------------------------------------------
 -- Kotlin-Specific Implementation Helpers
@@ -625,16 +680,33 @@ processOutsideKotlin keepTests (t:ts) =
 --   3. TEST(...) macro (Google Test)
 --   4. TEST_F(...) macro (Google Test with fixture)
 --   5. TEST_CASE(...) macro (Catch2)
+-- | Finds the opening `{` of a declaration within `n` tokens, stopping at a
+-- top-level `;` (forward declaration / abstract method), while ignoring braces
+-- and semicolons nested inside `(...)` or `[...]` (e.g. parameter annotations
+-- like `@MyAnno({1, 2})`).
 findOpeningBraceC :: Int -> [Token] -> Maybe ([Token], [Token])
-findOpeningBraceC 0 _  = Nothing
-findOpeningBraceC _ [] = Nothing
-findOpeningBraceC n (t:ts)
-    | isTokenBracket t && tToken t == "{" = Just ([t], ts)
-    | tToken t == ";" = Nothing
-    | otherwise =
-        case findOpeningBraceC (n - 1) ts of
-            Nothing -> Nothing
-            Just (pre, post) -> Just (t : pre, post)
+findOpeningBraceC = go 0
+  where
+    go :: Int -> Int -> [Token] -> Maybe ([Token], [Token])
+    go _ 0 _  = Nothing
+    go _ _ [] = Nothing
+    go depth n (t:ts)
+        | isTokenBracket t && (tToken t == "(" || tToken t == "[") =
+            step (depth + 1) (n - 1) t ts
+        | isTokenBracket t && (tToken t == ")" || tToken t == "]") =
+            step (max 0 (depth - 1)) (n - 1) t ts
+        | depth == 0 && isTokenBracket t && tToken t == "{" =
+            Just ([t], ts)
+        | depth == 0 && tToken t == ";" =
+            Nothing
+        | otherwise =
+            step depth (n - 1) t ts
+
+    step :: Int -> Int -> Token -> [Token] -> Maybe ([Token], [Token])
+    step d m tok rest =
+        case go d m rest of
+            Nothing          -> Nothing
+            Just (pre, post) -> Just (tok : pre, post)
 
 processOutsideC :: Bool -> [Token] -> [Token]
 processOutsideC _ [] = [] -- End of stream
