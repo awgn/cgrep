@@ -199,16 +199,25 @@ bytesToCharOffset line byteOffset = go 0 0
 {-# INLINE bytesToCharOffset #-}
 
 buildTokens :: Options -> Match -> TLB.Builder
-buildTokens Options{show_match = st} out
-    | st = boldBuilder <> mconcat (TLB.fromText <$> mTokens out) <> resetBuilder <> TLB.singleton ':'
+buildTokens Options{show_match = st, only_matching = om} out
+    | st && not om = boldBuilder <> mconcat (TLB.fromText <$> mTokens out) <> resetBuilder <> TLB.singleton ':'
     | otherwise = mempty
 {-# INLINE buildTokens #-}
 
 buildLine :: Config -> Options -> Match -> TLB.Builder
+buildLine conf opt out
+    | only_matching opt = buildOnlyMatching conf opt out
 buildLine conf Options{color = c, no_color = no_c} out
     | c && not no_c = buildColoredLine conf (sortBy (flip compare `on` (T.length . cToken)) (mChunks out)) (mLine out)
     | otherwise = TLB.fromText $ mLine out
 {-# INLINE buildLine #-}
+
+-- | Prints only the matched tokens (separated by a space), instead of the whole line.
+buildOnlyMatching :: Config -> Options -> Match -> TLB.Builder
+buildOnlyMatching conf opt out =
+    mconcat . intersperse (TLB.singleton ' ') $
+        buildColoredText opt (T.pack (setSGRCode (configColorMatch conf))) . cToken <$> mChunks out
+{-# INLINE buildOnlyMatching #-}
 
 buildColoredLine :: Config -> [Chunk] -> T.Text -> TLB.Builder
 buildColoredLine conf chunks line =

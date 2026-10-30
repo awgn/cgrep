@@ -14,6 +14,7 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 - **New Semantic Wildcards (`TYP`, `OP`, `LIT`)** - Match native types (`TYP`), operators (`OP`), and any string or numeric literal (`LIT`, distinct from `STR` which matches only string literals).
 - **Structural Ellipsis Operator (`...`)** - Match zero or more tokens across expressions, argument lists, or statements while automatically respecting balanced brackets (`()`, `[]`, `{}`) and statement boundaries (`;`).
 - **Semantic Combinators (`NOT`, `OR`)** - Combine or negate semantic atoms and wildcards directly in `-S` patterns (e.g., `TYP OR KEY _ ( ... )`, `_ = NOT STR`, `STR OR NUM`).
+- **Only-Matching Output (`-o`)** - With `-S`, print only the matched tokens instead of the whole line (e.g. `cgrep -S -o -h --no-numbers "_ = NOT STR" *.c`).
 - **Improved Placeholder Unification (`_`, `_0`, `_1`, ...)** - Language-agnostic unification for numbered identifier placeholders and preserved leading underscores on normal identifiers (`_foo`, `__init__`).
 
 ## What's New in Version 9.3.0 (powered by Google Argon 4)
@@ -124,6 +125,8 @@ Available options:
   -v,--invert-match        Select non-matching lines
   -j,--threads INT         Approximate number of threads to run search
   --show-match             Show list of matching tokens
+  -o,--only-matching       Print only the matching tokens, not the whole line
+                           (requires -S)
   --color                  Use colors to highlight the match strings
   --no-color               Do not use colors (override config file)
   -h,--no-filename         Suppress the file name prefix on output

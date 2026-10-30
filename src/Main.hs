@@ -128,6 +128,9 @@ validateOptions Options{..} isTermIn = do
         withArgs ["--help"] $
             void (execParser parserInfo)
             
+    when (only_matching && not semantic) $
+        die "cgrep: the option --only-matching (-o) requires semantic search (-S or --semantic)."
+
     when (isJust tests && not semantic) $
         die "cgrep: the options --tests-only and --no-tests require semantic search (-S or --semantic)."
 

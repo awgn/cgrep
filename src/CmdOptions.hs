@@ -193,6 +193,10 @@ options = Options
         ( long "show-match"
        <> help "Show list of matching tokens" )
     <*> switch
+        ( long "only-matching"
+       <> short 'o'
+       <> help "Print only the matching tokens, not the whole line (requires -S)" )
+    <*> switch
         ( long "color"
        <> help "Use colors to highlight the match strings" )
     <*> switch

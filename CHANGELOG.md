@@ -2,6 +2,7 @@
 
 # cgrep v9.3.1
 
+- **Only-Matching Output (`-o` / `--only-matching`):** New option, valid only with `-S`, that prints just the matched tokens (separated by a space) instead of the whole line. Combine with `-h --no-numbers` to get the bare match.
 - **New Semantic Wildcards (`TYP`, `OP`, `LIT`):** Extended semantic search (`-S` / `--semantic`) with `TYP` (native types), `OP` (operators), and `LIT` (any string or numeric literal, distinct from `STR` which matches only string literals).
 - **Structural Ellipsis Operator (`...`):** Added the `...` operator to semantic patterns to match zero or more tokens across expressions or argument lists while respecting balanced brackets (`()`, `[]`, `{}`) and statement terminators (`;`).
 - **Semantic Combinators (`NOT`, `OR`):** Added prefix negation (`NOT <atom>`) and infix alternation (`<atom1> OR <atom2>`) to semantic search patterns (with `_NOT` and `_OR` escaping for literal identifiers).

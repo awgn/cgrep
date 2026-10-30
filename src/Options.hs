@@ -62,6 +62,7 @@ data Options = Options
     , jobs :: Maybe Int
     , -- Output format:
       show_match :: Bool
+    , only_matching :: Bool
     , color :: Bool
     , no_color :: Bool
     , no_filename :: Bool
