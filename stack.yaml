@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-24.37
+resolver: lts-24.65
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -40,6 +40,8 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3ta
 # extra-deps:
+extra-deps:
+- optparse-applicative-0.19.0.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

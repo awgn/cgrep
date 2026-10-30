@@ -167,7 +167,7 @@ executable cgrep
     mmap,
     monad-loops,
     mtl,
-    optparse-applicative,
+    optparse-applicative >= 0.19,
     os-string,
     process,
     regex-base,

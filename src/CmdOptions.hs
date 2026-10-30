@@ -35,6 +35,7 @@ import Options.Applicative (
     many,
     metavar,
     optional,
+    parserOptionGroup,
     option,
     progDesc,
     short,
@@ -55,202 +56,202 @@ import Data.Version (showVersion)
 --  Parser options
 options :: Parser Options
 options = Options
-    <$> optional(strOption
+    <$> parserOptionGroup "Pattern matching" (optional(strOption
         ( long "file"
        <> metavar "FILE"
-       <> help "Read PATTERNs from file (one per line)" ))
-    <*> switch
+       <> help "Read PATTERNs from file (one per line)" )))
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "word"
        <> short 'w'
-       <> help "Force word matching" )
-    <*> switch
+       <> help "Force word matching" ))
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "prefix"
        <> short 'p'
-       <> help "Force prefix matching" )
-    <*> switch
+       <> help "Force prefix matching" ))
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "suffix"
        <> short 's'
-       <> help "Force suffix matching" )
-    <*> switch
+       <> help "Force suffix matching" ))
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "edit"
        <> short 'e'
-       <> help "Use edit distance" )
-    <*> switch
+       <> help "Use edit distance" ))
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "regex"
        <> short 'G'
-       <> help "Use regex matching (posix)" )
+       <> help "Use regex matching (posix)" ))
 #ifdef ENABLE_PCRE
-    <*> switch
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "pcre"
        <> short 'P'
-       <> help "Use regex matching (pcre)" )
+       <> help "Use regex matching (pcre)" ))
 #endif
-    <*> switch
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "ignore-case"
        <> short 'i'
-       <> help "Ignore case distinctions" )
+       <> help "Ignore case distinctions" ))
     -- Context filters
-    <*> switch
+    <*> parserOptionGroup "Context filters" (switch
         ( long "code"
        <> short 'c'
-       <> help "Enable search in source code" )
-    <*> switch
+       <> help "Enable search in source code" ))
+    <*> parserOptionGroup "Context filters" (switch
         ( long "comment"
        <> short 'm'
-       <> help "Enable search in comments" )
-    <*> switch
+       <> help "Enable search in comments" ))
+    <*> parserOptionGroup "Context filters" (switch
         ( long "literal"
        <> short 'l'
-       <> help "Enable search in string literals" )
+       <> help "Enable search in string literals" ))
     -- Token filters
-    <*> switch
+    <*> parserOptionGroup "Token filters" (switch
         ( long "identifier"
        <> long "name"
-       <> help "Identifiers" )
-    <*> switch
+       <> help "Identifiers" ))
+    <*> parserOptionGroup "Token filters" (switch
         ( long "native"
        <> long "type"
-       <> help "Native Types" )
-    <*> switch
+       <> help "Native Types" ))
+    <*> parserOptionGroup "Token filters" (switch
         ( long "keyword"
-       <> help "Keywords" )
-    <*> switch
+       <> help "Keywords" ))
+    <*> parserOptionGroup "Token filters" (switch
         ( long "number"
-       <> help "Literal numbers" )
-    <*> switch
+       <> help "Literal numbers" ))
+    <*> parserOptionGroup "Token filters" (switch
         ( long "string"
-       <> help "Literal strings" )
-    <*> switch
+       <> help "Literal strings" ))
+    <*> parserOptionGroup "Token filters" (switch
         ( long "op"
-       <> help "Operators" )
+       <> help "Operators" ))
     -- File filters
-    <*> many (strOption
+    <*> parserOptionGroup "File selection" (many (strOption
         ( long "type"
        <> metavar "TYPE"
-       <> help "Specify file types. ie: Cpp, +Haskell, -Makefile" ))
-    <*> many (strOption
+       <> help "Specify file types. ie: Cpp, +Haskell, -Makefile" )))
+    <*> parserOptionGroup "File selection" (many (strOption
         ( long "kind"
        <> metavar "KIND"
-       <> help "Specify file kinds. Text, Config, Language, Data, Markup or Script" ))
-    <*> switch
+       <> help "Specify file kinds. Text, Config, Language, Data, Markup or Script" )))
+    <*> parserOptionGroup "File selection" (switch
         ( long "code-only"
-       <> help "Parse code modules only (skip headers/interfaces)" )
-    <*> switch
+       <> help "Parse code modules only (skip headers/interfaces)" ))
+    <*> parserOptionGroup "File selection" (switch
         ( long "hdr-only"
-       <> help "Parse headers/interfaces only (skip modules)" )
-    <*> ( flag' (Just True)
+       <> help "Parse headers/interfaces only (skip modules)" ))
+    <*> parserOptionGroup "File selection" (( flag' (Just True)
         ( long "tests-only"
        <> short 'T'
        <> help "Search only in test files" )
       <|> flag' (Just False)
         ( long "no-tests"
        <> help "Exclude test files from search" )
-      <|> pure Nothing )
-    <*> many (strOption
+      <|> pure Nothing ))
+    <*> parserOptionGroup "File selection" (many (strOption
         ( long "prune-dir"
        <> metavar "DIR"
-       <> help "Do not descend into dir" ))
-    <*> switch
+       <> help "Do not descend into dir" )))
+    <*> parserOptionGroup "File selection" (switch
         ( long "recursive"
        <> short 'r'
-       <> help "Enable recursive search (don't follow symlinks)" )
-    <*> switch
+       <> help "Enable recursive search (don't follow symlinks)" ))
+    <*> parserOptionGroup "File selection" (switch
         ( long "follow"
        <> short 'L'
-       <> help "Follow symlinks" )
+       <> help "Follow symlinks" ))
     -- Semantic
-    <*> switch
+    <*> parserOptionGroup "Semantic search" (switch
         ( long "semantic"
        <> short 'S'
-       <> help "\"code\" pattern: _, _1, _2... (identifiers), ..., ANY, KEY, TYP, OP, STR, LIT, NUM, HEX, OCT, OR, NOT" )
-    <*> switch
+       <> help "\"code\" pattern: _, _1, _2... (identifiers), ..., ANY, KEY, TYP, OP, STR, LIT, NUM, HEX, OCT, OR, NOT" ))
+    <*> parserOptionGroup "Semantic search" (switch
         ( long "strict"
-           <> help "Enable strict semantic for operators" )
+           <> help "Enable strict semantic for operators" ))
     -- Control
-    <*> option auto
+    <*> parserOptionGroup "Performance and limits" (option auto
         ( long "max-count"
        <> metavar "INT"
        <> value maxBound
-       <> help "Stop search in files after INT matches" )
-    <*> optional (strOption
+       <> help "Stop search in files after INT matches" ))
+    <*> parserOptionGroup "File selection" (optional (strOption
         ( long "force-type"
        <> metavar "TYPE"
-       <> help "Force the type of file" ))
-    <*> switch
+       <> help "Force the type of file" )))
+    <*> parserOptionGroup "Miscellaneous" (switch
         ( long "type-list"
-       <> help "List the supported file types" )
-    <*> switch
+       <> help "List the supported file types" ))
+    <*> parserOptionGroup "Pattern matching" (switch
         ( long "invert-match"
        <> short 'v'
-       <> help "Select non-matching lines" )
-    <*> optional (option auto
+       <> help "Select non-matching lines" ))
+    <*> parserOptionGroup "Performance and limits" (optional (option auto
         ( long "threads"
        <> short 'j'
        <> metavar "INT"
-       <> help "Approximate number of threads to run search" ))
+       <> help "Approximate number of threads to run search" )))
     -- Output format
-    <*> switch
+    <*> parserOptionGroup "Output format" (switch
         ( long "show-match"
-       <> help "Show list of matching tokens" )
-    <*> switch
+       <> help "Show list of matching tokens" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "only-matching"
        <> short 'o'
-       <> help "Print only the matching tokens, not the whole line (requires -S)" )
-    <*> switch
+       <> help "Print only the matching tokens, not the whole line (requires -S)" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "color"
-       <> help "Use colors to highlight the match strings" )
-    <*> switch
+       <> help "Use colors to highlight the match strings" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "no-color"
-       <> help "Do not use colors (override config file)" )
-    <*> switch
+       <> help "Do not use colors (override config file)" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "no-filename"
        <> short 'h'
-       <> help "Suppress the file name prefix on output" )
-    <*> switch
+       <> help "Suppress the file name prefix on output" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "no-numbers"
-       <> help "Suppress both line and column numbers on output" )
-    <*> switch
+       <> help "Suppress both line and column numbers on output" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "no-column"
-       <> help "Suppress the column number on output" )
-    <*> switch
+       <> help "Suppress the column number on output" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "count"
-       <> help "Print only a count of matching lines per file" )
-    <*> switch
+       <> help "Print only a count of matching lines per file" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "filename-only"
-       <> help "Print only the name of files containing matches" )
-    <*> switch
+       <> help "Print only the name of files containing matches" ))
+    <*> parserOptionGroup "Output format" (switch
         ( long "json"
-       <> help "Format output as json object" )
-    <*> switch
+       <> help "Format output as json object" ))
+    <*> parserOptionGroup "Editor integration" (switch
         ( long "vim"
-       <> help "Run vim editor passing the files that match" )
-    <*> switch
+       <> help "Run vim editor passing the files that match" ))
+    <*> parserOptionGroup "Editor integration" (switch
         ( long "editor"
-       <> help "Run the editor specified by EDITOR var., passing the files that match" )
-    <*> switch
+       <> help "Run the editor specified by EDITOR var., passing the files that match" ))
+    <*> parserOptionGroup "Editor integration" (switch
         ( long "fileline"
-       <> help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" )
+       <> help "When edit option is specified, pass the list of matching files in file:line format (e.g. vim 'file-line' plugin)" ))
     -- Miscellaneous
-    <*> switch
+    <*> parserOptionGroup "Miscellaneous" (switch
         ( long "verbose"
        <> help "Enable verbose mode"
-       )
-    <*> switch
+       ))
+    <*> parserOptionGroup "Miscellaneous" (switch
         ( long "stats"
        <> help "Print statistics about the search"
-       )
+       ))
     <*> option auto
         ( long "debug"
        <> metavar "INT"
        <> value 0
        -- <> help "debug level: 1, 2, 3 or 4"
        <> hidden)
-    <*> switch
+    <*> parserOptionGroup "Miscellaneous" (switch
         ( long "null-output"
-       <> help "Disable output for performance evaluation" )
-    <*> switch
+       <> help "Disable output for performance evaluation" ))
+    <*> parserOptionGroup "Miscellaneous" (switch
         ( long "palette"
-       <> help "Show color palette" )
+       <> help "Show color palette" ))
     <*> many (argument str (metavar "PATTERN FILES..."))
 
 parseVersion :: Parser (a -> a)
