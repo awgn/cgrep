@@ -18,12 +18,9 @@
 
 module Main (main) where
 
-import Data.Char (toLower)
-
 import Control.Monad (void, when)
 import Control.Monad.Trans.Reader (ReaderT (runReaderT))
 
-import qualified Data.Map as M
 import GHC.Conc (getNumCapabilities, setNumCapabilities)
 import GHC.IO.Handle (hIsTerminalDevice)
 
@@ -36,8 +33,7 @@ import System.IO (stdin, stdout)
 import CGrep.Common (trimT)
 import CGrep.FileType (readKindList, readTypeList)
 import CGrep.FileTypeMapTH (dumpFileTypeInfoMap, fileTypeInfoMap)
-import CGrep.Parser.Atom (wildCardMap)
-import CGrep.Search (isRegexp, startSearch)
+import CGrep.Search (normalizePatterns, startSearch)
 
 import CmdOptions (parserInfo)
 import Config (
@@ -96,11 +92,7 @@ main = do
         Just f -> do
             readPatternsFromFile (OS.unsafeEncodeUtf f) >>= \ps -> pure (ps, OS.fromText <$> others')
 
-    let patterns' = map (if ignore_case then ic else id) patterns
-          where
-            ic
-                | (not . isRegexp) opt && semantic = T.unwords . map (\p -> if p `elem` ("NOT" : "OR" : M.keys wildCardMap) then p else T.map toLower p) . T.words
-                | otherwise = T.map toLower
+    let patterns' = normalizePatterns opt patterns
 
     -- parse cmd line language list:
     let (l0, l1, l2) = readTypeList type_filter

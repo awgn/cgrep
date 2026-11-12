@@ -22,6 +22,7 @@ module CGrep.Line (
     totalLines,
     lookupLineAndPosition,
     getLineByOffset',
+    getLineByNumber,
     ------------------------
     getLineOffsets,
     getLineByOffset,
@@ -43,8 +44,18 @@ data LineIndex
     deriving stock (Show)
 
 totalLines :: LineIndex -> Int
-totalLines (LineIndex _ vec) = UV.length vec
+totalLines (LineIndex txt vec)
+    | T.null txt = 0
+    | UV.null vec = 0
+    | UV.last vec == TU.lengthWord8 txt = UV.length vec - 1
+    | otherwise = UV.length vec
 {-# INLINE totalLines #-}
+
+getLineByNumber :: LineIndex -> Int -> T.Text
+getLineByNumber lindex@(LineIndex _ vec) !lineNum
+    | lineNum < 1 || lineNum > UV.length vec = T.empty
+    | otherwise = getLineByOffset' lindex (vec `UV.unsafeIndex` (lineNum - 1))
+{-# INLINE getLineByNumber #-}
 
 -- | Build a LineIndex from the given Text.
 buildIndex :: T.Text -> LineIndex
@@ -79,7 +90,7 @@ getLineByOffset' (LineIndex originalText vec) !offset
                         !numLines = UV.length vec
                      in if lineIndex == numLines - 1
                             then
-                                let !len = T.length originalText - offsetStart
+                                let !len = TU.lengthWord8 originalText - offsetStart
                                  in textSlice originalText offsetStart len
                             else
                                 let !offsetNext = vec `UV.unsafeIndex` (lineIndex + 1)

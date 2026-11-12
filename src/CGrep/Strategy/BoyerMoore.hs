@@ -52,7 +52,7 @@ search lock info filename text patterns _strict = do
     let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
 
     let text' = ignoreCase opt text
-    let text'' = contextFilter $ text'
+    let text'' = ignoreCase opt (contextFilter text)
 
     -- make shallow search
     let !eligibleForSearch = textContainsOneOf patterns text'
@@ -103,10 +103,10 @@ filterChunk opts loff info text chunk
     | suffix_match opts =
         let !(# line', _ #) = getLineByOffset (cOffset chunk) text loff
             !cs = parseChunks info line'
-            !tokLen = T.length (cToken chunk)
+            !tokLen = TU.lengthWord8 (cToken chunk)
          in any
                 ( \chunk' ->
-                    let !tokLen' = T.length (cToken chunk')
+                    let !tokLen' = TU.lengthWord8 (cToken chunk')
                      in cToken chunk `T.isSuffixOf` cToken chunk'
                             && cOffset chunk' + (tokLen' - tokLen) == cOffset chunk
                 )

@@ -51,7 +51,7 @@ iterM txt f = go 0 (return ())
 {-# INLINE iterM #-}
 
 textIndices :: [T.Text] -> T.Text -> [[Int]]
-textIndices ps text = (`TIS.indices` text) <$> ps
+textIndices ps text = (\p -> if T.null p then [] else p `TIS.indices` text) <$> ps
 {-# INLINE textIndices #-}
 
 textContainsOneOf :: [T.Text] -> T.Text -> Bool

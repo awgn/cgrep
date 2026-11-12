@@ -25,7 +25,7 @@ module CGrep.Match (
     prettyBold,
 ) where
 
-import CGrep.Line (LineIndex, getLineByOffset', lookupLineAndPosition, totalLines)
+import CGrep.Line (LineIndex, getLineByNumber, getLineByOffset', lookupLineAndPosition, totalLines)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
@@ -60,14 +60,14 @@ mTokens (Match _ _ _ cs) = cToken <$> cs
 {-# INLINE mTokens #-}
 
 mkMatches :: LineIndex -> OsPath -> T.Text -> [Chunk] -> ReaderIO [Match]
-mkMatches lindex f txt chunks = do
+mkMatches lindex f _txt chunks = do
     invert <- invert_match <$> reader opt
     return $
         if invert
             then
                 map
                     ( \(MatchLine n xs) ->
-                        Match f n txt xs
+                        Match f n (getLineByNumber lindex n) xs
                     )
                     . invertLines (totalLines lindex)
                     $ mkMatchLines lindex chunks

@@ -64,7 +64,7 @@ search lock info filename text patterns _strict = do
 
     -- transform text
 
-    let text' = contextFilter . ignoreCase opt $ text
+    let text' = ignoreCase opt . contextFilter $ text
 
         -- search for matching tokens
 #ifdef ENABLE_PCRE

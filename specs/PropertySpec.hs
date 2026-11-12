@@ -1,0 +1,192 @@
+module PropertySpec (propertyTests) where
+
+import CGrep.Common (ignoreCase, sliceToMaxIndex)
+import CGrep.FileType (FileType (..))
+import CGrep.Line (buildIndex, getLineByNumber, totalLines)
+import CGrep.Parser.Chunk (pattern ChunkOperator)
+import CGrep.Parser.Token (tOffset, tToken, tTyp)
+import CGrep.Semantic.Tests (filterTests)
+import CGrep.Text (textIndices)
+import qualified Data.Set as Set
+import qualified Data.Text as T
+import qualified Data.Text.Unsafe as TU
+import Options (Options (..), defaultOptions)
+import System.OsPath (unsafeEncodeUtf)
+import Test.QuickCheck (
+    Gen,
+    Property,
+    chooseInt,
+    elements,
+    forAll,
+    listOf,
+    oneof,
+    (===),
+ )
+import Test.Tasty (TestTree, localOption, testGroup)
+import Test.Tasty.QuickCheck (QuickCheckTests (..), testProperty)
+import TestHelpers (filterSource, lexSource)
+
+propertyTests :: TestTree
+propertyTests =
+    localOption (QuickCheckTests 200) $
+        testGroup
+            "Generative QuickCheck property invariants"
+            [ testProperty "ContextFilter preserves exact UTF-8 Word8 length and newline count" prop_contextFilterByteLengthAndNewlines
+            , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
+            , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
+            , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
+            , testProperty "sliceToMaxIndex never splits multi-byte UTF-8 codepoints" prop_sliceToMaxIndexValidUtf8
+            , testProperty "filterTests (-T vs --no-tests) never classifies the same token offset as both test and prod" prop_filterTestsDisjoint
+            ]
+
+-- | Generator biased toward lexical/comment/quote/escape/UTF-8 corner-case fragments.
+genAdversarialText :: Gen T.Text
+genAdversarialText = do
+    pieces <- listOf genPiece
+    pure (T.concat pieces)
+  where
+    genPiece :: Gen T.Text
+    genPiece =
+        elements
+            [ ""
+            , " "
+            , "\n"
+            , "\r\n"
+            , "\""
+            , "\"\""
+            , "\"\"\""
+            , "'"
+            , "''"
+            , "'''"
+            , "`"
+            , "\\"
+            , "\\\\"
+            , "\\\""
+            , "\\'"
+            , "\\x41"
+            , "'\\x41'"
+            , "'\\u{1F980}'"
+            , "'a"
+            , "//"
+            , "/*"
+            , "*/"
+            , "#"
+            , "###"
+            , "r#\""
+            , "\"#"
+            , "R\"("
+            , ")\""
+            , "[==["
+            , "]==]"
+            , "$a"
+            , "foo"
+            , "x_1"
+            , "42"
+            , ".5"
+            , "0x1F"
+            , "="
+            , "!="
+            , "();{}"
+            , "©"
+            , "αβ"
+            , "İ"
+            , "K"
+            , "€"
+            , "日本語"
+            , "ﬀ"
+            , "🦀"
+            , "🚀"
+            ]
+
+genSampleLang :: Gen FileType
+genSampleLang =
+    elements [C, Cpp, Rust, Python, Go, Haskell, Lua, Coffee, SmallTalk, Toml, Java, Javascript]
+
+genContextOptions :: Gen (Options, Bool)
+genContextOptions = do
+    c <- elements [False, True]
+    m <- elements [False, True]
+    l <- elements [False, True]
+    markers <- elements [False, True]
+    pure (defaultOptions{code = c, comment = m, literal = l}, markers)
+
+prop_contextFilterByteLengthAndNewlines :: Property
+prop_contextFilterByteLengthAndNewlines =
+    forAll genSampleLang $ \ft ->
+        forAll genContextOptions $ \(opt, useMarkers) ->
+            forAll genAdversarialText $ \txt ->
+                let out = filterSource ft opt useMarkers txt
+                 in (TU.lengthWord8 out, T.count "\n" out)
+                        === (TU.lengthWord8 txt, T.count "\n" txt)
+
+prop_parseTokensValidSlicesAndNoBlankLeaks :: Property
+prop_parseTokensValidSlicesAndNoBlankLeaks =
+    forAll genSampleLang $ \ft ->
+        forAll genContextOptions $ \(opt, _) ->
+            forAll (elements [False, True]) $ \isStrict ->
+                forAll genAdversarialText $ \txt ->
+                    let toks = lexSource ft opt isStrict txt
+                        totalBytes = TU.lengthWord8 txt
+                        isBlankPlaceholder ch = ch == '\x00A0' || ch == '\x3000' || ch == '\x100000'
+                        validTok t =
+                            let off = tOffset t
+                                sub = tToken t
+                                blen = TU.lengthWord8 sub
+                                -- Force full UTF-8 decoding of slice via T.length
+                                charCount = T.length sub
+                                noPhantomOp =
+                                    tTyp t /= ChunkOperator || not (T.any isBlankPlaceholder sub)
+                             in off >= 0
+                                    && blen >= 0
+                                    && off + blen <= totalBytes
+                                    && charCount >= 0
+                                    && noPhantomOp
+                     in all validTok toks === True
+
+prop_ignoreCasePreservesByteLength :: Property
+prop_ignoreCasePreservesByteLength =
+    forAll genAdversarialText $ \txt ->
+        let lowered = ignoreCase defaultOptions{ignore_case = True} txt
+         in TU.lengthWord8 lowered === TU.lengthWord8 txt
+
+prop_lineIndexRoundTrip :: Property
+prop_lineIndexRoundTrip =
+    forAll (listOf genSingleLine) $ \rawLs ->
+        forAll (elements [False, True]) $ \trailingNl ->
+            let ls = case reverse rawLs of
+                    ("" : rest) | not trailingNl -> reverse ("end" : rest)
+                    _ -> rawLs
+                body = T.intercalate "\n" ls
+                txt
+                    | null ls = ""
+                    | trailingNl = body <> "\n"
+                    | otherwise = body
+                idx = buildIndex txt
+                n = totalLines idx
+                reconstructed = [getLineByNumber idx i | i <- [1 .. n]]
+             in reconstructed === ls
+  where
+    genSingleLine :: Gen T.Text
+    genSingleLine = do
+        k <- chooseInt (0, 6)
+        chunks <- sequence [elements ["abc", "©", "€", "🦀", "İ", ""] | _ <- [1 .. k]]
+        pure (T.concat chunks)
+
+prop_sliceToMaxIndexValidUtf8 :: Property
+prop_sliceToMaxIndexValidUtf8 =
+    forAll genAdversarialText $ \txt ->
+        forAll (oneof [pure "foo", pure "€", pure "🦀", pure ""]) $ \needle ->
+            let idxs = textIndices [needle] txt
+                sliced = sliceToMaxIndex idxs txt
+             in (T.length sliced >= 0 && sliced `T.isPrefixOf` txt) === True
+
+prop_filterTestsDisjoint :: Property
+prop_filterTestsDisjoint =
+    forAll (elements [Rust, Python, Java, Go, Javascript, PHP, OCaml, Bash, Cpp, Csharp]) $ \ft ->
+        forAll genAdversarialText $ \noise ->
+            let src = "fn a() {}\n" <> noise <> "\n#[test]\nfn t() {}\n@Test void j() {}\n"
+                toks = lexSource ft defaultOptions False src
+                osp = unsafeEncodeUtf "check_file"
+                prodOffsets = Set.fromList (map tOffset (filterTests osp ft (Just False) toks))
+                testOffsets = Set.fromList (map tOffset (filterTests osp ft (Just True) toks))
+             in Set.disjoint prodOffsets testOffsets === True

@@ -86,10 +86,14 @@ isDigit c = (fromIntegral (ord c - ord '0') :: Word) <= 9
 {-# INLINE isDigit #-}
 
 isSpace :: Char -> Bool
-isSpace c = uc == 32 || uc == 0xa0 || (uc - 0x9 <= 4) && not ctrl
+isSpace c =
+    uc == 32
+        || (fromIntegral (uc - 0x9) :: Word) <= 4
+        || uc == 0xa0
+        || uc == 0x3000
+        || uc == 0x100000
   where
     uc = ord c
-    ctrl = uc == 2 || uc == 3
 {-# INLINE isSpace #-}
 
 isHexDigit :: Char -> Bool

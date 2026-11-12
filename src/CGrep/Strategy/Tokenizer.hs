@@ -51,6 +51,7 @@ import Options (
     Options (
         edit_dist,
         identifier,
+        ignore_case,
         keyword,
         nativeType,
         number,
@@ -78,17 +79,20 @@ search lock info filename text patterns strict = do
 
     let !contextFilter = mkContextFilterFn (fst <$> info) filt True
 
-    let text' = ignoreCase opt text
-    let text'' = contextFilter $ text'
+    let text'' = contextFilter text
 
     -- make shallow search
-    let !eligibleForSearch = textContainsOneOf patterns text'
+    let !eligibleForSearch = edit_dist opt || textContainsOneOf patterns (ignoreCase opt text)
 
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy: running token search on " <> show filename <> "..."
 
     runSearch lindex filename eligibleForSearch $ do
-        let indices = textIndices patterns text''
+        let textToParse
+                | ignore_case opt || edit_dist opt = text''
+                | otherwise =
+                    let indices = textIndices patterns text''
+                     in sliceToMaxIndex indices text''
 
         -- parse source code, get the token list...
 
@@ -103,7 +107,7 @@ search lock info filename text patterns strict = do
                     , tfBracket = False
                     }
 
-        let tokens = parseTokens tfilter (snd <$> info) strict (sliceToMaxIndex indices text'')
+        let tokens = parseTokens tfilter (snd <$> info) strict textToParse
 
             -- filter tokens and make chunks
 
@@ -122,9 +126,11 @@ tokenizerFilter opt patterns token
 {-# INLINE tokenizerFilter #-}
 
 tokenPredicate :: Options -> [T.Text] -> Token -> Bool
-tokenPredicate opt patterns tokens
-    | edit_dist opt = (\t -> any (\p -> T.unpack p ~== (T.unpack . tToken) t) patterns) tokens
-    | word_match opt = ((`elem` patterns) . tToken) tokens
-    | prefix_match opt = ((\t -> any (`T.isPrefixOf` t) patterns) . tToken) tokens
-    | suffix_match opt = ((\t -> any (`T.isSuffixOf` t) patterns) . tToken) tokens
-    | otherwise = ((\t -> any (`T.isInfixOf` t) patterns) . tToken) tokens
+tokenPredicate opt patterns token
+    | edit_dist opt = any (\p -> T.unpack p ~== T.unpack tokTxt) patterns
+    | word_match opt = tokTxt `elem` patterns
+    | prefix_match opt = any (`T.isPrefixOf` tokTxt) patterns
+    | suffix_match opt = any (`T.isSuffixOf` tokTxt) patterns
+    | otherwise = any (`T.isInfixOf` tokTxt) patterns
+  where
+    tokTxt = ignoreCase opt (tToken token)

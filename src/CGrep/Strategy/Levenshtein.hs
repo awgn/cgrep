@@ -54,8 +54,7 @@ search lock info filename text patterns _strict = do
     -- transform text
     let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
 
-    let text' = ignoreCase opt text
-    let text'' = contextFilter $ text'
+    let text'' = ignoreCase opt (contextFilter text)
 
     -- parse source code, get the Cpp.Token list...
 

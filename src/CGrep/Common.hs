@@ -32,6 +32,8 @@ import CGrep.Line (LineIndex)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Char (isSpace)
 import CGrep.Parser.Chunk (Chunk)
+import CGrep.Text (charUtf8Length, firstIndex)
+import Data.Char (toLower)
 import qualified Data.Text as T
 import qualified Data.Text.IO.Utf8 as TIO
 import qualified Data.Text.Unsafe as TU
@@ -63,9 +65,15 @@ getTargetContents (OS.null -> True) = TIO.getContents
 getTargetContents xs = decodeUtf xs >>= TIO.readFile
 {-# INLINE getTargetContents #-}
 
+toLowerSameWidth :: Char -> Char
+toLowerSameWidth c =
+    let !lc = toLower c
+     in if charUtf8Length lc == charUtf8Length c then lc else c
+{-# INLINE toLowerSameWidth #-}
+
 ignoreCase :: Options -> T.Text -> T.Text
 ignoreCase opt
-    | ignore_case opt = T.toLower
+    | ignore_case opt = T.map toLowerSameWidth
     | otherwise = id
 {-# INLINE ignoreCase #-}
 
@@ -74,7 +82,7 @@ sliceToMaxIndex
 sliceToMaxIndex
  [] txt = txt
 sliceToMaxIndex
- indices txt = case T.findIndex (== '\n') (TU.dropWord8 maxOff txt) of
+ indices txt = case firstIndex (T.singleton '\n') (TU.dropWord8 maxOff txt) of
     Nothing -> txt
     (Just n) -> TU.takeWord8 (maxOff + n) txt
   where

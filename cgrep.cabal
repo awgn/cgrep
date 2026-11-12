@@ -20,6 +20,29 @@ flag enable_pcre {
 
 common common-options
   build-depends: base >=4.15.0.0 && <5.0
+  default-extensions:
+    CPP
+    BangPatterns
+    DerivingStrategies
+    DeriveGeneric
+    ExistentialQuantification
+    FlexibleContexts
+    FlexibleInstances
+    GeneralisedNewtypeDeriving
+    LambdaCase
+    MagicHash
+    MultiWayIf
+    OverloadedLists
+    OverloadedRecordDot
+    OverloadedStrings
+    PatternSynonyms
+    RecordWildCards
+    ScopedTypeVariables
+    TupleSections
+    TypeApplications
+    UnboxedSums
+    UnboxedTuples
+    ViewPatterns
   ghc-options:
     -Wall
     -Wcompat
@@ -49,37 +72,16 @@ common common-options
 
   if impl(ghc >=8.8)
     ghc-options: -Wmissing-deriving-strategies
+
+  if flag (enable_pcre)
+    cpp-options: -DENABLE_PCRE
+
   default-language: Haskell2010
 
-executable cgrep
+library
   import: common-options
-  main-is: Main.hs
   hs-source-dirs: src
-  default-extensions:
-    CPP
-    BangPatterns
-    DerivingStrategies
-    DeriveGeneric
-    ExistentialQuantification
-    FlexibleContexts
-    FlexibleInstances
-    GeneralisedNewtypeDeriving
-    LambdaCase
-    MagicHash
-    MultiWayIf
-    OverloadedLists
-    OverloadedRecordDot
-    OverloadedStrings
-    PatternSynonyms
-    RecordWildCards
-    ScopedTypeVariables
-    TupleSections
-    TypeApplications
-    UnboxedSums
-    UnboxedTuples
-    ViewPatterns
-
-  other-modules:
+  exposed-modules:
     CGrep.Boundary
     CGrep.Common
     CGrep.Text
@@ -135,12 +137,14 @@ executable cgrep
     Config
     Options
     OsPath
-    Paths_cgrep
     PutMessage
     Reader
     Util
 
-  autogen-modules: Paths_cgrep
+  other-modules:
+    Paths_cgrep
+  autogen-modules:
+    Paths_cgrep
   build-depends:
     aeson,
     ansi-terminal,
@@ -149,7 +153,6 @@ executable cgrep
     async,
     concurrency,
     clock,
-    base <5.0,
     bitarray,
     bitwise,
     bytestring,
@@ -185,6 +188,29 @@ executable cgrep
     vector,
     yaml,
 
+  if flag (enable_pcre) {
+     build-depends: regex-pcre-text
+  }
+
+  ghc-options:
+    -O2
+    -optc-O3
+    -funbox-strict-fields
+    -fwrite-ide-info
+    -hiedir=.hie
+
+executable cgrep
+  import: common-options
+  main-is: Main.hs
+  hs-source-dirs: app
+  build-depends:
+    cgrep,
+    filepath,
+    optparse-applicative >= 0.19,
+    os-string,
+    text,
+    transformers,
+
   ghc-options:
     -O2
     -optc-O3
@@ -195,9 +221,35 @@ executable cgrep
     -rtsopts
     "-with-rtsopts=-N -H16m -A64m -qa"
 
-  if flag (enable_pcre) {
-     build-depends: regex-pcre-text
-     cpp-options: -DENABLE_PCRE
-  }
-
-  default-language: Haskell2010
+test-suite cgrep-test
+  import: common-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: specs
+  main-is: Spec.hs
+  other-modules:
+    ContextFilterSpec
+    ParserTokenAtomSpec
+    PropertySpec
+    SemanticTestFilterSpec
+    TestHelpers
+  build-depends:
+    QuickCheck,
+    cgrep,
+    containers,
+    directory,
+    extra,
+    filepath,
+    optparse-applicative >= 0.19,
+    os-string,
+    tasty,
+    tasty-hunit,
+    tasty-quickcheck,
+    text,
+    transformers,
+    vector,
+  ghc-options:
+    -threaded
+    -rtsopts
+    -with-rtsopts=-N
+    -fwrite-ide-info
+    -hiedir=.hie

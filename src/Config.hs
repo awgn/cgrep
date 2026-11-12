@@ -18,6 +18,7 @@
 
 module Config (
     Config (..),
+    defaultConfig,
     dumpPalette,
     getConfig,
 ) where

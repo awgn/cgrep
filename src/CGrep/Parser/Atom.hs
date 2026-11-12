@@ -37,7 +37,7 @@ import Data.List (tails)
 import Data.Maybe (isNothing, mapMaybe)
 
 import Options (
-    Options (edit_dist, prefix_match, suffix_match, word_match),
+    Options (edit_dist, ignore_case, prefix_match, suffix_match, word_match),
  )
 import Util (unquoteT)
 
@@ -91,8 +91,12 @@ extractAtomMatchers atoms =
             else concatMap orTexts atoms
   where
     exactText :: Atom -> Maybe T.Text
-    exactText (Exact (T.Token (Chunk ChunkString xs))) = Just ((unquoteT . trimT) xs)
-    exactText (Exact t) = Just (T.tToken t)
+    exactText (Exact (T.Token (Chunk ChunkString xs))) =
+        let s = (unquoteT . trimT) xs
+         in if T.null s then Nothing else Just s
+    exactText (Exact t) =
+        let s = T.tToken t
+         in if T.null s then Nothing else Just s
     exactText _ = Nothing
 
     orTexts :: Atom -> [T.Text]
@@ -243,15 +247,19 @@ matchAtoms opt bindings (a : as) (t : ts) = do
 
 -- | Matches a single non-Ellipsis Atom against a single Token, updating placeholder bindings.
 matchSingleAtom :: Options -> M.Map T.Text T.Token -> Atom -> T.Token -> Maybe (M.Map T.Text T.Token)
-matchSingleAtom _ bindings (Placeholder p) t
+matchSingleAtom opt bindings (Placeholder p) t
     | not (T.isTokenIdentifier t) = Nothing
     | p == "_" = Just bindings
     | otherwise =
         case M.lookup p bindings of
             Just boundTok
-                | boundTok == t -> Just bindings
+                | sameIdent boundTok t -> Just bindings
                 | otherwise -> Nothing
             Nothing -> Just (M.insert p t bindings)
+  where
+    sameIdent a b
+        | ignore_case opt = T.toLower (T.tToken a) == T.toLower (T.tToken b)
+        | otherwise = a == b
 matchSingleAtom opt bindings (Not a) t
     | isNothing (matchSingleAtom opt bindings a t) = Just bindings
     | otherwise = Nothing
@@ -265,22 +273,31 @@ doesAtomMatchToken :: Options -> Atom -> T.Token -> Bool
 doesAtomMatchToken opt (Exact l) r
     | T.isTokenIdentifier l && T.isTokenIdentifier r =
         if
-            | word_match opt -> T.tToken l == T.tToken r
-            | prefix_match opt -> T.tToken l `T.isPrefixOf` T.tToken r
-            | suffix_match opt -> T.tToken l `T.isSuffixOf` T.tToken r
-            | edit_dist opt -> (T.unpack . T.tToken) l ~== T.unpack (T.tToken r)
-            | otherwise -> T.tToken l `T.isInfixOf` T.tToken r
+            | word_match opt -> lt == rt
+            | prefix_match opt -> lt `T.isPrefixOf` rt
+            | suffix_match opt -> lt `T.isSuffixOf` rt
+            | edit_dist opt -> T.unpack lt ~== T.unpack rt
+            | otherwise -> lt `T.isInfixOf` rt
     | T.isTokenString l && T.isTokenString r =
-        if
-            | word_match opt -> ls == rs
-            | prefix_match opt -> ls `T.isPrefixOf` rs
-            | suffix_match opt -> ls `T.isSuffixOf` rs
-            | edit_dist opt -> T.unpack ls ~== T.unpack rs
-            | otherwise -> ls `T.isInfixOf` rs
+        if T.null ls
+            then T.null rs
+            else
+                if
+                    | word_match opt -> ls == rs
+                    | prefix_match opt -> ls `T.isPrefixOf` rs
+                    | suffix_match opt -> ls `T.isSuffixOf` rs
+                    | edit_dist opt -> T.unpack ls ~== T.unpack rs
+                    | otherwise -> ls `T.isInfixOf` rs
+    | ignore_case opt && isWordTok l && isWordTok r = lt == rt
+    | ignore_case opt = T.tTyp l == T.tTyp r && lt == rt
     | otherwise = l `T.eqToken` r
   where
-    ls = (unquoteT . trimT) (T.tToken l)
-    rs = (unquoteT . trimT) (T.tToken r)
+    norm = if ignore_case opt then T.toLower else id
+    lt = norm (T.tToken l)
+    rt = norm (T.tToken r)
+    ls = norm ((unquoteT . trimT) (T.tToken l))
+    rs = norm ((unquoteT . trimT) (T.tToken r))
+    isWordTok tok = T.isTokenIdentifier tok || T.isTokenKeyword tok || T.isTokenNativeType tok
 doesAtomMatchToken _ Any _ = True
 doesAtomMatchToken _ Ellipsis _ = True
 doesAtomMatchToken _ (Placeholder _) t = T.isTokenIdentifier t
@@ -291,6 +308,6 @@ doesAtomMatchToken _ String t = T.isTokenString t
 doesAtomMatchToken _ Literal t = T.isTokenString t || T.isTokenNumber t
 doesAtomMatchToken _ Number t = T.isTokenNumber t
 doesAtomMatchToken _ Oct t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (d, _)) -> isDigit d; _ -> False
-doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just ('x', _)) -> True; _ -> False
+doesAtomMatchToken _ Hex t = T.isTokenNumber t && case T.uncons (T.tToken t) of Just ('0', T.uncons -> Just (x, _)) -> x == 'x' || x == 'X'; _ -> False
 doesAtomMatchToken opt (Not a) t = not (doesAtomMatchToken opt a t)
 doesAtomMatchToken opt (Or a b) t = doesAtomMatchToken opt a t || doesAtomMatchToken opt b t

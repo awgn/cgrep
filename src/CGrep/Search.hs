@@ -24,11 +24,13 @@
 
 module CGrep.Search (
     startSearch,
+    getSearcher,
+    normalizePatterns,
     isRegexp,
 )
 where
 
-import CGrep.Common (getTargetContents, getTargetName, takeN)
+import CGrep.Common (getTargetContents, getTargetName, ignoreCase, takeN)
 import CGrep.FileKind (FileKind)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
@@ -416,3 +418,8 @@ isRegexp :: Options -> Bool
 isRegexp opt = regex_posix opt
 #endif
 {-# INLINE isRegexp #-}
+
+normalizePatterns :: Options -> [T.Text] -> [T.Text]
+normalizePatterns opt@Options{..}
+    | (not . isRegexp) opt && semantic = id
+    | otherwise = map (ignoreCase opt)

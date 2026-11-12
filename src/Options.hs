@@ -18,6 +18,7 @@
 
 module Options (
     Options (..),
+    defaultOptions,
 ) where
 
 data Options = Options
@@ -83,3 +84,61 @@ data Options = Options
     , others :: [String]
     }
     deriving stock (Show)
+
+defaultOptions :: Options
+defaultOptions =
+    Options
+        { file = Nothing
+        , word_match = False
+        , prefix_match = False
+        , suffix_match = False
+        , edit_dist = False
+        , regex_posix = False
+#ifdef ENABLE_PCRE
+        , regex_pcre = False
+#endif
+        , ignore_case = False
+        , code = False
+        , comment = False
+        , literal = False
+        , identifier = False
+        , nativeType = False
+        , keyword = False
+        , number = False
+        , string = False
+        , operator = False
+        , type_filter = []
+        , kind_filter = []
+        , code_only = False
+        , hdr_only = False
+        , tests = Nothing
+        , prune_dir = []
+        , recursive = False
+        , follow = False
+        , semantic = False
+        , strict = False
+        , max_count = maxBound
+        , force_type = Nothing
+        , type_map = False
+        , invert_match = False
+        , jobs = Nothing
+        , show_match = False
+        , only_matching = False
+        , color = False
+        , no_color = False
+        , no_filename = False
+        , no_numbers = False
+        , no_column = False
+        , count = False
+        , filename_only = False
+        , json = False
+        , vim = False
+        , editor = False
+        , fileline = False
+        , verbose = False
+        , stats = False
+        , debug = 0
+        , null_output = False
+        , show_palette = False
+        , others = []
+        }

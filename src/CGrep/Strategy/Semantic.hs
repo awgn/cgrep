@@ -18,15 +18,17 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex)
+import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex, trimT)
 import CGrep.Semantic.ContextFilter (
     contextBitComment,
+    contextFilterAll,
     mkContextFilter,
     (~!),
  )
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
-    FileTypeInfo,
+    FileTypeInfo (..),
+    WordType (..),
  )
 import CGrep.FileTypeMapTH (
     mkContextFilterFn,
@@ -34,6 +36,7 @@ import CGrep.FileTypeMapTH (
 import CGrep.Line (buildIndex)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Atom (
+    Atom (Exact, Not, Or),
     extractAtomMatchers,
     findAllMatches,
     mkAtomsFromTokens,
@@ -46,7 +49,9 @@ import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
 import Data.Foldable (Foldable (toList))
 import Data.Function (on)
+import qualified Data.HashMap.Strict as HM
 import Data.List (sortBy)
+import Data.Maybe (isNothing)
 import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
@@ -54,6 +59,7 @@ import System.IO (stderr)
 import System.OsPath (OsPath)
 import CGrep.Semantic.Tests (filterTests)
 import Options (Options(..))
+import Util (unquoteT)
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info filename text patterns strict = do
@@ -61,10 +67,11 @@ search lock info filename text patterns strict = do
     let lindex = buildIndex text
 
     let filt = mkContextFilter opt ~! contextBitComment
+        patFilt = contextFilterAll ~! contextBitComment
     let !contextFilter = mkContextFilterFn (fst <$> info) filt True
+        !patContextFilter = mkContextFilterFn (fst <$> info) patFilt True
 
-    let text' = ignoreCase opt text
-    let text'' = contextFilter $ text'
+    let text'' = contextFilter text
 
     -- pre-process patterns
     let pfilter =
@@ -78,12 +85,19 @@ search lock info filename text patterns strict = do
                 , tfBracket = True
                 }
 
-    let patterns' = map (parseTokens pfilter (snd <$> info) strict . contextFilter) patterns
-        patterns'' = map (mkAtomsFromTokens . toList) patterns'
+    let lcKeywords = case snd <$> info of
+            Nothing -> HM.empty
+            Just fti -> HM.fromList [(T.toLower k, v) | (k, v) <- HM.toList (ftKeywords fti)]
+
+    let patterns' = map (parseTokens pfilter (snd <$> info) strict . patContextFilter) patterns
+        rawAtoms = map (mkAtomsFromTokens . toList) patterns'
+        patterns''
+            | ignore_case opt && not (HM.null lcKeywords) = map (map (reclassifyAtom lcKeywords)) rawAtoms
+            | otherwise = rawAtoms
 
     let matchers = concatMap extractAtomMatchers patterns''
 
-    let !eligibleForSearch = textContainsOneOf matchers text'
+    let !eligibleForSearch = edit_dist opt || textContainsOneOf (ignoreCase opt <$> matchers) (ignoreCase opt text)
 
     runSearch lindex filename eligibleForSearch $ do
         putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
@@ -91,14 +105,18 @@ search lock info filename text patterns strict = do
         putMessageLnVerb 2 lock stderr $ "atoms     : " <> show patterns''
         putMessageLnVerb 2 lock stderr $ "matchers  : " <> show matchers
 
-        -- parse source code, get the Generic.Chunk list...
-        let indices' = textIndices matchers text''
+        let indices' = if ignore_case opt || edit_dist opt then [] else textIndices matchers text''
+            canSlice =
+                isNothing (tests opt)
+                    && not (ignore_case opt)
+                    && not (edit_dist opt)
+                    && all (all isNonEmptyExact) patterns''
+                    && not (any (T.elem '\n') matchers)
+            textToParse
+                | canSlice = sliceToMaxIndex indices' text''
+                | otherwise = text''
 
-        -- parse source code, get the Generic.Token list...
-        -- let tfilter = mkTokenFilter $ cTyp . coerce <$> concatMap toList patterns'
-        -- putMessageLnVerb 3 lock stderr $ "filter    : " <> show tfilter
-
-        let tokens = toList $ parseTokens pfilter (snd <$> info) strict (sliceToMaxIndex indices' text'')
+        let tokens = toList $ parseTokens pfilter (snd <$> info) strict textToParse
         putMessageLnVerb 3 lock stderr $ "indices   : " <> show indices'
 
         -- get matching tokens ...
@@ -117,3 +135,23 @@ search lock info filename text patterns strict = do
         putMessageLnVerb 2 lock stderr $ "matches   : " <> show matches
 
         mkMatches lindex filename text'' matches
+
+isNonEmptyExact :: Atom -> Bool
+isNonEmptyExact (Exact tok)
+    | isTokenString tok = not (T.null ((unquoteT . trimT) (tToken tok)))
+    | otherwise = not (T.null (tToken tok))
+isNonEmptyExact _ = False
+{-# INLINE isNonEmptyExact #-}
+
+reclassifyAtom :: HM.HashMap T.Text WordType -> Atom -> Atom
+reclassifyAtom lcKw = go
+  where
+    go (Exact tok)
+        | isTokenIdentifier tok
+        , Just wt <- HM.lookup (T.toLower (tToken tok)) lcKw =
+            Exact $ case wt of
+                Keyword -> mkTokenKeyword (tToken tok)
+                NativeType -> mkTokenNativeType (tToken tok)
+    go (Not a) = Not (go a)
+    go (Or a b) = Or (go a) (go b)
+    go a = a
