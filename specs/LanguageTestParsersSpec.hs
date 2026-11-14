@@ -39,6 +39,7 @@ languageTestParsersTests =
         , kotlinParserTests
         , luaParserTests
         , nimParserTests
+        , ocamlParserTests
         ]
 
 bashParserTests :: TestTree
@@ -979,4 +980,53 @@ nimParserTests =
             tfTest <- runSearchMem onlyTestsOpt Nim "tests/tcodec.nim" tfSrc ["cgrep_marker"]
             matchLineNums tfProd @?= []
             matchLineNums tfTest @?= [1]
+        ]
+
+ocamlParserTests :: TestTree
+ocamlParserTests =
+    testGroup
+        "OCaml semantic test parser"
+        [ testCase "OCaml: ';;' terminates let%test before top-level expr, module%test struct...end, and [%%expect_test ...]" $ do
+            let src =
+                    T.unlines
+                        [ "let%test \"stops at double semi\" =" -- 1 (test)
+                        , "  let x = cgrep_marker in x = 1;;" -- 2 (test: ends at ;;)
+                        , "print_endline cgrep_marker;;" -- 3 (prod: top-level expr after ;; without 'let'!)
+                        , "module%test AuthSuite = struct" -- 4 (test: Jane Street module%test)
+                        , "  let helper () = cgrep_marker" -- 5 (test)
+                        , "end" -- 6 (test)
+                        , "module%test _ = struct" -- 7 (test: anonymous module%test _)
+                        , "  let anon_helper () = cgrep_marker" -- 8 (test)
+                        , "end" -- 9 (test)
+                        , "[%%expect_test" -- 10 (test: item extension [%%expect_test ...])
+                        , "  let _ = cgrep_marker" -- 11 (test)
+                        , "]" -- 12 (test)
+                        , "let prod_after x = x + cgrep_marker" -- 13 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt OCaml "lib/auth.ml" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt OCaml "lib/auth.ml" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 13]
+            matchLineNums testMs @?= [2, 5, 8, 11]
+        , testCase "OCaml: Alcotest.test_case, module TestSuite : sig...end = struct...end, and test_*.ml isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "let prod_helper () = cgrep_marker" -- 1 (prod)
+                        , "let cases = [" -- 2 (prod list wrapper)
+                        , "  Alcotest.test_case \"adds\" `Quick (fun () -> ignore cgrep_marker);" -- 3 (test: Alcotest)
+                        , "]" -- 4
+                        , "module ParserTests : sig end = struct" -- 5 (test: module signature before = struct)
+                        , "  let v = cgrep_marker" -- 6 (test)
+                        , "end" -- 7
+                        ]
+            prodMs <- runSearchMem noTestsOpt OCaml "lib/parser.ml" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt OCaml "lib/parser.ml" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [1]
+            matchLineNums testMs @?= [3, 6]
+            alcoProd <- runSearchMem noTestsOpt OCaml "lib/parser.ml" src ["Alcotest"]
+            matchLineNums alcoProd @?= []
+            let duneTestSrc = "let fixture_val = cgrep_marker\n"
+            dtProd <- runSearchMem noTestsOpt OCaml "test/test_parser.ml" duneTestSrc ["cgrep_marker"]
+            dtTest <- runSearchMem onlyTestsOpt OCaml "test/test_parser.ml" duneTestSrc ["cgrep_marker"]
+            matchLineNums dtProd @?= []
+            matchLineNums dtTest @?= [1]
         ]
