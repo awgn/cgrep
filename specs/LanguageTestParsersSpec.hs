@@ -48,6 +48,7 @@ languageTestParsersTests =
         , rustParserTests
         , scalaParserTests
         , swiftParserTests
+        , zigParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1456,4 +1457,54 @@ swiftParserTests =
             testMs <- runSearchMem onlyTestsOpt ObjectiveC "OrderService.m" src ["cgrep_marker"]
             matchLineNums prodMs @?= [13]
             matchLineNums testMs @?= [5, 8, 14]
+        ]
+
+zigParserTests :: TestTree
+zigParserTests =
+    testGroup
+        "Zig semantic test parser"
+        [ testCase "Zig: deep dotted decltest 'test a.b.c.d.fn { ... }', @\"escaped\" decltest, and .test field guard" $ do
+            let src =
+                    T.unlines
+                        [ "pub fn compute() i32 { return cgrep_marker; }" -- 1 (prod)
+                        , "test math.big.int.managed.add {" -- 2 (test: >5 tokens dotted decltest path!)
+                        , "    const x = cgrep_marker;" -- 3 (test)
+                        , "    _ = x;" -- 4
+                        , "}" -- 5
+                        , "test Container.@\"escaped decl name\" {" -- 6 (test: dotted path with @\"...\" ident!)
+                        , "    const y = cgrep_marker;" -- 7 (test)
+                        , "    _ = y;" -- 8
+                        , "}" -- 9
+                        , "pub fn afterDeclTests() i32 { return cgrep_marker; }" -- 10 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Zig "src/math.zig" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Zig "src/math.zig" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [1, 10]
+            matchLineNums testMs @?= [3, 7]
+        , testCase "Zig: 'if (builtin.is_test) { ... } else { ... }', '!builtin.is_test' prod guard, and *_test.zig / tests/ isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "pub fn checkMode() i32 {" -- 1 (prod)
+                        , "    if (builtin.is_test) {" -- 2 (test branch)
+                        , "        return cgrep_marker;" -- 3 (test)
+                        , "    } else {" -- 4 (prod else branch!)
+                        , "        return cgrep_marker;" -- 5 (prod)
+                        , "    }" -- 6
+                        , "}" -- 7
+                        , "pub fn prodOnlyGuard() i32 {" -- 8 (prod)
+                        , "    if (!builtin.is_test) {" -- 9 (prod: negated !builtin.is_test is prod-only!)
+                        , "        return cgrep_marker;" -- 10 (prod)
+                        , "    }" -- 11
+                        , "    return 0;" -- 12
+                        , "}" -- 13
+                        ]
+            prodMs <- runSearchMem noTestsOpt Zig "src/mode.zig" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Zig "src/mode.zig" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [5, 10]
+            matchLineNums testMs @?= [3]
+            let zigTestFile = "fn mockAlloc() i32 { return cgrep_marker; }\n"
+            tfProd <- runSearchMem noTestsOpt Zig "src/parser_test.zig" zigTestFile ["cgrep_marker"]
+            tfTest <- runSearchMem onlyTestsOpt Zig "src/parser_test.zig" zigTestFile ["cgrep_marker"]
+            matchLineNums tfProd @?= []
+            matchLineNums tfTest @?= [1]
         ]
