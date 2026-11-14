@@ -35,6 +35,7 @@ languageTestParsersTests =
         , haskellParserTests
         , javaParserTests
         , javascriptParserTests
+        , juliaParserTests
         ]
 
 bashParserTests :: TestTree
@@ -786,4 +787,49 @@ javascriptParserTests =
             duTest <- runSearchMem onlyTestsOpt Javascript "src/__tests__/helpers.ts" specFileSrc ["cgrep_marker"]
             matchLineNums duProd @?= []
             matchLineNums duTest @?= [1]
+        ]
+
+juliaParserTests :: TestTree
+juliaParserTests =
+    testGroup
+        "Julia semantic test parser"
+        [ testCase "Julia: single-line @test does not swallow subsequent prod assignments or prod for-loops" $ do
+            let src =
+                    T.unlines
+                        [ "@test add(2, 3) == cgrep_marker" -- 1 (test: single-line @test)
+                        , "PROD_CONST = cgrep_marker" -- 2 (prod: must NOT be swallowed by @test above!)
+                        , "@test check(1) == true" -- 3 (test)
+                        , "for i in 1:3" -- 4 (prod for-loop on next line: NOT a @testset for-block!)
+                        , "    acc = cgrep_marker" -- 5 (prod)
+                        , "end" -- 6 (prod)
+                        , "@testset \"looped suite $i\" for i in 1:2" -- 7 (test: @testset for-block on SAME line!)
+                        , "    @test i == cgrep_marker" -- 8 (test)
+                        , "end" -- 9 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Julia "src/calc.jl" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Julia "src/calc.jl" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 5]
+            matchLineNums testMs @?= [1, 8]
+        , testCase "Julia: generator (x for x in ... if ...), abstract type...end, :end/obj.end inside @testset, Test.@testset, and runtests.jl" $ do
+            let src =
+                    T.unlines
+                        [ "Test.@testset \"generators and types\" begin" -- 1 (test: module-qualified Test.@testset)
+                        , "    abstract type MockNode end" -- 2 (test: abstract type...end must NOT close @testset!)
+                        , "    total = sum(x for x in 1:5 if x > 0)" -- 3 (test: generator for/if without end!)
+                        , "    sym = (:end, span.end)" -- 4 (test: :end symbol and .end field!)
+                        , "    v = cgrep_marker" -- 5 (test: still inside @testset!)
+                        , "end" -- 6 (test: actual closing end of @testset!)
+                        , "prod_after_suite = cgrep_marker" -- 7 (prod: must NOT be swallowed!)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Julia "src/suite.jl" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Julia "src/suite.jl" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [7]
+            matchLineNums testMs @?= [5]
+            qualProd <- runSearchMem noTestsOpt Julia "src/suite.jl" src ["Test"]
+            matchLineNums qualProd @?= []
+            let rtSrc = "helper_fixture() = cgrep_marker\n"
+            rtProd <- runSearchMem noTestsOpt Julia "test/runtests.jl" rtSrc ["cgrep_marker"]
+            rtTest <- runSearchMem onlyTestsOpt Julia "test/runtests.jl" rtSrc ["cgrep_marker"]
+            matchLineNums rtProd @?= []
+            matchLineNums rtTest @?= [1]
         ]
