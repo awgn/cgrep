@@ -41,6 +41,7 @@ languageTestParsersTests =
         , nimParserTests
         , ocamlParserTests
         , phpParserTests
+        , perlParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1083,4 +1084,48 @@ phpParserTests =
             pfTest <- runSearchMem onlyTestsOpt PHP "tests/Pest.php" pestFileSrc ["cgrep_marker"]
             matchLineNums pfProd @?= []
             matchLineNums pfTest @?= [2]
+        ]
+
+perlParserTests :: TestTree
+perlParserTests =
+    testGroup
+        "Perl semantic test parser"
+        [ testCase "Perl: $obj->subtest(...) / $obj->test('...', sub {}) stay prod in non-strict mode; Test::Spec before/after & dies_ok" $ do
+            let src =
+                    T.unlines
+                        [ "sub run_router {" -- 1 (prod)
+                        , "    my ($router) = @_;" -- 2 (prod)
+                        , "    $router->subtest('prod method', sub { my $x = $cgrep_marker; });" -- 3 (prod: '->' method call!)
+                        , "    $router->test('prod route', sub { my $y = $cgrep_marker; });" -- 4 (prod: '->' method call!)
+                        , "}" -- 5
+                        , "describe 'Auth' => sub {" -- 6 (test)
+                        , "    before each => sub { my $seed = $cgrep_marker; };" -- 7 (test: Test::Spec before each)
+                        , "    it 'rejects bad token' => sub {" -- 8 (test)
+                        , "        dies_ok { verify($cgrep_marker) } 'dies on invalid token';" -- 9 (test: Test::Exception)
+                        , "    };" -- 10
+                        , "};" -- 11
+                        , "throws_ok { parse_token($cgrep_marker) } qr/invalid/, 'top-level throws_ok';" -- 12 (test: top-level Test::Exception)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Perl "lib/Auth.pm" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Perl "lib/Auth.pm" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 4]
+            matchLineNums testMs @?= [7, 9, 12]
+        , testCase "Perl: multi-attribute Test::Class ': Tags(fast) : Test(2)' and .t file isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "package Local::Service;" -- 1 (prod)
+                        , "sub compute { return $cgrep_marker; }" -- 2 (prod)
+                        , "sub check_auth : Tags(fast, smoke) : Test(startup => 1) {" -- 3 (test: multi-attr Test::Class)
+                        , "    my $v = $cgrep_marker;" -- 4 (test)
+                        , "}" -- 5
+                        ]
+            prodMs <- runSearchMem noTestsOpt Perl "lib/Service.pm" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Perl "lib/Service.pm" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2]
+            matchLineNums testMs @?= [4]
+            let tFileSrc = "sub make_fixture { my $x = $cgrep_marker; return $x; }\nok(make_fixture());\n"
+            tProd <- runSearchMem noTestsOpt Perl "t/01-auth.t" tFileSrc ["cgrep_marker"]
+            tTest <- runSearchMem onlyTestsOpt Perl "t/01-auth.t" tFileSrc ["cgrep_marker"]
+            matchLineNums tProd @?= []
+            matchLineNums tTest @?= [1]
         ]
