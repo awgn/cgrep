@@ -26,6 +26,7 @@ languageTestParsersTests =
         , clojureParserTests
         , csharpParserTests
         , dParserTests
+        , dartParserTests
         ]
 
 bashParserTests :: TestTree
@@ -311,4 +312,52 @@ dParserTests =
             udaTest <- runSearchMem onlyTestsOpt D "math.d" src ["\"named_suite_tag\""]
             matchLineNums udaProd @?= []
             matchLineNums udaTest @?= [2]
+        ]
+
+dartParserTests :: TestTree
+dartParserTests =
+    testGroup
+        "Dart semantic test parser"
+        [ testCase "Dart: named-param method bool test({required ...}) & map literal group({...}) stay prod; tear-off setUp & blocTest<B,S> are tests" $ do
+            let src =
+                    T.unlines
+                        [ "class Validator {" -- 1 (prod)
+                        , "  bool test({required String cgrep_marker}) {" -- 2 (prod: named params '{...}', NOT callback!)
+                        , "    return cgrep_marker.isNotEmpty;" -- 3 (prod)
+                        , "  }" -- 4 (prod)
+                        , "}" -- 5 (prod)
+                        , "void prodCalls(Router router) {" -- 6 (prod)
+                        , "  group({'key': cgrep_marker});" -- 7 (prod: map literal, NOT closure!)
+                        , "  router.group('/api', (r) { return cgrep_marker; });" -- 8 (prod: method call on receiver)
+                        , "}" -- 9 (prod)
+                        , "void main() {" -- 10 (prod wrapper in non-_test.dart file)
+                        , "  setUp(cgrep_marker);" -- 11 (test: tear-off callback)
+                        , "  test('tear-off check', cgrep_marker);" -- 12 (test: string desc + tear-off)
+                        , "  blocTest<CounterBloc, int>('emits [1]', build: () => cgrep_marker);" -- 13 (test: generic blocTest)
+                        , "}" -- 14
+                        ]
+            prodMs <- runSearchMem noTestsOpt Dart "app.dart" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Dart "app.dart" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 3, 7, 8]
+            matchLineNums testMs @?= [11, 12, 13]
+        , testCase "Dart: @isTest/@isTestGroup wrappers, @visibleForTesting stays prod, and *_test.dart isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "@visibleForTesting" -- 1 (prod: exposes prod helper to tests)
+                        , "int internalCalc() => cgrep_marker;" -- 2 (prod)
+                        , "@isTest" -- 3 (test: package:meta custom test wrapper)
+                        , "void authTest(String desc, dynamic Function() body) {" -- 4 (test)
+                        , "  var tag = cgrep_marker;" -- 5 (test)
+                        , "  test(desc, body);" -- 6 (test)
+                        , "}" -- 7 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Dart "test_helpers.dart" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Dart "test_helpers.dart" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2]
+            matchLineNums testMs @?= [5]
+            let testFileSrc = "class MockRepo { int x = cgrep_marker; }\n"
+            tfProd <- runSearchMem noTestsOpt Dart "login_test.dart" testFileSrc ["cgrep_marker"]
+            tfTest <- runSearchMem onlyTestsOpt Dart "login_test.dart" testFileSrc ["cgrep_marker"]
+            matchLineNums tfProd @?= []
+            matchLineNums tfTest @?= [1]
         ]
