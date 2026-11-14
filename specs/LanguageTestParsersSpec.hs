@@ -24,6 +24,7 @@ languageTestParsersTests =
         [ bashParserTests
         , cCppParserTests
         , clojureParserTests
+        , csharpParserTests
         ]
 
 bashParserTests :: TestTree
@@ -201,4 +202,54 @@ clojureParserTests =
             tfTest <- runSearchMem onlyTestsOpt Clojure "math_test.clj" testFileSrc ["cgrep_marker"]
             matchLineNums tfProd @?= []
             matchLineNums tfTest @?= [1]
+        ]
+
+csharpParserTests :: TestTree
+csharpParserTests =
+    testGroup
+        "C# semantic test parser"
+        [ testCase "C#: #region/#nullable/#endif before [Fact]/[SkippableFact] and '=> new Obj { ... }.Check()' expression body" $ do
+            let src =
+                    T.unlines
+                        [ "#nullable enable" -- 1
+                        , "[TestFixtureSource(nameof(Args))]" -- 2 (test)
+                        , "public class ParamFixtureTests {" -- 3 (test)
+                        , "    public void Check() { var x = cgrep_marker; }" -- 4 (test)
+                        , "}" -- 5 (test)
+                        , "public class OrderTests {" -- 6 (prod)
+                        , "    #region FastChecks" -- 7
+                        , "    [SkippableFact]" -- 8 (test: after #region identifier!)
+                        , "    public void ValidatesOrder() =>" -- 9 (test: expression-bodied with object initializer)
+                        , "        new Order { Id = 1 }.Verify(cgrep_marker);" -- 10 (test: after '}' before ';')
+                        , "    #endregion" -- 11
+                        , "    public int ProdHelper() { return cgrep_marker; }" -- 12 (prod)
+                        , "}" -- 13 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Csharp "OrderTests.cs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Csharp "OrderTests.cs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [12]
+            matchLineNums testMs @?= [4, 10]
+        , testCase "C#: C# 11 generic attribute [Validator<Test>] stays prod, [assembly: ...] stays separate, and SpecFlow [Given]" $ do
+            let src =
+                    T.unlines
+                        [ "[assembly: InternalsVisibleTo(\"MyApp.Tests\")]" -- 1 (prod assembly attr)
+                        , "[TestFixture]" -- 2 (test)
+                        , "public class SuiteTests { int x = cgrep_marker; }" -- 3 (test)
+                        , "public class ProdController {" -- 4 (prod)
+                        , "    [Validator<Test>]" -- 5 (prod: generic type arg 'Test' is NOT attr name!)
+                        , "    public int Create() { return cgrep_marker; }" -- 6 (prod)
+                        , "    [method: Fact]" -- 7 (test: explicit 'method:' target)
+                        , "    public void ExplicitTargetTest() { var y = cgrep_marker; }" -- 8 (test)
+                        , "    [Given(\"a valid user\")]" -- 9 (test: SpecFlow/Reqnroll BDD step)
+                        , "    public void GivenValidUser() { var z = cgrep_marker; }" -- 10 (test)
+                        , "}" -- 11 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Csharp "Controller.cs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Csharp "Controller.cs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [6]
+            matchLineNums testMs @?= [3, 8, 10]
+            asmProd <- runSearchMem noTestsOpt Csharp "Controller.cs" src ["InternalsVisibleTo"]
+            asmTest <- runSearchMem onlyTestsOpt Csharp "Controller.cs" src ["InternalsVisibleTo"]
+            matchLineNums asmProd @?= [1]
+            matchLineNums asmTest @?= []
         ]
