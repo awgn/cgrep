@@ -43,6 +43,7 @@ languageTestParsersTests =
         , phpParserTests
         , perlParserTests
         , pythonParserTests
+        , rParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1185,4 +1186,40 @@ pythonParserTests =
             cfTest <- runSearchMem onlyTestsOpt Python "tests/conftest.py" confSrc ["cgrep_marker"]
             matchLineNums cfProd @?= []
             matchLineNums cfTest @?= [2]
+        ]
+
+rParserTests :: TestTree
+rParserTests =
+    testGroup
+        "R semantic test parser"
+        [ testCase "R: testthat::test_that in non-strict mode, Hmisc::describe & s3.describe guards, and standalone expect_*" $ do
+            let src =
+                    T.unlines
+                        [ "summarize_col <- function(x) {" -- 1 (prod)
+                        , "  a <- Hmisc::describe(\"age_label\", cgrep_marker)" -- 2 (prod: non-testthat namespace!)
+                        , "  b <- custom.describe(\"col_label\", cgrep_marker)" -- 3 (prod: R dot-identifier custom.describe!)
+                        , "  return(list(a, b))" -- 4 (prod)
+                        , "}" -- 5
+                        , "testthat::test_that(\"qualified testthat call\", {" -- 6 (test: non-strict ':' ':'!)
+                        , "  v <- cgrep_marker" -- 7 (test)
+                        , "})" -- 8
+                        , "expect_equal(add(1, 2), cgrep_marker)" -- 9 (test: standalone testthat/tinytest expect_equal)
+                        , "tinytest::expect_true(cgrep_marker > 0)" -- 10 (test: qualified tinytest::expect_true)
+                        ]
+            prodMs <- runSearchMem noTestsOpt R "R/stats.R" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt R "R/stats.R" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 3]
+            matchLineNums testMs @?= [7, 9, 10]
+            nsProd <- runSearchMem noTestsOpt R "R/stats.R" src ["testthat"]
+            matchLineNums nsProd @?= []
+        , testCase "R: testthat tests/testthat/test-*.R and test_*.r isTestFile conventions" $ do
+            let helperSrc = "make_sample_df <- function() data.frame(x = cgrep_marker)\n"
+            t1Prod <- runSearchMem noTestsOpt R "tests/testthat/test-stats.R" helperSrc ["cgrep_marker"]
+            t1Test <- runSearchMem onlyTestsOpt R "tests/testthat/test-stats.R" helperSrc ["cgrep_marker"]
+            matchLineNums t1Prod @?= []
+            matchLineNums t1Test @?= [1]
+            t2Prod <- runSearchMem noTestsOpt R "inst/tinytest/test_stats.r" helperSrc ["cgrep_marker"]
+            t2Test <- runSearchMem onlyTestsOpt R "inst/tinytest/test_stats.r" helperSrc ["cgrep_marker"]
+            matchLineNums t2Prod @?= []
+            matchLineNums t2Test @?= [1]
         ]
