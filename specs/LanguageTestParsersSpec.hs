@@ -38,6 +38,7 @@ languageTestParsersTests =
         , juliaParserTests
         , kotlinParserTests
         , luaParserTests
+        , nimParserTests
         ]
 
 bashParserTests :: TestTree
@@ -931,4 +932,51 @@ luaParserTests =
             luTest <- runSearchMem onlyTestsOpt Lua "tests/test_parser.lua" specSrc ["cgrep_marker"]
             matchLineNums luProd @?= []
             matchLineNums luTest @?= [1]
+        ]
+
+nimParserTests :: TestTree
+nimParserTests =
+    testGroup
+        "Nim semantic test parser"
+        [ testCase "Nim: indented local proc/type inside suite/test stay test; top-level let/var after test stay prod" $ do
+            let src =
+                    T.unlines
+                        [ "suite \"codec suite\":" -- 1 (test)
+                        , "  type MockPacket = object" -- 2 (test: indented local type must NOT end suite!)
+                        , "    tag: int" -- 3 (test)
+                        , "  proc makePacket(): int =" -- 4 (test: indented local proc must NOT end suite!)
+                        , "    return cgrep_marker" -- 5 (test)
+                        , "  setup:" -- 6 (test)
+                        , "    let seed = cgrep_marker" -- 7 (test)
+                        , "  test(\"encodes packet\"):" -- 8 (test: parenthesized test("..."):)
+                        , "    let v = makePacket() + seed + cgrep_marker" -- 9 (test)
+                        , "" -- 10
+                        , "let topLevelProdConst = cgrep_marker" -- 11 (prod: col 0 let after suite!)
+                        , "if test(\"prod_predicate\"):" -- 12 (prod: 'test' not at start of line!)
+                        , "  var x = cgrep_marker" -- 13 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Nim "src/codec.nim" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Nim "src/codec.nim" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [11, 13]
+            matchLineNums testMs @?= [5, 7, 9]
+        , testCase "Nim: when defined(test): with else branch, top-level setup:, and tests/*.nim isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "when defined(test):" -- 1 (test)
+                        , "  proc mockClock(): int = cgrep_marker" -- 2 (test)
+                        , "else:" -- 3 (prod else branch at col 0!)
+                        , "  proc realClock(): int = cgrep_marker" -- 4 (prod)
+                        , "setup:" -- 5 (test: module-level std/unittest setup:)
+                        , "  var globalFixture = cgrep_marker" -- 6 (test)
+                        , "var prodAfterSetup = cgrep_marker" -- 7 (prod: col 0 var after setup!)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Nim "src/clock.nim" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Nim "src/clock.nim" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4, 7]
+            matchLineNums testMs @?= [2, 6]
+            let tfSrc = "proc helper(): int = cgrep_marker\n"
+            tfProd <- runSearchMem noTestsOpt Nim "tests/tcodec.nim" tfSrc ["cgrep_marker"]
+            tfTest <- runSearchMem onlyTestsOpt Nim "tests/tcodec.nim" tfSrc ["cgrep_marker"]
+            matchLineNums tfProd @?= []
+            matchLineNums tfTest @?= [1]
         ]
