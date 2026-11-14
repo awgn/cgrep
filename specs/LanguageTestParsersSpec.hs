@@ -47,6 +47,7 @@ languageTestParsersTests =
         , rubyParserTests
         , rustParserTests
         , scalaParserTests
+        , swiftParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1396,4 +1397,63 @@ scalaParserTests =
             itTest <- runSearchMem onlyTestsOpt Scala "src/it/scala/acme/DbFixtures.scala" fixtureSrc ["cgrep_marker"]
             matchLineNums itProd @?= []
             matchLineNums itTest @?= [1]
+        ]
+
+swiftParserTests :: TestTree
+swiftParserTests =
+    testGroup
+        "Swift / Objective-C semantic test parser"
+        [ testCase "Swift: backtick @Test names with struct/func/; tokens, actor suites, @MainActor final modifiers, and SwiftPM Tests/ isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "@Test func `when struct or func; appears in backtick name`() {" -- 1 (test: keywords + ';' inside backticks!)
+                        , "    let _ = cgrep_marker" -- 2 (test)
+                        , "}" -- 3
+                        , "actor OrderTests {" -- 4 (test: Swift actor test suite)
+                        , "    func seedHelper() -> Int { cgrep_marker }" -- 5 (test)
+                        , "}" -- 6
+                        , "@MainActor" -- 7 (test: modifier attr attached to XCTestCase class)
+                        , "final class CheckoutSpec: QuickSpec {" -- 8 (test: QuickSpec inheritance + final modifier)
+                        , "    override class func spec() { _ = cgrep_marker }" -- 9 (test)
+                        , "}" -- 10
+                        , "actor ProdCoordinator {" -- 11 (prod actor)
+                        , "    func run() -> Int { cgrep_marker }" -- 12 (prod)
+                        , "}" -- 13
+                        ]
+            prodMs <- runSearchMem noTestsOpt Swift "Sources/Checkout.swift" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Swift "Sources/Checkout.swift" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [12]
+            matchLineNums testMs @?= [2, 5, 9]
+            modProd <- runSearchMem noTestsOpt Swift "Sources/Checkout.swift" src ["MainActor"]
+            modTest <- runSearchMem onlyTestsOpt Swift "Sources/Checkout.swift" src ["MainActor"]
+            matchLineNums modProd @?= []
+            matchLineNums modTest @?= [7]
+            let spmHelper = "struct MockClock { let now = cgrep_marker }\n"
+            spmProd <- runSearchMem noTestsOpt Swift "Tests/AppTests/MockClock.swift" spmHelper ["cgrep_marker"]
+            spmTest <- runSearchMem onlyTestsOpt Swift "Tests/AppTests/MockClock.swift" spmHelper ["cgrep_marker"]
+            matchLineNums spmProd @?= []
+            matchLineNums spmTest @?= [1]
+        , testCase "Objective-C: @interface ... : XCTestCase tracks @implementation helpers & setUpWithError: while keeping prod classes intact" $ do
+            let src =
+                    T.unlines
+                        [ "@interface OrderFlowSuite : XCTestCase" -- 1 (test: XCTestCase subclass not ending in Tests!)
+                        , "@end" -- 2 (test)
+                        , "@implementation OrderFlowSuite" -- 3 (test: tracked from @interface!)
+                        , "- (int)buildFixtureHelper {" -- 4 (test: helper method inside XCTestCase implementation!)
+                        , "    return cgrep_marker;" -- 5 (test)
+                        , "}" -- 6
+                        , "- (BOOL)setUpWithError:(NSError **)error {" -- 7 (test: 1-arg XCTest setUpWithError:)
+                        , "    int x = cgrep_marker;" -- 8 (test)
+                        , "    return x > 0;" -- 9
+                        , "}" -- 10
+                        , "@end" -- 11
+                        , "@implementation OrderService" -- 12 (prod implementation)
+                        , "- (BOOL)testConnection:(NSString *)host { return cgrep_marker > 0; }" -- 13 (prod 1-arg method)
+                        , "- (BOOL)setUpWithError:(NSError **)error { return cgrep_marker > 0; }" -- 14 (test standalone setUpWithError:)
+                        , "@end" -- 15
+                        ]
+            prodMs <- runSearchMem noTestsOpt ObjectiveC "OrderService.m" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt ObjectiveC "OrderService.m" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [13]
+            matchLineNums testMs @?= [5, 8, 14]
         ]
