@@ -34,6 +34,7 @@ languageTestParsersTests =
         , goParserTests
         , haskellParserTests
         , javaParserTests
+        , javascriptParserTests
         ]
 
 bashParserTests :: TestTree
@@ -735,4 +736,54 @@ javaParserTests =
             tdTest <- runSearchMem onlyTestsOpt Java "src/test/java/com/acme/TestDataFactory.java" testDirSrc ["cgrep_marker"]
             matchLineNums tdProd @?= []
             matchLineNums tdTest @?= [1]
+        ]
+
+javascriptParserTests :: TestTree
+javascriptParserTests =
+    testGroup
+        "JavaScript / TypeScript semantic test parser"
+        [ testCase "JS/TS: Playwright test.describe/test.beforeEach/test.step, Deno.test, and tear-off callbacks" $ do
+            let src =
+                    T.unlines
+                        [ "interface Runner {" -- 1 (prod TS interface)
+                        , "  test(cb: () => cgrep_marker);" -- 2 (prod: TS method signature with param ':', NOT a test call!)
+                        , "}" -- 3
+                        , "function* test(cb = () => cgrep_marker) { yield 1; }" -- 4 (prod generator function)
+                        , "test.describe('Checkout flow', () => {" -- 5 (test: Playwright test.describe!)
+                        , "  test.beforeEach(cgrep_marker);" -- 6 (test: Playwright hook with tear-off!)
+                        , "  test('completes order', async ({ page }) => {" -- 7 (test)
+                        , "    await test.step('fill form', async () => { const a = cgrep_marker; });" -- 8 (test)
+                        , "  });" -- 9
+                        , "});" -- 10
+                        , "Deno.test('deno unit', () => { const b = cgrep_marker; });" -- 11 (test: Deno.test)
+                        , "it('supports tear-off ref', cgrep_marker);" -- 12 (test: tear-off callback)
+                        , "const prodAfter = cgrep_marker;" -- 13 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Javascript "src/checkout.ts" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Javascript "src/checkout.ts" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 4, 13]
+            matchLineNums testMs @?= [6, 8, 11, 12]
+        , testCase "JS/TS: QUnit.module/QUnit.test, Ava test.serial, ftest, and *.spec.ts / __tests__ isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "QUnit.module('math', (hooks) => {" -- 1 (test)
+                        , "  QUnit.test('adds', (assert) => { assert.equal(cgrep_marker, 2); });" -- 2 (test)
+                        , "});" -- 3
+                        , "test.serial('ava serial', (t) => { t.is(cgrep_marker, 1); });" -- 4 (test)
+                        , "ftest('focused jest test', () => { expect(cgrep_marker).toBe(1); });" -- 5 (test)
+                        , "const prodVal = runner?.test(() => cgrep_marker);" -- 6 (prod: optional chaining ?.test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Javascript "src/math.ts" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Javascript "src/math.ts" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [6]
+            matchLineNums testMs @?= [2, 4, 5]
+            let specFileSrc = "export const fixture = cgrep_marker;\n"
+            spProd <- runSearchMem noTestsOpt Javascript "src/auth.spec.ts" specFileSrc ["cgrep_marker"]
+            spTest <- runSearchMem onlyTestsOpt Javascript "src/auth.spec.ts" specFileSrc ["cgrep_marker"]
+            matchLineNums spProd @?= []
+            matchLineNums spTest @?= [1]
+            duProd <- runSearchMem noTestsOpt Javascript "src/__tests__/helpers.ts" specFileSrc ["cgrep_marker"]
+            duTest <- runSearchMem onlyTestsOpt Javascript "src/__tests__/helpers.ts" specFileSrc ["cgrep_marker"]
+            matchLineNums duProd @?= []
+            matchLineNums duTest @?= [1]
         ]
