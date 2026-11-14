@@ -37,6 +37,7 @@ languageTestParsersTests =
         , javascriptParserTests
         , juliaParserTests
         , kotlinParserTests
+        , luaParserTests
         ]
 
 bashParserTests :: TestTree
@@ -886,4 +887,48 @@ kotlinParserTests =
             kmpTest <- runSearchMem onlyTestsOpt Kotlin "shared/src/commonTest/kotlin/FakeClock.kt" kmpSrc ["cgrep_marker"]
             matchLineNums kmpProd @?= []
             matchLineNums kmpTest @?= [1]
+        ]
+
+luaParserTests :: TestTree
+luaParserTests =
+    testGroup
+        "Lua semantic test parser"
+        [ testCase "Lua: nested LuaUnit table paths M.AuthTests:setUp/test_*, lust.describe/lust.before, and Busted tear-offs" $ do
+            let src =
+                    T.unlines
+                        [ "local M = {}" -- 1 (prod)
+                        , "M.AuthTests = {}" -- 2 (test: nested LuaUnit suite table)
+                        , "function M.AuthTests:setUp()" -- 3 (test: nested table lifecycle method)
+                        , "    self.token = cgrep_marker" -- 4 (test)
+                        , "end" -- 5
+                        , "function M.AuthTests:test_login()" -- 6 (test: nested table test method)
+                        , "    assert(self.token == cgrep_marker)" -- 7 (test)
+                        , "end" -- 8
+                        , "function M.AuthService:validate()" -- 9 (prod: non-test table & method)
+                        , "    return cgrep_marker" -- 10 (prod)
+                        , "end" -- 11
+                        , "lust.describe('auth', function()" -- 12 (test: qualified lust.describe)
+                        , "    lust.before(function() local x = cgrep_marker end)" -- 13 (test: lust.before)
+                        , "    lust.it('checks token', function() assert(cgrep_marker) end)" -- 14 (test: lust.it)
+                        , "end)" -- 15
+                        , "before_each(cgrep_marker)" -- 16 (test: Busted tear-off hook)
+                        , "it('supports tear-off callback', cgrep_marker)" -- 17 (test: Busted tear-off spec)
+                        , "setup(cgrep_marker)" -- 18 (prod: plugin setup(opts), NOT Busted setup(function() ...))
+                        ]
+            prodMs <- runSearchMem noTestsOpt Lua "lua/auth.lua" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Lua "lua/auth.lua" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [10, 18]
+            matchLineNums testMs @?= [4, 7, 13, 14, 16, 17]
+            lustProd <- runSearchMem noTestsOpt Lua "lua/auth.lua" src ["lust"]
+            matchLineNums lustProd @?= []
+        , testCase "Lua: *_spec.lua and test_*.lua isTestFile conventions" $ do
+            let specSrc = "local function helper_fixture() return cgrep_marker end\n"
+            spProd <- runSearchMem noTestsOpt Lua "tests/parser_spec.lua" specSrc ["cgrep_marker"]
+            spTest <- runSearchMem onlyTestsOpt Lua "tests/parser_spec.lua" specSrc ["cgrep_marker"]
+            matchLineNums spProd @?= []
+            matchLineNums spTest @?= [1]
+            luProd <- runSearchMem noTestsOpt Lua "tests/test_parser.lua" specSrc ["cgrep_marker"]
+            luTest <- runSearchMem onlyTestsOpt Lua "tests/test_parser.lua" specSrc ["cgrep_marker"]
+            matchLineNums luProd @?= []
+            matchLineNums luTest @?= [1]
         ]
