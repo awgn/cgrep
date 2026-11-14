@@ -32,6 +32,7 @@ languageTestParsersTests =
         , erlangParserTests
         , fsharpParserTests
         , goParserTests
+        , haskellParserTests
         ]
 
 bashParserTests :: TestTree
@@ -623,4 +624,62 @@ goParserTests =
             testMs <- runSearchMem onlyTestsOpt Go "router.go" src ["cgrep_marker"]
             matchLineNums prodMs @?= [3, 16]
             matchLineNums testMs @?= [7, 11, 13]
+        ]
+
+haskellParserTests :: TestTree
+haskellParserTests =
+    testGroup
+        "Haskell semantic test parser"
+        [ testCase "Haskell: unparenthesized '::' in let/where inside Spec/prop_*, multi-clause prop_*, and untyped prod fn" $ do
+            let src =
+                    T.unlines
+                        [ "prodFirst :: Int -> Int" -- 1 (prod)
+                        , "prodFirst x = x + cgrep_marker" -- 2 (prod)
+                        , "" -- 3
+                        , "spec :: Spec" -- 4 (test: :: Spec return type)
+                        , "spec = do" -- 5 (test)
+                        , "  let sharedFixture :: Int" -- 6 (test: local :: before describe!)
+                        , "      sharedFixture = cgrep_marker" -- 7 (test)
+                        , "  describe \"parser\" $ do" -- 8 (test)
+                        , "    it \"handles local type sigs\" $ do" -- 9 (test)
+                        , "      let y :: Int" -- 10 (test: unparenthesized :: inside it!)
+                        , "          y = sharedFixture + cgrep_marker" -- 11 (test)
+                        , "      pure ()" -- 12 (test)
+                        , "" -- 13
+                        , "prop_nonEmpty :: [Int] -> Bool" -- 14 (test)
+                        , "prop_nonEmpty [] = True" -- 15 (test: pattern-matched 1st clause)
+                        , "prop_nonEmpty (x : xs) = check x || prop_nonEmpty xs" -- 16 (test: 2nd clause!)
+                        , "  where" -- 17 (test)
+                        , "    check :: Int -> Bool" -- 18 (test: where helper with ::)
+                        , "    check n = n == cgrep_marker" -- 19 (test)
+                        , "" -- 20
+                        , "untypedProdAfter z = z * cgrep_marker" -- 21 (prod: untyped top-level function!)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Haskell "src/Codec.hs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Haskell "src/Codec.hs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 21]
+            matchLineNums testMs @?= [7, 11, 19]
+        , testCase "Haskell: Hedgehog hprop_*, goldenVsString, 'Spec -> IO ()' prod false-positive guard, and *Spec.hs isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "runSuite :: Spec -> IO ()" -- 1 (prod: Spec is input arg, NOT return type!)
+                        , "runSuite s = hspec s >> print cgrep_marker" -- 2 (prod)
+                        , "" -- 3
+                        , "hprop_roundtrip :: Property" -- 4 (test: Hedgehog hprop_*)
+                        , "hprop_roundtrip = property $ do" -- 5 (test)
+                        , "  let v = cgrep_marker" -- 6 (test)
+                        , "  v === v" -- 7 (test)
+                        , "" -- 8
+                        , "goldenCheck =" -- 9
+                        , "  goldenVsString \"golden\" \"out.golden\" (pure cgrep_marker)" -- 10 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Haskell "src/Runner.hs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Haskell "src/Runner.hs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2]
+            matchLineNums testMs @?= [6, 10]
+            let specFileSrc = "helperVal = cgrep_marker\n"
+            sfProd <- runSearchMem noTestsOpt Haskell "specs/CodecSpec.hs" specFileSrc ["cgrep_marker"]
+            sfTest <- runSearchMem onlyTestsOpt Haskell "specs/CodecSpec.hs" specFileSrc ["cgrep_marker"]
+            matchLineNums sfProd @?= []
+            matchLineNums sfTest @?= [1]
         ]
