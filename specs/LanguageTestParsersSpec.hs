@@ -22,6 +22,7 @@ languageTestParsersTests =
     testGroup
         "Language-specific semantic test parser regressions"
         [ bashParserTests
+        , cCppParserTests
         ]
 
 bashParserTests :: TestTree
@@ -89,4 +90,69 @@ bashParserTests =
             hlpTest <- runSearchMem onlyTestsOpt Bash "test_helper.bash" helperSrc ["cgrep_marker"]
             matchLineNums hlpProd @?= [3]
             matchLineNums hlpTest @?= [1, 2]
+        ]
+
+cCppParserTests :: TestTree
+cCppParserTests =
+    testGroup
+        "C / C++ semantic test parser"
+        [ testCase "C/C++: test function return types/specifiers are captured cleanly while explicit/out-of-line constructors stay prod" $ do
+            let src =
+                    T.unlines
+                        [ "#ifdef ENABLE_TESTS" -- 1
+                        , "static void test_parse_header(int x) {" -- 2 (test: full header included)
+                        , "    int cgrep_marker = x;" -- 3 (test)
+                        , "}" -- 4 (test)
+                        , "#endif" -- 5
+                        , "class TestRunner {" -- 6 (prod)
+                        , "public:" -- 7 (prod)
+                        , "    explicit TestRunner(int v) {" -- 8 (prod: constructor after 'explicit', NOT a test)
+                        , "        int cgrep_marker = v;" -- 9 (prod)
+                        , "    }" -- 10 (prod)
+                        , "};" -- 11 (prod)
+                        , "TestRunner::TestRunner() {" -- 12 (prod: out-of-line constructor)
+                        , "    int cgrep_marker = 0;" -- 13 (prod)
+                        , "}" -- 14 (prod)
+                        , "void MyFixture::test_method() {" -- 15 (test: out-of-line test method with return type)
+                        , "    int cgrep_marker = 2;" -- 16 (test)
+                        , "}" -- 17 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Cpp "runner.cpp" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Cpp "runner.cpp" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [9, 13]
+            matchLineNums testMs @?= [3, 16]
+            -- Return type + storage specifier must belong to test, not leak into --no-tests
+            sigProd <- runSearchMem noTestsOpt Cpp "runner.cpp" src ["static void"]
+            sigTest <- runSearchMem onlyTestsOpt Cpp "runner.cpp" src ["static void test_parse_header"]
+            matchLineNums sigProd @?= []
+            matchLineNums sigTest @?= [2]
+        , testCase "C/C++: Boost/doctest braceless suites, GTest ::testing::Test fixtures, FRIEND_TEST, and INSTANTIATE_TEST_SUITE_P" $ do
+            let src =
+                    T.unlines
+                        [ "BOOST_AUTO_TEST_SUITE(MathSuite)" -- 1 (test: braceless Boost suite)
+                        , "static int suite_helper() { return cgrep_marker; }" -- 2 (test)
+                        , "BOOST_AUTO_TEST_CASE(adds) { int x = cgrep_marker; }" -- 3 (test)
+                        , "BOOST_AUTO_TEST_SUITE_END()" -- 4 (test)
+                        , "int prod_after_boost() { return cgrep_marker; }" -- 5 (prod)
+                        , "TEST_SUITE_BEGIN(\"doctest_suite\");" -- 6 (test: doctest suite begin)
+                        , "static int doc_helper() { return cgrep_marker; }" -- 7 (test)
+                        , "TEST_SUITE_END();" -- 8 (test)
+                        , "class DbFixture : public ::testing::Test {" -- 9 (test: GTest fixture class)
+                        , "protected:" -- 10 (test)
+                        , "    void SetUp() override { int x = cgrep_marker; }" -- 11 (test)
+                        , "};" -- 12 (test)
+                        , "class Account {" -- 13 (prod)
+                        , "    FRIEND_TEST(AccountTest, Debit);" -- 14 (test: semicolon macro)
+                        , "    int debit() { return cgrep_marker; }" -- 15 (prod)
+                        , "};" -- 16 (prod)
+                        , "INSTANTIATE_TEST_SUITE_P(Grp, PTest, Values(cgrep_marker));" -- 17 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Cpp "suite.cpp" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Cpp "suite.cpp" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [5, 15]
+            matchLineNums testMs @?= [2, 3, 7, 11, 17]
+            friendProd <- runSearchMem noTestsOpt Cpp "suite.cpp" src ["FRIEND_TEST"]
+            friendTest <- runSearchMem onlyTestsOpt Cpp "suite.cpp" src ["FRIEND_TEST"]
+            matchLineNums friendProd @?= []
+            matchLineNums friendTest @?= [14]
         ]
