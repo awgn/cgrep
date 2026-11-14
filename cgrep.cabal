@@ -228,6 +228,7 @@ test-suite cgrep-test
   main-is: Spec.hs
   other-modules:
     ContextFilterSpec
+    LanguageTestParsersSpec
     ParserTokenAtomSpec
     PropertySpec
     SemanticTestFilterSpec

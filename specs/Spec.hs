@@ -1,6 +1,7 @@
 module Main (main) where
 
 import ContextFilterSpec (contextFilterTests)
+import LanguageTestParsersSpec (languageTestParsersTests)
 import ParserTokenAtomSpec (parserTokenAtomTests)
 import PropertySpec (propertyTests)
 import SemanticTestFilterSpec (semanticTestFilterTests)
@@ -14,5 +15,6 @@ main =
             [ contextFilterTests
             , parserTokenAtomTests
             , semanticTestFilterTests
+            , languageTestParsersTests
             , propertyTests
             ]

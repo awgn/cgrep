@@ -19,6 +19,7 @@
 
 module CGrep.Boundary (
     Boundary (..),
+    BoundaryGuard (..),
     BoundaryType (..),
     pattern Begin,
     pattern End,
@@ -29,11 +30,19 @@ import qualified Data.Text as T
 import Data.Word (Word8)
 import Language.Haskell.TH.Syntax (Lift)
 
+data BoundaryGuard
+    = NoBoundaryGuard
+    | GuardShellComment
+    | GuardNotPrecededBySlash
+    | GuardNotFollowedBy !Char
+    deriving stock (Show, Eq, Lift)
+
 data Boundary = Boundary
     { bBegin :: T.Text
     , bBeginLen :: Int
     , bEnd :: T.Text
     , bEndLen :: Int
+    , bGuard :: BoundaryGuard
     }
     deriving stock (Show, Eq, Lift)
 

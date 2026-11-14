@@ -156,12 +156,12 @@ fileTypeInfoMap =
                 ,
                     ( Bash
                     , FileTypeInfo
-                        { ftSelector = [ext ".sh", ext ".bash"]
+                        { ftSelector = [ext ".sh", ext ".bash", ext ".bats"]
                         , ftKind = KindScript
-                        , ftComment = ["#" ~~ "\n"]
+                        , ftComment = [("#" ~~ "\n") `withGuard` GuardShellComment]
                         , ftChar = []
-                        , ftString = ["'" ~~ "'", "\"" ~~ "\""]
-                        , ftRawString = []
+                        , ftString = [("\"" ~~ "\"") `withGuard` GuardNotPrecededBySlash, "$'" ~~ "'"]
+                        , ftRawString = [("'" ~~ "'") `withGuard` GuardNotPrecededBySlash]
                         , ftIdentCharSet = Just (Alpha_, AlphaNum_)
                         , ftKeywords =
                             reserved

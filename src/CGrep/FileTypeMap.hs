@@ -31,12 +31,14 @@ module CGrep.FileTypeMap (
     WordType (..),
     IsCharSet (..),
     CharIdentifierF,
+    BoundaryGuard (..),
     (~~),
+    withGuard,
     reserved,
     types,
 ) where
 
-import CGrep.Boundary (Boundary (..))
+import CGrep.Boundary (Boundary (..), BoundaryGuard (..))
 import CGrep.FileKind
 import CGrep.FileType (FileSelector (..), FileType (..))
 import CGrep.Parser.Char
@@ -225,8 +227,12 @@ instance IsCharSet 'AgdaIdent where
     {-# INLINE isValidChar #-}
 
 (~~) :: T.Text -> T.Text -> Boundary
-b ~~ e = Boundary{bBegin = b, bBeginLen = T.length b, bEnd = e, bEndLen = T.length e}
+b ~~ e = Boundary{bBegin = b, bBeginLen = T.length b, bEnd = e, bEndLen = T.length e, bGuard = NoBoundaryGuard}
 {-# INLINE (~~) #-}
+
+withGuard :: Boundary -> BoundaryGuard -> Boundary
+withGuard b g = b{bGuard = g}
+{-# INLINE withGuard #-}
 
 reserved :: [T.Text] -> HM.HashMap T.Text WordType
 reserved = HM.fromList . map (,Keyword)

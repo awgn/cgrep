@@ -8,6 +8,7 @@ module CGrep.Semantic.Tests.Common (
     LanguageTestFilter (..),
     runLangFilter,
     inTestSuiteDir,
+    areAdjacentTokens,
     findOpeningBracketBounded,
     findOpeningBraceBounded,
     findOpeningBraceC,
@@ -29,6 +30,7 @@ import CGrep.Parser.Token (
  )
 import Data.Char (isAsciiLower)
 import qualified Data.Text as T
+import qualified Data.Text.Internal as TI
 import System.OsPath (OsPath, osp, splitDirectories, takeFileName)
 
 class LanguageTestFilter (lang :: FileType) where
@@ -52,6 +54,13 @@ runLangFilter path flag@(Just keepTests) tokens
         if keepTests then tokens else []
     | otherwise =
         langFilter @lang flag tokens
+
+-- | Checks in O(1) whether `t2` immediately follows `t1` with zero intervening bytes.
+areAdjacentTokens :: Token -> Token -> Bool
+areAdjacentTokens t1 t2 =
+    case (tToken t1, tToken t2) of
+        (TI.Text _ off1 len1, TI.Text _ off2 _) -> off1 + len1 == off2
+{-# INLINE areAdjacentTokens #-}
 
 -- | Searches for an opening token (e.g., "{") within a lookahead limit.
 findOpeningBracketBounded :: T.Text -> Int -> [Token] -> Maybe ([Token], [Token])

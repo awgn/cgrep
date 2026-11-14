@@ -36,7 +36,7 @@ module CGrep.Semantic.ContextFilter (
     endLiteralMarker,
 ) where
 
-import CGrep.Boundary (Boundary (..))
+import CGrep.Boundary (Boundary (..), BoundaryGuard (..))
 import CGrep.Parser.Char (chr, isAlphaNum, isSpace)
 import CGrep.Text (blankByWidth)
 import Data.Bits (Bits (complement, (.&.), (.|.)))
@@ -116,6 +116,7 @@ data RegionBoundary = RegionBoundary
     , rbEnd :: !(# Char, T.Text #)
     , rbEndLen :: {-# UNPACK #-} !Int
     , rbEndUniform :: !Bool
+    , rbGuard :: !BoundaryGuard
     }
 
 toRegionBoundary :: Boundary -> Maybe RegionBoundary
@@ -129,6 +130,7 @@ toRegionBoundary Boundary{..}
                 , rbEnd = (# ec, es #)
                 , rbEndLen = bEndLen
                 , rbEndUniform = bEndLen >= 3 && T.all (== ec) es
+                , rbGuard = bGuard
                 }
     | otherwise = Nothing
 
@@ -175,6 +177,8 @@ data ParState = ParState
     , parNextState :: !ContextState
     , parSkipKind :: !SkipKind
     , parSkip :: {-# UNPACK #-} !Int
+    , parPrevChar :: {-# UNPACK #-} !Char
+    , parEscaped :: !Bool
     , parText :: !T.Text
     }
     deriving stock (Show)
@@ -220,6 +224,8 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
             , parNextState = CodeState
             , parSkipKind = NoSkip
             , parSkip = 0
+            , parPrevChar = '\0'
+            , parEscaped = False
             , parText = txt
             }
 
@@ -236,17 +242,17 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
         | parSkip > 0 =
             let !newSkip = parSkip - 1
                 finishOrCont !outCh
-                    | newSkip == 0 = (# outCh, ParState parNextState parNextState NoSkip 0 cont #)
-                    | otherwise = (# outCh, s{parSkip = newSkip, parText = cont} #)
+                    | newSkip == 0 = (# outCh, ParState parNextState parNextState NoSkip 0 c False cont #)
+                    | otherwise = (# outCh, s{parSkip = newSkip, parPrevChar = c, parEscaped = False, parText = cont} #)
              in case parSkipKind of
                     SkipDisplay disp -> finishOrCont (emitIf disp c)
                     SkipBlank -> finishOrCont (blankChar c)
                     SkipToStartMarker mDisp
                         | newSkip == 0 ->
                             let !outCh = if mDisp then startLiteralMarker else blankChar c
-                             in (# outCh, ParState parNextState parNextState NoSkip 0 cont #)
+                             in (# outCh, ParState parNextState parNextState NoSkip 0 c False cont #)
                         | otherwise ->
-                            (# blankChar c, s{parSkip = newSkip, parText = cont} #)
+                            (# blankChar c, s{parSkip = newSkip, parPrevChar = c, parEscaped = False, parText = cont} #)
                     NoSkip -> finishOrCont (blankChar c)
         | CodeState <- parCtxState = handleCodeState s c cont
         | CommState n <- parCtxState = handleCommentState s n c cont
@@ -261,8 +267,8 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
             !skip = beginLen - 1
             !target = CommState i
          in if skip == 0
-                then (# outCh, ParState target target NoSkip 0 cont #)
-                else (# outCh, ParState CodeState target (SkipDisplay commDisp) skip cont #)
+                then (# outCh, ParState target target NoSkip 0 c False cont #)
+                else (# outCh, ParState CodeState target (SkipDisplay commDisp) skip c False cont #)
 
     {-# INLINE enterLiteral #-}
     enterLiteral !target !beginLen !c !cont
@@ -271,14 +277,14 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
              in if skip == 0
                     then
                         let !outCh = if markerDisp then startLiteralMarker else blankChar c
-                         in (# outCh, ParState target target NoSkip 0 cont #)
-                    else (# blankChar c, ParState CodeState target (SkipToStartMarker markerDisp) skip cont #)
+                         in (# outCh, ParState target target NoSkip 0 c False cont #)
+                    else (# blankChar c, ParState CodeState target (SkipToStartMarker markerDisp) skip c False cont #)
         | otherwise =
             let !outCh = emitIf litrDisp c
                 !skip = beginLen - 1
              in if skip == 0
-                    then (# outCh, ParState target target NoSkip 0 cont #)
-                    else (# outCh, ParState CodeState target (SkipDisplay litrDisp) skip cont #)
+                    then (# outCh, ParState target target NoSkip 0 c False cont #)
+                    else (# outCh, ParState CodeState target (SkipDisplay litrDisp) skip c False cont #)
 
     {-# INLINE exitLiteral #-}
     exitLiteral !currSt !endLen !c !cont
@@ -286,28 +292,29 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
             let !outCh = if markerDisp then endLiteralMarker else blankChar c
                 !skip = endLen - 1
              in if skip == 0
-                    then (# outCh, ParState CodeState CodeState NoSkip 0 cont #)
-                    else (# outCh, ParState currSt CodeState SkipBlank skip cont #)
+                    then (# outCh, ParState CodeState CodeState NoSkip 0 c False cont #)
+                    else (# outCh, ParState currSt CodeState SkipBlank skip c False cont #)
         | otherwise =
             let !outCh = emitIf litrDisp c
                 !skip = endLen - 1
              in if skip == 0
-                    then (# outCh, ParState CodeState CodeState NoSkip 0 cont #)
-                    else (# outCh, ParState currSt CodeState (SkipDisplay litrDisp) skip cont #)
+                    then (# outCh, ParState CodeState CodeState NoSkip 0 c False cont #)
+                    else (# outCh, ParState currSt CodeState (SkipDisplay litrDisp) skip c False cont #)
 
     {-# INLINE handleCodeState #-}
-    handleCodeState !s !c !cont =
-        if c `T.elem` inits conf
-            then case findPrefixBoundary c cont (commBound conf) of
-                (# i, Just !b #) -> enterComment i (rbBeginLen b) c cont
-                _ -> case findPrefixBoundary c cont (rawBound conf) of
-                    (# i, Just !b #) -> enterLiteral (RawState i) (rbBeginLen b) c cont
-                    _ -> case findPrefixBoundary c cont (litrBound conf) of
-                        (# i, Just !b #) -> enterLiteral (LitrState i) (rbBeginLen b) c cont
-                        _ -> case findPrefixBoundary' c cont (chrBound conf) of
-                            (# i, Just !b #) -> enterLiteral (ChrState i) (rbBeginLen b) c cont
-                            _ -> (# emitIf codeDisp c, s{parText = cont} #)
-            else (# emitIf codeDisp c, s{parText = cont} #)
+    handleCodeState !s@ParState{..} !c !cont =
+        let !nextEsc = (c == '\\') && not parEscaped
+         in if c `T.elem` inits conf
+                then case findPrefixBoundary c cont parPrevChar parEscaped (commBound conf) of
+                    (# i, Just !b #) -> enterComment i (rbBeginLen b) c cont
+                    _ -> case findPrefixBoundary c cont parPrevChar parEscaped (rawBound conf) of
+                        (# i, Just !b #) -> enterLiteral (RawState i) (rbBeginLen b) c cont
+                        _ -> case findPrefixBoundary c cont parPrevChar parEscaped (litrBound conf) of
+                            (# i, Just !b #) -> enterLiteral (LitrState i) (rbBeginLen b) c cont
+                            _ -> case findPrefixBoundary' c cont parPrevChar parEscaped (chrBound conf) of
+                                (# i, Just !b #) -> enterLiteral (ChrState i) (rbBeginLen b) c cont
+                                _ -> (# emitIf codeDisp c, s{parPrevChar = c, parEscaped = nextEsc, parText = cont} #)
+                else (# emitIf codeDisp c, s{parPrevChar = c, parEscaped = nextEsc, parText = cont} #)
 
     {-# INLINE handleCommentState #-}
     handleCommentState !s !n !c !cont =
@@ -318,8 +325,8 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
                 then
                     let !skip = rbEndLen - 1
                      in if skip == 0
-                            then (# outCh, ParState CodeState CodeState NoSkip 0 cont #)
-                            else (# outCh, ParState (CommState n) CodeState (SkipDisplay commDisp) skip cont #)
+                            then (# outCh, ParState CodeState CodeState NoSkip 0 c False cont #)
+                            else (# outCh, ParState (CommState n) CodeState (SkipDisplay commDisp) skip c False cont #)
                 else (# outCh, s{parText = cont} #)
 
     {-# INLINE isClosingBoundary #-}
@@ -335,7 +342,7 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
     {-# INLINE handleLiteralState #-}
     handleLiteralState !s !n !c !cont =
         if c == '\\'
-            then (# emitIf litrDisp c, ParState (LitrState n) (LitrState n) (SkipDisplay litrDisp) 1 cont #)
+            then (# emitIf litrDisp c, ParState (LitrState n) (LitrState n) (SkipDisplay litrDisp) 1 c False cont #)
             else
                 let !rb@RegionBoundary{..} = V.unsafeIndex (litrBound conf) n
                  in if isClosingBoundary rb c cont
@@ -345,7 +352,7 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
     {-# INLINE handleCharState #-}
     handleCharState !s !n !c !cont =
         if c == '\\'
-            then (# emitIf litrDisp c, ParState (ChrState n) (ChrState n) (SkipDisplay litrDisp) 1 cont #)
+            then (# emitIf litrDisp c, ParState (ChrState n) (ChrState n) (SkipDisplay litrDisp) 1 c False cont #)
             else
                 let !RegionBoundary{..} = V.unsafeIndex (chrBound conf) n
                     (# ec, es #) = rbEnd
@@ -360,25 +367,33 @@ runContextFilter conf f txt = T.unfoldr stepContext initialState
                 then exitLiteral (RawState n) rbEndLen c cont
                 else (# emitIf litrDisp c, s{parText = cont} #)
 
-findPrefixBoundary :: Char -> T.Text -> V.Vector RegionBoundary -> (# Int, Maybe RegionBoundary #)
-findPrefixBoundary !x !xs !vb = go 0
-  where
-    !len = V.length vb
-    go !i
-        | i >= len = (# 0, Nothing #)
-        | otherwise =
-            let !RegionBoundary{..} = V.unsafeIndex vb i
-                (# !c, !cont #) = rbBegin
-             in if c == x
-                    then
-                        if cont `T.isPrefixOf` xs
-                            then (# i, Just (V.unsafeIndex vb i) #)
-                            else go (i + 1)
-                    else go (i + 1)
-{-# INLINE findPrefixBoundary #-}
+isShellCommentDelimiter :: Char -> Bool
+isShellCommentDelimiter ch =
+    ch == '\0'
+        || isSpace ch
+        || ch == ';'
+        || ch == '&'
+        || ch == '|'
+        || ch == '('
+        || ch == ')'
+        || ch == '<'
+        || ch == '>'
+{-# INLINE isShellCommentDelimiter #-}
 
-findPrefixBoundary' :: Char -> T.Text -> V.Vector RegionBoundary -> (# Int, Maybe RegionBoundary #)
-findPrefixBoundary' !x !xs !vb = go 0
+checkBoundaryGuard :: BoundaryGuard -> Int -> Char -> Bool -> T.Text -> Bool
+checkBoundaryGuard NoBoundaryGuard _ _ _ _ = True
+checkBoundaryGuard GuardShellComment _ prevCh prevEsc _ =
+    not prevEsc && isShellCommentDelimiter prevCh
+checkBoundaryGuard GuardNotPrecededBySlash _ _ prevEsc _ =
+    not prevEsc
+checkBoundaryGuard (GuardNotFollowedBy forbidden) beginLen _ _ xs =
+    case T.uncons (T.drop (beginLen - 1) xs) of
+        Just (!nc, _) -> nc /= forbidden
+        Nothing -> True
+{-# INLINE checkBoundaryGuard #-}
+
+findPrefixBoundary :: Char -> T.Text -> Char -> Bool -> V.Vector RegionBoundary -> (# Int, Maybe RegionBoundary #)
+findPrefixBoundary !x !xs !prevCh !prevEsc !vb = go 0
   where
     !len = V.length vb
     go !i
@@ -386,7 +401,24 @@ findPrefixBoundary' !x !xs !vb = go 0
         | otherwise =
             let !rb@RegionBoundary{..} = V.unsafeIndex vb i
                 (# !c, !cont #) = rbBegin
-             in if c /= x || not (cont `T.isPrefixOf` xs)
+             in if c == x
+                    then
+                        if cont `T.isPrefixOf` xs && checkBoundaryGuard rbGuard rbBeginLen prevCh prevEsc xs
+                            then (# i, Just rb #)
+                            else go (i + 1)
+                    else go (i + 1)
+{-# INLINE findPrefixBoundary #-}
+
+findPrefixBoundary' :: Char -> T.Text -> Char -> Bool -> V.Vector RegionBoundary -> (# Int, Maybe RegionBoundary #)
+findPrefixBoundary' !x !xs !prevCh !prevEsc !vb = go 0
+  where
+    !len = V.length vb
+    go !i
+        | i >= len = (# 0, Nothing #)
+        | otherwise =
+            let !rb@RegionBoundary{..} = V.unsafeIndex vb i
+                (# !c, !cont #) = rbBegin
+             in if c /= x || not (cont `T.isPrefixOf` xs) || not (checkBoundaryGuard rbGuard rbBeginLen prevCh prevEsc xs)
                     then go (i + 1)
                     else
                         if hasMatchingCharEnd rb (T.drop (rbBeginLen - 1) xs)

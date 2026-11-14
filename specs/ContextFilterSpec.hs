@@ -1,6 +1,6 @@
 module ContextFilterSpec (contextFilterTests) where
 
-import CGrep.Boundary (Boundary (..))
+import CGrep.Boundary (Boundary (..), BoundaryGuard (..))
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Chunk (
     ChunkType,
@@ -252,12 +252,12 @@ degenerateBoundaryTests =
             ms <- runSearchMem defaultOptions{semantic = True, code = True} SmallTalk "a.st" src ["y := STR"]
             matchLineNums ms @?= [3]
         , testCase "Direct mkParConfig with empty begin or end boundary is total" $ do
-            let badBounds = [Boundary "" 0 "\"" 1, Boundary "$" 1 "" 0, Boundary "" 0 "" 0]
+            let badBounds = [Boundary "" 0 "\"" 1 NoBoundaryGuard, Boundary "$" 1 "" 0 NoBoundaryGuard, Boundary "" 0 "" 0 NoBoundaryGuard]
                 cfg = mkParConfig badBounds badBounds badBounds badBounds True
                 out = runContextFilter cfg (contextFilterAll ~! contextBitComment) "abc $x def"
             out @?= "abc $x def"
         , testCase "Empty input text returns empty text across all context filters" $ do
-            let cfg = mkParConfig [Boundary "//" 2 "\n" 1] [Boundary "\"" 1 "\"" 1] [] [] True
+            let cfg = mkParConfig [Boundary "//" 2 "\n" 1 NoBoundaryGuard] [Boundary "\"" 1 "\"" 1 NoBoundaryGuard] [] [] True
             runContextFilter cfg contextFilterAll "" @?= ""
             runContextFilter cfg (contextFilterAll ~! contextBitLiteral) "" @?= ""
             runContextFilter cfg (contextFilterAll ~! contextBitCode) "" @?= ""
