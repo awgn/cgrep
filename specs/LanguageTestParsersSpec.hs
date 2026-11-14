@@ -46,6 +46,7 @@ languageTestParsersTests =
         , rParserTests
         , rubyParserTests
         , rustParserTests
+        , scalaParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1338,6 +1339,61 @@ rustParserTests =
             let integSrc = "fn shared_fixture() -> i32 { cgrep_marker }\n"
             itProd <- runSearchMem noTestsOpt Rust "tests/common/mod.rs" integSrc ["cgrep_marker"]
             itTest <- runSearchMem onlyTestsOpt Rust "tests/common/mod.rs" integSrc ["cgrep_marker"]
+            matchLineNums itProd @?= []
+            matchLineNums itTest @?= [1]
+        ]
+
+scalaParserTests :: TestTree
+scalaParserTests =
+    testGroup
+        "Scala semantic test parser"
+        [ testCase "Scala: @BeforeMapping/@Validator[Test] stay prod; braceless '@Test def ... =' & FunSuite helper vals/defs are test" $ do
+            let src =
+                    T.unlines
+                        [ "class OrderMapper {" -- 1 (prod)
+                        , "  @BeforeMapping" -- 2 (prod: MapStruct, NOT JUnit @Before!)
+                        , "  def prepare(): Int = { cgrep_marker }" -- 3 (prod)
+                        , "  @Validator[Test]" -- 4 (prod: Scala type arg [Test] is NOT @Test!)
+                        , "  def validate(): Int = { cgrep_marker }" -- 5 (prod)
+                        , "  @Test" -- 6 (test: braceless expression-bodied @Test method!)
+                        , "  def inlineCheck(): Unit = assertEquals(1, cgrep_marker)" -- 7 (test)
+                        , "  def prodAfterInline(): Int = cgrep_marker" -- 8 (prod: must NOT be swallowed!)
+                        , "}" -- 9
+                        , "final class OrderSuite extends munit.FunSuite {" -- 10 (test suite: helpers inside are test!)
+                        , "  val defaultFixture = cgrep_marker" -- 11 (test helper val)
+                        , "  def buildOrder(): Int = cgrep_marker" -- 12 (test helper def)
+                        , "  test(\"creates order\") { assert(buildOrder() > 0) }" -- 13 (test)
+                        , "}" -- 14
+                        ]
+            prodMs <- runSearchMem noTestsOpt Scala "Order.scala" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Scala "Order.scala" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 5, 8]
+            matchLineNums testMs @?= [7, 11, 12]
+        , testCase "Scala: ScalaCheck 'property(\"...\") = ...', ZIO Test 'suite(\"...\")(...)', and src/test/scala + src/it/scala isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "property(\"concatenation length\") = forAll { (a: String) =>" -- 1 (test: ScalaCheck property = ...)
+                        , "  val tag = cgrep_marker" -- 2 (test)
+                        , "  a.nonEmpty || tag == 0" -- 3 (test)
+                        , "}" -- 4
+                        , "def prodBetween(): Int = cgrep_marker" -- 5 (prod)
+                        , "val spec = suite(\"OrderSpec\")(" -- 6 (test: ZIO Test parenthesized suite(...)(...))
+                        , "  test(\"computes total\")(" -- 7 (test: ZIO Test parenthesized test(...)(...))
+                        , "    assertTrue(cgrep_marker == 1)" -- 8 (test)
+                        , "  )" -- 9
+                        , ")" -- 10
+                        ]
+            prodMs <- runSearchMem noTestsOpt Scala "Specs.scala" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Scala "Specs.scala" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [5]
+            matchLineNums testMs @?= [2, 8]
+            let fixtureSrc = "object DbFixtures { val port = cgrep_marker }\n"
+            stProd <- runSearchMem noTestsOpt Scala "src/test/scala/acme/DbFixtures.scala" fixtureSrc ["cgrep_marker"]
+            stTest <- runSearchMem onlyTestsOpt Scala "src/test/scala/acme/DbFixtures.scala" fixtureSrc ["cgrep_marker"]
+            matchLineNums stProd @?= []
+            matchLineNums stTest @?= [1]
+            itProd <- runSearchMem noTestsOpt Scala "src/it/scala/acme/DbFixtures.scala" fixtureSrc ["cgrep_marker"]
+            itTest <- runSearchMem onlyTestsOpt Scala "src/it/scala/acme/DbFixtures.scala" fixtureSrc ["cgrep_marker"]
             matchLineNums itProd @?= []
             matchLineNums itTest @?= [1]
         ]
