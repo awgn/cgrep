@@ -44,6 +44,7 @@ languageTestParsersTests =
         , perlParserTests
         , pythonParserTests
         , rParserTests
+        , rubyParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1222,4 +1223,59 @@ rParserTests =
             t2Test <- runSearchMem onlyTestsOpt R "inst/tinytest/test_stats.r" helperSrc ["cgrep_marker"]
             matchLineNums t2Prod @?= []
             matchLineNums t2Test @?= [1]
+        ]
+
+rubyParserTests :: TestTree
+rubyParserTests =
+    testGroup
+        "Ruby semantic test parser"
+        [ testCase "Ruby: postfix 'return x if ...' / 'save! unless ...', multi-line '1\\nif...end', range.end/:end/end:, and Testimonial guard" $ do
+            let src =
+                    T.unlines
+                        [ "class Testimonial" -- 1 (prod: Testimonial is NOT a Test* class!)
+                        , "  def body" -- 2 (prod)
+                        , "    cgrep_marker" -- 3 (prod)
+                        , "  end" -- 4
+                        , "end" -- 5
+                        , "RSpec.describe 'Order' do" -- 6 (test)
+                        , "  it 'handles postfix modifiers and .end/:end/end:' do" -- 7 (test)
+                        , "    x = 1" -- 8 (test: ends with number 1)
+                        , "    if x > 0" -- 9 (test: block 'if' on new line after number 1 MUST expect 'end'!)
+                        , "      y = range.end + ({ end: :end }[:end] ? 1 : 0)" -- 10 (test: .end, end:, :end!)
+                        , "    end" -- 11 (test: closes 'if x > 0', NOT 'it'!)
+                        , "    save! unless valid?(y)" -- 12 (test: postfix 'unless' after save! and valid?(y) has NO 'end'!)
+                        , "    return cgrep_marker if y > 0" -- 13 (test: postfix 'if' after identifier has NO 'end'!)
+                        , "  end" -- 14 (test: closes 'it')
+                        , "end" -- 15 (test: closes 'RSpec.describe')
+                        , "class ProdAfterRSpec" -- 16 (prod: must NOT be swallowed!)
+                        , "  def run" -- 17 (prod)
+                        , "    cgrep_marker" -- 18 (prod)
+                        , "  end" -- 19
+                        , "end" -- 20
+                        ]
+            prodMs <- runSearchMem noTestsOpt Ruby "app/models/order.rb" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Ruby "app/models/order.rb" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 18]
+            matchLineNums testMs @?= [13]
+        , testCase "Ruby: shared_examples / it_behaves_like, Ruby 3 endless 'def test_foo = ...', and *_spec.rb / *_test.rb isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "RSpec.shared_examples 'auditable' do" -- 1 (test: RSpec.shared_examples)
+                        , "  it { expect(subject).to eq(cgrep_marker) }" -- 2 (test)
+                        , "end" -- 3
+                        , "it_behaves_like 'auditable', cgrep_marker" -- 4 (test: braceless it_behaves_like line)
+                        , "def test_endless_ruby3 = assert_equal(1, cgrep_marker)" -- 5 (test: Ruby 3 endless method without 'end'!)
+                        , "def prod_after_endless" -- 6 (prod: must NOT be swallowed by endless def!)
+                        , "  cgrep_marker" -- 7 (prod)
+                        , "end" -- 8
+                        ]
+            prodMs <- runSearchMem noTestsOpt Ruby "lib/audit.rb" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Ruby "lib/audit.rb" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [7]
+            matchLineNums testMs @?= [2, 4, 5]
+            let specFileSrc = "class FakeGateway\n  def charge = cgrep_marker\nend\n"
+            spProd <- runSearchMem noTestsOpt Ruby "spec/models/order_spec.rb" specFileSrc ["cgrep_marker"]
+            spTest <- runSearchMem onlyTestsOpt Ruby "spec/models/order_spec.rb" specFileSrc ["cgrep_marker"]
+            matchLineNums spProd @?= []
+            matchLineNums spTest @?= [2]
         ]
