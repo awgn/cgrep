@@ -27,6 +27,7 @@ languageTestParsersTests =
         , csharpParserTests
         , dParserTests
         , dartParserTests
+        , elixirParserTests
         ]
 
 bashParserTests :: TestTree
@@ -360,4 +361,55 @@ dartParserTests =
             tfTest <- runSearchMem onlyTestsOpt Dart "login_test.dart" testFileSrc ["cgrep_marker"]
             matchLineNums tfProd @?= []
             matchLineNums tfTest @?= [1]
+        ]
+
+elixirParserTests :: TestTree
+elixirParserTests =
+    testGroup
+        "Elixir semantic test parser"
+        [ testCase "Elixir: :end/:do/:fn atoms, end:/fn: keyword keys, and span.end do not break do...end balancing" $ do
+            let src =
+                    T.unlines
+                        [ "defmodule ParserTest do" -- 1 (test)
+                        , "  use ExUnit.Case" -- 2 (test)
+                        , "  test \"atoms and keyword keys\" do" -- 3 (test)
+                        , "    opts = [start: 0, end: 10, fn: :do]" -- 4 (test: end: and fn: and :do!)
+                        , "    assert seek(:end) == span.end" -- 5 (test: :end and span.end!)
+                        , "    res = %{cb: fn x -> x + 1 end, tag: cgrep_marker}" -- 6 (test: real fn...end after 'cb: ')
+                        , "    assert res.tag == opts[:start]" -- 7 (test)
+                        , "  end" -- 8 (test)
+                        , "end" -- 9 (test)
+                        , "defmodule ProdAfterSuite do" -- 10 (prod: must NOT be swallowed!)
+                        , "  def run(), do: cgrep_marker" -- 11 (prod)
+                        , "end" -- 12 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Elixir "parser.ex" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Elixir "parser.ex" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [11]
+            matchLineNums testMs @?= [6]
+        , testCase "Elixir: one-liner 'test ..., do:', parenthesized test(\"...\"), use ExUnit.CaseTemplate, @tag, and *_test.exs" $ do
+            let src =
+                    T.unlines
+                        [ "@tag :cgrep_marker" -- 1 (test: ExUnit @tag attribute)
+                        , "test \"one-liner\", do: assert(cgrep_marker == 1)" -- 2 (test: inline do: without end!)
+                        , "defmodule ProdService do" -- 3 (prod: must NOT be swallowed by one-liner!)
+                        , "  def ok(), do: cgrep_marker" -- 4 (prod)
+                        , "end" -- 5 (prod)
+                        , "test(\"parenthesized call\", %{a: a}) do" -- 6 (test: parenthesized test(...) do)
+                        , "  assert a == cgrep_marker" -- 7 (test)
+                        , "end" -- 8 (test)
+                        , "defmodule MyApp.ConnCase do" -- 9 (test: CaseTemplate module not ending in 'Test')
+                        , "  use ExUnit.CaseTemplate" -- 10 (test)
+                        , "  def helper(), do: cgrep_marker" -- 11 (test)
+                        , "end" -- 12 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Elixir "suite.exs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Elixir "suite.exs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4]
+            matchLineNums testMs @?= [1, 2, 7, 11]
+            let testFileSrc = "defmodule FakeMailer do\n  def send(), do: cgrep_marker\nend\n"
+            tfProd <- runSearchMem noTestsOpt Elixir "accounts_test.exs" testFileSrc ["cgrep_marker"]
+            tfTest <- runSearchMem onlyTestsOpt Elixir "accounts_test.exs" testFileSrc ["cgrep_marker"]
+            matchLineNums tfProd @?= []
+            matchLineNums tfTest @?= [2]
         ]
