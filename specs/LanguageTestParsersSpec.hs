@@ -45,6 +45,7 @@ languageTestParsersTests =
         , pythonParserTests
         , rParserTests
         , rubyParserTests
+        , rustParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1278,4 +1279,65 @@ rubyParserTests =
             spTest <- runSearchMem onlyTestsOpt Ruby "spec/models/order_spec.rb" specFileSrc ["cgrep_marker"]
             matchLineNums spProd @?= []
             matchLineNums spTest @?= [2]
+        ]
+
+rustParserTests :: TestTree
+rustParserTests =
+    testGroup
+        "Rust semantic test parser"
+        [ testCase "Rust: #![doc(test(...))], #[instrument(fields(test = true))], #[cfg(any(unix, test))], and #[cfg_attr(test, derive(...))] stay prod" $ do
+            let src =
+                    T.unlines
+                        [ "#![doc(test(attr(deny(warnings))))]" -- 1 (prod crate rustdoc config: MUST NOT wipe crate!)
+                        , "#[tracing::instrument(fields(test = true))]" -- 2 (prod: 'test' is inside attr args, NOT attr path!)
+                        , "pub fn traced_handler() -> i32 {" -- 3 (prod)
+                        , "    cgrep_marker" -- 4 (prod)
+                        , "}" -- 5
+                        , "#[cfg_attr(test, derive(PartialEq, Debug))]" -- 6 (prod struct compiled in prod; only derive added in test!)
+                        , "pub struct Order {" -- 7 (prod)
+                        , "    pub id: i32, // cgrep_marker" -- 8
+                        , "}" -- 9
+                        , "impl Order {" -- 10 (prod)
+                        , "    pub fn total(&self) -> i32 { cgrep_marker }" -- 11 (prod)
+                        , "}" -- 12
+                        , "#[cfg(any(unix, test))]" -- 13 (prod on Unix: compiled in non-test builds!)
+                        , "pub fn platform_helper() -> i32 { cgrep_marker }" -- 14 (prod)
+                        , "#[cfg_attr(not(miri), tokio::test(flavor = \"multi_thread\"))]" -- 15 (test: gated tokio::test!)
+                        , "async fn non_miri_async_check() {" -- 16 (test)
+                        , "    let _ = cgrep_marker;" -- 17 (test)
+                        , "}" -- 18
+                        ]
+            prodMs <- runSearchMem noTestsOpt Rust "src/lib.rs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Rust "src/lib.rs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4, 11, 14]
+            matchLineNums testMs @?= [17]
+        , testCase "Rust: quickcheck! { ... }, proptest! { ... }, #[bench], #[wasm_bindgen_test], and Cargo tests/*.rs isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "quickcheck! {" -- 1 (test: quickcheck! macro has unattributed fn inside!)
+                        , "    fn prop_idempotent(xs: Vec<i32>) -> bool {" -- 2 (test)
+                        , "        let _ = cgrep_marker;" -- 3 (test)
+                        , "        xs == xs" -- 4 (test)
+                        , "    }" -- 5
+                        , "}" -- 6
+                        , "proptest::proptest! {" -- 7 (test: path-qualified proptest! macro)
+                        , "    fn prop_non_neg(x in 0..100i32) {" -- 8 (test)
+                        , "        let _ = cgrep_marker;" -- 9 (test)
+                        , "    }" -- 10
+                        , "}" -- 11
+                        , "#[bench]" -- 12 (test: benchmark attribute)
+                        , "fn bench_encode(b: &mut Bencher) { let _ = cgrep_marker; }" -- 13 (test)
+                        , "#[wasm_bindgen_test]" -- 14 (test: wasm-bindgen-test)
+                        , "fn wasm_check() { let _ = cgrep_marker; }" -- 15 (test)
+                        , "pub fn prod_codec() -> i32 { cgrep_marker }" -- 16 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Rust "src/codec.rs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Rust "src/codec.rs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [16]
+            matchLineNums testMs @?= [3, 9, 13, 15]
+            let integSrc = "fn shared_fixture() -> i32 { cgrep_marker }\n"
+            itProd <- runSearchMem noTestsOpt Rust "tests/common/mod.rs" integSrc ["cgrep_marker"]
+            itTest <- runSearchMem onlyTestsOpt Rust "tests/common/mod.rs" integSrc ["cgrep_marker"]
+            matchLineNums itProd @?= []
+            matchLineNums itTest @?= [1]
         ]
