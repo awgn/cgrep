@@ -31,6 +31,7 @@ languageTestParsersTests =
         , elmParserTests
         , erlangParserTests
         , fsharpParserTests
+        , goParserTests
         ]
 
 bashParserTests :: TestTree
@@ -571,4 +572,55 @@ fsharpParserTests =
             testMs <- runSearchMem onlyTestsOpt Fsharp "src/Suite.fs" src ["cgrep_marker"]
             matchLineNums prodMs @?= [4, 16]
             matchLineNums testMs @?= [7, 10, 13]
+        ]
+
+goParserTests :: TestTree
+goParserTests =
+    testGroup
+        "Go semantic test parser"
+        [ testCase "Go: generic func TestXxx[T any], func-returning suite method, vs prod (p *Pool) TestConnection(...) error" $ do
+            let src =
+                    T.unlines
+                        [ "package pool" -- 1
+                        , "type Pool struct{}" -- 2
+                        , "func (p *Pool) TestConnection(host string) error {" -- 3 (prod method on non-suite receiver with params+error!)
+                        , "    _ = cgrep_marker" -- 4 (prod)
+                        , "    return nil" -- 5
+                        , "}" -- 6
+                        , "func TestRoundTrip[T comparable](t *testing.T) {" -- 7 (test: Go 1.18+ generic test function)
+                        , "    _ = cgrep_marker" -- 8 (test)
+                        , "}" -- 9
+                        , "type HandlerTestSuite struct{}" -- 10
+                        , "func (s *HandlerTestSuite) TestMiddleware() func(int) int {" -- 11 (test: returns func(int) int!)
+                        , "    return func(x int) int { return x + cgrep_marker }" -- 12 (test)
+                        , "}" -- 13
+                        ]
+            prodMs <- runSearchMem noTestsOpt Go "pool.go" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Go "pool.go" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4]
+            matchLineNums testMs @?= [8, 12]
+        , testCase "Go: Ginkgo Describe/When/It/BeforeEach/PIt and GoConvey Convey blocks vs obj.Describe(...)" $ do
+            let src =
+                    T.unlines
+                        [ "package api" -- 1
+                        , "func prodDescribe(svc Service) {" -- 2 (prod)
+                        , "    svc.Describe(\"resource\", func() { _ = cgrep_marker })" -- 3 (prod: method call .Describe)
+                        , "}" -- 4
+                        , "var _ = Describe(\"Router\", func() {" -- 5 (test: Ginkgo)
+                        , "    BeforeEach(func() {" -- 6 (test)
+                        , "        _ = cgrep_marker" -- 7 (test)
+                        , "    })" -- 8
+                        , "    When(\"authenticated\", func() {" -- 9 (test)
+                        , "        It(\"serves requests\", func() {" -- 10 (test)
+                        , "            _ = cgrep_marker" -- 11 (test)
+                        , "        })" -- 12
+                        , "        PIt(\"pending spec without callback\", cgrep_marker)" -- 13 (test)
+                        , "    })" -- 14
+                        , "})" -- 15
+                        , "func prodAfter() { _ = cgrep_marker }" -- 16 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Go "router.go" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Go "router.go" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 16]
+            matchLineNums testMs @?= [7, 11, 13]
         ]
