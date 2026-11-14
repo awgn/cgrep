@@ -30,6 +30,7 @@ languageTestParsersTests =
         , elixirParserTests
         , elmParserTests
         , erlangParserTests
+        , fsharpParserTests
         ]
 
 bashParserTests :: TestTree
@@ -513,4 +514,61 @@ erlangParserTests =
             euTest <- runSearchMem onlyTestsOpt Erlang "test/http_tests.erl" suiteSrc ["cgrep_marker"]
             matchLineNums euProd @?= []
             matchLineNums euTest @?= [1]
+        ]
+
+fsharpParserTests :: TestTree
+fsharpParserTests =
+    testGroup
+        "F# semantic test parser"
+        [ testCase "F#: nested 'let f x =' inside [<Fact>], backtick names, and unattributed helpers inside [<TestFixture>]" $ do
+            let src =
+                    T.unlines
+                        [ "let prodBefore x = cgrep_marker" -- 1 (prod)
+                        , "[<Fact>]" -- 2 (test)
+                        , "let ``should handle (parens) in backtick name`` () =" -- 3 (test)
+                        , "    let localHelper f x = f x" -- 4 (test: nested function must NOT end test!)
+                        , "    let v = localHelper id cgrep_marker" -- 5 (test)
+                        , "    Assert.Equal(v, v)" -- 6 (test)
+                        , "[<TestFixture>]" -- 7 (test)
+                        , "type OrderFixture() =" -- 8 (test)
+                        , "    let seedOrder x = x + cgrep_marker" -- 9 (test: class let binding inside TestFixture)
+                        , "    member private this.BuildHelper() = cgrep_marker" -- 10 (test: helper member inside TestFixture)
+                        , "    [<Test>]" -- 11 (test)
+                        , "    member this.CheckOrder() = Assert.Pass()" -- 12 (test)
+                        , "type MixedService() =" -- 13 (prod class)
+                        , "    [<Test>]" -- 14 (test member)
+                        , "    member this.InlineCheck() =" -- 15 (test)
+                        , "        let innerFn a = a + cgrep_marker" -- 16 (test)
+                        , "        innerFn 1" -- 17 (test)
+                        , "    member this.ProdMethod() = cgrep_marker" -- 18 (prod member!)
+                        , "let prodAfter x = cgrep_marker" -- 19 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Fsharp "src/Service.fs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Fsharp "src/Service.fs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [1, 18, 19]
+            matchLineNums testMs @?= [5, 9, 10, 16]
+        , testCase "F#: Expecto [<Tests>], testPropertyWithConfig, testTask, [<assembly: ...>], and generic [<Validator<Test>>]" $ do
+            let src =
+                    T.unlines
+                        [ "[<assembly: NUnit.Framework.SetUpFixture>]" -- 1 (test assembly attr)
+                        , "do ()" -- 2
+                        , "[<Validator<Test>>]" -- 3 (prod generic attr referencing Test type arg)
+                        , "let validatedProd x = cgrep_marker" -- 4 (prod)
+                        , "[<Tests>]" -- 5 (test: Expecto [<Tests>] attribute)
+                        , "let suiteWithSharedSetup =" -- 6 (test)
+                        , "    let sharedCfg = cgrep_marker" -- 7 (test)
+                        , "    testList \"suite\" [" -- 8 (test)
+                        , "        testPropertyWithConfig sharedCfg \"prop\" <| fun x ->" -- 9 (test)
+                        , "            let checkProp y = y = cgrep_marker" -- 10 (test)
+                        , "            checkProp x" -- 11 (test)
+                        , "        testTask \"async task\" {" -- 12 (test)
+                        , "            return cgrep_marker" -- 13 (test)
+                        , "        }" -- 14 (test)
+                        , "    ]" -- 15 (test)
+                        , "let prodEnd x = cgrep_marker" -- 16 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Fsharp "src/Suite.fs" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Fsharp "src/Suite.fs" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4, 16]
+            matchLineNums testMs @?= [7, 10, 13]
         ]
