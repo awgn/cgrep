@@ -36,6 +36,7 @@ languageTestParsersTests =
         , javaParserTests
         , javascriptParserTests
         , juliaParserTests
+        , kotlinParserTests
         ]
 
 bashParserTests :: TestTree
@@ -832,4 +833,57 @@ juliaParserTests =
             rtTest <- runSearchMem onlyTestsOpt Julia "test/runtests.jl" rtSrc ["cgrep_marker"]
             matchLineNums rtProd @?= []
             matchLineNums rtTest @?= [1]
+        ]
+
+kotlinParserTests :: TestTree
+kotlinParserTests =
+    testGroup
+        "Kotlin semantic test parser"
+        [ testCase "Kotlin: backtick fun names with keywords, braceless '= assertEquals(...)', @get:Rule, vs @BeforeMapping" $ do
+            let src =
+                    T.unlines
+                        [ "class OrderService {" -- 1 (prod)
+                        , "    @BeforeMapping" -- 2 (prod: MapStruct, NOT JUnit!)
+                        , "    fun enrich() { val a = cgrep_marker }" -- 3 (prod)
+                        , "    @get:Rule" -- 4 (test: Kotlin use-site target @get:Rule)
+                        , "    val tempFolder = TemporaryFolder(cgrep_marker)" -- 5 (test)
+                        , "    @Test" -- 6 (test: backtick method name containing fun/val/class/;)
+                        , "    fun `when fun or val or ; is in name`() {" -- 7 (test)
+                        , "        val b = cgrep_marker" -- 8 (test)
+                        , "    }" -- 9
+                        , "    @Test" -- 10 (test: expression-bodied test without braces!)
+                        , "    fun singleLineExprTest() = assertEquals(1, cgrep_marker)" -- 11 (test)
+                        , "    fun prodAfterExprTest() = cgrep_marker" -- 12 (prod: must NOT be swallowed!)
+                        , "}" -- 13
+                        ]
+            prodMs <- runSearchMem noTestsOpt Kotlin "src/main/kotlin/OrderService.kt" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Kotlin "src/main/kotlin/OrderService.kt" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 12]
+            matchLineNums testMs @?= [5, 8, 11]
+        , testCase "Kotlin: Kotest BehaviorSpec Given/When/Then, StringSpec .config(...), and KMP src/commonTest isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "fun prodRunner(runner: Runner) {" -- 1 (prod)
+                        , "    runner.test(\"not kotest\") { val x = cgrep_marker }" -- 2 (prod: method call on receiver)
+                        , "}" -- 3
+                        , "class AuthSpec : BehaviorSpec({" -- 4
+                        , "    Given(\"a user\") {" -- 5 (test: capitalized Kotest Given)
+                        , "        When(\"logging in\") {" -- 6 (test: capitalized Kotest When)
+                        , "            Then(\"succeeds\") { val y = cgrep_marker }" -- 7 (test: capitalized Kotest Then)
+                        , "        }" -- 8
+                        , "    }" -- 9
+                        , "    \"configured string spec\".config(invocations = 2) {" -- 10 (test: .config(...) before '{')
+                        , "        val z = cgrep_marker" -- 11 (test)
+                        , "    }" -- 12
+                        , "})" -- 13
+                        ]
+            prodMs <- runSearchMem noTestsOpt Kotlin "src/main/kotlin/Auth.kt" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Kotlin "src/main/kotlin/Auth.kt" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2]
+            matchLineNums testMs @?= [7, 11]
+            let kmpSrc = "class FakeClock { val now = cgrep_marker }\n"
+            kmpProd <- runSearchMem noTestsOpt Kotlin "shared/src/commonTest/kotlin/FakeClock.kt" kmpSrc ["cgrep_marker"]
+            kmpTest <- runSearchMem onlyTestsOpt Kotlin "shared/src/commonTest/kotlin/FakeClock.kt" kmpSrc ["cgrep_marker"]
+            matchLineNums kmpProd @?= []
+            matchLineNums kmpTest @?= [1]
         ]

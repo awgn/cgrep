@@ -1,6 +1,8 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
@@ -12,125 +14,483 @@ import CGrep.Parser.Token (
     isTokenBracket,
     isTokenIdentifier,
     isTokenKeyword,
+    isTokenOperator,
     isTokenString,
     tToken,
  )
 import CGrep.Semantic.Tests.Common
+import Data.Bits (complement, (.&.))
+import Data.Char (isAsciiLower)
+import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Array as A
+import qualified Data.Text.Internal as TI
+import System.OsPath (OsPath, osp, splitDirectories, takeExtension, takeFileName)
+import qualified System.OsString as OS
 
 instance LanguageTestFilter 'Kotlin where
+    isTestFile = isKotlinTestFilePath
     langFilter Nothing tokens = tokens
-    langFilter (Just keepTests) tokens = processOutsideKotlin keepTests tokens
+    langFilter (Just keepTests) tokens = processOutsideKotlin keepTests False initialLineState tokens
 
--- | Helper for Kotlin to avoid swallowing braces of subsequent functions after abstract methods,
--- while ignoring braces/keywords nested inside `(...)` or `[...]` (e.g. default parameter lambdas
--- like `fun myTest(cb: () -> Unit = {}) { ... }`).
-findOpeningBraceKotlin :: Bool -> Int -> [Token] -> Maybe ([Token], [Token])
-findOpeningBraceKotlin canSeeDecl0 n0 = go 0 canSeeDecl0 n0
+-- | Standard Gradle / Maven / Kotlin Multiplatform test source sets
+-- (`src/test/...`, `src/commonTest/...`, `src/jvmTest/...`, `src/androidUnitTest/...`).
+isKotlinTestFilePath :: OsPath -> Bool
+isKotlinTestFilePath path =
+    let ext = takeExtension path
+        dirs = map takeFileName (dropLastPart (splitDirectories path))
+     in ext `elem` ([[osp|.kt|], [osp|.kts|], [osp|.ktm|]] :: [OsPath])
+            && hasKotlinTestSourceSet dirs
   where
-    go :: Int -> Bool -> Int -> [Token] -> Maybe ([Token], [Token])
-    go _ _ 0 _ = Nothing
-    go _ _ _ [] = Nothing
-    go depth canSeeDecl n (t : ts)
+    dropLastPart [] = []
+    dropLastPart [_] = []
+    dropLastPart (x : xs) = x : dropLastPart xs
+
+    hasKotlinTestSourceSet (d1 : d2 : rest)
+        | d1 == [osp|src|]
+            && (d2 == [osp|test|] || [osp|Test|] `OS.isSuffixOf` d2) =
+            True
+        | otherwise = hasKotlinTestSourceSet (d2 : rest)
+    hasKotlinTestSourceSet _ = False
+
+data LineState = LineState
+    { lsPrevEnd :: {-# UNPACK #-} !Int
+    , lsLineIndent :: {-# UNPACK #-} !Int
+    }
+
+initialLineState :: LineState
+initialLineState = LineState (-1) 0
+
+stepLineState :: LineState -> Token -> (Bool, Int, LineState)
+stepLineState (LineState prevEnd prevIndent) t =
+    case tToken t of
+        TI.Text arr off len
+            | off >= 0 ->
+                let scanFloor = max 0 prevEnd
+                    nlIdx = findNewlineBack arr (off - 1) scanFloor
+                    !nextEnd = max prevEnd (off + len)
+                 in if prevEnd >= 0 && nlIdx < scanFloor
+                        then (False, prevIndent, LineState nextEnd prevIndent)
+                        else
+                            let !lineStart =
+                                    if nlIdx >= 0
+                                        then nlIdx + 1
+                                        else case findNewlineBack arr (off - 1) 0 of
+                                            k | k >= 0 -> k + 1
+                                            _ -> 0
+                                !col = computeVisualCol arr lineStart off 0
+                             in (True, col, LineState nextEnd col)
+        _ -> (False, prevIndent, LineState prevEnd prevIndent)
+  where
+    findNewlineBack :: A.Array -> Int -> Int -> Int
+    findNewlineBack !arr !i !low
+        | i < low = low - 1
+        | A.unsafeIndex arr i == 0x0A = i
+        | otherwise = findNewlineBack arr (i - 1) low
+
+    computeVisualCol :: A.Array -> Int -> Int -> Int -> Int
+    computeVisualCol !arr !j !limit !col
+        | j >= limit = col
+        | otherwise =
+            let !b = A.unsafeIndex arr j
+                !col'
+                    | b == 0x09 = (col + 4) .&. complement 3
+                    | b == 0x02 || b == 0x03 || b == 0x0D = col
+                    | (b .&. 0xC0) == 0x80 = col
+                    | otherwise = col + 1
+             in computeVisualCol arr (j + 1) limit col'
+
+advanceLineState :: LineState -> [Token] -> LineState
+advanceLineState = foldl' (\ls tok -> let (_, _, ls') = stepLineState ls tok in ls')
+
+data KotlinAnno = KotlinAnno
+    { kaTokens :: [Token]
+    , kaUseSite :: !(Maybe Text)
+    , kaSimpleName :: !Text
+    , kaHasParens :: !Bool
+    }
+
+extractKotlinAnno :: [Token] -> Maybe (KotlinAnno, [Token])
+extractKotlinAnno (tAt : tFirst : ts)
+    | isTokenOperator tAt
+    , tToken tAt == "@"
+    , isTokenIdentifier tFirst || isTokenKeyword tFirst =
+        let (useSite, useSiteToks, firstAnnoTok, afterFirst) =
+                case ts of
+                    (tCol : tNext : rest)
+                        | isTokenOperator tCol
+                        , tToken tCol == ":"
+                        , isTokenIdentifier tNext ->
+                            (Just (tToken tFirst), [tFirst, tCol], tNext, rest)
+                    _ -> (Nothing, [], tFirst, ts)
+         in if not (isTokenIdentifier firstAnnoTok)
+                then Nothing
+                else
+                    let (dotPath, lastIdent, afterPath) = collectDotPath firstAnnoTok afterFirst
+                        (typeArgToks, afterTypeArgs) = consumeOptionalAngleArgs afterPath
+                        (parenToks, hasParens, afterParens) = case afterTypeArgs of
+                            (tOpen : rest)
+                                | isTokenBracket tOpen && tToken tOpen == "(" ->
+                                    let (inside, remToks) = processInsideBrackets "(" ")" 1 rest
+                                     in (tOpen : inside, True, remToks)
+                            _ -> ([], False, afterTypeArgs)
+                        allToks = tAt : useSiteToks ++ (firstAnnoTok : dotPath) ++ typeArgToks ++ parenToks
+                     in Just (KotlinAnno allToks useSite lastIdent hasParens, afterParens)
+  where
+    collectDotPath :: Token -> [Token] -> ([Token], Text, [Token])
+    collectDotPath _ (d : i : rest)
+        | isTokenOperator d && tToken d == "." && isTokenIdentifier i =
+            let (more, finalName, remToks) = collectDotPath i rest
+             in (d : i : more, finalName, remToks)
+    collectDotPath curLast rest = ([], tToken curLast, rest)
+
+    consumeOptionalAngleArgs :: [Token] -> ([Token], [Token])
+    consumeOptionalAngleArgs (t : rest)
+        | isTokenOperator t && "<" `T.isPrefixOf` tToken t =
+            let d0 = countChar '<' (tToken t) - countChar '>' (tToken t)
+             in if d0 <= 0
+                    then ([t], rest)
+                    else
+                        let (more, after) = goAngles d0 rest
+                         in (t : more, after)
+    consumeOptionalAngleArgs toks = ([], toks)
+
+    goAngles :: Int -> [Token] -> ([Token], [Token])
+    goAngles _ [] = ([], [])
+    goAngles !d (x : xs)
+        | d <= 0 = ([], x : xs)
+        | isTokenOperator x =
+            let d' = d + countChar '<' (tToken x) - countChar '>' (tToken x)
+             in if d' <= 0
+                    then ([x], xs)
+                    else
+                        let (more, after) = goAngles d' xs
+                         in (x : more, after)
+        | otherwise =
+            let (more, after) = goAngles d xs
+             in (x : more, after)
+extractKotlinAnno _ = Nothing
+
+countChar :: Char -> Text -> Int
+countChar c = T.foldl' (\acc ch -> if ch == c then acc + 1 else acc) 0
+
+isKotlinTestAnno :: KotlinAnno -> Bool
+isKotlinTestAnno (KotlinAnno _ mUseSite n hasParens)
+    | mUseSite == Just "file" = False
+    | otherwise =
+        hasCamelTestWord n
+            || n
+                `elem` ([ "Before"
+                        , "After"
+                        , "BeforeEach"
+                        , "AfterEach"
+                        , "BeforeAll"
+                        , "AfterAll"
+                        , "BeforeClass"
+                        , "AfterClass"
+                        , "BeforeTest"
+                        , "AfterTest"
+                        , "BeforeMethod"
+                        , "AfterMethod"
+                        , "BeforeSuite"
+                        , "AfterSuite"
+                        , "Nested"
+                        , "DataProvider"
+                        , "RunWith"
+                        , "ExtendWith"
+                        , "Property"
+                        , "Example"
+                        , "Rule"
+                        , "ClassRule"
+                        , "TempDir"
+                        , "RegisterExtension"
+                        , "Mock"
+                        , "Spy"
+                        , "InjectMocks"
+                        , "Captor"
+                        , "MockBean"
+                        , "SpyBean"
+                        , "MockitoBean"
+                        ] :: [Text])
+            || (hasParens && n `elem` (["Given", "When", "Then", "And", "But"] :: [Text]))
+  where
+    hasCamelTestWord name =
+        let prefixOk = case T.stripPrefix "Test" name of
+                Nothing -> False
+                Just rest -> case T.uncons rest of
+                    Nothing -> True
+                    Just (c, _) -> not (isAsciiLower c)
+         in prefixOk
+                || "Test" `T.isSuffixOf` name
+                || "Tests" `T.isSuffixOf` name
+
+collectKotlinAnnotations :: [Token] -> ([Token], Bool, [Token])
+collectKotlinAnnotations = go [] False
+  where
+    go acc !anyTest remaining =
+        case extractKotlinAnno remaining of
+            Just (ka, rest) ->
+                go (acc ++ kaTokens ka) (anyTest || isKotlinTestAnno ka) rest
+            Nothing -> (acc, anyTest, remaining)
+
+isStandaloneKotlinEq :: Maybe Token -> Token -> [Token] -> Bool
+isStandaloneKotlinEq mPrev t rest =
+    isTokenOperator t
+        && tToken t == "="
+        && not prevAdjOp
+        && not nextAdjOp
+  where
+    prevAdjOp = case mPrev of
+        Just p -> isTokenOperator p && areAdjacentTokens p t
+        Nothing -> False
+    nextAdjOp = case rest of
+        (n : _) -> isTokenOperator n && areAdjacentTokens t n
+        [] -> False
+
+-- | Collect the RHS of an expression-bodied Kotlin function or property (`= assertEquals(...)`,
+-- `= runTest { ... }`, `= TemporaryFolder(...)`).
+collectKotlinExprBody :: LineState -> [Token] -> ([Token], LineState, [Token])
+collectKotlinExprBody ls0 = go True ls0
+  where
+    go :: Bool -> LineState -> [Token] -> ([Token], LineState, [Token])
+    go _ ls [] = ([], ls, [])
+    go !allowNewline ls (t : ts) =
+        let (isNewLine, _, ls1) = stepLineState ls t
+            startsWithChainDot = isTokenOperator t && (tToken t == "." || tToken t == "?.")
+         in if tToken t == ";" || (isTokenBracket t && tToken t == "}")
+                then ([], ls, t : ts)
+                else
+                    if isNewLine && not allowNewline && not startsWithChainDot
+                        then ([], ls, t : ts)
+                        else
+                            if isTokenBracket t && (tToken t == "(" || tToken t == "[" || tToken t == "{")
+                                then
+                                    let closeB = case tToken t of
+                                            "(" -> ")"
+                                            "[" -> "]"
+                                            _ -> "}"
+                                        (inside, afterB) = processInsideBrackets (tToken t) closeB 1 ts
+                                        lsAfterB = advanceLineState ls1 inside
+                                        (more, lsEnd, remToks) = go False lsAfterB afterB
+                                     in (t : inside ++ more, lsEnd, remToks)
+                                else
+                                    let nextCont =
+                                            tToken t == ","
+                                                || (isTokenOperator t && tToken t `elem` (["+", "-", "*", "/", "%", "&&", "||", "==", "!=", "<", ">", "<=", ">=", "?:", ".", "?."] :: [Text]))
+                                        (more, lsEnd, remToks) = go nextCont ls1 ts
+                                     in (t : more, lsEnd, remToks)
+
+-- | Consume the target declaration following `@Test` / `@Rule` / etc., handling:
+--   * Backtick-escaped function names containing keywords/operators (`` fun `when fun or ;`() ``)
+--   * Braced bodies (`fun foo() { ... }`, `class Foo { ... }`)
+--   * Expression-bodied functions and properties (`fun foo() = ...`, `val rule = ...`)
+--   * Abstract interface methods (`@Test fun abstractMethod()` -> stops before next `fun` or `}`)
+consumeAnnotatedKotlinDecl :: LineState -> Int -> [Token] -> Maybe ([Token], LineState, [Token])
+consumeAnnotatedKotlinDecl lsStart n0 = go 0 False True Nothing lsStart n0
+  where
+    go :: Int -> Bool -> Bool -> Maybe Token -> LineState -> Int -> [Token] -> Maybe ([Token], LineState, [Token])
+    go _ _ _ _ _ 0 _ = Nothing
+    go _ _ _ _ _ _ [] = Nothing
+    go !depth !inBt !canSeeDecl mPrev ls !n (t : ts)
+        | isTokenOperator t && odd (countChar '`' (tToken t)) =
+            let (_, _, ls1) = stepLineState ls t
+             in step depth (not inBt) canSeeDecl (Just t) ls1 (n - 1) t ts
+        | inBt =
+            let (_, _, ls1) = stepLineState ls t
+             in step depth True canSeeDecl (Just t) ls1 (n - 1) t ts
         | isTokenBracket t && (tToken t == "(" || tToken t == "[") =
-            step (depth + 1) canSeeDecl (n - 1) t ts
+            let (_, _, ls1) = stepLineState ls t
+             in step (depth + 1) False canSeeDecl (Just t) ls1 (n - 1) t ts
         | isTokenBracket t && (tToken t == ")" || tToken t == "]") =
-            step (max 0 (depth - 1)) canSeeDecl (n - 1) t ts
+            let (_, _, ls1) = stepLineState ls t
+             in step (max 0 (depth - 1)) False canSeeDecl (Just t) ls1 (n - 1) t ts
         | depth == 0 && isTokenBracket t && tToken t == "{" =
-            Just ([t], ts)
-        | depth == 0 && tToken t == ";" =
+            let (_, _, ls1) = stepLineState ls t
+                (bodyTokens, finalRest) = processInsideBraces 1 ts
+                lsEnd = advanceLineState ls1 bodyTokens
+             in Just (t : bodyTokens, lsEnd, finalRest)
+        | depth == 0 && (tToken t == ";" || (isTokenBracket t && tToken t == "}")) =
             Nothing
-        | depth == 0 && isTokenKeyword t && (tToken t == "fun" || tToken t == "class" || tToken t == "interface" || tToken t == "val" || tToken t == "var") =
+        | depth == 0 && not canSeeDecl && isStandaloneKotlinEq mPrev t ts =
+            let (_, _, ls1) = stepLineState ls t
+                (exprToks, lsEnd, finalRest) = collectKotlinExprBody ls1 ts
+             in Just (t : exprToks, lsEnd, finalRest)
+        | depth == 0
+            && isTokenKeyword t
+            && tToken t `elem` (["fun", "class", "interface", "object", "val", "var"] :: [Text]) =
             if canSeeDecl
-                then step depth False (n - 1) t ts
+                then
+                    let (_, _, ls1) = stepLineState ls t
+                     in step 0 False False (Just t) ls1 (n - 1) t ts
                 else Nothing
         | otherwise =
-            step depth canSeeDecl (n - 1) t ts
+            let (_, _, ls1) = stepLineState ls t
+             in step depth False canSeeDecl (Just t) ls1 (n - 1) t ts
 
-    step :: Int -> Bool -> Int -> Token -> [Token] -> Maybe ([Token], [Token])
-    step d c m tok rest =
-        case go d c m rest of
+    step !d !bt !csd mp lsNext !m tok rest =
+        case go d bt csd mp lsNext m rest of
+            Nothing -> Nothing
+            Just (pre, lsEnd, post) -> Just (tok : pre, lsEnd, post)
+
+-- | Find opening `{` after a Kotest call header (allowing `.config(...)` before `{`).
+findKotestOpeningBrace :: Int -> [Token] -> Maybe ([Token], [Token])
+findKotestOpeningBrace = go 0
+  where
+    go :: Int -> Int -> [Token] -> Maybe ([Token], [Token])
+    go _ 0 _ = Nothing
+    go _ _ [] = Nothing
+    go !depth !n (t : ts)
+        | isTokenBracket t && (tToken t == "(" || tToken t == "[") =
+            step (depth + 1) (n - 1) t ts
+        | isTokenBracket t && (tToken t == ")" || tToken t == "]") =
+            step (max 0 (depth - 1)) (n - 1) t ts
+        | depth == 0 && isTokenBracket t && tToken t == "{" =
+            Just ([t], ts)
+        | depth == 0
+            && ( tToken t == ";"
+                    || (isTokenBracket t && tToken t == "}")
+                    || (isTokenKeyword t && tToken t `elem` (["fun", "class", "interface", "object", "val", "var"] :: [Text]))
+               ) =
+            Nothing
+        | otherwise =
+            step depth (n - 1) t ts
+
+    step !d !m tok rest =
+        case go d m rest of
             Nothing -> Nothing
             Just (pre, post) -> Just (tok : pre, post)
 
-isKotestBlockName :: T.Text -> Bool
+isKotestBlockName :: Text -> Bool
 isKotestBlockName n =
-    n == "test" || n == "xtest"
-        || n == "describe" || n == "xdescribe"
-        || n == "it" || n == "xit"
-        || n == "context" || n == "xcontext"
-        || n == "should" || n == "xshould"
-        || n == "given" || n == "xgiven"
-        || n == "when" || n == "xwhen"
-        || n == "then" || n == "xthen"
-        || n == "feature" || n == "xfeature"
-        || n == "scenario" || n == "xscenario"
-        || n == "expect" || n == "xexpect"
+    n
+        `elem` ([ "test"
+                , "xtest"
+                , "describe"
+                , "xdescribe"
+                , "Describe"
+                , "xDescribe"
+                , "it"
+                , "xit"
+                , "It"
+                , "xIt"
+                , "context"
+                , "xcontext"
+                , "Context"
+                , "xContext"
+                , "should"
+                , "xshould"
+                , "given"
+                , "xgiven"
+                , "Given"
+                , "xGiven"
+                , "when"
+                , "xwhen"
+                , "When"
+                , "xWhen"
+                , "then"
+                , "xthen"
+                , "Then"
+                , "xThen"
+                , "and"
+                , "xand"
+                , "And"
+                , "xAnd"
+                , "feature"
+                , "xfeature"
+                , "Feature"
+                , "xFeature"
+                , "scenario"
+                , "xscenario"
+                , "Scenario"
+                , "xScenario"
+                , "expect"
+                , "xexpect"
+                , "Expect"
+                , "xExpect"
+                ] :: [Text])
 
-processOutsideKotlin :: Bool -> [Token] -> [Token]
-processOutsideKotlin _ [] = []
--- Pattern 1: Annotated method or class (@Test, @BeforeEach, @Nested, etc.)
-processOutsideKotlin keepTests tokens
-    | let (attrTokens, isTest, restAfterAttrs) = collectJavaAnnotations tokens
+matchKotestStringBlock :: [Token] -> Maybe ([Token], [Token])
+matchKotestStringBlock (b : rest)
+    | isTokenBracket b && tToken b == "{" = Just ([b], rest)
+matchKotestStringBlock (op : b : rest)
+    | tToken op == "-" && isTokenBracket b && tToken b == "{" = Just ([op, b], rest)
+    | isTokenIdentifier op
+    , tToken op `elem` (["should", "xshould", "config"] :: [Text])
+    , isTokenBracket b && tToken b == "{" =
+        Just ([op, b], rest)
+matchKotestStringBlock (tDot : tCfg : tOpen : rest)
+    | isTokenOperator tDot && tToken tDot == "."
+    , isTokenIdentifier tCfg && tToken tCfg == "config"
+    , isTokenBracket tOpen && tToken tOpen == "(" =
+        let (cfgArgs, afterCfg) = processInsideBrackets "(" ")" 1 rest
+         in case matchKotestStringBlock afterCfg of
+                Just (moreHdr, afterBrace) ->
+                    Just (tDot : tCfg : tOpen : cfgArgs ++ moreHdr, afterBrace)
+                Nothing -> Nothing
+matchKotestStringBlock _ = Nothing
+
+processOutsideKotlin :: Bool -> Bool -> LineState -> [Token] -> [Token]
+processOutsideKotlin _ _ _ [] = []
+-- Pattern 1: Annotated method, property, or class (@Test, @get:Rule, @BeforeEach, @Nested, etc.)
+processOutsideKotlin keepTests _ ls0 tokens
+    | let (attrTokens, isTest, restAfterAttrs) = collectKotlinAnnotations tokens
     , not (null attrTokens) =
-        if isTest
-            then case findOpeningBraceKotlin True 100 restAfterAttrs of
-                Nothing ->
+        let lsAfterAttrs = advanceLineState ls0 attrTokens
+         in if isTest
+                then case consumeAnnotatedKotlinDecl lsAfterAttrs 120 restAfterAttrs of
+                    Nothing ->
+                        if keepTests
+                            then processOutsideKotlin keepTests False lsAfterAttrs restAfterAttrs
+                            else attrTokens ++ processOutsideKotlin keepTests False lsAfterAttrs restAfterAttrs
+                    Just (declTokens, lsFinal, finalRest) ->
+                        if keepTests
+                            then attrTokens ++ declTokens ++ processOutsideKotlin keepTests False lsFinal finalRest
+                            else processOutsideKotlin keepTests False lsFinal finalRest
+                else
                     if keepTests
-                        then processOutsideKotlin keepTests restAfterAttrs
-                        else attrTokens ++ processOutsideKotlin keepTests restAfterAttrs
-                Just (sigTokens, restAfterBrace) ->
-                    let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
-                     in if keepTests
-                            then attrTokens ++ sigTokens ++ bodyTokens ++ processOutsideKotlin keepTests finalRest
-                            else processOutsideKotlin keepTests finalRest
-            else
-                if keepTests
-                    then processOutsideKotlin keepTests restAfterAttrs
-                    else attrTokens ++ processOutsideKotlin keepTests restAfterAttrs
--- Pattern 2: Kotest / Spek DSL blocks with string description in parentheses:
--- `test("...") { ... }`, `describe("...") { ... }`, `when("...") { ... }`
--- Requiring the first argument inside `(...)` to be a string literal prevents Kotlin's
--- built-in `when (status) { ... }` expression from being mistaken for a Kotest block!
-processOutsideKotlin keepTests (t1 : t2 : ts@(firstArg : _))
+                        then processOutsideKotlin keepTests False lsAfterAttrs restAfterAttrs
+                        else attrTokens ++ processOutsideKotlin keepTests False lsAfterAttrs restAfterAttrs
+-- Pattern 2: Kotest / Spek DSL blocks (`test("...") { ... }`, `Given("...") { ... }`, `when("...") { ... }`)
+processOutsideKotlin keepTests False ls0 (t1 : t2 : ts@(firstArg : _))
     | (isTokenIdentifier t1 || isTokenKeyword t1)
     , isKotestBlockName (tToken t1)
     , isTokenBracket t2 && tToken t2 == "("
     , isTokenString firstArg =
         let (argTokens, afterArgs) = processInsideBrackets "(" ")" 1 ts
-         in case findOpeningBraceKotlin False 20 afterArgs of
+         in case findKotestOpeningBrace 25 afterArgs of
                 Nothing ->
-                    if keepTests then processOutsideKotlin keepTests (t2 : ts) else t1 : processOutsideKotlin keepTests (t2 : ts)
+                    let (_, _, ls1) = stepLineState ls0 t1
+                     in if keepTests
+                            then processOutsideKotlin keepTests False ls1 (t2 : ts)
+                            else t1 : processOutsideKotlin keepTests False ls1 (t2 : ts)
                 Just (sigTokens, restAfterBrace) ->
                     let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
+                        allTestToks = t1 : t2 : argTokens ++ sigTokens ++ bodyTokens
+                        lsFinal = advanceLineState ls0 allTestToks
                      in if keepTests
-                            then t1 : t2 : argTokens ++ sigTokens ++ bodyTokens ++ processOutsideKotlin keepTests finalRest
-                            else processOutsideKotlin keepTests finalRest
--- Pattern 3: Kotest StringSpec / FreeSpec / WordSpec DSL blocks:
--- `"test description" { ... }`, `"container" - { ... }`, `"subject" should { ... }`
-processOutsideKotlin keepTests (t1 : ts)
+                            then allTestToks ++ processOutsideKotlin keepTests False lsFinal finalRest
+                            else processOutsideKotlin keepTests False lsFinal finalRest
+-- Pattern 3: Kotest StringSpec / FreeSpec / WordSpec DSL blocks (`"..." { ... }`, `"...".config(...) { ... }`)
+processOutsideKotlin keepTests False ls0 (t1 : ts)
     | isTokenString t1 =
         case matchKotestStringBlock ts of
             Just (hdrTokens, restAfterBrace) ->
                 let (bodyTokens, finalRest) = processInsideBraces 1 restAfterBrace
+                    allTestToks = t1 : hdrTokens ++ bodyTokens
+                    lsFinal = advanceLineState ls0 allTestToks
                  in if keepTests
-                        then t1 : hdrTokens ++ bodyTokens ++ processOutsideKotlin keepTests finalRest
-                        else processOutsideKotlin keepTests finalRest
+                        then allTestToks ++ processOutsideKotlin keepTests False lsFinal finalRest
+                        else processOutsideKotlin keepTests False lsFinal finalRest
             Nothing ->
-                if keepTests
-                    then processOutsideKotlin keepTests ts
-                    else t1 : processOutsideKotlin keepTests ts
-  where
-    matchKotestStringBlock (b : rest)
-        | isTokenBracket b && tToken b == "{" = Just ([b], rest)
-    matchKotestStringBlock (op : b : rest)
-        | tToken op == "-" && isTokenBracket b && tToken b == "{" = Just ([op, b], rest)
-        | isTokenIdentifier op
-        , tToken op == "should" || tToken op == "xshould" || tToken op == "config"
-        , isTokenBracket b && tToken b == "{" =
-            Just ([op, b], rest)
-    matchKotestStringBlock _ = Nothing
-processOutsideKotlin keepTests (t : ts) =
-    if keepTests
-        then processOutsideKotlin keepTests ts
-        else t : processOutsideKotlin keepTests ts
+                let (_, _, ls1) = stepLineState ls0 t1
+                 in if keepTests
+                        then processOutsideKotlin keepTests False ls1 ts
+                        else t1 : processOutsideKotlin keepTests False ls1 ts
+processOutsideKotlin keepTests _ ls0 (t : ts) =
+    let (_, _, ls1) = stepLineState ls0 t
+        isBlocker =
+            (isTokenOperator t && (tToken t == "." || tToken t == "?." || tToken t == "::"))
+                || (isTokenKeyword t && tToken t `elem` (["fun", "val", "var"] :: [Text]))
+     in if keepTests
+            then processOutsideKotlin keepTests isBlocker ls1 ts
+            else t : processOutsideKotlin keepTests isBlocker ls1 ts
