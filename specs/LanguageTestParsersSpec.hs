@@ -28,6 +28,7 @@ languageTestParsersTests =
         , dParserTests
         , dartParserTests
         , elixirParserTests
+        , elmParserTests
         ]
 
 bashParserTests :: TestTree
@@ -412,4 +413,54 @@ elixirParserTests =
             tfTest <- runSearchMem onlyTestsOpt Elixir "accounts_test.exs" testFileSrc ["cgrep_marker"]
             matchLineNums tfProd @?= []
             matchLineNums tfTest @?= [2]
+        ]
+
+elmParserTests :: TestTree
+elmParserTests =
+    testGroup
+        "Elm semantic test parser"
+        [ testCase "Elm: parameterized 'String -> Test' & 'List Test' vs prod 'Test -> String' false positive" $ do
+            let src =
+                    T.unlines
+                        [ "formatRunner : Test -> String" -- 1 (prod: takes Test, returns String!)
+                        , "formatRunner t =" -- 2 (prod)
+                        , "    cgrep_marker" -- 3 (prod)
+                        , "" -- 4
+                        , "checkCase : String -> Int -> Test" -- 5 (test: parameterized helper returning Test)
+                        , "checkCase label expected =" -- 6 (test: has params before '=')
+                        , "    Expect.equal expected cgrep_marker" -- 7 (test)
+                        , "" -- 8
+                        , "unannotatedProdAfterParamTest x =" -- 9 (prod: must NOT be swallowed!)
+                        , "    x + cgrep_marker" -- 10 (prod)
+                        , "" -- 11
+                        , "unitCases : List Test.Test" -- 12 (test: List Test.Test)
+                        , "unitCases =" -- 13 (test)
+                        , "    [ checkCase \"one\" cgrep_marker ]" -- 14 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Elm "src/Suite.elm" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Elm "src/Suite.elm" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 10]
+            matchLineNums testMs @?= [7, 14]
+        , testCase "Elm: Test.concat, Test.skip, Test.only, complex fuzz (>8 tokens), and tests/*.elm isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "allTests =" -- 1 (test: Test.concat builder)
+                        , "    Test.concat [ cgrep_marker ]" -- 2 (test)
+                        , "" -- 3
+                        , "focused =" -- 4 (test: Test.only + complex fuzz)
+                        , "    Test.only <|" -- 5 (test)
+                        , "        fuzz (Fuzz.map2 Pair Fuzz.int Fuzz.string) \"pair fuzz\" (\\_ -> cgrep_marker)" -- 6 (test)
+                        , "" -- 7
+                        , "effect module Ports where { command = MyCmd } exposing (..)" -- 8 (prod: 'effect module' stops test!)
+                        , "prodHelper x = cgrep_marker" -- 9 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Elm "src/Helpers.elm" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Elm "src/Helpers.elm" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [9]
+            matchLineNums testMs @?= [2, 6]
+            let testFileSrc = "helperVal = cgrep_marker\n"
+            tfProd <- runSearchMem noTestsOpt Elm "tests/Spec.elm" testFileSrc ["cgrep_marker"]
+            tfTest <- runSearchMem onlyTestsOpt Elm "tests/Spec.elm" testFileSrc ["cgrep_marker"]
+            matchLineNums tfProd @?= []
+            matchLineNums tfTest @?= [1]
         ]
