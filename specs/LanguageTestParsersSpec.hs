@@ -42,6 +42,7 @@ languageTestParsersTests =
         , ocamlParserTests
         , phpParserTests
         , perlParserTests
+        , pythonParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1128,4 +1129,60 @@ perlParserTests =
             tTest <- runSearchMem onlyTestsOpt Perl "t/01-auth.t" tFileSrc ["cgrep_marker"]
             matchLineNums tProd @?= []
             matchLineNums tTest @?= [1]
+        ]
+
+pythonParserTests :: TestTree
+pythonParserTests =
+    testGroup
+        "Python semantic test parser"
+        [ testCase "Python: nested def/class/@decorator inside test_foo & TestSuite stay test; col-0 prod assignments & 'A @ B' matmul stay prod" $ do
+            let src =
+                    T.unlines
+                        [ "def test_nested_defs_and_classes():" -- 1 (test)
+                        , "    class MockClient:" -- 2 (test: nested class must NOT end test_foo!)
+                        , "        pass" -- 3 (test)
+                        , "    @staticmethod" -- 4 (test: nested decorator must NOT end test_foo!)
+                        , "    def build_client():" -- 5 (test: nested def must NOT end test_foo!)
+                        , "        return cgrep_marker" -- 6 (test)
+                        , "    assert build_client() == cgrep_marker" -- 7 (test: after nested def!)
+                        , "" -- 8
+                        , "PROD_GLOBAL_AFTER_TEST = cgrep_marker" -- 9 (prod: col-0 assignment after test_foo!)
+                        , "matmul_res = weights @ cgrep_marker" -- 10 (prod: '@' is matrix multiplication, NOT decorator!)
+                        , "def test_after_matmul():" -- 11 (test)
+                        , "    assert cgrep_marker" -- 12 (test)
+                        , "" -- 13
+                        , "class TestOrderFlow:" -- 14 (test)
+                        , "    SHARED_SEED = cgrep_marker" -- 15 (test: class attribute)
+                        , "    def zero_arg_helper():" -- 16 (test: helper without self/cls inside Test*!)
+                        , "        return cgrep_marker" -- 17 (test)
+                        , "if __name__ == '__main__':" -- 18 (prod: col-0 block after TestOrderFlow!)
+                        , "    run_app(cgrep_marker)" -- 19 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Python "app/service.py" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Python "app/service.py" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [9, 10, 19]
+            matchLineNums testMs @?= [6, 7, 12, 15, 17]
+        , testCase "Python: Hypothesis @settings + @given stack, multi-line def test_* signature, and conftest.py / test_*.py isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "@settings(max_examples=50)" -- 1 (test: stacked above @given)
+                        , "@given(x=st.integers())" -- 2 (test: Hypothesis @given)
+                        , "def roundtrip_prop(" -- 3 (test: multi-line signature without test_ prefix!)
+                        , "    x: int," -- 4 (test)
+                        , ") -> None:" -- 5 (test: ')' at col 0 inside parens!)
+                        , "    assert decode(encode(x)) == cgrep_marker" -- 6 (test)
+                        , "def prod_after_prop(x: int) -> int:" -- 7 (prod)
+                        , "    return x + cgrep_marker" -- 8 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Python "app/codec.py" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Python "app/codec.py" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [8]
+            matchLineNums testMs @?= [6]
+            setProd <- runSearchMem noTestsOpt Python "app/codec.py" src ["max_examples"]
+            matchLineNums setProd @?= []
+            let confSrc = "def make_db_session():\n    return cgrep_marker\n"
+            cfProd <- runSearchMem noTestsOpt Python "tests/conftest.py" confSrc ["cgrep_marker"]
+            cfTest <- runSearchMem onlyTestsOpt Python "tests/conftest.py" confSrc ["cgrep_marker"]
+            matchLineNums cfProd @?= []
+            matchLineNums cfTest @?= [2]
         ]

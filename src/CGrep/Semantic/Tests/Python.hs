@@ -1,6 +1,8 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
@@ -16,13 +18,83 @@ import CGrep.Parser.Token (
     tToken,
  )
 import CGrep.Semantic.Tests.Common
+import Data.Bits (complement, (.&.))
 import Data.Char (isAsciiLower)
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Array as A
+import qualified Data.Text.Internal as TI
+import System.OsPath (OsPath, osp, takeBaseName, takeExtension)
+import qualified System.OsString as OS
 
 instance LanguageTestFilter 'Python where
+    isTestFile = isPythonTestFilePath
     langFilter Nothing tokens = tokens
-    langFilter (Just keepTests) tokens = processOutsidePython keepTests tokens
+    langFilter (Just keepTests) tokens = processOutsidePython keepTests initialLineState tokens
+
+-- | Recognizes pytest / unittest test files (`test_*.py`, `*_test.py`, `conftest.py`).
+isPythonTestFilePath :: OsPath -> Bool
+isPythonTestFilePath path =
+    takeExtension path == [osp|.py|]
+        && ( [osp|test_|] `OS.isPrefixOf` base
+                || [osp|_test|] `OS.isSuffixOf` base
+                || base == [osp|conftest|]
+           )
+  where
+    base = takeBaseName path
+
+-- | Tracks byte position and leading visual indentation column of the current line
+-- across the token stream in O(fileSize) total work.
+data LineState = LineState
+    { lsPrevEnd :: {-# UNPACK #-} !Int
+    , lsLineIndent :: {-# UNPACK #-} !Int
+    }
+
+initialLineState :: LineState
+initialLineState = LineState (-1) 0
+
+-- | Advance 'LineState' to token @t@, returning @(isFirstTokenOnLine, lineIndentCol, nextState)@.
+stepLineState :: LineState -> Token -> (Bool, Int, LineState)
+stepLineState (LineState prevEnd prevIndent) t =
+    case tToken t of
+        TI.Text arr off len
+            | off >= 0 ->
+                let scanFloor = max 0 prevEnd
+                    nlIdx = findNewlineBack arr (off - 1) scanFloor
+                    !nextEnd = max prevEnd (off + len)
+                 in if prevEnd >= 0 && nlIdx < scanFloor
+                        then (False, prevIndent, LineState nextEnd prevIndent)
+                        else
+                            let !lineStart =
+                                    if nlIdx >= 0
+                                        then nlIdx + 1
+                                        else case findNewlineBack arr (off - 1) 0 of
+                                            k | k >= 0 -> k + 1
+                                            _ -> 0
+                                !col = computeVisualCol arr lineStart off 0
+                             in (True, col, LineState nextEnd col)
+        _ -> (False, prevIndent, LineState prevEnd prevIndent)
+  where
+    findNewlineBack :: A.Array -> Int -> Int -> Int
+    findNewlineBack !arr !i !low
+        | i < low = low - 1
+        | A.unsafeIndex arr i == 0x0A = i
+        | otherwise = findNewlineBack arr (i - 1) low
+
+    computeVisualCol :: A.Array -> Int -> Int -> Int -> Int
+    computeVisualCol !arr !j !limit !col
+        | j >= limit = col
+        | otherwise =
+            let !b = A.unsafeIndex arr j
+                !col'
+                    | b == 0x09 = (col + 4) .&. complement 3
+                    | b == 0x02 || b == 0x03 || b == 0x0D = col
+                    | (b .&. 0xC0) == 0x80 = col
+                    | otherwise = col + 1
+             in computeVisualCol arr (j + 1) limit col'
+
+advanceLineState :: LineState -> [Token] -> LineState
+advanceLineState = foldl' (\ls tok -> let (_, _, ls') = stepLineState ls tok in ls')
 
 -- | Check if a Python class name starts with `"Test"` NOT followed by a lowercase ASCII letter
 -- (matching `TestMathOperations` while rejecting domain words like `Testimonial`).
@@ -34,59 +106,81 @@ isPythonTestClassName name =
             Nothing -> True
             Just (c, _) -> not (isAsciiLower c)
 
--- | Extracts a single Python decorator `@name[.sub][(...)]`
+-- | Extracts a single Python decorator `@expr` (supporting dotted paths, calls `(...)`, and PEP 614 `[...]`).
 extractPythonDecorator :: [Token] -> Maybe ([Token], [Token])
-extractPythonDecorator (t1 : t2 : ts)
-    | isTokenOperator t1 && tToken t1 == "@" && isTokenIdentifier t2 =
-        let (pathTokens, rest) = collectDotPath ts
-         in case rest of
-                (t3 : ts')
-                    | isTokenBracket t3 && tToken t3 == "(" ->
-                        let (insideTokens, remaining) = processInsideBrackets "(" ")" 1 ts'
-                         in Just (t1 : t2 : pathTokens ++ t3 : insideTokens, remaining)
-                _ -> Just (t1 : t2 : pathTokens, rest)
+extractPythonDecorator (tAt : tIdent : ts)
+    | isTokenOperator tAt && tToken tAt == "@" && isTokenIdentifier tIdent =
+        let (tailToks, remaining) = collectDecPostfix ts
+         in Just (tAt : tIdent : tailToks, remaining)
   where
-    collectDotPath (d : i : rest)
+    collectDecPostfix (d : i : rest)
         | isTokenOperator d && tToken d == "." && isTokenIdentifier i =
-            let (more, final) = collectDotPath rest
+            let (more, final) = collectDecPostfix rest
              in (d : i : more, final)
-    collectDotPath rest = ([], rest)
+    collectDecPostfix (b : rest)
+        | isTokenBracket b && (tToken b == "(" || tToken b == "[") =
+            let closeB = if tToken b == "(" then ")" else "]"
+                (inside, afterB) = processInsideBrackets (tToken b) closeB 1 rest
+                (more, final) = collectDecPostfix afterB
+             in (b : inside ++ more, final)
+    collectDecPostfix rest = ([], rest)
 extractPythonDecorator _ = Nothing
 
 -- | Checks if a decorator is a known Python test decorator (examining only the decorator
--- path before `(`, not arguments).
+-- path before `(`/`[`, not arguments).
 isPythonTestDecorator :: [Token] -> Bool
 isPythonTestDecorator tokens =
-    let headerTokens = takeWhile (\t -> not (isTokenBracket t && tToken t == "(")) tokens
+    let headerTokens = takeWhile (\t -> not (isTokenBracket t && (tToken t == "(" || tToken t == "["))) tokens
         idents = [tToken t | t <- headerTokens, isTokenIdentifier t]
      in case idents of
             (first : _) ->
-                first == "pytest"
-                    || first == "unittest"
-                    || first == "patch"
-                    || first == "mock"
-                    || first == "fixture"
-                    || first == "given"
-                    || first == "parametrize"
-                    || first == "skip"
-                    || first == "skipIf"
-                    || first == "skipUnless"
-                    || first == "expectedFailure"
+                first
+                    `elem` ([ "pytest"
+                            , "pytest_asyncio"
+                            , "unittest"
+                            , "hypothesis"
+                            , "patch"
+                            , "mock"
+                            , "fixture"
+                            , "given"
+                            , "parametrize"
+                            , "skip"
+                            , "skipIf"
+                            , "skipUnless"
+                            , "expectedFailure"
+                            ] :: [Text])
                     || any (\i -> i == "fixture" || i == "parametrize") idents
             [] -> False
 
--- | Collects a contiguous stack of Python decorators (`@a @b ...`).
-collectPythonDecorators :: [Token] -> ([[Token]], Bool, [Token])
-collectPythonDecorators = go [] False
+-- | Collects a contiguous stack of Python decorators starting at `baseIndent`, requiring
+-- each `@...` to begin a new line at `baseIndent` (avoiding matrix-multiplication `A @ B`!).
+collectPythonDecorators :: Int -> LineState -> [Token] -> ([[Token]], Bool, LineState, [Token])
+collectPythonDecorators !baseIndent = go [] False
   where
-    go acc isTest remaining =
-        case extractPythonDecorator remaining of
-            Just (dec, rest) ->
-                let testDec = isPythonTestDecorator dec
-                 in go (acc ++ [dec]) (isTest || testDec) rest
-            Nothing -> (acc, isTest, remaining)
+    go acc isTest !ls remaining@(t : _) =
+        let (isFirst, col, _) = stepLineState ls t
+         in if isFirst && col == baseIndent
+                then case extractPythonDecorator remaining of
+                    Just (dec, rest) ->
+                        let !lsAfterDec = advanceLineState ls dec
+                            testDec = isPythonTestDecorator dec
+                         in go (acc ++ [dec]) (isTest || testDec) lsAfterDec rest
+                    Nothing -> (acc, isTest, ls, remaining)
+                else (acc, isTest, ls, remaining)
+    go acc isTest !ls [] = (acc, isTest, ls, [])
 
--- | Checks if a Python `def` or `class` target immediately following decorators is a test construct.
+-- | Checks if tokens start with `def`, `async def`, or `class`.
+isPythonDefOrClassStart :: [Token] -> Bool
+isPythonDefOrClassStart (t1 : t2 : _)
+    | (isTokenIdentifier t1 || isTokenKeyword t1) && tToken t1 == "async"
+    , isTokenKeyword t2 && tToken t2 == "def" =
+        True
+isPythonDefOrClassStart (t1 : _)
+    | isTokenKeyword t1 && (tToken t1 == "def" || tToken t1 == "class") =
+        True
+isPythonDefOrClassStart _ = False
+
+-- | Checks if a Python `def` or `class` header is intrinsically a test construct by name/base class.
 isPythonTestDefOrClass :: [Token] -> Bool
 isPythonTestDefOrClass (t1 : t2 : t3 : _)
     | (isTokenIdentifier t1 || isTokenKeyword t1) && tToken t1 == "async"
@@ -111,159 +205,89 @@ hasUnittestBase (t : ts)
          in any (\b -> isTokenIdentifier b && ("TestCase" `T.isSuffixOf` tToken b)) baseTokens
 hasUnittestBase _ = False
 
--- | Consumes a Python `def` (or `async def`) or `class` following decorators.
-consumeDecoratedTarget :: [Token] -> ([Token], [Token])
-consumeDecoratedTarget (t1 : t2 : ts)
-    | (isTokenIdentifier t1 || isTokenKeyword t1) && tToken t1 == "async"
-    , isTokenKeyword t2 && tToken t2 == "def" =
-        let (body, remaining) = collectUntilNextDefOrClass ts
-         in (t1 : t2 : body, remaining)
-consumeDecoratedTarget (t1 : ts)
-    | isTokenKeyword t1 && tToken t1 == "def" =
-        let (body, remaining) = collectUntilNextDefOrClass ts
-         in (t1 : body, remaining)
-    | isTokenKeyword t1 && tToken t1 == "class" =
-        let (body, remaining) = collectTestClassBody ts
-         in (t1 : body, remaining)
-consumeDecoratedTarget ts = ([], ts)
+updatePyBracketDepth :: Int -> Token -> Int
+updatePyBracketDepth !d tok
+    | isTokenBracket tok =
+        case tToken tok of
+            "(" -> d + 1
+            "[" -> d + 1
+            "{" -> d + 1
+            ")" -> max 0 (d - 1)
+            "]" -> max 0 (d - 1)
+            "}" -> max 0 (d - 1)
+            _ -> d
+    | otherwise = d
 
--- | (Python) Helper: Processes tokens *outside* a test function.
-processOutsidePython :: Bool -> [Token] -> [Token]
-processOutsidePython _ [] = []
--- Pattern 1: One or more decorators (`@pytest.fixture`, `@my_dec def test_foo()`, etc.)
-processOutsidePython keepTests tokens@(t1 : _)
-    | isTokenOperator t1 && tToken t1 == "@" =
-        let (decs, hasTestDec, afterDecs) = collectPythonDecorators tokens
-            flatDecs = concat decs
-         in if not (null decs)
-                then
-                    if hasTestDec || isPythonTestDefOrClass afterDecs
-                        then
-                            let (targetTokens, remaining) = consumeDecoratedTarget afterDecs
-                             in if keepTests
-                                    then flatDecs ++ targetTokens ++ processOutsidePython keepTests remaining
-                                    else processOutsidePython keepTests remaining
-                        else
-                            if keepTests
-                                then processOutsidePython keepTests afterDecs
-                                else flatDecs ++ processOutsidePython keepTests afterDecs
-                else
-                    let (t : ts) = tokens
-                     in if keepTests
-                            then processOutsidePython keepTests ts
-                            else t : processOutsidePython keepTests ts
--- Pattern 2: async def test_*
-processOutsidePython keepTests (t1 : t2 : t3 : ts)
-    | (isTokenIdentifier t1 || isTokenKeyword t1) && tToken t1 == "async"
-    , isTokenKeyword t2 && tToken t2 == "def"
-    , isTokenIdentifier t3 && "test_" `T.isPrefixOf` tToken t3 =
-        let (testTokens, remainingTokens) = collectUntilNextDefOrClass ts
-         in if keepTests
-                then t1 : t2 : t3 : testTokens ++ processOutsidePython keepTests remainingTokens
-                else processOutsidePython keepTests remainingTokens
--- Pattern 3: def test_*
-processOutsidePython keepTests (t1 : t2 : ts)
-    | isTokenKeyword t1 && tToken t1 == "def"
-    , isTokenIdentifier t2 && "test_" `T.isPrefixOf` tToken t2 =
-        let (testTokens, remainingTokens) = collectUntilNextDefOrClass ts
-         in if keepTests
-                then t1 : t2 : testTokens ++ processOutsidePython keepTests remainingTokens
-                else processOutsidePython keepTests remainingTokens
--- Pattern 4: class Test* or class *(...TestCase...)
-processOutsidePython keepTests (t1 : t2 : ts)
-    | isTokenKeyword t1 && tToken t1 == "class"
-    , isTokenIdentifier t2
-    , isPythonTestClassName (tToken t2) || hasUnittestBase ts =
-        let (testTokens, remainingTokens) = collectTestClassBody ts
-         in if keepTests
-                then t1 : t2 : testTokens ++ processOutsidePython keepTests remainingTokens
-                else processOutsidePython keepTests remainingTokens
--- No test found, process the current token
-processOutsidePython keepTests (t : ts) =
-    if keepTests
-        then processOutsidePython keepTests ts
-        else t : processOutsidePython keepTests ts
-
--- | Helper: Collect tokens until we find the next top-level `def`, `async def`, `class`, or `@` decorator.
-collectUntilNextDefOrClass :: [Token] -> ([Token], [Token])
-collectUntilNextDefOrClass [] = ([], [])
-collectUntilNextDefOrClass (t : ts)
-    | isTokenOperator t && tToken t == "@" =
-        ([], t : ts)
-    | isTokenKeyword t && (tToken t == "def" || tToken t == "class") =
-        ([], t : ts)
-    | (isTokenIdentifier t || isTokenKeyword t) && tToken t == "async" =
-        case ts of
-            (t2 : _) | isTokenKeyword t2 && tToken t2 == "def" -> ([], t : ts)
-            _ ->
-                let (collected, remaining) = collectUntilNextDefOrClass ts
-                 in (t : collected, remaining)
-    | otherwise =
-        let (collected, remaining) = collectUntilNextDefOrClass ts
-         in (t : collected, remaining)
-
--- | Helper: Collect test class body based on method signatures (`self` or `cls`),
--- including decorated methods inside the test class (`@staticmethod`, `@classmethod`, `@pytest.mark.*`, etc.).
-collectTestClassBody :: [Token] -> ([Token], [Token])
-collectTestClassBody [] = ([], [])
-collectTestClassBody tokens@(t : ts)
-    | isTokenKeyword t && tToken t == "class" = ([], tokens)
-    | isTokenOperator t && tToken t == "@" =
-        let (decs, _, afterDecs) = collectPythonDecorators tokens
-            flatDecs = concat decs
-         in if not (null decs) && isClassMethodOrStatic decs afterDecs
-                then case afterDecs of
-                    (d1 : d2 : rest)
-                        | (isTokenIdentifier d1 || isTokenKeyword d1) && tToken d1 == "async" && isTokenKeyword d2 && tToken d2 == "def" ->
-                            let (methodTokens, remaining) = collectUntilNextDefOrClass rest
-                                (restClass, finalRest) = collectTestClassBody remaining
-                             in (flatDecs ++ d1 : d2 : methodTokens ++ restClass, finalRest)
-                    (d1 : rest)
-                        | isTokenKeyword d1 && tToken d1 == "def" ->
-                            let (methodTokens, remaining) = collectUntilNextDefOrClass rest
-                                (restClass, finalRest) = collectTestClassBody remaining
-                             in (flatDecs ++ d1 : methodTokens ++ restClass, finalRest)
-                    _ -> ([], tokens)
-                else ([], tokens)
-    | isTokenKeyword t && tToken t == "def" =
-        if hasSelfOrCls ts
-            then
-                let (methodTokens, remaining) = collectUntilNextDefOrClass ts
-                    (restClass, finalRest) = collectTestClassBody remaining
-                 in (t : methodTokens ++ restClass, finalRest)
-            else ([], tokens)
-    | (isTokenIdentifier t || isTokenKeyword t) && tToken t == "async" =
-        case ts of
-            (t2 : ts')
-                | isTokenKeyword t2 && tToken t2 == "def" ->
-                    if hasSelfOrCls ts'
-                        then
-                            let (methodTokens, remaining) = collectUntilNextDefOrClass ts'
-                                (restClass, finalRest) = collectTestClassBody remaining
-                             in (t : t2 : methodTokens ++ restClass, finalRest)
-                        else ([], tokens)
-            _ ->
-                let (collected, remaining) = collectTestClassBody ts
-                 in (t : collected, remaining)
-    | otherwise =
-        let (collected, remaining) = collectTestClassBody ts
-         in (t : collected, remaining)
+-- | Consumes a Python `def` / `async def` / `class` header up to its top-level `:`,
+-- followed by all tokens in its indented suite (`col > baseIndent`).
+consumePythonSuite :: Int -> LineState -> [Token] -> ([Token], LineState, [Token])
+consumePythonSuite !baseIndent !ls0 toks0 =
+    let (hdrToks, lsAfterHdr, afterHdr) = consumeHeader 0 ls0 toks0
+        (bodyToks, lsAfterBody, remaining) = collectPythonIndentedBlock baseIndent 0 lsAfterHdr afterHdr
+     in (hdrToks ++ bodyToks, lsAfterBody, remaining)
   where
-    hasSelfOrCls (name : openParen : firstArg : _) =
-        isTokenIdentifier name
-            && isTokenBracket openParen
-            && tToken openParen == "("
-            && isTokenIdentifier firstArg
-            && (tToken firstArg == "self" || tToken firstArg == "cls")
-    hasSelfOrCls _ = False
+    consumeHeader :: Int -> LineState -> [Token] -> ([Token], LineState, [Token])
+    consumeHeader _ !ls [] = ([], ls, [])
+    consumeHeader !depth !ls (t : ts) =
+        let (_, _, lsAfterT) = stepLineState ls t
+            !nextDepth = updatePyBracketDepth depth t
+         in if depth == 0 && isTokenOperator t && tToken t == ":"
+                then ([t], lsAfterT, ts)
+                else
+                    let (rest, lsEnd, remToks) = consumeHeader nextDepth lsAfterT ts
+                     in (t : rest, lsEnd, remToks)
 
-    isClassMethodOrStatic decs afterDecs =
-        let hasStatic = any (any (\tok -> isTokenIdentifier tok && tToken tok == "staticmethod")) decs
-         in case afterDecs of
-                (d1 : d2 : rest)
-                    | (isTokenIdentifier d1 || isTokenKeyword d1) && tToken d1 == "async" && isTokenKeyword d2 && tToken d2 == "def" ->
-                        hasStatic || hasSelfOrCls rest
-                (d1 : rest)
-                    | isTokenKeyword d1 && tToken d1 == "def" ->
-                        hasStatic || hasSelfOrCls rest
-                _ -> False
+-- | Collects all tokens inside an indented Python suite opened at column `baseIndent`,
+-- stopping as soon as an unbracketed line begins at column `<= baseIndent`.
+collectPythonIndentedBlock :: Int -> Int -> LineState -> [Token] -> ([Token], LineState, [Token])
+collectPythonIndentedBlock _ _ !ls [] = ([], ls, [])
+collectPythonIndentedBlock !baseIndent !bracketDepth !ls allToks@(t : ts) =
+    let (isFirst, col, lsAfterT) = stepLineState ls t
+     in if bracketDepth == 0 && isFirst && col <= baseIndent
+            then ([], ls, allToks)
+            else
+                let !nextDepth = updatePyBracketDepth bracketDepth t
+                    (rest, lsEnd, remaining) = collectPythonIndentedBlock baseIndent nextDepth lsAfterT ts
+                 in (t : rest, lsEnd, remaining)
+
+-- | Processes Python tokens outside a test suite.
+processOutsidePython :: Bool -> LineState -> [Token] -> [Token]
+processOutsidePython _ _ [] = []
+processOutsidePython keepTests ls allToks@(t : ts) =
+    let (isFirst, col, lsAfterT) = stepLineState ls t
+     in if isFirst && isTokenOperator t && tToken t == "@"
+            then
+                let (decs, hasTestDec, lsAfterDecs, afterDecs) = collectPythonDecorators col ls allToks
+                    flatDecs = concat decs
+                    targetAligned = case afterDecs of
+                        (tf : _) ->
+                            let (tfFirst, tfCol, _) = stepLineState lsAfterDecs tf
+                             in tfFirst && tfCol == col && isPythonDefOrClassStart afterDecs
+                        [] -> False
+                 in if not (null decs) && targetAligned && (hasTestDec || isPythonTestDefOrClass afterDecs)
+                        then
+                            let (suiteToks, lsAfterSuite, remaining) = consumePythonSuite col lsAfterDecs afterDecs
+                             in if keepTests
+                                    then flatDecs ++ suiteToks ++ processOutsidePython keepTests lsAfterSuite remaining
+                                    else processOutsidePython keepTests lsAfterSuite remaining
+                        else
+                            if not (null decs)
+                                then
+                                    if keepTests
+                                        then processOutsidePython keepTests lsAfterDecs afterDecs
+                                        else flatDecs ++ processOutsidePython keepTests lsAfterDecs afterDecs
+                                else
+                                    if keepTests
+                                        then processOutsidePython keepTests lsAfterT ts
+                                        else t : processOutsidePython keepTests lsAfterT ts
+            else
+                if isFirst && isPythonTestDefOrClass allToks
+                    then
+                        let (suiteToks, lsAfterSuite, remaining) = consumePythonSuite col ls allToks
+                         in if keepTests
+                                then suiteToks ++ processOutsidePython keepTests lsAfterSuite remaining
+                                else processOutsidePython keepTests lsAfterSuite remaining
+                    else
+                        if keepTests
+                            then processOutsidePython keepTests lsAfterT ts
+                            else t : processOutsidePython keepTests lsAfterT ts
