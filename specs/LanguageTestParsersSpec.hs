@@ -25,6 +25,7 @@ languageTestParsersTests =
         , cCppParserTests
         , clojureParserTests
         , csharpParserTests
+        , dParserTests
         ]
 
 bashParserTests :: TestTree
@@ -252,4 +253,62 @@ csharpParserTests =
             asmTest <- runSearchMem onlyTestsOpt Csharp "Controller.cs" src ["InternalsVisibleTo"]
             matchLineNums asmProd @?= [1]
             matchLineNums asmTest @?= []
+        ]
+
+dParserTests :: TestTree
+dParserTests =
+    testGroup
+        "D semantic test parser"
+        [ testCase "D: version(unittest) function declaration, version(unittest): colon scope, and version(unittest) else branch" $ do
+            let src =
+                    T.unlines
+                        [ "version(unittest) void testHelper() {" -- 1 (test: braceless version(unittest) + braced func!)
+                        , "    int a = cgrep_marker;" -- 2 (test)
+                        , "}" -- 3 (test)
+                        , "version(unittest) {" -- 4 (test)
+                        , "    enum mode = cgrep_marker;" -- 5 (test)
+                        , "} else {" -- 6 (prod else branch)
+                        , "    enum mode = cgrep_marker;" -- 7 (prod)
+                        , "}" -- 8 (prod)
+                        , "class Service {" -- 9 (prod)
+                        , "    int run() { return cgrep_marker; }" -- 10 (prod)
+                        , "version(unittest):" -- 11 (test up to closing '}' of Service!)
+                        , "    int mockHelper() { return cgrep_marker; }" -- 12 (test)
+                        , "}" -- 13 (prod closing brace of Service)
+                        , "int afterClassProd() { return cgrep_marker; }" -- 14 (prod: outside Service!)
+                        , "version(unittest):" -- 15 (test up to module EOF!)
+                        , "int moduleTailMock() { return cgrep_marker; }" -- 16 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt D "service.d" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt D "service.d" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [7, 10, 14]
+            matchLineNums testMs @?= [2, 5, 12, 16]
+        , testCase "D: @(\"name\") UDAs before unittest, @Test/@ShouldFail with contracts, vs @safe: and @Validator!(Test)" $ do
+            let src =
+                    T.unlines
+                        [ "@safe:" -- 1 (prod scope-wide colon attribute)
+                        , "@(\"named_suite_tag\")" -- 2 (test UDA attached to unittest)
+                        , "@safe pure nothrow unittest {" -- 3 (test)
+                        , "    int x = cgrep_marker;" -- 4 (test)
+                        , "}" -- 5 (test)
+                        , "@(\"json_field\")" -- 6 (prod string UDA on prod function)
+                        , "@Validator!(Test)" -- 7 (prod template UDA with 'Test' arg)
+                        , "int serialize() { return cgrep_marker; }" -- 8 (prod)
+                        , "@dunit.Test" -- 9 (test UDA)
+                        , "int checkedAdd(int a) in { assert(a > 0); } do {" -- 10 (test with classic contract)
+                        , "    return cgrep_marker;" -- 11 (test)
+                        , "}" -- 12 (test)
+                        , "@ShouldFail" -- 13 (unit-threaded test UDA)
+                        , "int failCase(int a) in (a > 0) out (r; r > 0) {" -- 14 (test with expression contract)
+                        , "    return cgrep_marker;" -- 15 (test)
+                        , "}" -- 16 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt D "math.d" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt D "math.d" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [8]
+            matchLineNums testMs @?= [4, 11, 15]
+            udaProd <- runSearchMem noTestsOpt D "math.d" src ["\"named_suite_tag\""]
+            udaTest <- runSearchMem onlyTestsOpt D "math.d" src ["\"named_suite_tag\""]
+            matchLineNums udaProd @?= []
+            matchLineNums udaTest @?= [2]
         ]
