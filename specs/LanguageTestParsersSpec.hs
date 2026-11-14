@@ -29,6 +29,7 @@ languageTestParsersTests =
         , dartParserTests
         , elixirParserTests
         , elmParserTests
+        , erlangParserTests
         ]
 
 bashParserTests :: TestTree
@@ -463,4 +464,53 @@ elmParserTests =
             tfTest <- runSearchMem onlyTestsOpt Elm "tests/Spec.elm" testFileSrc ["cgrep_marker"]
             matchLineNums tfProd @?= []
             matchLineNums tfTest @?= [1]
+        ]
+
+erlangParserTests :: TestTree
+erlangParserTests =
+    testGroup
+        "Erlang semantic test parser"
+        [ testCase "Erlang: -ifdef(TEST)...-else...-endif, $. char literal inside *_test(), and guarded *_test() when" $ do
+            let src =
+                    T.unlines
+                        [ "-module(codec)." -- 1 (prod)
+                        , "encode(X) -> {ok, X, cgrep_marker}." -- 2 (prod)
+                        , "-ifdef(TEST)." -- 3 (test)
+                        , "fixture_helper(X) -> {mock, X, cgrep_marker}." -- 4 (test: inside -ifdef(TEST))
+                        , "-ifdef(EXTRA)." -- 5 (test: nested ifdef)
+                        , "extra_helper() -> cgrep_marker." -- 6 (test)
+                        , "-endif." -- 7 (test: closes EXTRA, NOT TEST!)
+                        , "after_nested_helper() -> cgrep_marker." -- 8 (test: still inside TEST!)
+                        , "-else." -- 9 (prod else branch of -ifdef(TEST))
+                        , "prod_fallback() -> cgrep_marker." -- 10 (prod)
+                        , "-endif." -- 11
+                        , "dot_char_test() when true ->" -- 12 (test: guard + $. char literal!)
+                        , "    Sep = $.," -- 13 (test: $. must NOT terminate function!)
+                        , "    {Sep, cgrep_marker}." -- 14 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Erlang "src/codec.erl" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Erlang "src/codec.erl" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 10]
+            matchLineNums testMs @?= [4, 6, 8, 14]
+        , testCase "Erlang: PropEr prop_*(), Common Test *_SUITE.erl and Rebar3 *_tests.erl isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "prop_roundtrip() ->" -- 1 (test: PropEr 0-arity property)
+                        , "    ?FORALL(X, int(), encode(X) =:= cgrep_marker)." -- 2 (test)
+                        , "prop_helper(Arity1) ->" -- 3 (prod: 1-arity function is NOT a 0-arity PropEr property)
+                        , "    {Arity1, cgrep_marker}." -- 4 (prod)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Erlang "src/props.erl" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Erlang "src/props.erl" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4]
+            matchLineNums testMs @?= [2]
+            let suiteSrc = "helper(Cfg) -> {Cfg, cgrep_marker}.\n"
+            ctProd <- runSearchMem noTestsOpt Erlang "test/http_SUITE.erl" suiteSrc ["cgrep_marker"]
+            ctTest <- runSearchMem onlyTestsOpt Erlang "test/http_SUITE.erl" suiteSrc ["cgrep_marker"]
+            matchLineNums ctProd @?= []
+            matchLineNums ctTest @?= [1]
+            euProd <- runSearchMem noTestsOpt Erlang "test/http_tests.erl" suiteSrc ["cgrep_marker"]
+            euTest <- runSearchMem onlyTestsOpt Erlang "test/http_tests.erl" suiteSrc ["cgrep_marker"]
+            matchLineNums euProd @?= []
+            matchLineNums euTest @?= [1]
         ]
