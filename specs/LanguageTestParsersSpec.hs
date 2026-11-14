@@ -23,6 +23,7 @@ languageTestParsersTests =
         "Language-specific semantic test parser regressions"
         [ bashParserTests
         , cCppParserTests
+        , clojureParserTests
         ]
 
 bashParserTests :: TestTree
@@ -155,4 +156,49 @@ cCppParserTests =
             friendTest <- runSearchMem onlyTestsOpt Cpp "suite.cpp" src ["FRIEND_TEST"]
             matchLineNums friendProd @?= []
             matchLineNums friendTest @?= [14]
+        ]
+
+clojureParserTests :: TestTree
+clojureParserTests =
+    testGroup
+        "Clojure semantic test parser"
+        [ testCase "Clojure: (use-fixtures :each ...), ^:meta / ^{...} metadata, and \\( \\) \\\\ char literals inside deftest" $ do
+            let src =
+                    T.unlines
+                        [ "(use-fixtures :each (fn [f] (def cgrep_marker 1) (f)))" -- 1 (test: ':each' starts with ':')
+                        , "(deftest ^{:integration true} map-meta-test" -- 2 (test: map metadata before name)
+                        , "  (is (= \\( (first \"(a)\")))" -- 3 (test: '\\(' char literal must NOT leave '(' open!)
+                        , "  (is (= \\\\ (first \"\\\\\")))" -- 4 (test: '\\\\' char literal right before ')')
+                        , "  (def cgrep_marker 2))" -- 5 (test)
+                        , "(defn prod-after-char-lit [x]" -- 6 (prod: must NOT be swallowed by '\\(' above!)
+                        , "  (def cgrep_marker 3))" -- 7 (prod)
+                        , "^:integration" -- 8 (test: outer metadata attached to deftest)
+                        , "(deftest outer-meta-test (def cgrep_marker 4))" -- 9 (test)
+                        , "(testing ^:focus \"focused\" (def cgrep_marker 5))" -- 10 (test: metadata before string in testing)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Clojure "core.clj" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Clojure "core.clj" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [7]
+            matchLineNums testMs @?= [1, 5, 9, 10]
+            metaProd <- runSearchMem noTestsOpt Clojure "core.clj" src ["integration"]
+            metaTest <- runSearchMem onlyTestsOpt Clojure "core.clj" src ["integration"]
+            matchLineNums metaProd @?= []
+            matchLineNums metaTest @?= [2, 8]
+        , testCase "Clojure: defexpect, Midje facts/fact with '=>', factorial (fact n) guard, and *_test.clj isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "(defn calc [n] (fact cgrep_marker))" -- 1 (prod: factorial call, NOT Midje!)
+                        , "(defexpect calc-expect (expect 2 cgrep_marker))" -- 2 (test: Expectations)
+                        , "(facts \"math suite\" (fact (+ 1 1) => cgrep_marker))" -- 3 (test: Midje facts)
+                        , "(fact (+ 2 2) => cgrep_marker)" -- 4 (test: Midje arrow fact without string)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Clojure "math.clj" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Clojure "math.clj" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [1]
+            matchLineNums testMs @?= [2, 3, 4]
+            let testFileSrc = "(defn helper [] cgrep_marker)\n"
+            tfProd <- runSearchMem noTestsOpt Clojure "math_test.clj" testFileSrc ["cgrep_marker"]
+            tfTest <- runSearchMem onlyTestsOpt Clojure "math_test.clj" testFileSrc ["cgrep_marker"]
+            matchLineNums tfProd @?= []
+            matchLineNums tfTest @?= [1]
         ]

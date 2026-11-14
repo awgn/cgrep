@@ -182,6 +182,7 @@ isAlphaNumDollar_ c = isAlphaNum_ c || c == '_' || c == '$'
 
 isClojureIdentStart :: Char -> Bool
 isClojureIdentStart c
+    | ord c <= 32 = False
     | isSpace c = False
     | isClojureDelimiter c = False
     | isDigit c = False
@@ -305,5 +306,5 @@ isUnicodeNumXIDCont_ c = c == '_' || isXIDContinue c
 {-# INLINE isUnicodeNumXIDCont_ #-}
 
 isAgdaIdent :: Char -> Bool
-isAgdaIdent c = not (c `elem` ("@.(){};_" :: String))
+isAgdaIdent c = ord c > 32 && not (isSpace c) && not (c `elem` ("@.(){};_" :: String))
 {-# INLINE isAgdaIdent #-}
