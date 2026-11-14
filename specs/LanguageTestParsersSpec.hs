@@ -33,6 +33,7 @@ languageTestParsersTests =
         , fsharpParserTests
         , goParserTests
         , haskellParserTests
+        , javaParserTests
         ]
 
 bashParserTests :: TestTree
@@ -682,4 +683,56 @@ haskellParserTests =
             sfTest <- runSearchMem onlyTestsOpt Haskell "specs/CodecSpec.hs" specFileSrc ["cgrep_marker"]
             matchLineNums sfProd @?= []
             matchLineNums sfTest @?= [1]
+        ]
+
+javaParserTests :: TestTree
+javaParserTests =
+    testGroup
+        "Java semantic test parser"
+        [ testCase "Java: @BeforeMapping/@AfterReturning/@Validator<Test> stay prod; qualified extends junit.framework.TestCase & public modifier" $ do
+            let src =
+                    T.unlines
+                        [ "public class OrderMapper {" -- 1 (prod)
+                        , "    @BeforeMapping" -- 2 (prod: MapStruct, NOT JUnit @Before!)
+                        , "    public void enrich() { int x = cgrep_marker; }" -- 3 (prod)
+                        , "    @AfterReturning(\"execution(* *(..))\")" -- 4 (prod: Spring AOP, NOT JUnit @After!)
+                        , "    public void logReturn() { int y = cgrep_marker; }" -- 5 (prod)
+                        , "    @Validator<Test>" -- 6 (prod: generic type arg Test)
+                        , "    public void check() { int z = cgrep_marker; }" -- 7 (prod)
+                        , "}" -- 8 (prod)
+                        , "public final class LegacyOrderTest extends junit.framework.TestCase {" -- 9 (test: modifiers + qualified TestCase!)
+                        , "    public void testCreate() { int a = cgrep_marker; }" -- 10 (test)
+                        , "}" -- 11 (test)
+                        ]
+            prodMs <- runSearchMem noTestsOpt Java "src/main/java/OrderMapper.java" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Java "src/main/java/OrderMapper.java" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [3, 5, 7]
+            matchLineNums testMs @?= [10]
+            modProd <- runSearchMem noTestsOpt Java "src/main/java/OrderMapper.java" src ["public final class LegacyOrderTest"]
+            modTest <- runSearchMem onlyTestsOpt Java "src/main/java/OrderMapper.java" src ["public final class LegacyOrderTest"]
+            matchLineNums modProd @?= []
+            matchLineNums modTest @?= [9]
+        , testCase "Java: @RegisterExtension anonymous-class field, @Mock/@TempDir fields, jqwik @Property, Cucumber @Given, and src/test/java" $ do
+            let src =
+                    T.unlines
+                        [ "class MixedOrderCheck {" -- 1 (prod wrapper)
+                        , "    @Mock private OrderRepo cgrep_marker;" -- 2 (test field)
+                        , "    @RegisterExtension" -- 3 (test field with anonymous class + trailing tokens before ';')
+                        , "    static ServerExt ext = new ServerExt() { int v = cgrep_marker; }.build(cgrep_marker);" -- 4 (test)
+                        , "    @Property" -- 5 (test: jqwik property)
+                        , "    boolean positive(@ForAll int n) { return n == cgrep_marker; }" -- 6 (test)
+                        , "    @Given(\"an existing order\")" -- 7 (test: Cucumber step)
+                        , "    public void givenOrder() { int k = cgrep_marker; }" -- 8 (test)
+                        , "    int prodCalc() { return cgrep_marker; }" -- 9 (prod)
+                        , "}" -- 10
+                        ]
+            prodMs <- runSearchMem noTestsOpt Java "src/main/java/MixedOrderCheck.java" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Java "src/main/java/MixedOrderCheck.java" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [9]
+            matchLineNums testMs @?= [2, 4, 6, 8]
+            let testDirSrc = "class TestDataFactory { static int build() { return cgrep_marker; } }\n"
+            tdProd <- runSearchMem noTestsOpt Java "src/test/java/com/acme/TestDataFactory.java" testDirSrc ["cgrep_marker"]
+            tdTest <- runSearchMem onlyTestsOpt Java "src/test/java/com/acme/TestDataFactory.java" testDirSrc ["cgrep_marker"]
+            matchLineNums tdProd @?= []
+            matchLineNums tdTest @?= [1]
         ]
