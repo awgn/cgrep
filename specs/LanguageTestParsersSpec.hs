@@ -40,6 +40,7 @@ languageTestParsersTests =
         , luaParserTests
         , nimParserTests
         , ocamlParserTests
+        , phpParserTests
         ]
 
 bashParserTests :: TestTree
@@ -1029,4 +1030,57 @@ ocamlParserTests =
             dtTest <- runSearchMem onlyTestsOpt OCaml "test/test_parser.ml" duneTestSrc ["cgrep_marker"]
             matchLineNums dtProd @?= []
             matchLineNums dtTest @?= [1]
+        ]
+
+phpParserTests :: TestTree
+phpParserTests =
+    testGroup
+        "PHP semantic test parser"
+        [ testCase "PHP: prod Rule::test($x) stays prod; final readonly class *Test & public function testXxx capture modifiers" $ do
+            let src =
+                    T.unlines
+                        [ "<?php" -- 1
+                        , "class RegexRule {" -- 2 (prod)
+                        , "    public function test(string $input): bool {" -- 3 (prod: bare test($input) on non-test class!)
+                        , "        return $input === $cgrep_marker;" -- 4 (prod)
+                        , "    }" -- 5
+                        , "}" -- 6
+                        , "trait OrderAssertions {" -- 7 (prod/shared trait)
+                        , "    public function testCalculatesTax(): void {" -- 8 (test method with 'public' modifier)
+                        , "        $x = $cgrep_marker;" -- 9 (test)
+                        , "    }" -- 10
+                        , "}" -- 11
+                        , "final readonly class PaymentServiceTest extends TestCase {" -- 12 (test with final readonly)
+                        , "    public function check(): void { $y = $cgrep_marker; }" -- 13 (test)
+                        , "}" -- 14
+                        ]
+            prodMs <- runSearchMem noTestsOpt PHP "app/Rules/RegexRule.php" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt PHP "app/Rules/RegexRule.php" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [4]
+            matchLineNums testMs @?= [9, 13]
+            modProd <- runSearchMem noTestsOpt PHP "app/Rules/RegexRule.php" src ["readonly"]
+            modTest <- runSearchMem onlyTestsOpt PHP "app/Rules/RegexRule.php" src ["final readonly"]
+            matchLineNums modProd @?= []
+            matchLineNums modTest @?= [12]
+        , testCase "PHP: Pest higher-order ->and(...) keyword chains, arch/todo/dataset/uses, and tests/*.php isTestFile" $ do
+            let src =
+                    T.unlines
+                        [ "<?php" -- 1
+                        , "function prodHelper() { return $cgrep_marker; }" -- 2 (prod)
+                        , "it('chains keyword ->and()', fn () => 1)->and($cgrep_marker)->toBeInt();" -- 3 (test: 'and' is PHP keyword!)
+                        , "arch('no debug calls')->expect('App')->not->toUse($cgrep_marker);" -- 4 (test: Pest arch)
+                        , "todo($cgrep_marker);" -- 5 (prod: non-string arg is NOT Pest todo('...'))
+                        , "todo('pending oauth')->group($cgrep_marker);" -- 6 (test: Pest todo('...'))
+                        , "dataset('users', [$cgrep_marker]);" -- 7 (test: Pest dataset)
+                        , "uses(TestCase::class)->in($cgrep_marker);" -- 8 (test: Pest uses()->in())
+                        ]
+            prodMs <- runSearchMem noTestsOpt PHP "routes/api.php" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt PHP "routes/api.php" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [2, 5]
+            matchLineNums testMs @?= [3, 4, 6, 7, 8]
+            let pestFileSrc = "<?php\nfunction customExpectation() { return $cgrep_marker; }\n"
+            pfProd <- runSearchMem noTestsOpt PHP "tests/Pest.php" pestFileSrc ["cgrep_marker"]
+            pfTest <- runSearchMem onlyTestsOpt PHP "tests/Pest.php" pestFileSrc ["cgrep_marker"]
+            matchLineNums pfProd @?= []
+            matchLineNums pfTest @?= [2]
         ]
