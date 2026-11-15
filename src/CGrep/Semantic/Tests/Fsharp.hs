@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
@@ -188,49 +189,52 @@ classifyFsharpAttr (FsharpAttr _ inner) =
              in skipGenericAngles (d + opens - closes) xs
         | otherwise = skipGenericAngles d xs
 
+isFsharpTestAttrBaseName :: Text -> Bool
+isFsharpTestAttrBaseName = \case
+    -- NUnit
+    "Test" -> True
+    "TestFixture" -> True
+    "TestFixtureSource" -> True
+    "TestCase" -> True
+    "TestCaseSource" -> True
+    "SetUp" -> True
+    "TearDown" -> True
+    "OneTimeSetUp" -> True
+    "OneTimeTearDown" -> True
+    "SetUpFixture" -> True
+    -- xUnit
+    "Fact" -> True
+    "Theory" -> True
+    "SkippableFact" -> True
+    "SkippableTheory" -> True
+    "InlineData" -> True
+    "MemberData" -> True
+    "ClassData" -> True
+    -- FsCheck
+    "Property" -> True
+    "Properties" -> True
+    -- Expecto
+    "Tests" -> True
+    "FTests" -> True
+    "PTests" -> True
+    -- MSTest
+    "TestClass" -> True
+    "TestMethod" -> True
+    "DataTestMethod" -> True
+    "TestInitialize" -> True
+    "TestCleanup" -> True
+    "ClassInitialize" -> True
+    "ClassCleanup" -> True
+    "AssemblyInitialize" -> True
+    "AssemblyCleanup" -> True
+    _ -> False
+
 isFsharpTestAttrName :: Text -> Bool
 isFsharpTestAttrName rawName =
     let base = case T.stripSuffix "Attribute" rawName of
             Just stripped | not (T.null stripped) -> stripped
             _ -> rawName
-     in base
-            `elem` ([ -- NUnit
-                      "Test"
-                    , "TestFixture"
-                    , "TestFixtureSource"
-                    , "TestCase"
-                    , "TestCaseSource"
-                    , "SetUp"
-                    , "TearDown"
-                    , "OneTimeSetUp"
-                    , "OneTimeTearDown"
-                    , "SetUpFixture"
-                    , -- xUnit
-                      "Fact"
-                    , "Theory"
-                    , "SkippableFact"
-                    , "SkippableTheory"
-                    , "InlineData"
-                    , "MemberData"
-                    , "ClassData"
-                    , -- FsCheck
-                      "Property"
-                    , "Properties"
-                    , -- Expecto
-                      "Tests"
-                    , "FTests"
-                    , "PTests"
-                    , -- MSTest
-                      "TestClass"
-                    , "TestMethod"
-                    , "DataTestMethod"
-                    , "TestInitialize"
-                    , "TestCleanup"
-                    , "ClassInitialize"
-                    , "ClassCleanup"
-                    , "AssemblyInitialize"
-                    , "AssemblyCleanup"
-                    ] :: [Text])
+     in isFsharpTestAttrBaseName base
 
 collectFsharpAttributes :: [Token] -> ([FsharpAttr], [Token])
 collectFsharpAttributes ts = case extractFsharpAttribute ts of
@@ -356,68 +360,70 @@ data ExpectoKind
     | ExpectoWrapper -- `testSequenced`, `testSequencedGroup`, `testParam`
 
 classifyExpectoName :: Text -> Maybe ExpectoKind
-classifyExpectoName n
-    | n `elem` (["test", "ftest", "ptest"] :: [Text]) =
-        Just ExpectoAmbiguous
-    | n
-        `elem` ([ "testCase"
-                , "ftestCase"
-                , "ptestCase"
-                , "testCaseAsync"
-                , "ftestCaseAsync"
-                , "ptestCaseAsync"
-                , "testList"
-                , "ftestList"
-                , "ptestList"
-                , "testAsync"
-                , "ftestAsync"
-                , "ptestAsync"
-                , "testTask"
-                , "ftestTask"
-                , "ptestTask"
-                , "testProperty"
-                , "ftestProperty"
-                , "ptestProperty"
-                , "etestProperty"
-                , "testTheory"
-                , "ftestTheory"
-                , "ptestTheory"
-                , "testTheoryAsync"
-                , "testTheoryTask"
-                ] :: [Text]) =
-        Just ExpectoNamed
-    | n `elem` (["testPropertyWithConfig", "ftestPropertyWithConfig", "ptestPropertyWithConfig"] :: [Text]) =
-        Just ExpectoConfigFirst
-    | n `elem` (["testSequenced", "testSequencedGroup", "testParam"] :: [Text]) =
-        Just ExpectoWrapper
-    | otherwise = Nothing
+classifyExpectoName = \case
+    "test" -> Just ExpectoAmbiguous
+    "ftest" -> Just ExpectoAmbiguous
+    "ptest" -> Just ExpectoAmbiguous
+    "testCase" -> Just ExpectoNamed
+    "ftestCase" -> Just ExpectoNamed
+    "ptestCase" -> Just ExpectoNamed
+    "testCaseAsync" -> Just ExpectoNamed
+    "ftestCaseAsync" -> Just ExpectoNamed
+    "ptestCaseAsync" -> Just ExpectoNamed
+    "testList" -> Just ExpectoNamed
+    "ftestList" -> Just ExpectoNamed
+    "ptestList" -> Just ExpectoNamed
+    "testAsync" -> Just ExpectoNamed
+    "ftestAsync" -> Just ExpectoNamed
+    "ptestAsync" -> Just ExpectoNamed
+    "testTask" -> Just ExpectoNamed
+    "ftestTask" -> Just ExpectoNamed
+    "ptestTask" -> Just ExpectoNamed
+    "testProperty" -> Just ExpectoNamed
+    "ftestProperty" -> Just ExpectoNamed
+    "ptestProperty" -> Just ExpectoNamed
+    "etestProperty" -> Just ExpectoNamed
+    "testTheory" -> Just ExpectoNamed
+    "ftestTheory" -> Just ExpectoNamed
+    "ptestTheory" -> Just ExpectoNamed
+    "testTheoryAsync" -> Just ExpectoNamed
+    "testTheoryTask" -> Just ExpectoNamed
+    "testPropertyWithConfig" -> Just ExpectoConfigFirst
+    "ftestPropertyWithConfig" -> Just ExpectoConfigFirst
+    "ptestPropertyWithConfig" -> Just ExpectoConfigFirst
+    "testSequenced" -> Just ExpectoWrapper
+    "testSequencedGroup" -> Just ExpectoWrapper
+    "testParam" -> Just ExpectoWrapper
+    _ -> Nothing
 
 -- | Match an Expecto test starter (optionally qualified with `Expecto.` / `Tests.`),
 -- returning @(starterPrefixTokens, remainingTokensAfterStarter)@.
 matchExpectoStarter :: [Token] -> Maybe ([Token], [Token])
-matchExpectoStarter toks = do
-    (qualToks, identTok, afterIdent) <- splitQualifiedExpecto toks
-    kind <- classifyExpectoName (tToken identTok)
-    if validExpectoArgs kind afterIdent
-        then Just (qualToks ++ [identTok], afterIdent)
-        else Nothing
+matchExpectoStarter (fn : rest)
+    | isTokenIdentifier fn =
+        case classifyExpectoName (tToken fn) of
+            Just kind | validExpectoArgs kind rest -> Just ([fn], rest)
+            Nothing
+                | tToken fn == "Expecto" || tToken fn == "Tests" ->
+                    matchQualExpecto fn rest
+            _ -> Nothing
   where
-    splitQualifiedExpecto :: [Token] -> Maybe ([Token], Token, [Token])
-    splitQualifiedExpecto (q1 : d1 : q2 : d2 : fn : rest)
-        | isTokenIdentifier q1 && tToken q1 == "Expecto"
+    matchQualExpecto q1 (d1 : q2 : d2 : fn2 : rest2)
+        | tToken q1 == "Expecto"
         , isTokenOperator d1 && tToken d1 == "."
         , isTokenIdentifier q2 && tToken q2 == "Tests"
         , isTokenOperator d2 && tToken d2 == "."
-        , isTokenIdentifier fn =
-            Just ([q1, d1, q2, d2], fn, rest)
-    splitQualifiedExpecto (q1 : d1 : fn : rest)
-        | isTokenIdentifier q1 && (tToken q1 == "Expecto" || tToken q1 == "Tests")
-        , isTokenOperator d1 && tToken d1 == "."
-        , isTokenIdentifier fn =
-            Just ([q1, d1], fn, rest)
-    splitQualifiedExpecto (fn : rest)
-        | isTokenIdentifier fn = Just ([], fn, rest)
-    splitQualifiedExpecto _ = Nothing
+        , isTokenIdentifier fn2
+        , Just kind <- classifyExpectoName (tToken fn2)
+        , validExpectoArgs kind rest2 =
+            Just ([q1, d1, q2, d2, fn2], rest2)
+    matchQualExpecto q1 (d1 : fn2 : rest2)
+        | isTokenOperator d1 && tToken d1 == "."
+        , isTokenIdentifier fn2
+        , Just kind <- classifyExpectoName (tToken fn2)
+        , validExpectoArgs kind rest2 =
+            Just ([q1, d1, fn2], rest2)
+    matchQualExpecto _ _ = Nothing
 
     validExpectoArgs :: ExpectoKind -> [Token] -> Bool
     validExpectoArgs ExpectoAmbiguous (t2 : _) =
@@ -432,12 +438,13 @@ matchExpectoStarter toks = do
         | isTokenOperator t2 && (tToken t2 == "=" || tToken t2 == ":") = False
         | otherwise = any isTokenString (take 12 afterIdent)
     validExpectoArgs ExpectoConfigFirst [] = False
-    validExpectoArgs ExpectoWrapper (t2 : rest)
+    validExpectoArgs ExpectoWrapper (t2 : restArgs)
         | isTokenOperator t2 && (tToken t2 == "=" || tToken t2 == ":") = False
         | isTokenString t2 || (isTokenBracket t2 && (tToken t2 == "(" || tToken t2 == "[")) = True
         | isTokenOperator t2 && (tToken t2 == "<|" || tToken t2 == "<") = True
-        | Just _ <- matchExpectoStarter (t2 : rest) = True
+        | Just _ <- matchExpectoStarter (t2 : restArgs) = True
     validExpectoArgs ExpectoWrapper _ = False
+matchExpectoStarter _ = Nothing
 
 -- | Match `let [rec|inline|private|internal|public] <name> = <ExpectoStarter> ...`
 -- so unattributed Expecto suite bindings (`let expectoTests = testList "..." [...]`)
@@ -531,10 +538,10 @@ matchStandaloneExpecto ls0 tokens@(firstTok : _) = do
 matchStandaloneExpecto _ [] = Nothing
 
 processOutsideFsharp :: Bool -> LineState -> [Token] -> [Token]
-processOutsideFsharp _ _ [] = []
-processOutsideFsharp keepTests ls0 tokens@(t : ts) =
-    case matchAttributed tokens of
-        Just (isTest, blockToks, lsNext, remaining) ->
+processOutsideFsharp _ !_ [] = []
+processOutsideFsharp keepTests !ls0 tokens@(t : ts) =
+    case matchAttributedConstruct ls0 tokens of
+        Just (isTest, blockToks, !lsNext, remaining) ->
             if keepTests
                 then
                     if isTest
@@ -546,14 +553,12 @@ processOutsideFsharp keepTests ls0 tokens@(t : ts) =
                         else blockToks ++ processOutsideFsharp keepTests lsNext remaining
         Nothing ->
             case matchLetExpectoBinding ls0 tokens <|> matchStandaloneExpecto ls0 tokens of
-                Just (testToks, lsNext, remaining) ->
+                Just (testToks, !lsNext, remaining) ->
                     if keepTests
                         then testToks ++ processOutsideFsharp keepTests lsNext remaining
                         else processOutsideFsharp keepTests lsNext remaining
                 Nothing ->
-                    let (_, _, ls1) = stepLineState ls0 t
+                    let !ls1 = nextLineState ls0 t
                      in if keepTests
                             then processOutsideFsharp keepTests ls1 ts
                             else t : processOutsideFsharp keepTests ls1 ts
-  where
-    matchAttributed = matchAttributedConstruct ls0

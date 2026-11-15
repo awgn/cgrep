@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -127,20 +128,20 @@ findElixirDo n0 prev0 = go 0 [] prev0 n0
     isElixirDeclBoundary :: Token -> Bool
     isElixirDeclBoundary t =
         (isTokenKeyword t || isTokenIdentifier t)
-            && tToken t
-                `elem` ([ "defmodule"
-                        , "def"
-                        , "defp"
-                        , "defmacro"
-                        , "defmacrop"
-                        , "defdelegate"
-                        , "defguard"
-                        , "test"
-                        , "describe"
-                        , "property"
-                        , "setup"
-                        , "setup_all"
-                        ] :: [Text])
+            && case tToken t of
+                "defmodule" -> True
+                "def" -> True
+                "defp" -> True
+                "defmacro" -> True
+                "defmacrop" -> True
+                "defdelegate" -> True
+                "defguard" -> True
+                "test" -> True
+                "describe" -> True
+                "property" -> True
+                "setup" -> True
+                "setup_all" -> True
+                _ -> False
 
 -- | Check whether parenthesized call arguments `test("desc", do: ...)` contain a
 -- top-level `do:` keyword inside `(...)`.
@@ -339,8 +340,9 @@ matchExUnitTag _ = Nothing
 -- with either `do ... end` or inline `, do: ...`).
 matchExUnitTestMacro :: [Token] -> Maybe ([Token], [Token])
 matchExUnitTestMacro (t1 : t2 : ts)
-    | isTokenIdentifier t1
-    , tToken t1 `elem` (["test", "describe", "property"] :: [Text]) =
+    | isTokenString t2 || (isTokenBracket t2 && tToken t2 == "(")
+    , isTokenIdentifier t1
+    , let n = tToken t1 in n == "test" || n == "describe" || n == "property" =
         if isTokenString t2
             then case findElixirDo 200 (Just t2) ts of
                 Just doHdr ->
@@ -417,12 +419,22 @@ matchExUnitDefmodule (t1 : ts)
          in Just (t1 : modPathTokens ++ doTokens ++ moduleTokens, remainingTokens)
 matchExUnitDefmodule _ = Nothing
 
+isElixirDefBlockerName :: Text -> Bool
+isElixirDefBlockerName = \case
+    "def" -> True
+    "defp" -> True
+    "defmacro" -> True
+    "defmacrop" -> True
+    "defdelegate" -> True
+    "defguard" -> True
+    _ -> False
+
 -- | Processes tokens outside test blocks in Elixir.
 -- `prevBlocker` is `True` after `.` or `def`/`defp`/`defmacro`/`defmacrop`/`defdelegate`/`defguard`,
 -- preventing `def test(x) do ... end` or `Mod.test(x)` from being mistaken for ExUnit blocks.
 processOutsideElixir :: Bool -> Bool -> [Token] -> [Token]
 processOutsideElixir _ _ [] = []
-processOutsideElixir keepTests prevBlocker tokens@(t : ts) =
+processOutsideElixir keepTests !prevBlocker tokens@(t : ts) =
     let matched
             | prevBlocker = matchExUnitDefmodule tokens
             | otherwise =
@@ -438,18 +450,9 @@ processOutsideElixir keepTests prevBlocker tokens@(t : ts) =
                         then testToks ++ restOut
                         else restOut
             Nothing ->
-                let isBlocker =
+                let !isBlocker =
                         (isTokenOperator t && tToken t == ".")
-                            || ( (isTokenKeyword t || isTokenIdentifier t)
-                                    && tToken t
-                                        `elem` ([ "def"
-                                                , "defp"
-                                                , "defmacro"
-                                                , "defmacrop"
-                                                , "defdelegate"
-                                                , "defguard"
-                                                ] :: [Text])
-                               )
+                            || ((isTokenKeyword t || isTokenIdentifier t) && isElixirDefBlockerName (tToken t))
                  in if keepTests
                         then processOutsideElixir keepTests isBlocker ts
                         else t : processOutsideElixir keepTests isBlocker ts

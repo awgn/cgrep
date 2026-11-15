@@ -82,13 +82,13 @@ matchNimTestHeader _ = Nothing
 
 -- | Processes Nim tokens outside of a test block.
 processOutsideNim :: Bool -> LineState -> [Token] -> [Token]
-processOutsideNim _ _ [] = []
-processOutsideNim keepTests ls allToks@(t : ts) =
-    let (isFirst, col, lsAfterT) = stepLineState ls t
+processOutsideNim _ !_ [] = []
+processOutsideNim keepTests !ls allToks@(t : ts) =
+    let (isFirst, col, !lsAfterT) = stepLineState ls t
      in case if isFirst then matchNimTestHeader allToks else Nothing of
             Just (hdrToks, afterHdr) ->
-                let lsAfterHdr = advanceLineState ls hdrToks
-                    (bodyToks, lsAfterBody, remaining) = collectNimIndentedBlock col 0 lsAfterHdr afterHdr
+                let !lsAfterHdr = advanceLineState ls hdrToks
+                    (bodyToks, !lsAfterBody, remaining) = collectNimIndentedBlock col 0 lsAfterHdr afterHdr
                  in if keepTests
                         then hdrToks ++ bodyToks ++ processOutsideNim keepTests lsAfterBody remaining
                         else processOutsideNim keepTests lsAfterBody remaining

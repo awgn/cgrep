@@ -196,9 +196,9 @@ collectPythonIndentedBlock !baseIndent !bracketDepth !ls allToks@(t : ts) =
 
 -- | Processes Python tokens outside a test suite.
 processOutsidePython :: Bool -> LineState -> [Token] -> [Token]
-processOutsidePython _ _ [] = []
-processOutsidePython keepTests ls allToks@(t : ts) =
-    let (isFirst, col, lsAfterT) = stepLineState ls t
+processOutsidePython _ !_ [] = []
+processOutsidePython keepTests !ls allToks@(t : ts) =
+    let (isFirst, col, !lsAfterT) = stepLineState ls t
      in if isFirst && isTokenOperator t && tToken t == "@"
             then
                 let (decs, hasTestDec, lsAfterDecs, afterDecs) = collectPythonDecorators col ls allToks

@@ -18,7 +18,7 @@
 
 module CGrep.Strategy.Semantic (search) where
 
-import CGrep.Common (ignoreCase, runSearch, sliceToMaxIndex, trimT)
+import CGrep.Common (runSearch, sliceToLastMatch, textContainsOneOfOpt, trimT)
 import CGrep.Semantic.ContextFilter (
     contextBitComment,
     contextFilterAll,
@@ -28,9 +28,11 @@ import CGrep.Semantic.ContextFilter (
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo (..),
+    FileTypeInfoMap (..),
     WordType (..),
  )
 import CGrep.FileTypeMapTH (
+    fileTypeInfoMap,
     mkContextFilterFn,
  )
 import CGrep.Line (buildIndex)
@@ -43,14 +45,15 @@ import CGrep.Parser.Atom (
  )
 import CGrep.Parser.Chunk
 import CGrep.Parser.Token
-import CGrep.Text (textContainsOneOf, textIndices)
+import CGrep.Text (textIndices)
 import Control.Concurrent (MVar)
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
 import Data.Function (on)
 import qualified Data.HashMap.Strict as HM
 import Data.List (sortBy)
-import Data.Maybe (isNothing)
+import qualified Data.Map as Map
+import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
@@ -59,6 +62,12 @@ import System.OsPath (OsPath)
 import CGrep.Semantic.Tests (filterTests)
 import Options (Options(..))
 import Util (unquoteT)
+
+lcKeywordsByType :: Map.Map FileType (HM.HashMap T.Text WordType)
+lcKeywordsByType =
+    let FileTypeInfoMap m = fileTypeInfoMap
+     in Map.map (\fti -> HM.fromList [(T.toLower k, v) | (k, v) <- HM.toList (ftKeywords fti)]) m
+{-# NOINLINE lcKeywordsByType #-}
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info filename text patterns strict = do
@@ -84,19 +93,24 @@ search lock info filename text patterns strict = do
                 , tfBracket = True
                 }
 
-    let lcKeywords = case snd <$> info of
-            Nothing -> HM.empty
-            Just fti -> HM.fromList [(T.toLower k, v) | (k, v) <- HM.toList (ftKeywords fti)]
-
     let patterns' = map (parseTokens pfilter (snd <$> info) strict . patContextFilter) patterns
         rawAtoms = map mkAtomsFromTokens patterns'
         patterns''
-            | ignore_case opt && not (HM.null lcKeywords) = map (map (reclassifyAtom lcKeywords)) rawAtoms
+            | ignore_case opt =
+                let lcKeywords = case info of
+                        Nothing -> HM.empty
+                        Just (ft, fti) ->
+                            fromMaybe
+                                (HM.fromList [(T.toLower k, v) | (k, v) <- HM.toList (ftKeywords fti)])
+                                (Map.lookup ft lcKeywordsByType)
+                 in if HM.null lcKeywords
+                        then rawAtoms
+                        else map (map (reclassifyAtom lcKeywords)) rawAtoms
             | otherwise = rawAtoms
 
     let matchers = concatMap extractAtomMatchers patterns''
 
-    let !eligibleForSearch = edit_dist opt || textContainsOneOf (ignoreCase opt <$> matchers) (ignoreCase opt text)
+    let !eligibleForSearch = edit_dist opt || textContainsOneOfOpt opt matchers text
 
     runSearch lindex filename eligibleForSearch $ do
         putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
@@ -112,7 +126,7 @@ search lock info filename text patterns strict = do
                     && all (all isNonEmptyExact) patterns''
                     && not (any (T.elem '\n') matchers)
             textToParse
-                | canSlice = sliceToMaxIndex indices' text''
+                | canSlice = sliceToLastMatch matchers text''
                 | otherwise = text''
 
         let tokens = parseTokens pfilter (snd <$> info) strict textToParse

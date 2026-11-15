@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -43,72 +44,72 @@ isJavascriptTestFilePath path =
     dropLastPart (x : xs) = x : dropLastPart xs
 
 isJsHookName :: Text -> Bool
-isJsHookName name =
-    name
-        `elem` ([ "beforeEach"
-                , "afterEach"
-                , "beforeAll"
-                , "afterAll"
-                , "before"
-                , "after"
-                ] :: [Text])
+isJsHookName = \case
+    "beforeEach" -> True
+    "afterEach" -> True
+    "beforeAll" -> True
+    "afterAll" -> True
+    "before" -> True
+    "after" -> True
+    _ -> False
 
 -- | Standard Jest / Mocha / Jasmine / Vitest / Playwright / Node test runner identifiers.
 isJsTestBlockName :: Text -> Bool
-isJsTestBlockName name =
-    isJsHookName name
-        || name
-            `elem` ([ "describe"
-                    , "fdescribe"
-                    , "xdescribe"
-                    , "it"
-                    , "fit"
-                    , "xit"
-                    , "test"
-                    , "ftest"
-                    , "xtest"
-                    , "context"
-                    , "fcontext"
-                    , "xcontext"
-                    , "suite"
-                    , "specify"
-                    ] :: [Text])
+isJsTestBlockName = \case
+    "describe" -> True
+    "fdescribe" -> True
+    "xdescribe" -> True
+    "it" -> True
+    "fit" -> True
+    "xit" -> True
+    "test" -> True
+    "ftest" -> True
+    "xtest" -> True
+    "context" -> True
+    "fcontext" -> True
+    "xcontext" -> True
+    "suite" -> True
+    "specify" -> True
+    name -> isJsHookName name
 
 -- | Chained modifiers & sub-APIs allowed on `test`/`describe`/`it`/`suite`/`Deno.test`/`QUnit`.
 isJsTestModifier :: Text -> Bool
-isJsTestModifier name =
-    name
-        `elem` ([ "only"
-                , "skip"
-                , "todo"
-                , "fixme"
-                , "ignore"
-                , "concurrent"
-                , "sequential"
-                , "serial"
-                , "shuffle"
-                , "failing"
-                , "fails"
-                , "skipIf"
-                , "runIf"
-                , "each"
-                , "for"
-                , "describe"
-                , "beforeEach"
-                , "afterEach"
-                , "beforeAll"
-                , "afterAll"
-                , "step"
-                , "slow"
-                , "use"
-                , "cb"
-                , "always"
-                , "macro"
-                ] :: [Text])
+isJsTestModifier = \case
+    "only" -> True
+    "skip" -> True
+    "todo" -> True
+    "fixme" -> True
+    "ignore" -> True
+    "concurrent" -> True
+    "sequential" -> True
+    "serial" -> True
+    "shuffle" -> True
+    "failing" -> True
+    "fails" -> True
+    "skipIf" -> True
+    "runIf" -> True
+    "each" -> True
+    "for" -> True
+    "describe" -> True
+    "beforeEach" -> True
+    "afterEach" -> True
+    "beforeAll" -> True
+    "afterAll" -> True
+    "step" -> True
+    "slow" -> True
+    "use" -> True
+    "cb" -> True
+    "always" -> True
+    "macro" -> True
+    _ -> False
 
 isNoCallbackModifier :: Text -> Bool
-isNoCallbackModifier name =
-    name `elem` (["todo", "fixme", "slow", "use"] :: [Text])
+isNoCallbackModifier = \case
+    "todo" -> True
+    "fixme" -> True
+    "slow" -> True
+    "use" -> True
+    _ -> False
 
 -- | Check whether a sequence of tokens contains `=>` or the `function` keyword.
 hasCallbackTokens :: [Token] -> Bool
@@ -260,27 +261,41 @@ matchQualifiedRunnerRoot (tNs : tDot : tSub : rest)
 matchQualifiedRunnerRoot _ = Nothing
 
 matchBareRunnerRoot :: [Token] -> Maybe ([Token], [Token])
-matchBareRunnerRoot (t1 : ts)
-    | (isTokenIdentifier t1 || isTokenKeyword t1) && isJsTestBlockName (tToken t1) =
+matchBareRunnerRoot (t1 : ts@(t2 : _))
+    | (isTokenBracket t2 && tToken t2 == "(") || (isTokenOperator t2 && tToken t2 == ".")
+    , (isTokenIdentifier t1 || isTokenKeyword t1)
+    , isJsTestBlockName (tToken t1) =
         let isHook = isJsHookName (tToken t1)
          in fmap (\(callToks, remToks) -> (t1 : callToks, remToks)) (matchJsTestCall isHook False False ts)
 matchBareRunnerRoot _ = Nothing
 
+isJsMethodModifierName :: Text -> Bool
+isJsMethodModifierName = \case
+    "async" -> True
+    "static" -> True
+    "get" -> True
+    "set" -> True
+    "public" -> True
+    "private" -> True
+    "protected" -> True
+    "readonly" -> True
+    "abstract" -> True
+    "override" -> True
+    _ -> False
+
 processOutsideJavascript :: Bool -> Bool -> Bool -> [Token] -> [Token]
 processOutsideJavascript _ _ _ [] = []
-processOutsideJavascript keepTests False _ toks
+processOutsideJavascript keepTests False !_ toks
     | Just (testTokens, remainingTokens) <- matchQualifiedRunnerRoot toks <|> matchBareRunnerRoot toks =
         if keepTests
             then testTokens ++ processOutsideJavascript keepTests False False remainingTokens
             else processOutsideJavascript keepTests False False remainingTokens
-processOutsideJavascript keepTests _ afterFunc (t : ts) =
-    let isFuncKw = (isTokenKeyword t || isTokenIdentifier t) && tToken t == "function"
+processOutsideJavascript keepTests !_ !afterFunc (t : ts) =
+    let !isFuncKw = (isTokenKeyword t || isTokenIdentifier t) && tToken t == "function"
         isGenStar = afterFunc && isTokenOperator t && tToken t == "*"
         isDotOp = isTokenOperator t && (tToken t == "." || tToken t == "?.")
-        isMethodMod =
-            (isTokenKeyword t || isTokenIdentifier t)
-                && tToken t `elem` (["async", "static", "get", "set", "public", "private", "protected", "readonly", "abstract", "override"] :: [Text])
-        nextBlocker = isFuncKw || isGenStar || isDotOp || isMethodMod
+        isMethodMod = (isTokenKeyword t || isTokenIdentifier t) && isJsMethodModifierName (tToken t)
+        !nextBlocker = isFuncKw || isGenStar || isDotOp || isMethodMod
      in if keepTests
             then processOutsideJavascript keepTests nextBlocker isFuncKw ts
             else t : processOutsideJavascript keepTests nextBlocker isFuncKw ts

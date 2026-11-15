@@ -1,5 +1,7 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -34,6 +36,15 @@ instance LanguageTestFilter 'Bash where
 -- | Checks whether the token stream contains BATS indicators (`@test "..." {`,
 -- BATS file/suite lifecycle functions, or `bats_test_function`), enabling `setup`
 -- and `teardown` recognition in BATS scripts and helper files.
+isBatsIndicatorIdent :: Text -> Bool
+isBatsIndicatorIdent = \case
+    "setup_file" -> True
+    "teardown_file" -> True
+    "setup_suite" -> True
+    "teardown_suite" -> True
+    "bats_test_function" -> True
+    _ -> False
+
 hasBatsIndicator :: [Token] -> Bool
 hasBatsIndicator (tAt : tTest : tDesc : tBrace : _)
     | isTokenOperator tAt && tToken tAt == "@"
@@ -42,17 +53,26 @@ hasBatsIndicator (tAt : tTest : tDesc : tBrace : _)
     , isTokenBracket tBrace && tToken tBrace == "{" =
         True
 hasBatsIndicator (t : ts)
-    | isTokenIdentifier t
-    , tToken t
-        `elem` ([ "setup_file"
-                , "teardown_file"
-                , "setup_suite"
-                , "teardown_suite"
-                , "bats_test_function"
-                ] :: [Text]) =
+    | isTokenIdentifier t && isBatsIndicatorIdent (tToken t) =
         True
     | otherwise = hasBatsIndicator ts
 hasBatsIndicator [] = False
+
+isTestLifecycleName :: Text -> Bool
+isTestLifecycleName = \case
+    "oneTimeSetUp" -> True
+    "oneTimeTearDown" -> True
+    "setUp" -> True
+    "tearDown" -> True
+    "set_up" -> True
+    "tear_down" -> True
+    "set_up_before_script" -> True
+    "tear_down_after_script" -> True
+    "setup_file" -> True
+    "teardown_file" -> True
+    "setup_suite" -> True
+    "teardown_suite" -> True
+    _ -> False
 
 -- | Checks if a Bash function name (including hyphenated `test-foo` or namespaced `pkg::test_foo`)
 -- is a BATS / shUnit2 / bashunit test or lifecycle function, avoiding false positives on words
@@ -75,22 +95,6 @@ isBashTestFuncName isBats fullName =
                     Nothing -> False
             Nothing -> False
 
-    isTestLifecycleName n =
-        n
-            `elem` ([ "oneTimeSetUp"
-                    , "oneTimeTearDown"
-                    , "setUp"
-                    , "tearDown"
-                    , "set_up"
-                    , "tear_down"
-                    , "set_up_before_script"
-                    , "tear_down_after_script"
-                    , "setup_file"
-                    , "teardown_file"
-                    , "setup_suite"
-                    , "teardown_suite"
-                    ] :: [Text])
-
 isWordOrNumToken :: Token -> Bool
 isWordOrNumToken t = isTokenIdentifier t || isTokenKeyword t || isTokenNumber t
 
@@ -105,7 +109,7 @@ extractBashFuncName (t1 : rest)
     | isTokenIdentifier t1 =
         let (extraToks, remaining) = collectAdjSegments t1 rest
             allNameToks = t1 : extraToks
-            fullText = T.concat (map tToken allNameToks)
+            fullText = if null extraToks then tToken t1 else T.concat (map tToken allNameToks)
          in Just (allNameToks, fullText, remaining)
   where
     collectAdjSegments :: Token -> [Token] -> ([Token], [Token])
@@ -183,45 +187,55 @@ matchBashFunctionAfterName _ (tLParen : tRParen : afterParens)
 matchBashFunctionAfterName True rest = matchBashCompoundBody rest
 matchBashFunctionAfterName False _ = Nothing
 
+startsWithEmptyParens :: [Token] -> Bool
+startsWithEmptyParens (tLParen : tRParen : _) =
+    isTokenBracket tLParen
+        && tToken tLParen == "("
+        && isTokenBracket tRParen
+        && tToken tRParen == ")"
+startsWithEmptyParens _ = False
+
 -- | Processes Bash tokens outside of a test block.
 processOutsideBash :: Bool -> Bool -> Maybe Token -> [Token] -> [Token]
 processOutsideBash _ _ _ [] = []
 -- Pattern 1: BATS `@test "description" { ... }`
-processOutsideBash keepTests isBats _ (tAt : tTest : tDesc : tBrace : ts)
+processOutsideBash keepTests !isBats _ (tAt : tTest : tDesc : tBrace : ts)
     | isTokenOperator tAt && tToken tAt == "@"
     , isTokenIdentifier tTest && tToken tTest == "test"
     , isTokenString tDesc
     , isTokenBracket tBrace && tToken tBrace == "{" =
         let (insideBraces, remaining) = processInsideBraces 1 ts
             captured = tAt : tTest : tDesc : tBrace : insideBraces
-            nextPrev = Just (last captured)
+            !nextPrev = Just (last captured)
          in if keepTests
                 then captured ++ processOutsideBash keepTests isBats nextPrev remaining
                 else processOutsideBash keepTests isBats nextPrev remaining
 -- Pattern 2: `function <name>[()] { ... }` or `function <name>[()] ( ... )`
-processOutsideBash keepTests isBats _ (tFunc : ts)
+processOutsideBash keepTests !isBats _ (tFunc : ts)
     | isTokenKeyword tFunc && tToken tFunc == "function"
     , Just (nameToks, fullName, afterName) <- extractBashFuncName ts
     , isBashTestFuncName isBats fullName
     , Just (sigAndBody, remaining) <- matchBashFunctionAfterName True afterName =
         let captured = tFunc : nameToks ++ sigAndBody
-            nextPrev = Just (last captured)
+            !nextPrev = Just (last captured)
          in if keepTests
                 then captured ++ processOutsideBash keepTests isBats nextPrev remaining
                 else processOutsideBash keepTests isBats nextPrev remaining
 -- Pattern 3: `<name>() { ... }` or `<name>() ( ... )` (POSIX / shUnit2 / bashunit style)
-processOutsideBash keepTests isBats prevTok (t1 : ts)
-    | maybe True (\p -> not (areAdjacentTokens p t1)) prevTok
+processOutsideBash keepTests !isBats prevTok (t1 : ts)
+    | isTokenIdentifier t1
+    , maybe True (\p -> not (areAdjacentTokens p t1)) prevTok
     , Just (nameToks, fullName, afterName) <- extractBashFuncName (t1 : ts)
+    , startsWithEmptyParens afterName
     , isBashTestFuncName isBats fullName
     , Just (sigAndBody, remaining) <- matchBashFunctionAfterName False afterName =
         let captured = nameToks ++ sigAndBody
-            nextPrev = Just (last captured)
+            !nextPrev = Just (last captured)
          in if keepTests
                 then captured ++ processOutsideBash keepTests isBats nextPrev remaining
                 else processOutsideBash keepTests isBats nextPrev remaining
 -- Fallback
-processOutsideBash keepTests isBats _ (t : ts) =
+processOutsideBash keepTests !isBats _ (t : ts) =
     if keepTests
         then processOutsideBash keepTests isBats (Just t) ts
         else t : processOutsideBash keepTests isBats (Just t) ts

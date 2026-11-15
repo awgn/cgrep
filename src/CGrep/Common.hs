@@ -22,7 +22,9 @@ module CGrep.Common (
     getTargetContents,
     ignoreCase,
     ignoreCaseRef,
+    textContainsOneOfOpt,
     sliceToMaxIndex,
+    sliceToLastMatch,
     trim,
     trimT,
     takeN,
@@ -33,7 +35,7 @@ import CGrep.Line (LineIndex)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Char (isSpace)
 import CGrep.Parser.Chunk (Chunk)
-import CGrep.Text (charUtf8Length, firstIndex)
+import CGrep.Text (charUtf8Length, firstIndex, isAsciiText, lastIndex, textContainsAsciiCI, textContainsOneOf)
 import Control.Monad.ST (ST, runST)
 import Data.Bits (unsafeShiftR, (.&.), (.|.))
 import Data.Char (ord, toLower)
@@ -157,6 +159,19 @@ ignoreCaseText txt@(TI.Text srcArr srcOff byteLen)
                 A.unsafeWrite marr (dst + 2) (fromIntegral (0x80 .|. ((cp `unsafeShiftR` 6) .&. 0x3F)))
                 A.unsafeWrite marr (dst + 3) (fromIntegral (0x80 .|. (cp .&. 0x3F)))
 
+-- | Shallow pre-filter equivalent to @textContainsOneOf (ignoreCase opt <$> ps) (ignoreCase opt txt)@
+-- without allocating a lowercased copy of @txt@ when patterns are ASCII.
+textContainsOneOfOpt :: Options -> [T.Text] -> T.Text -> Bool
+textContainsOneOfOpt _ [] _ = True
+textContainsOneOfOpt opt ps txt
+    | not (ignore_case opt) = textContainsOneOf ps txt
+    | otherwise =
+        let psLc = map ignoreCaseText ps
+         in if all isAsciiText psLc
+                then any (`textContainsAsciiCI` txt) psLc
+                else textContainsOneOf psLc (ignoreCaseText txt)
+{-# INLINE textContainsOneOfOpt #-}
+
 sliceToMaxIndex
  :: [[Int]] -> T.Text -> T.Text
 sliceToMaxIndex
@@ -169,6 +184,29 @@ sliceToMaxIndex
     maxOff = maximum (lastDef 0 <$> indices)
     lastDef def xs = if null xs then def else last xs
 {-# INLINE sliceToMaxIndex #-}
+
+-- | Slice @txt@ up to the newline following the rightmost occurrence of any pattern in @ps@,
+-- scanning backwards from the end of @txt@ with zero intermediate list allocation.
+sliceToLastMatch :: [T.Text] -> T.Text -> T.Text
+sliceToLastMatch [] txt = txt
+sliceToLastMatch ps txt =
+    let !maxOff =
+            foldl'
+                ( \ !acc p ->
+                    case lastIndex p txt of
+                        Just o ->
+                            let !endPos = o + max 0 (TU.lengthWord8 p - 1)
+                             in if endPos > acc then endPos else acc
+                        Nothing -> acc
+                )
+                (-1)
+                ps
+     in if maxOff < 0
+            then T.empty
+            else case firstIndex (T.singleton '\n') (TU.dropWord8 maxOff txt) of
+                Nothing -> txt
+                Just n -> TU.takeWord8 (maxOff + n) txt
+{-# INLINE sliceToLastMatch #-}
 
 runSearch ::
     LineIndex ->

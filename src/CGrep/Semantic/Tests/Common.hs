@@ -13,6 +13,7 @@ module CGrep.Semantic.Tests.Common (
     LineState (..),
     initialLineState,
     stepLineState,
+    nextLineState,
     advanceLineState,
     findOpeningBracketBounded,
     findOpeningBraceBounded,
@@ -115,8 +116,12 @@ stepLineState (LineState prevEnd prevIndent) t =
              in computeVisualCol arr (j + 1) limit col'
 {-# INLINE stepLineState #-}
 
+nextLineState :: LineState -> Token -> LineState
+nextLineState !ls t = let !(_, _, !ls') = stepLineState ls t in ls'
+{-# INLINE nextLineState #-}
+
 advanceLineState :: LineState -> [Token] -> LineState
-advanceLineState = foldl' (\ls tok -> let (_, _, ls') = stepLineState ls tok in ls')
+advanceLineState = foldl' nextLineState
 {-# INLINE advanceLineState #-}
 
 -- | Searches for an opening token (e.g., "{") within a lookahead limit.

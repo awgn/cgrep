@@ -18,12 +18,21 @@
 
 module CGrep.Text (
     iterM,
+    isAsciiText,
     textIndices,
     textIndicesRef,
+    indicesFast,
     textSlice,
     textOffsetWord8,
     textContainsOneOf,
+    textContainsAsciiCI,
+    textIsInfixOf,
+    textEqCI,
+    textIsPrefixOfCI,
+    textIsSuffixOfCI,
+    textIsInfixOfCI,
     firstIndex,
+    lastIndex,
     charUtf8Length,
     blankByWidth,
 ) where
@@ -220,3 +229,173 @@ indicesFast' (TI.Text narr noff nlen) (TI.Text harr@(A.ByteArray harr#) hoff hle
 
 word8ToInt :: Word8 -> Int
 word8ToInt = fromIntegral
+{-# INLINE word8ToInt #-}
+
+asciiLowerByte :: Word8 -> Word8
+asciiLowerByte !b = if (b - 0x41) <= 25 then b .|. 0x20 else b
+{-# INLINE asciiLowerByte #-}
+
+isAsciiText :: T.Text -> Bool
+isAsciiText (TI.Text arr off len) = go off
+  where
+    !end = off + len
+    go !i
+        | i >= end = True
+        | A.unsafeIndex arr i < 0x80 = go (i + 1)
+        | otherwise = False
+{-# INLINE isAsciiText #-}
+
+-- | Zero-allocation substring check replacing @Data.Text.isInfixOf@ (which allocates
+-- a 64-entry skip table via @Data.Text.Internal.Search.indices@ on every call).
+textIsInfixOf :: T.Text -> T.Text -> Bool
+textIsInfixOf needle@(TI.Text narr noff nlen) haystack@(TI.Text harr@(A.ByteArray harr#) hoff hlen)
+    | nlen <= 0 = True
+    | nlen > hlen = False
+    | nlen == hlen = A.equal narr noff harr hoff nlen
+    | nlen == 1 = memchr harr# hoff hlen (A.unsafeIndex narr noff) >= 0
+    | hlen <= 64 =
+        let !b0 = A.unsafeIndex narr noff
+            !z = A.unsafeIndex narr (noff + nlen - 1)
+            !lastStart = hoff + hlen - nlen
+            scanShort !cur
+                | cur > lastStart = False
+                | otherwise =
+                    case memchr harr# cur (lastStart - cur + 1) b0 of
+                        -1 -> False
+                        rel ->
+                            let !pos = cur + rel
+                             in ( A.unsafeIndex harr (pos + nlen - 1) == z
+                                    && A.equal narr noff harr pos nlen
+                                )
+                                    || scanShort (pos + 1)
+         in scanShort hoff
+    | otherwise = isJust (firstIndex' needle haystack)
+{-# INLINE textIsInfixOf #-}
+
+-- | Compare a pre-lowercased pattern (@patLc@, with @isAsciiPat = isAsciiText patLc@)
+-- against a candidate 'T.Text' under Unicode @T.toLower@ semantics without allocating
+-- when both slices are ASCII.
+textEqCI :: Bool -> T.Text -> T.Text -> Bool
+textEqCI !isAsciiPat patLc@(TI.Text parr poff plen) cand@(TI.Text carr coff clen)
+    | isAsciiPat && isAsciiText cand =
+        plen == clen && eqAsciiLowerSlice parr poff carr coff plen
+    | otherwise = patLc == T.toLower cand
+{-# INLINE textEqCI #-}
+
+textIsPrefixOfCI :: Bool -> T.Text -> T.Text -> Bool
+textIsPrefixOfCI !isAsciiPat patLc@(TI.Text parr poff plen) cand@(TI.Text carr coff clen)
+    | isAsciiPat && isAsciiText cand =
+        plen <= clen && eqAsciiLowerSlice parr poff carr coff plen
+    | otherwise = patLc `T.isPrefixOf` T.toLower cand
+{-# INLINE textIsPrefixOfCI #-}
+
+textIsSuffixOfCI :: Bool -> T.Text -> T.Text -> Bool
+textIsSuffixOfCI !isAsciiPat patLc@(TI.Text parr poff plen) cand@(TI.Text carr coff clen)
+    | isAsciiPat && isAsciiText cand =
+        plen <= clen && eqAsciiLowerSlice parr poff carr (coff + clen - plen) plen
+    | otherwise = patLc `T.isSuffixOf` T.toLower cand
+{-# INLINE textIsSuffixOfCI #-}
+
+textIsInfixOfCI :: Bool -> T.Text -> T.Text -> Bool
+textIsInfixOfCI !isAsciiPat patLc@(TI.Text parr poff plen) cand@(TI.Text carr coff clen)
+    | isAsciiPat && isAsciiText cand =
+        if plen <= 0
+            then True
+            else
+                if plen > clen
+                    then False
+                    else
+                        let !b0 = A.unsafeIndex parr poff
+                            !z = A.unsafeIndex parr (poff + plen - 1)
+                            !lastStart = coff + clen - plen
+                            go !pos
+                                | pos > lastStart = False
+                                | asciiLowerByte (A.unsafeIndex carr (pos + plen - 1)) == z
+                                    && asciiLowerByte (A.unsafeIndex carr pos) == b0
+                                    && eqAsciiLowerSlice parr poff carr pos plen =
+                                    True
+                                | otherwise = go (pos + 1)
+                         in go coff
+    | otherwise = patLc `textIsInfixOf` T.toLower cand
+{-# INLINE textIsInfixOfCI #-}
+
+eqAsciiLowerSlice :: A.Array -> Int -> A.Array -> Int -> Int -> Bool
+eqAsciiLowerSlice !parr !poff !carr !coff !len = go 0
+  where
+    go !k
+        | k >= len = True
+        | A.unsafeIndex parr (poff + k) == asciiLowerByte (A.unsafeIndex carr (coff + k)) = go (k + 1)
+        | otherwise = False
+{-# INLINE eqAsciiLowerSlice #-}
+
+-- | Zero-allocation check for whether a pre-lowercased ASCII needle @patLc@ occurs
+-- anywhere in @haystack@ under @ignoreCaseText@ semantics (where multi-byte UTF-8
+-- codepoints never fold to 1-byte ASCII).
+textContainsAsciiCI :: T.Text -> T.Text -> Bool
+textContainsAsciiCI (TI.Text parr poff plen) (TI.Text harr@(A.ByteArray harr#) hoff hlen)
+    | plen <= 0 = False
+    | plen > hlen = False
+    | plen == 1 =
+        let !b0 = A.unsafeIndex parr poff
+         in if b0 >= 0x61 && b0 <= 0x7A
+                then scanByteCI hoff (hoff + hlen) b0
+                else memchr harr# hoff hlen b0 >= 0
+    | otherwise =
+        let !nlast = plen - 1
+            !z = A.unsafeIndex parr (poff + nlast)
+            !end = hoff + hlen
+            buildTbl !i !msk !skp
+                | i >= nlast = (msk .|. swzCI z) :* skp
+                | otherwise =
+                    let !c = A.unsafeIndex parr (poff + i)
+                        !skp' = if c == z then plen - i - 2 else skp
+                     in buildTbl (i + 1) (msk .|. swzCI c) skp'
+            !(mask :* skip) = buildTbl 0 0 (plen - 2)
+            swzCI :: Word8 -> Word64
+            swzCI !k = 1 `unsafeShiftL` (word8ToInt (asciiLowerByte k) .&. 0x3f)
+            loop !i
+                | i > end = False
+                | asciiLowerByte (A.unsafeIndex harr (i - 1)) == z =
+                    if eqAsciiLowerSlice parr poff harr (i - plen) plen
+                        then True
+                        else loop (i + skip + 1)
+                | i == end = False
+                | mask .&. swzCI (A.unsafeIndex harr i) == 0 =
+                    loop (i + plen + 1)
+                | z < 0x61 || z > 0x7A =
+                    case memchr harr# i (end - i) z of
+                        -1 -> False
+                        rel -> loop (i + rel + 1)
+                | otherwise = loop (i + 1)
+         in loop (hoff + plen)
+  where
+    scanByteCI !cur !end !b0
+        | cur >= end = False
+        | asciiLowerByte (A.unsafeIndex harr cur) == b0 = True
+        | otherwise = scanByteCI (cur + 1) end b0
+
+-- | Find the byte offset of the last (rightmost) occurrence of @needle@ in @haystack@
+-- by scanning backwards from the end of @haystack@ with zero heap allocation.
+lastIndex :: T.Text -> T.Text -> Maybe Int
+lastIndex (TI.Text narr noff nlen) (TI.Text harr hoff hlen)
+    | nlen <= 0 = Nothing
+    | nlen > hlen = Nothing
+    | nlen == 1 =
+        let !b0 = A.unsafeIndex narr noff
+            go1 !i
+                | i < hoff = Nothing
+                | A.unsafeIndex harr i == b0 = Just (i - hoff)
+                | otherwise = go1 (i - 1)
+         in go1 (hoff + hlen - 1)
+    | otherwise =
+        let !b0 = A.unsafeIndex narr noff
+            !z = A.unsafeIndex narr (noff + nlen - 1)
+            goN !i
+                | i < hoff = Nothing
+                | A.unsafeIndex harr (i + nlen - 1) == z
+                    && A.unsafeIndex harr i == b0
+                    && A.equal narr noff harr i nlen =
+                    Just (i - hoff)
+                | otherwise = goN (i - 1)
+         in goN (hoff + hlen - nlen)
+{-# INLINE lastIndex #-}

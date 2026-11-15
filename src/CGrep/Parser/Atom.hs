@@ -22,6 +22,7 @@ module CGrep.Parser.Atom (
     mkAtomsFromTokens,
     extractAtomMatchers,
     findAllMatches,
+    findAllMatchesRef,
     wildCardMap,
 ) where
 
@@ -29,9 +30,17 @@ import Control.Applicative ((<|>))
 import qualified Data.Map.Strict as M
 
 import CGrep.Common (trimT)
-import CGrep.Distance (textApproxEq)
+import CGrep.Distance (EditPattern, matchEditPattern, mkEditPattern, textApproxEq)
 import CGrep.Parser.Char (isDigit)
-import CGrep.Parser.Chunk (Chunk (..), pattern ChunkString)
+import CGrep.Parser.Chunk (Chunk (..), ChunkType, pattern ChunkString)
+import CGrep.Text (
+    isAsciiText,
+    textEqCI,
+    textIsInfixOf,
+    textIsInfixOfCI,
+    textIsPrefixOfCI,
+    textIsSuffixOfCI,
+ )
 
 import Data.List (tails)
 import Data.Maybe (isNothing, mapMaybe)
@@ -190,13 +199,331 @@ unescapeAtom xs = xs
 maxEllipsisTokens :: Int
 maxEllipsisTokens = 64
 
+data SliceMatcher
+    = SMWordCS !T.Text
+    | SMWordCI !Bool !T.Text
+    | SMPrefixCS !T.Text
+    | SMPrefixCI !Bool !T.Text
+    | SMSuffixCS !T.Text
+    | SMSuffixCI !Bool !T.Text
+    | SMEdit !Bool !EditPattern
+    | SMInfixCS !T.Text
+    | SMInfixCI !Bool !T.Text
+
+mkSliceMatcher :: Options -> T.Text -> SliceMatcher
+mkSliceMatcher opt raw =
+    let !ic = ignore_case opt
+        !pat = if ic then T.toLower raw else raw
+        !asc = isAsciiText pat
+     in if
+            | word_match opt -> if ic then SMWordCI asc pat else SMWordCS pat
+            | prefix_match opt -> if ic then SMPrefixCI asc pat else SMPrefixCS pat
+            | suffix_match opt -> if ic then SMSuffixCI asc pat else SMSuffixCS pat
+            | edit_dist opt -> SMEdit ic (mkEditPattern pat)
+            | otherwise -> if ic then SMInfixCI asc pat else SMInfixCS pat
+
+evalSliceMatcher :: SliceMatcher -> T.Text -> Bool
+evalSliceMatcher m cand =
+    case m of
+        SMWordCS pat -> pat == cand
+        SMWordCI asc pat -> textEqCI asc pat cand
+        SMPrefixCS pat -> pat `T.isPrefixOf` cand
+        SMPrefixCI asc pat -> textIsPrefixOfCI asc pat cand
+        SMSuffixCS pat -> pat `T.isSuffixOf` cand
+        SMSuffixCI asc pat -> textIsSuffixOfCI asc pat cand
+        SMEdit ic ep -> matchEditPattern ep (if ic then T.toLower cand else cand)
+        SMInfixCS pat -> pat `textIsInfixOf` cand
+        SMInfixCI asc pat -> textIsInfixOfCI asc pat cand
+{-# INLINE evalSliceMatcher #-}
+
+data CompiledAtom
+    = CAny
+    | CEllipsis
+    | CWildIdent
+    | CNamedPlaceholder !T.Text
+    | CKeyword
+    | CNativeType
+    | COperator
+    | CString
+    | CLiteral
+    | CNumber
+    | COct
+    | CHex
+    | CExactIdentCS !SliceMatcher
+    | CExactIdentCI !Bool !T.Text !SliceMatcher
+    | CExactStringEmpty
+    | CExactString !SliceMatcher
+    | CExactWordCI !Bool !T.Text
+    | CExactTypedCI !ChunkType !Bool !T.Text
+    | CExactRaw !ChunkType !T.Text
+    | CNot !CompiledAtom
+    | COr !CompiledAtom !CompiledAtom
+
+isCEllipsis :: CompiledAtom -> Bool
+isCEllipsis CEllipsis = True
+isCEllipsis _ = False
+{-# INLINE isCEllipsis #-}
+
+hasNamedPlaceholder :: CompiledAtom -> Bool
+hasNamedPlaceholder (CNamedPlaceholder _) = True
+hasNamedPlaceholder (CNot a) = hasNamedPlaceholder a
+hasNamedPlaceholder (COr a b) = hasNamedPlaceholder a || hasNamedPlaceholder b
+hasNamedPlaceholder _ = False
+
+compileAtom :: Options -> Atom -> CompiledAtom
+compileAtom opt = go
+  where
+    !ic = ignore_case opt
+    go Any = CAny
+    go Ellipsis = CEllipsis
+    go Keyword = CKeyword
+    go NativeType = CNativeType
+    go Operator = COperator
+    go Number = CNumber
+    go Oct = COct
+    go Hex = CHex
+    go String = CString
+    go Literal = CLiteral
+    go (Placeholder p)
+        | p == "_" = CWildIdent
+        | otherwise = CNamedPlaceholder p
+    go (Not a) = CNot (go a)
+    go (Or a b) = COr (go a) (go b)
+    go (Exact l)
+        | T.isTokenIdentifier l =
+            let raw = T.tToken l
+                !sm = mkSliceMatcher opt raw
+             in if ic
+                    then
+                        let !lc = T.toLower raw
+                         in CExactIdentCI (isAsciiText lc) lc sm
+                    else CExactIdentCS sm
+        | T.isTokenString l =
+            let stripped = (unquoteT . trimT) (T.tToken l)
+             in if T.null stripped
+                    then CExactStringEmpty
+                    else CExactString (mkSliceMatcher opt stripped)
+        | ic && (T.isTokenKeyword l || T.isTokenNativeType l) =
+            let !lc = T.toLower (T.tToken l)
+             in CExactWordCI (isAsciiText lc) lc
+        | ic =
+            let !lc = T.toLower (T.tToken l)
+             in CExactTypedCI (T.tTyp l) (isAsciiText lc) lc
+        | otherwise =
+            CExactRaw (T.tTyp l) (T.tToken l)
+
+-- | Pure O(1) / zero-allocation token matcher for atoms without named placeholders.
+matchPureAtom :: CompiledAtom -> T.Token -> Bool
+matchPureAtom CAny _ = True
+matchPureAtom CEllipsis _ = True
+matchPureAtom CWildIdent t = T.isTokenIdentifier t
+matchPureAtom (CNamedPlaceholder _) t = T.isTokenIdentifier t
+matchPureAtom CKeyword t = T.isTokenKeyword t
+matchPureAtom CNativeType t = T.isTokenNativeType t
+matchPureAtom COperator t = T.isTokenOperator t
+matchPureAtom CString t = T.isTokenString t
+matchPureAtom CLiteral t = T.isTokenString t || T.isTokenNumber t
+matchPureAtom CNumber t = T.isTokenNumber t
+matchPureAtom COct t =
+    T.isTokenNumber t
+        && case T.uncons (T.tToken t) of
+            Just ('0', T.uncons -> Just (d, _)) -> isDigit d
+            _ -> False
+matchPureAtom CHex t =
+    T.isTokenNumber t
+        && case T.uncons (T.tToken t) of
+            Just ('0', T.uncons -> Just (x, _)) -> x == 'x' || x == 'X'
+            _ -> False
+matchPureAtom (CExactIdentCS sm) r =
+    T.isTokenIdentifier r && evalSliceMatcher sm (T.tToken r)
+matchPureAtom (CExactIdentCI asc lc sm) r
+    | T.isTokenIdentifier r = evalSliceMatcher sm (T.tToken r)
+    | T.isTokenKeyword r || T.isTokenNativeType r = textEqCI asc lc (T.tToken r)
+    | otherwise = False
+matchPureAtom CExactStringEmpty r =
+    T.isTokenString r && T.null ((unquoteT . trimT) (T.tToken r))
+matchPureAtom (CExactString sm) r =
+    T.isTokenString r && evalSliceMatcher sm ((unquoteT . trimT) (T.tToken r))
+matchPureAtom (CExactWordCI asc lc) r =
+    (T.isTokenIdentifier r || T.isTokenKeyword r || T.isTokenNativeType r)
+        && textEqCI asc lc (T.tToken r)
+matchPureAtom (CExactTypedCI typ asc lc) r =
+    T.tTyp r == typ && textEqCI asc lc (T.tToken r)
+matchPureAtom (CExactRaw typ txt) r =
+    T.tTyp r == typ && T.tToken r == txt
+matchPureAtom (CNot a) r = not (matchPureAtom a r)
+matchPureAtom (COr a b) r = matchPureAtom a r || matchPureAtom b r
+
+data BoundIdent = BoundIdent
+    { biName :: !T.Text
+    , biTok :: !T.Token
+    , biLc :: !T.Text
+    , biAscii :: !Bool
+    }
+
+type Bindings = [BoundIdent]
+
+lookupBinding :: T.Text -> Bindings -> Maybe BoundIdent
+lookupBinding _ [] = Nothing
+lookupBinding name (b : bs)
+    | biName b == name = Just b
+    | otherwise = lookupBinding name bs
+{-# INLINE lookupBinding #-}
+
 findAllMatches :: Options -> [[Atom]] -> [T.Token] -> [T.Token]
-findAllMatches opt ws ts = concatMap (\w -> findAllMatches' opt w ts) ws
+findAllMatches opt ws ts =
+    let !compiled = map (map (compileAtom opt)) ws
+     in concatMap (\cas -> runCompiledPattern opt cas ts) compiled
 {-# INLINE findAllMatches #-}
 
-findAllMatches' :: Options -> [Atom] -> [T.Token] -> [T.Token]
-findAllMatches' _ [] _ = []
-findAllMatches' opt as ts =
+runCompiledPattern :: Options -> [CompiledAtom] -> [T.Token] -> [T.Token]
+runCompiledPattern _ [] _ = []
+runCompiledPattern opt cas@(cHead : cTail) ts
+    | not (any isCEllipsis cas) && not (any hasNamedPlaceholder cas) =
+        case cTail of
+            [] -> filter (matchPureAtom cHead) ts
+            [c2] -> goPure2 cHead c2 ts
+            [c2, c3] -> goPure3 cHead c2 c3 ts
+            _ -> goPureN cHead cTail ts
+    | not (isCEllipsis cHead) && not (hasNamedPlaceholder cHead) =
+        goAnchored cHead cTail ts
+    | otherwise =
+        goGeneral ts
+  where
+    !ic = ignore_case opt
+
+    goPure2 !c1 !c2 = loop
+      where
+        loop (t1 : rest@(t2 : _))
+            | matchPureAtom c1 t1 && matchPureAtom c2 t2 = t1 : t2 : loop rest
+            | otherwise = loop rest
+        loop _ = []
+
+    goPure3 !c1 !c2 !c3 = loop
+      where
+        loop (t1 : rest@(t2 : t3 : _))
+            | matchPureAtom c1 t1 && matchPureAtom c2 t2 && matchPureAtom c3 t3 =
+                t1 : t2 : t3 : loop rest
+            | otherwise = loop rest
+        loop _ = []
+
+    goPureN !c1 restC = loop
+      where
+        loop [] = []
+        loop (t1 : rest)
+            | matchPureAtom c1 t1
+            , Just tailMatched <- matchPureSeq restC rest =
+                t1 : (tailMatched ++ loop rest)
+            | otherwise = loop rest
+
+    matchPureSeq :: [CompiledAtom] -> [T.Token] -> Maybe [T.Token]
+    matchPureSeq [] _ = Just []
+    matchPureSeq (_ : _) [] = Nothing
+    matchPureSeq (c : cs) (t : rest)
+        | matchPureAtom c t =
+            case matchPureSeq cs rest of
+                Just more -> Just (t : more)
+                Nothing -> Nothing
+        | otherwise = Nothing
+
+    goAnchored !c1 restC = loop
+      where
+        loop [] = []
+        loop (t1 : rest)
+            | matchPureAtom c1 t1
+            , Just tailMatched <- matchCompiledSeq ic [] restC rest =
+                t1 : (tailMatched ++ loop rest)
+            | otherwise = loop rest
+
+    goGeneral [] = []
+    goGeneral cur@(_ : rest) =
+        case matchCompiledSeq ic [] cas cur of
+            Just matched -> matched ++ goGeneral rest
+            Nothing -> goGeneral rest
+
+matchCompiledSeq :: Bool -> Bindings -> [CompiledAtom] -> [T.Token] -> Maybe [T.Token]
+matchCompiledSeq _ _ [] _ = Just []
+matchCompiledSeq _ _ [CEllipsis] _ = Just []
+matchCompiledSeq !ic bindings (CEllipsis : as) ts0 =
+    matchEllipsis 0 maxEllipsisTokens [] ts0
+  where
+    matchEllipsis :: Int -> Int -> [T.Token] -> [T.Token] -> Maybe [T.Token]
+    matchEllipsis !depth !remaining acc curTs =
+        let tryHere =
+                if depth == 0
+                    then case matchCompiledSeq ic bindings as curTs of
+                        Just restMatched -> Just (reverse acc ++ restMatched)
+                        Nothing -> Nothing
+                    else Nothing
+         in case tryHere of
+                Just matched -> Just matched
+                Nothing
+                    | remaining <= 0 -> Nothing
+                    | otherwise ->
+                        case curTs of
+                            [] -> Nothing
+                            (t : rest)
+                                | T.isTokenBracket t && isOpenB (T.tToken t) ->
+                                    matchEllipsis (depth + 1) (remaining - 1) (t : acc) rest
+                                | T.isTokenBracket t && isCloseB (T.tToken t) ->
+                                    if depth == 0
+                                        then Nothing
+                                        else matchEllipsis (depth - 1) (remaining - 1) (t : acc) rest
+                                | depth == 0 && T.isTokenOperator t && T.tToken t == ";" ->
+                                    Nothing
+                                | otherwise ->
+                                    matchEllipsis depth (remaining - 1) (t : acc) rest
+
+    isOpenB b = b == "(" || b == "[" || b == "{"
+    isCloseB b = b == ")" || b == "]" || b == "}"
+matchCompiledSeq _ _ (_ : _) [] = Nothing
+matchCompiledSeq !ic bindings (a : as) (t : ts)
+    | not (hasNamedPlaceholder a) =
+        if matchPureAtom a t
+            then case matchCompiledSeq ic bindings as ts of
+                Just restMatched -> Just (t : restMatched)
+                Nothing -> Nothing
+            else Nothing
+    | otherwise =
+        case matchAtomWithBindings ic bindings a t of
+            Just bindings' ->
+                case matchCompiledSeq ic bindings' as ts of
+                    Just restMatched -> Just (t : restMatched)
+                    Nothing -> Nothing
+            Nothing -> Nothing
+
+matchAtomWithBindings :: Bool -> Bindings -> CompiledAtom -> T.Token -> Maybe Bindings
+matchAtomWithBindings !ic bindings (CNamedPlaceholder p) t
+    | not (T.isTokenIdentifier t) = Nothing
+    | otherwise =
+        case lookupBinding p bindings of
+            Just BoundIdent{..}
+                | ic -> if textEqCI biAscii biLc (T.tToken t) then Just bindings else Nothing
+                | biTok == t -> Just bindings
+                | otherwise -> Nothing
+            Nothing ->
+                let !lc = if ic then T.toLower (T.tToken t) else T.empty
+                    !asc = not ic || isAsciiText lc
+                 in Just (BoundIdent p t lc asc : bindings)
+matchAtomWithBindings !ic bindings (CNot a) t
+    | isNothing (matchAtomWithBindings ic bindings a t) = Just bindings
+    | otherwise = Nothing
+matchAtomWithBindings !ic bindings (COr a b) t =
+    matchAtomWithBindings ic bindings a t <|> matchAtomWithBindings ic bindings b t
+matchAtomWithBindings _ bindings a t
+    | matchPureAtom a t = Just bindings
+    | otherwise = Nothing
+
+-- ---------------------------------------------------------------------------
+-- Reference implementation retained for differential QuickCheck & corpus tests
+-- ---------------------------------------------------------------------------
+
+findAllMatchesRef :: Options -> [[Atom]] -> [T.Token] -> [T.Token]
+findAllMatchesRef opt ws ts = concatMap (\w -> findAllMatchesRef' opt w ts) ws
+
+findAllMatchesRef' :: Options -> [Atom] -> [T.Token] -> [T.Token]
+findAllMatchesRef' _ [] _ = []
+findAllMatchesRef' opt as ts =
     concat $ mapMaybe (matchAtoms opt M.empty as) (tails ts)
 
 -- | Matches a pattern of `Atom`s against the prefix of a token stream,

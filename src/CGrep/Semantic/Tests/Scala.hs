@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -52,24 +53,21 @@ isScalaTestFilePath path =
 -- | Precise JUnit / MUnit / TestNG annotation names in Scala.
 -- Rejects MapStruct `@BeforeMapping`, Spring `@AfterReturning`, and generic `@Validator[Test]`.
 isScalaTestAnnotation :: Text -> Bool
-isScalaTestAnnotation name =
-    name
-        `elem` ( [ "Test"
-                 , "ParameterizedTest"
-                 , "RepeatedTest"
-                 , "TestFactory"
-                 , "TestTemplate"
-                 , "Before"
-                 , "After"
-                 , "BeforeEach"
-                 , "AfterEach"
-                 , "BeforeAll"
-                 , "AfterAll"
-                 , "BeforeClass"
-                 , "AfterClass"
-                 ] ::
-                    [Text]
-               )
+isScalaTestAnnotation = \case
+    "Test" -> True
+    "ParameterizedTest" -> True
+    "RepeatedTest" -> True
+    "TestFactory" -> True
+    "TestTemplate" -> True
+    "Before" -> True
+    "After" -> True
+    "BeforeEach" -> True
+    "AfterEach" -> True
+    "BeforeAll" -> True
+    "AfterAll" -> True
+    "BeforeClass" -> True
+    "AfterClass" -> True
+    _ -> False
 
 -- | Extract a single Scala annotation `@pkg.Name[T](args...)`, returning
 -- `(rawTokens, simpleAnnotationName, remainingTokens)`.
@@ -177,28 +175,35 @@ consumeScalaAnnotatedTarget baseIndent = go 0 True []
 isScalaDeclKeyword :: Token -> Bool
 isScalaDeclKeyword t =
     isTokenKeyword t
-        && ( tToken t
-                `elem` (["def", "val", "var", "class", "object", "trait"] :: [Text])
-           )
+        && case tToken t of
+            "def" -> True
+            "val" -> True
+            "var" -> True
+            "class" -> True
+            "object" -> True
+            "trait" -> True
+            _ -> False
 
 isScalaModifier :: Token -> Bool
 isScalaModifier t =
     (isTokenKeyword t || isTokenIdentifier t)
-        && ( tToken t
-                `elem` ( [ "final"
-                         , "abstract"
-                         , "sealed"
-                         , "case"
-                         , "implicit"
-                         , "lazy"
-                         , "private"
-                         , "protected"
-                         , "override"
-                         , "open"
-                         ] ::
-                            [Text]
-                       )
-           )
+        && case tToken t of
+            "final" -> True
+            "abstract" -> True
+            "sealed" -> True
+            "case" -> True
+            "implicit" -> True
+            "lazy" -> True
+            "private" -> True
+            "protected" -> True
+            "override" -> True
+            "open" -> True
+            _ -> False
+
+isScalaSuiteStarter :: Token -> Bool
+isScalaSuiteStarter t =
+    (isTokenKeyword t && (tToken t == "class" || tToken t == "object" || tToken t == "trait"))
+        || isScalaModifier t
 
 isScalaSuiteBaseName :: Text -> Bool
 isScalaSuiteBaseName name =
@@ -311,41 +316,35 @@ scanSuiteHeader = go (0 :: Int) False False [] Nothing
 
 -- | ScalaTest / MUnit / Specs2 / ZIO Test / ScalaCheck block names
 isScalaTestBlockName :: Text -> Bool
-isScalaTestBlockName name =
-    name
-        `elem` ( [ "test"
-                 , "ignore"
-                 , "it"
-                 , "they"
-                 , "describe"
-                 , "scenario"
-                 , "feature"
-                 , "Scenario"
-                 , "Feature"
-                 , "property"
-                 , "suite"
-                 , "suiteAll"
-                 , "testM"
-                 ] ::
-                    [Text]
-               )
+isScalaTestBlockName = \case
+    "test" -> True
+    "ignore" -> True
+    "it" -> True
+    "they" -> True
+    "describe" -> True
+    "scenario" -> True
+    "feature" -> True
+    "Scenario" -> True
+    "Feature" -> True
+    "property" -> True
+    "suite" -> True
+    "suiteAll" -> True
+    "testM" -> True
+    _ -> False
 
 -- | FlatSpec / WordSpec / FreeSpec / ShouldMatchers infix verbs
 isScalaSpecVerb :: Text -> Bool
-isScalaSpecVerb name =
-    name
-        `elem` ( [ "should"
-                 , "must"
-                 , "can"
-                 , "in"
-                 , "ignore"
-                 , "of"
-                 , "when"
-                 , "which"
-                 , "that"
-                 ] ::
-                    [Text]
-               )
+isScalaSpecVerb = \case
+    "should" -> True
+    "must" -> True
+    "can" -> True
+    "in" -> True
+    "ignore" -> True
+    "of" -> True
+    "when" -> True
+    "which" -> True
+    "that" -> True
+    _ -> False
 
 -- | Match FlatSpec / WordSpec / FreeSpec header tokens after a string literal or `it`/`they`
 -- followed by a spec verb (e.g. `"A Calc" should "add" in { ... }` or `"test" - { ... }`),
@@ -420,19 +419,20 @@ consumeTrailingMethodCalls rest = ([], rest)
 -- `prevBlock` is `True` when the immediately preceding token was `.` (method call
 -- like `calc.test(...)`) or `def`/`val`/`var` (declaration like `def test(...)`).
 processOutsideScala :: Bool -> Bool -> LineState -> [Token] -> [Token]
-processOutsideScala _ _ _ [] = []
+processOutsideScala _ _ !_ [] = []
 
 -- Pattern 1: Annotated method or class (@Test, @BeforeEach, etc.)
-processOutsideScala keepTests _ ls tokens@(tFirst : _)
-    | let (attrTokens, isTest, restAfterAttrs) = collectScalaAnnotations tokens
+processOutsideScala keepTests !_ !ls tokens@(tFirst : _)
+    | isTokenOperator tFirst && tToken tFirst == "@"
+    , let (attrTokens, isTest, restAfterAttrs) = collectScalaAnnotations tokens
     , not (null attrTokens) =
         let (_, baseIndent, _) = stepLineState ls tFirst
-            lsAfterAttrs = advanceLineState ls attrTokens
+            !lsAfterAttrs = advanceLineState ls attrTokens
          in if isTest
                 then case consumeScalaAnnotatedTarget baseIndent lsAfterAttrs 150 restAfterAttrs of
                     Nothing ->
                         case matchScalaSuiteDecl baseIndent lsAfterAttrs restAfterAttrs of
-                            Just (suiteToks, lsFinal, remaining) ->
+                            Just (suiteToks, !lsFinal, remaining) ->
                                 if keepTests
                                     then attrTokens ++ suiteToks ++ processOutsideScala keepTests False lsFinal remaining
                                     else processOutsideScala keepTests False lsFinal remaining
@@ -440,12 +440,12 @@ processOutsideScala keepTests _ ls tokens@(tFirst : _)
                                 if keepTests
                                     then processOutsideScala keepTests False lsAfterAttrs restAfterAttrs
                                     else attrTokens ++ processOutsideScala keepTests False lsAfterAttrs restAfterAttrs
-                    Just (declAndBody, lsFinal, remainingTokens) ->
+                    Just (declAndBody, !lsFinal, remainingTokens) ->
                         if keepTests
                             then attrTokens ++ declAndBody ++ processOutsideScala keepTests False lsFinal remainingTokens
                             else processOutsideScala keepTests False lsFinal remainingTokens
                 else case matchScalaSuiteDecl baseIndent lsAfterAttrs restAfterAttrs of
-                    Just (suiteToks, lsFinal, remaining) ->
+                    Just (suiteToks, !lsFinal, remaining) ->
                         if keepTests
                             then attrTokens ++ suiteToks ++ processOutsideScala keepTests False lsFinal remaining
                             else processOutsideScala keepTests False lsFinal remaining
@@ -455,20 +455,21 @@ processOutsideScala keepTests _ ls tokens@(tFirst : _)
                             else attrTokens ++ processOutsideScala keepTests False lsAfterAttrs restAfterAttrs
 
 -- Pattern 2: Suite `class` / `object` / `trait` extending a known Scala test suite base
-processOutsideScala keepTests _ ls tokens@(tFirst : _)
-    | let (_, baseIndent, _) = stepLineState ls tFirst
-    , Just (suiteToks, lsFinal, remainingTokens) <- matchScalaSuiteDecl baseIndent ls tokens =
+processOutsideScala keepTests !_ !ls tokens@(tFirst : _)
+    | isScalaSuiteStarter tFirst
+    , let (_, baseIndent, _) = stepLineState ls tFirst
+    , Just (suiteToks, !lsFinal, remainingTokens) <- matchScalaSuiteDecl baseIndent ls tokens =
         if keepTests
             then suiteToks ++ processOutsideScala keepTests False lsFinal remainingTokens
             else processOutsideScala keepTests False lsFinal remainingTokens
 
 -- Pattern 3: uTest `Tests { ... }` block
-processOutsideScala keepTests False ls (t1 : t2 : ts)
+processOutsideScala keepTests False !ls (t1 : t2 : ts)
     | isTokenIdentifier t1 && tToken t1 == "Tests"
     , isTokenBracket t2 && tToken t2 == "{" =
         let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 ts
             allToks = t1 : t2 : bodyTokens
-            lsFinal = advanceLineState ls allToks
+            !lsFinal = advanceLineState ls allToks
          in if keepTests
                 then allToks ++ processOutsideScala keepTests False lsFinal remainingTokens
                 else processOutsideScala keepTests False lsFinal remainingTokens
@@ -477,9 +478,9 @@ processOutsideScala keepTests False ls (t1 : t2 : ts)
 --   * `test("...") { ... }`, `describe("...") { ... }`, `it("...") { ... }`
 --   * ZIO Test `suite("...")(...)` / `test("...")(...)`
 --   * ScalaCheck `property("...") = ...`
-processOutsideScala keepTests False ls (t1 : t2 : ts)
-    | isTokenIdentifier t1 && isScalaTestBlockName (tToken t1)
-    , isTokenBracket t2 && tToken t2 == "("
+processOutsideScala keepTests False !ls (t1 : t2 : ts)
+    | isTokenBracket t2 && tToken t2 == "("
+    , isTokenIdentifier t1 && isScalaTestBlockName (tToken t1)
     , let (_, callIndent, _) = stepLineState ls t1
     , let (argTokens, afterParens) = processInsideBrackets "(" ")" 1 ts =
         let startsWithStr = case argTokens of
@@ -487,13 +488,13 @@ processOutsideScala keepTests False ls (t1 : t2 : ts)
                 [] -> False
             allowZioParenBody =
                 startsWithStr
-                    && tToken t1 `elem` (["suite", "suiteAll", "test", "testM"] :: [Text])
+                    && (let n = tToken t1 in n == "suite" || n == "suiteAll" || n == "test" || n == "testM")
          in case afterParens of
                 (tEq : tsAfterEq)
                     | tToken t1 == "property"
                     , isTokenOperator tEq && tToken tEq == "=" ->
-                        let lsAfterEq = advanceLineState ls (t1 : t2 : argTokens ++ [tEq])
-                            (exprToks, lsFinal, remainingTokens) = consumeScalaExprBody callIndent lsAfterEq tsAfterEq
+                        let !lsAfterEq = advanceLineState ls (t1 : t2 : argTokens ++ [tEq])
+                            (exprToks, !lsFinal, remainingTokens) = consumeScalaExprBody callIndent lsAfterEq tsAfterEq
                             allToks = t1 : t2 : argTokens ++ (tEq : exprToks)
                          in if keepTests
                                 then allToks ++ processOutsideScala keepTests False lsFinal remainingTokens
@@ -501,35 +502,35 @@ processOutsideScala keepTests False ls (t1 : t2 : ts)
                 _
                     | Just (braceAndBody, remainingTokens) <- matchAfterScalaTestParens allowZioParenBody afterParens ->
                         let allToks = t1 : t2 : argTokens ++ braceAndBody
-                            lsFinal = advanceLineState ls allToks
+                            !lsFinal = advanceLineState ls allToks
                          in if keepTests
                                 then allToks ++ processOutsideScala keepTests False lsFinal remainingTokens
                                 else processOutsideScala keepTests False lsFinal remainingTokens
                     | otherwise ->
-                        let (_, _, ls') = stepLineState ls t1
+                        let !ls' = nextLineState ls t1
                          in if keepTests
                                 then processOutsideScala keepTests False ls' (t2 : ts)
                                 else t1 : processOutsideScala keepTests False ls' (t2 : ts)
 
 -- Pattern 5: FlatSpec / WordSpec / FreeSpec starting with a String literal or `it`/`they`
--- e.g. `"A Calculator" should "add numbers" in { ... }`
+-- e.g. `"A Calc" should "add numbers" in { ... }`
 --      `it should "handle zero" in { ... }`
 --      `"A FreeSpec" - { ... }`
-processOutsideScala keepTests False ls (t1 : t2 : ts)
+processOutsideScala keepTests False !ls (t1 : t2 : ts)
     | (isTokenString t1 || (isTokenIdentifier t1 && (tToken t1 == "it" || tToken t1 == "they" || tToken t1 == "ignore")))
     , (isTokenIdentifier t2 && isScalaSpecVerb (tToken t2)) || (isTokenOperator t2 && tToken t2 == "-")
     , Just (headerAndBrace, afterBrace) <- findFlatSpecBrace 15 ts =
         let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 afterBrace
             allToks = t1 : t2 : headerAndBrace ++ bodyTokens
-            lsFinal = advanceLineState ls allToks
+            !lsFinal = advanceLineState ls allToks
          in if keepTests
                 then allToks ++ processOutsideScala keepTests False lsFinal remainingTokens
                 else processOutsideScala keepTests False lsFinal remainingTokens
 
 -- Fallback: advance one token and update `prevBlock`
-processOutsideScala keepTests _ ls (t : ts) =
-    let (_, _, ls') = stepLineState ls t
-        isBlocker =
+processOutsideScala keepTests !_ !ls (t : ts) =
+    let !ls' = nextLineState ls t
+        !isBlocker =
             (isTokenOperator t && tToken t == ".")
                 || (isTokenKeyword t && (tToken t == "def" || tToken t == "val" || tToken t == "var"))
      in if keepTests

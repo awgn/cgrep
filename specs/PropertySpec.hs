@@ -1,6 +1,12 @@
 module PropertySpec (propertyTests) where
 
-import CGrep.Common (ignoreCase, ignoreCaseRef, sliceToMaxIndex)
+import CGrep.Common (
+    ignoreCase,
+    ignoreCaseRef,
+    sliceToLastMatch,
+    sliceToMaxIndex,
+    textContainsOneOfOpt,
+ )
 import CGrep.Distance (
     approxEqRef,
     distance,
@@ -12,6 +18,13 @@ import CGrep.Distance (
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.Line (buildIndex, getLineByNumber, getLineOffsets, getLineOffsetsRef, totalLines)
+import CGrep.Match (Match (..))
+import CGrep.Parser.Atom (
+    Atom (..),
+    findAllMatches,
+    findAllMatchesRef,
+    mkAtomsFromTokens,
+ )
 import CGrep.Parser.Chunk (
     cOffset,
     cToken,
@@ -21,7 +34,12 @@ import CGrep.Parser.Chunk (
     pattern ChunkOperator,
  )
 import CGrep.Parser.Token (
+    Token,
     TokenFilter (..),
+    mkTokenIdentifier,
+    mkTokenKeyword,
+    mkTokenOperator,
+    mkTokenString,
     parseTokens,
     parseTokensRef,
     tOffset,
@@ -39,11 +57,28 @@ import CGrep.Semantic.ContextFilter (
     (~!),
  )
 import CGrep.Semantic.Tests (filterTests)
-import CGrep.Text (textIndices, textIndicesRef)
+import qualified CGrep.Strategy.Regex as Regex
+import CGrep.Text (
+    isAsciiText,
+    lastIndex,
+    textContainsOneOf,
+    textEqCI,
+    textIndices,
+    textIndicesRef,
+    textIsInfixOf,
+    textIsInfixOfCI,
+    textIsPrefixOfCI,
+    textIsSuffixOfCI,
+ )
+import Config (defaultConfig)
+import Control.Concurrent.MVar (newMVar)
+import Control.Monad.Trans.Reader (runReaderT)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..), defaultOptions)
+import Reader (Env (..))
+import System.IO.Unsafe (unsafePerformIO)
 import System.OsPath (unsafeEncodeUtf)
 import Test.QuickCheck (
     Gen,
@@ -81,6 +116,12 @@ propertyTests =
                 testProperty "distance unboxed single-row DP matches reference lazy diagonal distanceRef" prop_distanceMatchesReference
             , localOption (QuickCheckTests 2000) $
                 testProperty "EditPattern Myers 64-bit & Unicode fallback matches reference approxEqRef" prop_editPatternMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "Text CI/infix/lastIndex/sliceToLastMatch/textContainsOneOfOpt match reference implementations" prop_textHelpersMatchReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "Atom.findAllMatches compiled matcher matches reference tails+Map findAllMatchesRef" prop_findAllMatchesMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "Regex.search line-prefiltered POSIX engine matches reference full-text TDFA searchRef" prop_regexMatchesReference
             , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
             , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
             , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
@@ -435,7 +476,7 @@ genEditWord =
         , pure (T.replicate 64 "a")
         , pure (T.replicate 65 "a")
         , do
-            len <- elements [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 31, 32, 63, 64, 65, 72]
+            len <- elements ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 31, 32, 63, 64, 65, 72] :: [Int])
             cs <- sequence [elements ['a', 'b', 'c', '_', '1', '€', '🦀'] | _ <- [1 .. len]]
             pure (T.pack cs)
         ]
@@ -490,3 +531,210 @@ prop_editPatternMatchesReference =
                                 ep = mkEditPattern a
                                 ref = approxEqRef (T.unpack a) (T.unpack b)
                              in (matchEditPattern ep b, textApproxEq a b) === (ref, ref)
+
+prop_textHelpersMatchReference :: Property
+prop_textHelpersMatchReference =
+    forAll (elements ["", "ABC🦀", "foo\n"]) $ \slicePrefix ->
+        forAll (elements ["", "DEFΩ", "\nbar"]) $ \sliceSuffix ->
+            forAll (listOf genHelperNeedle) $ \needles ->
+                forAll genHelperNeedle $ \singleNeedle ->
+                    forAll (elements [False, True]) $ \ic ->
+                        forAll genAdversarialText $ \core ->
+                            let full = slicePrefix <> core <> sliceSuffix
+                                txt = T.take (T.length core) (T.drop (T.length slicePrefix) full)
+                                opt = defaultOptions{ignore_case = ic}
+                                patLc = T.toLower singleNeedle
+                                asc = isAsciiText patLc
+                                txtLc = T.toLower txt
+                                refLast = case textIndicesRef [singleNeedle] txt of
+                                    [xs@(_ : _)] -> Just (last xs)
+                                    _ -> Nothing
+                                icTxt = ignoreCase opt txt
+                                icNeedles = ignoreCase opt <$> needles
+                                refContains =
+                                    textContainsOneOf icNeedles icTxt
+                                expectedSlice
+                                    | null icNeedles = icTxt
+                                    | refContains = sliceToMaxIndex (textIndices icNeedles icTxt) icTxt
+                                    | otherwise = T.empty
+                                fastSlice =
+                                    sliceToLastMatch icNeedles icTxt
+                             in ( singleNeedle `textIsInfixOf` txt
+                                , textEqCI asc patLc txt
+                                , textIsPrefixOfCI asc patLc txt
+                                , textIsSuffixOfCI asc patLc txt
+                                , textIsInfixOfCI asc patLc txt
+                                , lastIndex singleNeedle txt
+                                , textContainsOneOfOpt opt needles txt
+                                , fastSlice
+                                )
+                                    === ( singleNeedle `T.isInfixOf` txt
+                                        , patLc == txtLc
+                                        , patLc `T.isPrefixOf` txtLc
+                                        , patLc `T.isSuffixOf` txtLc
+                                        , patLc `T.isInfixOf` txtLc
+                                        , refLast
+                                        , refContains
+                                        , expectedSlice
+                                        )
+  where
+    genHelperNeedle :: Gen T.Text
+    genHelperNeedle =
+        elements
+            [ ""
+            , "a"
+            , "A"
+            , "foo"
+            , "FOO"
+            , "x_1"
+            , "_1"
+            , "a1b1"
+            , "=="
+            , "K"
+            , "k"
+            , "İ"
+            , "i"
+            , "Ω"
+            , "ω"
+            , "🦀"
+            , T.drop 1 "!FOO"
+            ]
+
+prop_findAllMatchesMatchesReference :: Property
+prop_findAllMatchesMatchesReference =
+    forAll genAtomOptions $ \opt ->
+        forAll (chooseInt (1, 3)) $ \numPats ->
+            forAll (sequence [genAtomPattern | _ <- [1 .. numPats]]) $ \pats ->
+                forAll genSemanticTokenStream $ \toks ->
+                    let tokSig t = (tTyp t, tOffset t, tToken t)
+                     in map tokSig (findAllMatches opt pats toks)
+                            === map tokSig (findAllMatchesRef opt pats toks)
+  where
+    genAtomOptions :: Gen Options
+    genAtomOptions = do
+        mode <- chooseInt (0, 4)
+        ic <- elements [False, True]
+        pure
+            defaultOptions
+                { semantic = True
+                , ignore_case = ic
+                , word_match = mode == 1
+                , prefix_match = mode == 2
+                , suffix_match = mode == 3
+                , edit_dist = mode == 4
+                }
+
+    genBaseAtom :: Gen Atom
+    genBaseAtom =
+        oneof
+            [ pure Any
+            , pure Keyword
+            , pure Operator
+            , pure Number
+            , pure Oct
+            , pure Hex
+            , pure String
+            , pure Literal
+            , Placeholder <$> elements ["_", "_1", "_2"]
+            , Exact . mkTokenIdentifier <$> elements ["foo", "FOO", "bar", "x_1", "if", "int", "Ω", "K"]
+            , Exact . mkTokenString <$> elements ["", "\"\"", "\"abc\"", "\"FOO\"", "\"€\""]
+            , Exact . mkTokenKeyword <$> elements ["if", "return"]
+            , Exact . mkTokenOperator <$> elements ["=", "==", "+", ";"]
+            ]
+
+    genAtomElem :: Gen Atom
+    genAtomElem =
+        oneof
+            [ genBaseAtom
+            , pure Ellipsis
+            , Not <$> genBaseAtom
+            , Or <$> genBaseAtom <*> genBaseAtom
+            ]
+
+    genAtomPattern :: Gen [Atom]
+    genAtomPattern =
+        oneof
+            [ do
+                len <- chooseInt (1, 5)
+                sequence [genAtomElem | _ <- [1 .. len]]
+            , do
+                src <- elements ["_1 == _1", "_ = HEX", "if ( ... )", "foo OR bar ( _ )", "NOT STR"]
+                pure (mkAtomsFromTokens (lexSource C defaultOptions False src))
+            ]
+
+    genSemanticTokenStream :: Gen [Token]
+    genSemanticTokenStream = do
+        pieces <-
+            listOf $
+                elements
+                    [ "int foo = 0x1A;"
+                    , "if (foo == FOO) return 077;"
+                    , "bar(\"abc\", \"\");"
+                    , "x_1 = bar + foo;"
+                    , "const char *s = \"€\";"
+                    , "foo(a, b(1, 2));"
+                    , "Ω = K;"
+                    ]
+        isStrict <- elements [False, True]
+        pure (lexSource C defaultOptions isStrict (T.unwords pieces))
+
+prop_regexMatchesReference :: Property
+prop_regexMatchesReference =
+    forAll (elements [False, True]) $ \ic ->
+        forAll (elements [True, False]) $ \codeOnly ->
+            forAll (chooseInt (1, 2)) $ \nPats ->
+                forAll (sequence [genPosixRegex | _ <- [1 .. nPats]]) $ \pats ->
+                    forAll genRegexHaystack $ \txt ->
+                        let opt = defaultOptions{regex_posix = True, ignore_case = ic, code = codeOnly}
+                            normPats = map (ignoreCase opt) pats
+                            fast = runRegexFn Regex.search opt txt normPats
+                            ref = runRegexFn Regex.searchRef opt txt normPats
+                         in fast === ref
+  where
+    runRegexFn fn opt txt pats =
+        unsafePerformIO $ do
+            lock <- newMVar ()
+            let env = Env defaultConfig opt
+                osp = unsafeEncodeUtf "prop_regex.c"
+                info = lookupFTInfo C
+            ms <- runReaderT (fn lock info osp txt pats False) env
+            pure [(mLineNumb m, mLine m, [(cOffset c, cToken c) | c <- mChunks m]) | m <- ms]
+
+    genPosixRegex :: Gen T.Text
+    genPosixRegex =
+        elements
+            [ "foo"
+            , "foo.*bar"
+            , "a.b"
+            , "^int[[:space:]]+[a-z_]+"
+            , "return[[:space:]]+[0-9]+;$"
+            , "(foo|bar)_[0-9]+"
+            , "(foo|bar)?_test"
+            , "[a-z]+_test"
+            , "[^x]+foo"
+            , "[]a]foo"
+            , "\\<foo\\>"
+            , "\\bfoo\\b"
+            , "\\Bfoo"
+            , "foo\\{1,2\\}|bar{1,2}"
+            , "(ab){0,2}cd"
+            , "(ab){2,3}cd"
+            , "€+[0-9]+"
+            , "^$"
+            ]
+
+    genRegexHaystack :: Gen T.Text
+    genRegexHaystack = do
+        ls <-
+            listOf $
+                elements
+                    [ "int foo_12 = 1; // foo_99"
+                    , "return 42;"
+                    , "a"
+                    , "b"
+                    , "axb"
+                    , "+foo bar_7 x_test ]foo afoo"
+                    , "abcd ababcd €123"
+                    , ""
+                    ]
+        pure (T.intercalate "\n" ls)

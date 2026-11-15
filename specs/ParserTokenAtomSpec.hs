@@ -13,9 +13,11 @@ import CGrep.Line (
     lookupLineAndPosition,
     totalLines,
  )
+import CGrep.Match (Match (..))
 import CGrep.Parser.Atom (
     extractAtomMatchers,
     findAllMatches,
+    findAllMatchesRef,
     mkAtomsFromTokens,
  )
 import CGrep.Parser.Chunk (
@@ -45,11 +47,16 @@ import CGrep.Semantic.ContextFilter (
     startLiteralMarker,
     (~!),
  )
+import qualified CGrep.Strategy.Regex as Regex
 import CGrep.Text (firstIndex, textIndices, textIndicesRef)
+import Config (defaultConfig)
+import Control.Concurrent.MVar (newMVar)
 import Control.Monad (forM_, when)
+import Control.Monad.Trans.Reader (runReaderT)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..), defaultOptions)
+import Reader (Env (..))
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath ((</>))
 import System.OsPath (unsafeEncodeUtf)
@@ -317,4 +324,27 @@ corpusLexerEquivalenceTests =
                         when (fastToks /= refToks) $
                             assertFailure
                                 ("parseTokens mismatch in " <> fname <> " (" <> label <> ", strict=" <> show isStrict <> ")")
+                -- Verify compiled Atom matcher & pre-filtered POSIX Regex engine across all 31 corpus files
+                let allToks = parseTokens allTokensFilter fti False filtered
+                    sampleAtoms =
+                        [ mkAtomsFromTokens (parseTokens allTokensFilter fti False "_ = _")
+                        , mkAtomsFromTokens (parseTokens allTokensFilter fti False "_1 == _1")
+                        , mkAtomsFromTokens (parseTokens allTokensFilter fti False "_ ( ... )")
+                        , mkAtomsFromTokens (parseTokens allTokensFilter fti False "ANY OR STR")
+                        ]
+                forM_ ([defaultOptions{semantic = True}, defaultOptions{semantic = True, ignore_case = True, word_match = True}] :: [Options]) $ \semOpt -> do
+                    let fastAtomHits = map tokSig (findAllMatches semOpt sampleAtoms allToks)
+                        refAtomHits = map tokSig (findAllMatchesRef semOpt sampleAtoms allToks)
+                    when (fastAtomHits /= refAtomHits) $
+                        assertFailure ("findAllMatches mismatch in " <> fname)
+                lock <- newMVar ()
+                let rxOpt = defaultOptions{regex_posix = True, code = True}
+                    rxEnv = Env defaultConfig rxOpt
+                    rxProbes :: [T.Text]
+                    rxProbes = ["return[[:space:]]+[A-Za-z0-9_]+", "(if|while)[[:space:]]*\\("]
+                    matchSig m = (mLineNumb m, mLine m, [(cOffset c, cToken c) | c <- mChunks m])
+                fastRx <- runReaderT (Regex.search lock info osp txt rxProbes False) rxEnv
+                refRx <- runReaderT (Regex.searchRef lock info osp txt rxProbes False) rxEnv
+                when (map matchSig fastRx /= map matchSig refRx) $
+                    assertFailure ("Regex.search mismatch in " <> fname)
         ]

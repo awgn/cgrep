@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
@@ -28,21 +29,20 @@ instance LanguageTestFilter 'D where
 -- serialization UDAs (`@("json_key")`) are never misclassified; `@("desc")`
 -- attached to `unittest { ... }` is captured via the declaration prefix buffer.
 isDTestUdaName :: Text -> Bool
-isDTestUdaName n =
-    n
-        `elem` ([ -- d-unit
-                  "Test"
-                , "Before"
-                , "After"
-                , "BeforeEach"
-                , "AfterEach"
-                , "BeforeAll"
-                , "AfterAll"
-                , -- unit-threaded
-                  "UnitTest"
-                , "ShouldFail"
-                , "ShouldFailWith"
-                ] :: [Text])
+isDTestUdaName = \case
+    -- d-unit
+    "Test" -> True
+    "Before" -> True
+    "After" -> True
+    "BeforeEach" -> True
+    "AfterEach" -> True
+    "BeforeAll" -> True
+    "AfterAll" -> True
+    -- unit-threaded
+    "UnitTest" -> True
+    "ShouldFail" -> True
+    "ShouldFailWith" -> True
+    _ -> False
 
 -- | Split tokens at top-level commas (outside `(...)`, `[...]`, `{...}`).
 splitTopLevelCommas :: [Token] -> [[Token]]
@@ -141,41 +141,64 @@ extractDUda _ = Nothing
 -- declarations (`public`, `static`, `pure`, `nothrow`, `deprecated("...")`, `extern(D)`, etc.).
 -- Note: `const(...)`, `immutable(...)`, `inout(...)`, `shared(...)` with parentheses are
 -- D type constructors (return types), NOT declaration modifiers, so they are excluded.
+isDParenModifierName :: Text -> Bool
+isDParenModifierName = \case
+    "package" -> True
+    "deprecated" -> True
+    "extern" -> True
+    "align" -> True
+    "pragma" -> True
+    "debug" -> True
+    _ -> False
+
+isDTypeQualifierName :: Text -> Bool
+isDTypeQualifierName = \case
+    "const" -> True
+    "immutable" -> True
+    "inout" -> True
+    "shared" -> True
+    _ -> False
+
+isDBareModifierName :: Text -> Bool
+isDBareModifierName = \case
+    "public" -> True
+    "private" -> True
+    "protected" -> True
+    "package" -> True
+    "export" -> True
+    "static" -> True
+    "final" -> True
+    "abstract" -> True
+    "override" -> True
+    "pure" -> True
+    "nothrow" -> True
+    "__gshared" -> True
+    "scope" -> True
+    "synchronized" -> True
+    "deprecated" -> True
+    "extern" -> True
+    "align" -> True
+    "debug" -> True
+    _ -> False
+
 matchDPrefixModifier :: [Token] -> Maybe ([Token], [Token])
 matchDPrefixModifier (t : tOpen : ts)
-    | (isTokenKeyword t || isTokenIdentifier t)
-    , tToken t `elem` (["package", "deprecated", "extern", "align", "pragma", "debug"] :: [Text])
-    , isTokenBracket tOpen && tToken tOpen == "(" =
+    | isTokenBracket tOpen && tToken tOpen == "("
+    , isTokenKeyword t || isTokenIdentifier t
+    , isDParenModifierName (tToken t) =
         let (inside, remaining) = processInsideBrackets "(" ")" 1 ts
          in Just (t : tOpen : inside, remaining)
 matchDPrefixModifier (t : ts)
-    | isTokenKeyword t || isTokenIdentifier t
-    , tToken t `elem` (["const", "immutable", "inout", "shared"] :: [Text]) =
-        case ts of
-            (nextTok : _) | isTokenBracket nextTok && tToken nextTok == "(" -> Nothing
-            _ -> Just ([t], ts)
-    | isTokenKeyword t || isTokenIdentifier t
-    , tToken t
-        `elem` ([ "public"
-                , "private"
-                , "protected"
-                , "package"
-                , "export"
-                , "static"
-                , "final"
-                , "abstract"
-                , "override"
-                , "pure"
-                , "nothrow"
-                , "__gshared"
-                , "scope"
-                , "synchronized"
-                , "deprecated"
-                , "extern"
-                , "align"
-                , "debug"
-                ] :: [Text]) =
-        Just ([t], ts)
+    | isTokenKeyword t || isTokenIdentifier t =
+        let tok = tToken t
+         in if isDTypeQualifierName tok
+                then case ts of
+                    (nextTok : _) | isTokenBracket nextTok && tToken nextTok == "(" -> Nothing
+                    _ -> Just ([t], ts)
+                else
+                    if isDBareModifierName tok
+                        then Just ([t], ts)
+                        else Nothing
 matchDPrefixModifier _ = Nothing
 
 -- | Consume all tokens until the end of the current braced scope (stopping BEFORE an
@@ -323,8 +346,8 @@ processOutsideD keepTests True revPrefix (t1 : t2 : ts)
                     then restOut
                     else (t1 : t2 : condToks) ++ restOut
 -- Fallback: `;`, `{`, `}`, and `:` (colon attribute specifier like `@safe:`) reset `atDeclStart = True`
-processOutsideD keepTests _ revPrefix (t : ts) =
-    let resetsDecl =
+processOutsideD keepTests !_ revPrefix (t : ts) =
+    let !resetsDecl =
             (isTokenOperator t && (tToken t == ";" || tToken t == ":"))
                 || (isTokenBracket t && (tToken t == "{" || tToken t == "}"))
         restOut = processOutsideD keepTests resetsDecl [] ts

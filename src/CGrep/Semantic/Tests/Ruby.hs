@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -42,40 +43,39 @@ isRubyTestFilePath path =
 
 -- | RSpec / Minitest / ActiveSupport::TestCase DSL block starters.
 isRubyTestBlockName :: Text -> Bool
-isRubyTestBlockName name =
-    name
-        `elem` ([ "describe"
-                , "fdescribe"
-                , "xdescribe"
-                , "context"
-                , "fcontext"
-                , "xcontext"
-                , "it"
-                , "fit"
-                , "xit"
-                , "its"
-                , "specify"
-                , "fspecify"
-                , "xspecify"
-                , "example"
-                , "fexample"
-                , "xexample"
-                , "scenario"
-                , "feature"
-                , "before"
-                , "after"
-                , "around"
-                , "let"
-                , "subject"
-                , "test"
-                , "shared_examples"
-                , "shared_examples_for"
-                , "shared_context"
-                , "it_behaves_like"
-                , "it_should_behave_like"
-                , "include_examples"
-                , "include_context"
-                ] :: [Text])
+isRubyTestBlockName = \case
+    "describe" -> True
+    "fdescribe" -> True
+    "xdescribe" -> True
+    "context" -> True
+    "fcontext" -> True
+    "xcontext" -> True
+    "it" -> True
+    "fit" -> True
+    "xit" -> True
+    "its" -> True
+    "specify" -> True
+    "fspecify" -> True
+    "xspecify" -> True
+    "example" -> True
+    "fexample" -> True
+    "xexample" -> True
+    "scenario" -> True
+    "feature" -> True
+    "before" -> True
+    "after" -> True
+    "around" -> True
+    "let" -> True
+    "subject" -> True
+    "test" -> True
+    "shared_examples" -> True
+    "shared_examples_for" -> True
+    "shared_context" -> True
+    "it_behaves_like" -> True
+    "it_should_behave_like" -> True
+    "include_examples" -> True
+    "include_context" -> True
+    _ -> False
 
 -- | RSpec shared-example inclusion helpers that are valid even without a `do ... end` / `{ ... }` block.
 isRubyBracelessRSpecCall :: Text -> Bool
@@ -208,45 +208,45 @@ isRubyTestClass classNameTok afterClassName =
 
 -- | Processes Ruby tokens outside a test block.
 processOutsideRuby :: Bool -> Bool -> LineState -> [Token] -> [Token]
-processOutsideRuby _ _ _ [] = []
+processOutsideRuby _ _ !_ [] = []
 -- Pattern 0: `RSpec.describe ...` / `RSpec.shared_examples ...` / `RSpec.shared_context ...`
-processOutsideRuby keepTests _ ls (tRspec : tDot : tDesc : ts)
+processOutsideRuby keepTests !_ !ls (tRspec : tDot : tDesc : ts)
     | isTokenIdentifier tRspec && tToken tRspec == "RSpec"
     , isTokenOperator tDot && tToken tDot == "."
     , isTokenIdentifier tDesc && isRubyTestBlockName (tToken tDesc)
-    , let lsAfterDesc = advanceLineState ls [tRspec, tDot, tDesc]
+    , let !lsAfterDesc = advanceLineState ls [tRspec, tDot, tDesc]
     , Just blockKind <- findRubyBlockStart 15 lsAfterDesc ts =
         case blockKind of
             RubyDoBlock headerAndDo lsAfterDo afterDo ->
-                let (bodyAndEnd, lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 Nothing Nothing lsAfterDo afterDo
+                let (bodyAndEnd, !lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 Nothing Nothing lsAfterDo afterDo
                  in if keepTests
                         then tRspec : tDot : tDesc : headerAndDo ++ bodyAndEnd ++ processOutsideRuby keepTests False lsAfterEnd remainingTokens
                         else processOutsideRuby keepTests False lsAfterEnd remainingTokens
             RubyBraceBlock headerAndBrace lsAfterBrace afterBrace ->
                 let (bodyAndClose, remainingTokens) = processInsideBrackets "{" "}" 1 afterBrace
-                    lsAfterClose = advanceLineState lsAfterBrace bodyAndClose
+                    !lsAfterClose = advanceLineState lsAfterBrace bodyAndClose
                  in if keepTests
                         then tRspec : tDot : tDesc : headerAndBrace ++ bodyAndClose ++ processOutsideRuby keepTests False lsAfterClose remainingTokens
                         else processOutsideRuby keepTests False lsAfterClose remainingTokens
 -- Pattern 1: Unqualified RSpec / ActiveSupport::TestCase DSL block or `it_behaves_like` call
-processOutsideRuby keepTests False ls (t1 : ts)
+processOutsideRuby keepTests False !ls (t1 : ts)
     | isTokenIdentifier t1 && isRubyTestBlockName (tToken t1) =
-        let (_, _, lsAfterT1) = stepLineState ls t1
+        let !lsAfterT1 = nextLineState ls t1
          in case findRubyBlockStart 15 lsAfterT1 ts of
                 Just (RubyDoBlock headerAndDo lsAfterDo afterDo) ->
-                    let (bodyAndEnd, lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 Nothing Nothing lsAfterDo afterDo
+                    let (bodyAndEnd, !lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 Nothing Nothing lsAfterDo afterDo
                      in if keepTests
                             then t1 : headerAndDo ++ bodyAndEnd ++ processOutsideRuby keepTests False lsAfterEnd remainingTokens
                             else processOutsideRuby keepTests False lsAfterEnd remainingTokens
                 Just (RubyBraceBlock headerAndBrace lsAfterBrace afterBrace) ->
                     let (bodyAndClose, remainingTokens) = processInsideBrackets "{" "}" 1 afterBrace
-                        lsAfterClose = advanceLineState lsAfterBrace bodyAndClose
+                        !lsAfterClose = advanceLineState lsAfterBrace bodyAndClose
                      in if keepTests
                             then t1 : headerAndBrace ++ bodyAndClose ++ processOutsideRuby keepTests False lsAfterClose remainingTokens
                             else processOutsideRuby keepTests False lsAfterClose remainingTokens
                 Nothing
                     | isRubyBracelessRSpecCall (tToken t1) ->
-                        let (stmtToks, lsAfterStmt, remainingTokens) = collectRubySingleLineStmt 0 lsAfterT1 ts
+                        let (stmtToks, !lsAfterStmt, remainingTokens) = collectRubySingleLineStmt 0 lsAfterT1 ts
                          in if keepTests
                                 then t1 : stmtToks ++ processOutsideRuby keepTests False lsAfterStmt remainingTokens
                                 else processOutsideRuby keepTests False lsAfterStmt remainingTokens
@@ -255,35 +255,35 @@ processOutsideRuby keepTests False ls (t1 : ts)
                             then processOutsideRuby keepTests False lsAfterT1 ts
                             else t1 : processOutsideRuby keepTests False lsAfterT1 ts
 -- Pattern 2: `def test_*`, `def setup`, `def teardown` (Minitest, including Ruby 3 endless `def test_x = ...`)
-processOutsideRuby keepTests _ ls (tDef : tName : ts)
+processOutsideRuby keepTests !_ !ls (tDef : tName : ts)
     | (isTokenKeyword tDef || isTokenIdentifier tDef) && tToken tDef == "def"
     , isTokenIdentifier tName && ("test_" `T.isPrefixOf` tToken tName || tToken tName == "setup" || tToken tName == "teardown") =
-        let (_, _, lsAfterDef) = stepLineState ls tDef
-            (_, _, lsAfterName) = stepLineState lsAfterDef tName
+        let !lsAfterDef = nextLineState ls tDef
+            !lsAfterName = nextLineState lsAfterDef tName
          in if isRubyEndlessDef lsAfterDef (tName : ts)
                 then
-                    let (stmtToks, lsAfterStmt, remainingTokens) = collectRubySingleLineStmt 0 lsAfterName ts
+                    let (stmtToks, !lsAfterStmt, remainingTokens) = collectRubySingleLineStmt 0 lsAfterName ts
                      in if keepTests
                             then tDef : tName : stmtToks ++ processOutsideRuby keepTests False lsAfterStmt remainingTokens
                             else processOutsideRuby keepTests False lsAfterStmt remainingTokens
                 else
-                    let (testTokens, lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 (Just tDef) (Just tName) lsAfterName ts
+                    let (testTokens, !lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 (Just tDef) (Just tName) lsAfterName ts
                      in if keepTests
                             then tDef : tName : testTokens ++ processOutsideRuby keepTests False lsAfterEnd remainingTokens
                             else processOutsideRuby keepTests False lsAfterEnd remainingTokens
 -- Pattern 3: `class Test*`, `class *Test`, `class *Spec`, or `class Foo < Minitest::Test`
-processOutsideRuby keepTests _ ls (tClass : tName : ts)
+processOutsideRuby keepTests !_ !ls (tClass : tName : ts)
     | (isTokenKeyword tClass || isTokenIdentifier tClass) && tToken tClass == "class"
     , isTokenIdentifier tName && isRubyTestClass tName ts =
-        let lsAfterName = advanceLineState ls [tClass, tName]
-            (testTokens, lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 (Just tClass) (Just tName) lsAfterName ts
+        let !lsAfterName = advanceLineState ls [tClass, tName]
+            (testTokens, !lsAfterEnd, remainingTokens) = collectUntilRubyEnd 1 (Just tClass) (Just tName) lsAfterName ts
          in if keepTests
                 then tClass : tName : testTokens ++ processOutsideRuby keepTests False lsAfterEnd remainingTokens
                 else processOutsideRuby keepTests False lsAfterEnd remainingTokens
 -- Fallback
-processOutsideRuby keepTests _ ls (t : ts) =
-    let (_, _, lsAfterT) = stepLineState ls t
-        isBlocker =
+processOutsideRuby keepTests !_ !ls (t : ts) =
+    let !lsAfterT = nextLineState ls t
+        !isBlocker =
             (isTokenOperator t && (tToken t == "." || tToken t == "&."))
                 || ((isTokenKeyword t || isTokenIdentifier t) && tToken t == "def")
      in if keepTests

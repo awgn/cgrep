@@ -54,11 +54,11 @@ matchJuliaTestMacro (tMod : tDot : rest0)
 matchJuliaTestMacro _ = Nothing
 
 processOutsideJulia :: Bool -> LineState -> [Token] -> [Token]
-processOutsideJulia _ _ [] = []
-processOutsideJulia keepTests ls0 toks@(t : ts)
+processOutsideJulia _ !_ [] = []
+processOutsideJulia keepTests !ls0 toks@(t : ts)
     | Just (macroPrefix, macroTok, afterMacro) <- matchJuliaTestMacro toks =
-        let lsAfterPrefix = advanceLineState ls0 macroPrefix
-            (argTokens, lsFinal, remainingTokens) =
+        let !lsAfterPrefix = advanceLineState ls0 macroPrefix
+            (argTokens, !lsFinal, remainingTokens) =
                 case afterMacro of
                     (tOpen : afterOpen)
                         | isTokenBracket tOpen
@@ -73,7 +73,7 @@ processOutsideJulia keepTests ls0 toks@(t : ts)
                 then macroPrefix ++ argTokens ++ processOutsideJulia keepTests lsFinal remainingTokens
                 else processOutsideJulia keepTests lsFinal remainingTokens
     | otherwise =
-        let (_, _, ls1) = stepLineState ls0 t
+        let !ls1 = nextLineState ls0 t
          in if keepTests
                 then processOutsideJulia keepTests ls1 ts
                 else t : processOutsideJulia keepTests ls1 ts

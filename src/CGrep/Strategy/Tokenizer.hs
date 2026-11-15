@@ -20,14 +20,16 @@ module CGrep.Strategy.Tokenizer (search) where
 
 import CGrep.Common (
     ignoreCase,
-    sliceToMaxIndex,
+    runSearch,
+    sliceToLastMatch,
+    textContainsOneOfOpt,
  )
 import CGrep.Semantic.ContextFilter (
     contextBitComment,
     mkContextFilter,
     (~!),
  )
-import CGrep.Distance (EditPattern, matchEditPattern, mkEditPattern)
+import CGrep.Distance (matchEditPattern, mkEditPattern)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
@@ -37,12 +39,11 @@ import CGrep.FileTypeMapTH (
     mkContextFilterFn,
  )
 
-import CGrep.Common (runSearch)
 import CGrep.Line
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token
-import CGrep.Text (textContainsOneOf, textIndices)
+import CGrep.Text (textIsInfixOf)
 import Control.Concurrent (MVar)
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
@@ -81,7 +82,7 @@ search lock info filename text patterns strict = do
     let text'' = contextFilter text
 
     -- make shallow search
-    let !eligibleForSearch = edit_dist opt || textContainsOneOf patterns (ignoreCase opt text)
+    let !eligibleForSearch = edit_dist opt || textContainsOneOfOpt opt patterns text
 
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy: running token search on " <> show filename <> "..."
@@ -89,9 +90,7 @@ search lock info filename text patterns strict = do
     runSearch lindex filename eligibleForSearch $ do
         let textToParse
                 | ignore_case opt || edit_dist opt = text''
-                | otherwise =
-                    let indices = textIndices patterns text''
-                     in sliceToMaxIndex indices text''
+                | otherwise = sliceToLastMatch patterns text''
 
         -- parse source code, get the token list...
 
@@ -107,23 +106,37 @@ search lock info filename text patterns strict = do
                     }
 
         let tokens = parseTokens tfilter (snd <$> info) strict textToParse
-            !editPatterns = if edit_dist opt then map mkEditPattern patterns else []
+            !predFn = mkTokenPredicate opt patterns
 
             -- filter tokens and make chunks
 
-            chunks = coerce (filter (tokenPredicate opt patterns editPatterns) tokens) :: [Chunk]
+            chunks = coerce (filter predFn tokens) :: [Chunk]
 
         putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
         putMessageLnVerb 2 lock stderr $ "matches   : " <> show chunks
 
         mkMatches lindex filename text'' chunks
 
-tokenPredicate :: Options -> [T.Text] -> [EditPattern] -> Token -> Bool
-tokenPredicate opt patterns editPatterns token
-    | edit_dist opt = any (`matchEditPattern` tokTxt) editPatterns
-    | word_match opt = tokTxt `elem` patterns
-    | prefix_match opt = any (`T.isPrefixOf` tokTxt) patterns
-    | suffix_match opt = any (`T.isSuffixOf` tokTxt) patterns
-    | otherwise = any (`T.isInfixOf` tokTxt) patterns
-  where
-    tokTxt = ignoreCase opt (tToken token)
+mkTokenPredicate :: Options -> [T.Text] -> (Token -> Bool)
+mkTokenPredicate opt patterns
+    | edit_dist opt =
+        let !editPatterns = map mkEditPattern patterns
+         in case editPatterns of
+                [ep] -> \tok -> matchEditPattern ep (ignoreCase opt (tToken tok))
+                eps -> \tok -> let !tokTxt = ignoreCase opt (tToken tok) in any (`matchEditPattern` tokTxt) eps
+    | word_match opt =
+        case patterns of
+            [p] -> \tok -> ignoreCase opt (tToken tok) == p
+            ps -> \tok -> ignoreCase opt (tToken tok) `elem` ps
+    | prefix_match opt =
+        case patterns of
+            [p] -> \tok -> p `T.isPrefixOf` ignoreCase opt (tToken tok)
+            ps -> \tok -> let !tokTxt = ignoreCase opt (tToken tok) in any (`T.isPrefixOf` tokTxt) ps
+    | suffix_match opt =
+        case patterns of
+            [p] -> \tok -> p `T.isSuffixOf` ignoreCase opt (tToken tok)
+            ps -> \tok -> let !tokTxt = ignoreCase opt (tToken tok) in any (`T.isSuffixOf` tokTxt) ps
+    | otherwise =
+        case patterns of
+            [p] -> \tok -> p `textIsInfixOf` ignoreCase opt (tToken tok)
+            ps -> \tok -> let !tokTxt = ignoreCase opt (tToken tok) in any (`textIsInfixOf` tokTxt) ps

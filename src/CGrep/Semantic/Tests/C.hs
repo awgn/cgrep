@@ -35,68 +35,62 @@ instance LanguageTestFilter 'Cpp where
 
 -- | Braced C/C++ test macros (`MACRO(...) { ... }`).
 isCBracedTestMacro :: T.Text -> Bool
-isCBracedTestMacro n =
-    n
-        `elem` ([ -- GoogleTest
-                  "TEST"
-                , "TEST_F"
-                , "TEST_P"
-                , "TYPED_TEST"
-                , "TYPED_TEST_P"
-                , "GTEST_TEST"
-                , "GTEST_TEST_F"
-                , "GTEST_TEST_P"
-                , -- Catch2 / doctest
-                  "TEST_CASE"
-                , "TEST_CASE_METHOD"
-                , "TEMPLATE_TEST_CASE"
-                , "TEMPLATE_TEST_CASE_SIG"
-                , "TEMPLATE_PRODUCT_TEST_CASE"
-                , "TEMPLATE_LIST_TEST_CASE"
-                , "SCENARIO"
-                , "SCENARIO_METHOD"
-                , "SECTION"
-                , "DYNAMIC_SECTION"
-                , "SUBCASE"
-                , "SUITE"
-                , "TEST_SUITE"
-                , "CATCH_TEST_CASE"
-                , "CATCH_SCENARIO"
-                , "CATCH_SECTION"
-                , "DOCTEST_TEST_CASE"
-                , "DOCTEST_SCENARIO"
-                , "DOCTEST_SUBCASE"
-                , "DOCTEST_TEST_SUITE"
-                , -- Boost.Test (braced)
-                  "BOOST_AUTO_TEST_CASE"
-                , "BOOST_FIXTURE_TEST_CASE"
-                , "BOOST_DATA_TEST_CASE"
-                , "BOOST_AUTO_TEST_CASE_TEMPLATE"
-                , -- CppUTest / Criterion / Unity
-                  "TEST_GROUP"
-                , "TEST_C"
-                , "Test"
-                , "ParameterizedTest"
-                ] :: [T.Text])
+isCBracedTestMacro = \case
+    "TEST" -> True
+    "TEST_F" -> True
+    "TEST_P" -> True
+    "TYPED_TEST" -> True
+    "TYPED_TEST_P" -> True
+    "GTEST_TEST" -> True
+    "GTEST_TEST_F" -> True
+    "GTEST_TEST_P" -> True
+    "TEST_CASE" -> True
+    "TEST_CASE_METHOD" -> True
+    "TEMPLATE_TEST_CASE" -> True
+    "TEMPLATE_TEST_CASE_SIG" -> True
+    "TEMPLATE_PRODUCT_TEST_CASE" -> True
+    "TEMPLATE_LIST_TEST_CASE" -> True
+    "SCENARIO" -> True
+    "SCENARIO_METHOD" -> True
+    "SECTION" -> True
+    "DYNAMIC_SECTION" -> True
+    "SUBCASE" -> True
+    "SUITE" -> True
+    "TEST_SUITE" -> True
+    "CATCH_TEST_CASE" -> True
+    "CATCH_SCENARIO" -> True
+    "CATCH_SECTION" -> True
+    "DOCTEST_TEST_CASE" -> True
+    "DOCTEST_SCENARIO" -> True
+    "DOCTEST_SUBCASE" -> True
+    "DOCTEST_TEST_SUITE" -> True
+    "BOOST_AUTO_TEST_CASE" -> True
+    "BOOST_FIXTURE_TEST_CASE" -> True
+    "BOOST_DATA_TEST_CASE" -> True
+    "BOOST_AUTO_TEST_CASE_TEMPLATE" -> True
+    "TEST_GROUP" -> True
+    "TEST_C" -> True
+    "Test" -> True
+    "ParameterizedTest" -> True
+    _ -> False
 
 -- | Call/semicolon-terminated C/C++ test macros (`MACRO(...)[;]`, without `{ ... }`).
 isCSemicolonTestMacro :: T.Text -> Bool
-isCSemicolonTestMacro n =
-    n
-        `elem` ([ "FRIEND_TEST"
-                , "TYPED_TEST_SUITE"
-                , "TYPED_TEST_CASE"
-                , "TYPED_TEST_SUITE_P"
-                , "TYPED_TEST_CASE_P"
-                , "REGISTER_TYPED_TEST_SUITE_P"
-                , "REGISTER_TYPED_TEST_CASE_P"
-                , "INSTANTIATE_TEST_SUITE_P"
-                , "INSTANTIATE_TEST_CASE_P"
-                , "INSTANTIATE_TYPED_TEST_SUITE_P"
-                , "INSTANTIATE_TYPED_TEST_CASE_P"
-                , "METHOD_AS_TEST_CASE"
-                , "REGISTER_TEST_CASE"
-                ] :: [T.Text])
+isCSemicolonTestMacro = \case
+    "FRIEND_TEST" -> True
+    "TYPED_TEST_SUITE" -> True
+    "TYPED_TEST_CASE" -> True
+    "TYPED_TEST_SUITE_P" -> True
+    "TYPED_TEST_CASE_P" -> True
+    "REGISTER_TYPED_TEST_SUITE_P" -> True
+    "REGISTER_TYPED_TEST_CASE_P" -> True
+    "INSTANTIATE_TEST_SUITE_P" -> True
+    "INSTANTIATE_TEST_CASE_P" -> True
+    "INSTANTIATE_TYPED_TEST_SUITE_P" -> True
+    "INSTANTIATE_TYPED_TEST_CASE_P" -> True
+    "METHOD_AS_TEST_CASE" -> True
+    "REGISTER_TEST_CASE" -> True
+    _ -> False
 
 isBoostSuiteBegin :: T.Text -> Bool
 isBoostSuiteBegin n = n == "BOOST_AUTO_TEST_SUITE" || n == "BOOST_FIXTURE_TEST_SUITE"
@@ -281,26 +275,25 @@ matchCppTestFixtureClass _ = Nothing
 
 -- | Specifier keywords that can appear in a declaration prefix without themselves being a return type.
 isDeclSpecifierOnlyKeyword :: T.Text -> Bool
-isDeclSpecifierOnlyKeyword kw =
-    kw
-        `elem` ([ "static"
-                , "inline"
-                , "constexpr"
-                , "consteval"
-                , "constinit"
-                , "extern"
-                , "virtual"
-                , "explicit"
-                , "friend"
-                , "const"
-                , "volatile"
-                , "restrict"
-                , "_Noreturn"
-                , "typename"
-                , "struct"
-                , "enum"
-                , "union"
-                ] :: [T.Text])
+isDeclSpecifierOnlyKeyword = \case
+    "static" -> True
+    "inline" -> True
+    "constexpr" -> True
+    "consteval" -> True
+    "constinit" -> True
+    "extern" -> True
+    "virtual" -> True
+    "explicit" -> True
+    "friend" -> True
+    "const" -> True
+    "volatile" -> True
+    "restrict" -> True
+    "_Noreturn" -> True
+    "typename" -> True
+    "struct" -> True
+    "enum" -> True
+    "union" -> True
+    _ -> False
 
 -- | Keywords/types that constitute a concrete return type on a C/C++ function.
 -- Note: `void`, `wchar_t`, `char*_t`, `_Bool`, etc. are classified as `TokenKeyword` (`reserved`)
@@ -309,25 +302,25 @@ isConcreteReturnTypeToken :: Token -> Bool
 isConcreteReturnTypeToken t =
     tTyp t == ChunkNativeType
         || isTokenIdentifier t
-        || ( isTokenKeyword t
-                && tToken t
-                    `elem` ([ "void"
-                            , "auto"
-                            , "unsigned"
-                            , "signed"
-                            , "short"
-                            , "long"
-                            , "wchar_t"
-                            , "char8_t"
-                            , "char16_t"
-                            , "char32_t"
-                            , "_Bool"
-                            , "_Complex"
-                            , "_Decimal32"
-                            , "_Decimal64"
-                            , "_Decimal128"
-                            ] :: [T.Text])
-           )
+        || (isTokenKeyword t && isReturnTypeKeyword (tToken t))
+  where
+    isReturnTypeKeyword = \case
+        "void" -> True
+        "auto" -> True
+        "unsigned" -> True
+        "signed" -> True
+        "short" -> True
+        "long" -> True
+        "wchar_t" -> True
+        "char8_t" -> True
+        "char16_t" -> True
+        "char32_t" -> True
+        "_Bool" -> True
+        "_Complex" -> True
+        "_Decimal32" -> True
+        "_Decimal64" -> True
+        "_Decimal128" -> True
+        _ -> False
 
 isDeclPrefixWordToken :: Token -> Bool
 isDeclPrefixWordToken t =
@@ -439,10 +432,11 @@ processOutsideC keepTests _ revBuf (tSharp : ts)
             afterRest = processOutsideC keepTests True [] remaining
          in flushDeclBuf keepTests revBuf $
                 if keepTests then afterRest else ppToks ++ afterRest
--- Paired Boost.Test suite (`BOOST_AUTO_TEST_SUITE(...) ... BOOST_AUTO_TEST_SUITE_END()`)
+-- Paired Boost.Test / doctest suites and C/C++ test macros (`MACRO(...)`):
+-- Note: check `t2 == "("` FIRST so non-call identifiers reject in 1 byte check!
 processOutsideC keepTests _ revBuf (t1 : t2 : ts)
-    | isTokenIdentifier t1 && isBoostSuiteBegin (tToken t1)
-    , isTokenBracket t2 && tToken t2 == "(" =
+    | isTokenBracket t2 && tToken t2 == "(" && isTokenIdentifier t1
+    , isBoostSuiteBegin (tToken t1) =
         let (params, afterParams) = processInsideBrackets "(" ")" 1 ts
             (semi, afterSemi) = consumeOptionalSemicolon afterParams
             (suiteBody, remaining) = collectUntilSuiteEnd isBoostSuiteBegin isBoostSuiteEnd 1 afterSemi
@@ -450,10 +444,8 @@ processOutsideC keepTests _ revBuf (t1 : t2 : ts)
             afterRest = processOutsideC keepTests True [] remaining
          in flushDeclBuf keepTests revBuf $
                 if keepTests then captured ++ afterRest else afterRest
--- Paired doctest suite (`TEST_SUITE_BEGIN(...) ... TEST_SUITE_END()`)
-processOutsideC keepTests _ revBuf (t1 : t2 : ts)
-    | isTokenIdentifier t1 && isDoctestSuiteBegin (tToken t1)
-    , isTokenBracket t2 && tToken t2 == "(" =
+    | isTokenBracket t2 && tToken t2 == "(" && isTokenIdentifier t1
+    , isDoctestSuiteBegin (tToken t1) =
         let (params, afterParams) = processInsideBrackets "(" ")" 1 ts
             (semi, afterSemi) = consumeOptionalSemicolon afterParams
             (suiteBody, remaining) = collectUntilSuiteEnd isDoctestSuiteBegin isDoctestSuiteEnd 1 afterSemi
@@ -461,20 +453,16 @@ processOutsideC keepTests _ revBuf (t1 : t2 : ts)
             afterRest = processOutsideC keepTests True [] remaining
          in flushDeclBuf keepTests revBuf $
                 if keepTests then captured ++ afterRest else afterRest
--- Semicolon / call-only test macros (`FRIEND_TEST`, `INSTANTIATE_TEST_SUITE_P`, etc.)
-processOutsideC keepTests _ revBuf (t1 : t2 : ts)
-    | isTokenIdentifier t1 && isCSemicolonTestMacro (tToken t1)
-    , isTokenBracket t2 && tToken t2 == "(" =
+    | isTokenBracket t2 && tToken t2 == "(" && isTokenIdentifier t1
+    , isCSemicolonTestMacro (tToken t1) =
         let (params, afterParams) = processInsideBrackets "(" ")" 1 ts
             (semi, remaining) = consumeOptionalSemicolon afterParams
             captured = t1 : t2 : params ++ semi
             afterRest = processOutsideC keepTests True [] remaining
          in flushDeclBuf keepTests revBuf $
                 if keepTests then captured ++ afterRest else afterRest
--- Braced C/C++ Test Macros (`TEST`, `TEST_F`, `TEST_CASE`, `SCENARIO`, `SUBCASE`, etc.)
-processOutsideC keepTests _ revBuf (t1 : t2 : ts)
-    | isTokenIdentifier t1 && isCBracedTestMacro (tToken t1)
-    , isTokenBracket t2 && tToken t2 == "(" =
+    | isTokenBracket t2 && tToken t2 == "(" && isTokenIdentifier t1
+    , isCBracedTestMacro (tToken t1) =
         let (params, afterParams) = processInsideBrackets "(" ")" 1 ts
          in case findOpeningBraceCDecl 50 afterParams of
                 Nothing ->
@@ -500,16 +488,16 @@ processOutsideC keepTests True revBuf (tKw : tName : ts)
                 else afterRest
 -- C++ access specifiers (`public:`, `protected:`, `private:`) reset declaration start
 processOutsideC keepTests _ revBuf (tAcc : tColon : ts)
-    | isTokenKeyword tAcc
-    , tToken tAcc `elem` (["public", "protected", "private"] :: [T.Text])
-    , isTokenOperator tColon && tToken tColon == ":"
+    | isTokenOperator tColon && tToken tColon == ":"
+    , isTokenKeyword tAcc
+    , (tToken tAcc == "public" || tToken tAcc == "protected" || tToken tAcc == "private")
     , Nothing <- matchDoubleColon (tColon : ts) =
         let afterRest = processOutsideC keepTests True [] ts
          in flushDeclBuf keepTests revBuf $
                 if keepTests then afterRest else tAcc : tColon : afterRest
 -- C++ destructor `~TestFoo()` (never a test function)
 processOutsideC keepTests _ revBuf (t0 : t1 : t2 : ts)
-    | tToken t0 == "~"
+    | isTokenOperator t0 && tToken t0 == "~"
     , isTokenIdentifier t1
     , isTokenBracket t2 && tToken t2 == "(" =
         let afterRest = processOutsideC keepTests False [] ts
@@ -517,8 +505,8 @@ processOutsideC keepTests _ revBuf (t0 : t1 : t2 : ts)
                 if keepTests then afterRest else t0 : t1 : t2 : afterRest
 -- C/C++ function / out-of-line method candidate `<declPrefix> <funcName>(...) { ... }`
 processOutsideC keepTests True revBuf (tName : tOpen : ts)
-    | isTokenIdentifier tName
-    , isTokenBracket tOpen && tToken tOpen == "(" =
+    | isTokenBracket tOpen && tToken tOpen == "("
+    , isTokenIdentifier tName =
         if isCTestFuncName (tToken tName) && isValidFuncDeclPrefix (reverse revBuf)
             then
                 let (paramToks, afterParams) = processInsideBrackets "(" ")" 1 ts
@@ -549,9 +537,9 @@ processOutsideC keepTests True revBuf (t1 : t2 : ts)
     , isTokenBracket t2 && tToken t2 == "[" =
         let (insideAttr, remaining) = processInsideBrackets "[" "]" 2 ts
          in processOutsideC keepTests True (reverse (t1 : t2 : insideAttr) ++ revBuf) remaining
-    | (isTokenIdentifier t1 || isTokenKeyword t1)
-    , tToken t1 `elem` (["__attribute__", "__declspec", "alignas", "decltype"] :: [T.Text])
-    , isTokenBracket t2 && tToken t2 == "(" =
+    | isTokenBracket t2 && tToken t2 == "("
+    , (isTokenIdentifier t1 || isTokenKeyword t1)
+    , (let w = tToken t1 in w == "__attribute__" || w == "__declspec" || w == "alignas" || w == "decltype") =
         let (insideParens, remaining) = processInsideBrackets "(" ")" 1 ts
          in processOutsideC keepTests True (reverse (t1 : t2 : insideParens) ++ revBuf) remaining
     | isTokenKeyword t1 && tToken t1 == "extern"
@@ -567,11 +555,11 @@ processOutsideC keepTests True revBuf (t : ts)
         processOutsideC keepTests True (reverse colons ++ revBuf) remaining
     | isDeclPrefixWordToken t =
         processOutsideC keepTests True (t : revBuf) ts
-    | isTokenOperator t && tToken t `elem` (["*", "&", "&&"] :: [T.Text]) =
+    | isTokenOperator t && (let o = tToken t in o == "*" || o == "&" || o == "&&") =
         processOutsideC keepTests True (t : revBuf) ts
 -- Statement / block boundaries reset `canStartDecl = True`
-processOutsideC keepTests _ revBuf (t : ts) =
-    let resetsDecl =
+processOutsideC keepTests !_ revBuf (t : ts) =
+    let !resetsDecl =
             (isTokenOperator t && tToken t == ";")
                 || (isTokenBracket t && (tToken t == "{" || tToken t == "}"))
         afterRest = processOutsideC keepTests resetsDecl [] ts

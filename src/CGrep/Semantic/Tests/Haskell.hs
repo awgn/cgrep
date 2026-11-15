@@ -42,34 +42,33 @@ isHaskellTestFilePath path =
 -- | HSpec / Tasty / HUnit / QuickCheck / Hedgehog / Golden test builder functions
 -- that take a test/group label (string literal) as their first argument.
 isHaskellTestBuilder :: Text -> Bool
-isHaskellTestBuilder name =
-    name
-        `elem` ([ "describe"
-                , "xdescribe"
-                , "fdescribe"
-                , "it"
-                , "xit"
-                , "fit"
-                , "specify"
-                , "xspecify"
-                , "fspecify"
-                , "context"
-                , "xcontext"
-                , "fcontext"
-                , "testCase"
-                , "testCaseInfo"
-                , "testCaseSteps"
-                , "testGroup"
-                , "testProperty"
-                , "testPropertyNamed"
-                , "goldenVsString"
-                , "goldenVsFile"
-                , "goldenVsStringDiff"
-                , "goldenVsFileDiff"
-                , "expectFailBecause"
-                , "ignoreTestBecause"
-                , "TestLabel"
-                ] :: [Text])
+isHaskellTestBuilder = \case
+    "describe" -> True
+    "xdescribe" -> True
+    "fdescribe" -> True
+    "it" -> True
+    "xit" -> True
+    "fit" -> True
+    "specify" -> True
+    "xspecify" -> True
+    "fspecify" -> True
+    "context" -> True
+    "xcontext" -> True
+    "fcontext" -> True
+    "testCase" -> True
+    "testCaseInfo" -> True
+    "testCaseSteps" -> True
+    "testGroup" -> True
+    "testProperty" -> True
+    "testPropertyNamed" -> True
+    "goldenVsString" -> True
+    "goldenVsFile" -> True
+    "goldenVsStringDiff" -> True
+    "goldenVsFileDiff" -> True
+    "expectFailBecause" -> True
+    "ignoreTestBecause" -> True
+    "TestLabel" -> True
+    _ -> False
 
 -- | Naming conventions for QuickCheck, Hedgehog, SmallCheck, and tasty-discover properties/cases.
 isHaskellPropName :: Text -> Bool
@@ -82,14 +81,13 @@ isHaskellPropName name =
 
 -- | Test framework return types in Haskell type signatures.
 isHaskellTestTypeName :: Text -> Bool
-isHaskellTestTypeName name =
-    name
-        `elem` ([ "Spec"
-                , "SpecWith"
-                , "TestTree"
-                , "Property"
-                , "Assertion"
-                ] :: [Text])
+isHaskellTestTypeName = \case
+    "Spec" -> True
+    "SpecWith" -> True
+    "TestTree" -> True
+    "Property" -> True
+    "Assertion" -> True
+    _ -> False
 
 isUpperIdent :: Token -> Bool
 isUpperIdent t =
@@ -138,9 +136,13 @@ matchTypeArrow (x1 : x2 : rest)
     , areAdjacentTokens x1 x2 =
         Just ([x1, x2], rest)
 matchTypeArrow (x : rest)
-    | isTokenOperator x
-    , tToken x `elem` (["->", "=>", "→", "⇒"] :: [Text]) =
-        Just ([x], rest)
+    | isTokenOperator x =
+        case tToken x of
+            "->" -> Just ([x], rest)
+            "=>" -> Just ([x], rest)
+            "→" -> Just ([x], rest)
+            "⇒" -> Just ([x], rest)
+            _ -> Nothing
 matchTypeArrow _ = Nothing
 
 -- | True if @t@ is a standalone `=` definition operator (not part of `==`, `/=`, `<=`, `>=`, `=>`, `=<<`).
@@ -198,8 +200,8 @@ findEquationRhs !baseIndent ls0 firstTok = go 0 ls0 (Just firstTok)
   where
     go :: Int -> LineState -> Maybe Token -> [Token] -> Maybe [Token]
     go _ _ _ [] = Nothing
-    go !depth ls mPrev (t : rest) =
-        let (isNewLine, lineIndent, ls') = stepLineState ls t
+    go !depth !ls mPrev (t : rest) =
+        let (isNewLine, lineIndent, !ls') = stepLineState ls t
          in if depth == 0 && isNewLine && lineIndent <= baseIndent
                 then Nothing
                 else
@@ -214,11 +216,31 @@ findEquationRhs !baseIndent ls0 firstTok = go 0 ls0 (Just firstTok)
 
     isDisallowedBeforeEquals :: Token -> [Token] -> Bool
     isDisallowedBeforeEquals t rest =
-        (isTokenKeyword t && tToken t `elem` (["let", "in", "do", "case", "of", "if", "then", "else", "where", "module", "import", "data", "type", "newtype", "class", "instance"] :: [Text]))
+        (isTokenKeyword t && isDisallowedLhsKw (tToken t))
             || (isTokenOperator t && tToken t == "$")
             || case matchDoubleColon (t : rest) of
                 Just _ -> True
                 Nothing -> False
+
+    isDisallowedLhsKw :: Text -> Bool
+    isDisallowedLhsKw = \case
+        "let" -> True
+        "in" -> True
+        "do" -> True
+        "case" -> True
+        "of" -> True
+        "if" -> True
+        "then" -> True
+        "else" -> True
+        "where" -> True
+        "module" -> True
+        "import" -> True
+        "data" -> True
+        "type" -> True
+        "newtype" -> True
+        "class" -> True
+        "instance" -> True
+        _ -> False
 
 -- | Check whether the start of an equation RHS begins directly with a test builder expression
 -- (e.g. `goldenVsString "golden" ...`, `specify "standalone" ...`, `property $ do ...`, `TestList [...]`).
@@ -291,9 +313,9 @@ collectHaskellBuilderExpr !baseIndent lsAfterPrefix prefixToks rest0 =
      in (prefixToks ++ bodyToks, lsFinal, remToks)
   where
     go :: Int -> LineState -> [Token] -> ([Token], LineState, [Token])
-    go _ ls [] = ([], ls, [])
-    go !depth ls (t : ts) =
-        let (isNewLine, lineIndent, ls') = stepLineState ls t
+    go _ !ls [] = ([], ls, [])
+    go !depth !ls (t : ts) =
+        let (isNewLine, lineIndent, !ls') = stepLineState ls t
             isUnmatchedClose =
                 depth == 0 && isTokenBracket t && (tToken t == ")" || tToken t == "]" || tToken t == "}")
             isOuterComma =
@@ -302,19 +324,34 @@ collectHaskellBuilderExpr !baseIndent lsAfterPrefix prefixToks rest0 =
                 depth == 0
                     && isNewLine
                     && isTokenKeyword t
-                    && tToken t `elem` (["module", "import", "data", "type", "newtype", "class", "instance", "foreign", "infix", "infixl", "infixr"] :: [Text])
+                    && isHaskellTopKw (tToken t)
          in if isUnmatchedClose || isOuterComma || isTopDeclKw || (depth == 0 && isNewLine && lineIndent <= baseIndent)
                 then ([], ls, t : ts)
                 else
                     let !depth' = updateBracketDepth depth t
-                        (acc, lsEnd, rest) = go depth' ls' ts
+                        (acc, !lsEnd, rest) = go depth' ls' ts
                      in (t : acc, lsEnd, rest)
+
+    isHaskellTopKw :: Text -> Bool
+    isHaskellTopKw = \case
+        "module" -> True
+        "import" -> True
+        "data" -> True
+        "type" -> True
+        "newtype" -> True
+        "class" -> True
+        "instance" -> True
+        "foreign" -> True
+        "infix" -> True
+        "infixl" -> True
+        "infixr" -> True
+        _ -> False
 
 -- | Match a line-leading test declaration (`spec :: Spec`, `prop_foo :: ...`, `prop_foo x = ...`,
 -- or untyped `goldenCheck = goldenVsString ...`).
 matchLineLeadingTestDecl :: LineState -> [Token] -> Maybe ([Token], LineState, [Token])
-matchLineLeadingTestDecl ls0 toks@(t1 : ts) =
-    let (isFirstOnLine, baseIndent, ls1) = stepLineState ls0 t1
+matchLineLeadingTestDecl !ls0 toks@(t1 : ts) =
+    let (isFirstOnLine, baseIndent, !ls1) = stepLineState ls0 t1
      in if not isFirstOnLine || not (isTokenIdentifier t1)
             then Nothing
             else
@@ -322,55 +359,67 @@ matchLineLeadingTestDecl ls0 toks@(t1 : ts) =
                     <|> matchUntypedTestDecl baseIndent ls0 ls1 t1 ts
   where
     matchTypedTestDecl :: Int -> LineState -> Token -> [Token] -> Maybe ([Token], LineState, [Token])
-    matchTypedTestDecl !baseIndent lsStart ident afterIdent = do
+    matchTypedTestDecl !baseIndent !lsStart ident afterIdent = do
         (dcToks, _) <- matchDoubleColon afterIdent
-        let (sigAllToks, lsAfterSig, afterSig) = collectHaskellIndentedBody baseIndent lsStart toks
+        let (sigAllToks, !lsAfterSig, afterSig) = collectHaskellIndentedBody baseIndent lsStart toks
             sigBodyToks = drop (1 + length dcToks) sigAllToks
             name = tToken ident
         if isHaskellPropName name || isHaskellTestReturnType sigBodyToks
             then
-                let (eqToks, lsFinal, finalRest) = collectMatchingEquations name baseIndent lsAfterSig afterSig
+                let (eqToks, !lsFinal, finalRest) = collectMatchingEquations name baseIndent lsAfterSig afterSig
                  in Just (sigAllToks ++ eqToks, lsFinal, finalRest)
             else Nothing
 
     matchUntypedTestDecl :: Int -> LineState -> LineState -> Token -> [Token] -> Maybe ([Token], LineState, [Token])
-    matchUntypedTestDecl !baseIndent lsStart lsAfterIdent ident afterIdent = do
-        rhsToks <- findEquationRhs baseIndent lsAfterIdent ident afterIdent
-        let name = tToken ident
-        if isHaskellPropName name || (name /= "main" && startsWithTestRhs rhsToks)
-            then
-                let (firstEq, lsAfterFirst, afterFirst) = collectHaskellIndentedBody baseIndent lsStart toks
-                    (moreEqs, lsFinal, finalRest) = collectMatchingEquations name baseIndent lsAfterFirst afterFirst
-                 in Just (firstEq ++ moreEqs, lsFinal, finalRest)
-            else Nothing
+    matchUntypedTestDecl !baseIndent !lsStart !lsAfterIdent ident afterIdent
+        | tToken ident == "main" = Nothing
+        | otherwise = do
+            rhsToks <- findEquationRhs baseIndent lsAfterIdent ident afterIdent
+            let name = tToken ident
+            if isHaskellPropName name || startsWithTestRhs rhsToks
+                then
+                    let (firstEq, !lsAfterFirst, afterFirst) = collectHaskellIndentedBody baseIndent lsStart toks
+                        (moreEqs, !lsFinal, finalRest) = collectMatchingEquations name baseIndent lsAfterFirst afterFirst
+                     in Just (firstEq ++ moreEqs, lsFinal, finalRest)
+                else Nothing
 matchLineLeadingTestDecl _ [] = Nothing
 
 -- | Match a standalone test builder expression (`describe "..."`, `testCase "..."`, `goldenVsString "..."`).
 matchInlineBuilder :: LineState -> [Token] -> Maybe ([Token], LineState, [Token])
 matchInlineBuilder _ [] = Nothing
-matchInlineBuilder ls0 toks@(firstQ : _) = do
-    (qualBuilderToks, name, afterBuilder) <- matchQualifiedIdent toks
-    if not (isHaskellTestBuilder name)
-        then Nothing
-        else case afterBuilder of
+matchInlineBuilder !ls0 toks@(firstQ : ts0)
+    | not (isTokenIdentifier firstQ) = Nothing
+    | not (isUpperIdent firstQ) =
+        case ts0 of
             (strTok : rest)
-                | isTokenString strTok ->
+                | isTokenString strTok
+                , isHaskellTestBuilder (tToken firstQ) ->
+                    let (_, lineIndent, !ls1) = stepLineState ls0 firstQ
+                        !lsAfterStr = nextLineState ls1 strTok
+                     in Just (collectHaskellBuilderExpr lineIndent lsAfterStr [firstQ, strTok] rest)
+            _ -> Nothing
+    | otherwise = do
+        (qualBuilderToks, name, afterBuilder) <- matchQualifiedIdent toks
+        case afterBuilder of
+            (strTok : rest)
+                | isTokenString strTok
+                , isHaskellTestBuilder name ->
                     let (_, lineIndent, _) = stepLineState ls0 firstQ
                         prefix = qualBuilderToks ++ [strTok]
-                        lsAfterPrefix = foldl' (\ls tok -> let (_, _, ls') = stepLineState ls tok in ls') ls0 prefix
+                        !lsAfterPrefix = advanceLineState ls0 prefix
                      in Just (collectHaskellBuilderExpr lineIndent lsAfterPrefix prefix rest)
             _ -> Nothing
 
 processOutsideHaskell :: Bool -> LineState -> [Token] -> [Token]
-processOutsideHaskell _ _ [] = []
-processOutsideHaskell keepTests ls0 toks@(t : ts) =
+processOutsideHaskell _ !_ [] = []
+processOutsideHaskell keepTests !ls0 toks@(t : ts) =
     case matchLineLeadingTestDecl ls0 toks <|> matchInlineBuilder ls0 toks of
-        Just (testTokens, lsAfter, remaining) ->
+        Just (testTokens, !lsAfter, remaining) ->
             if keepTests
                 then testTokens ++ processOutsideHaskell keepTests lsAfter remaining
                 else processOutsideHaskell keepTests lsAfter remaining
         Nothing ->
-            let (_, _, ls1) = stepLineState ls0 t
+            let !ls1 = nextLineState ls0 t
              in if keepTests
                     then processOutsideHaskell keepTests ls1 ts
                     else t : processOutsideHaskell keepTests ls1 ts
