@@ -29,7 +29,7 @@ import Control.Applicative ((<|>))
 import qualified Data.Map.Strict as M
 
 import CGrep.Common (trimT)
-import CGrep.Distance ((~==))
+import CGrep.Distance (textApproxEq)
 import CGrep.Parser.Char (isDigit)
 import CGrep.Parser.Chunk (Chunk (..), pattern ChunkString)
 
@@ -276,7 +276,7 @@ doesAtomMatchToken opt (Exact l) r
             | word_match opt -> lt == rt
             | prefix_match opt -> lt `T.isPrefixOf` rt
             | suffix_match opt -> lt `T.isSuffixOf` rt
-            | edit_dist opt -> T.unpack lt ~== T.unpack rt
+            | edit_dist opt -> lt `textApproxEq` rt
             | otherwise -> lt `T.isInfixOf` rt
     | T.isTokenString l && T.isTokenString r =
         if T.null ls
@@ -286,7 +286,7 @@ doesAtomMatchToken opt (Exact l) r
                     | word_match opt -> ls == rs
                     | prefix_match opt -> ls `T.isPrefixOf` rs
                     | suffix_match opt -> ls `T.isSuffixOf` rs
-                    | edit_dist opt -> T.unpack ls ~== T.unpack rs
+                    | edit_dist opt -> ls `textApproxEq` rs
                     | otherwise -> ls `T.isInfixOf` rs
     | ignore_case opt && isWordTok l && isWordTok r = lt == rt
     | ignore_case opt = T.tTyp l == T.tTyp r && lt == rt

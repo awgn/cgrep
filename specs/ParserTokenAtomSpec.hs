@@ -1,6 +1,7 @@
 module ParserTokenAtomSpec (parserTokenAtomTests) where
 
 import CGrep.Common (getTargetContents, ignoreCase, ignoreCaseRef, sliceToMaxIndex)
+import CGrep.Distance (approxEqRef, matchEditPattern, mkEditPattern)
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMapTH (fileTypeInfoLookup, mkContextFilterFn)
 import CGrep.Line (
@@ -299,6 +300,16 @@ corpusLexerEquivalenceTests =
                     probeNeedles = ["\n", "a", "if", "return", "==", "__cgrep_absent__"]
                 when (textIndices probeNeedles txt /= textIndicesRef probeNeedles txt) $
                     assertFailure ("textIndices mismatch in " <> fname)
+                let sampleChunks = take 400 (parseChunks fti txt)
+                    editProbes :: [T.Text]
+                    editProbes = ["return", "value", "options"]
+                forM_ editProbes $ \epTxt -> do
+                    let ep = mkEditPattern epTxt
+                        epStr = T.unpack epTxt
+                        fastHits = map cOffset (filter (matchEditPattern ep . cToken) sampleChunks)
+                        refHits = map cOffset (filter (\c -> approxEqRef epStr (T.unpack (cToken c))) sampleChunks)
+                    when (fastHits /= refHits) $
+                        assertFailure ("EditPattern mismatch in " <> fname <> " for " <> epStr)
                 forM_ ([False, True] :: [Bool]) $ \isStrict ->
                     forM_ tfilters $ \(label, tf) -> do
                         let fastToks = map tokSig (parseTokens tf fti isStrict filtered)

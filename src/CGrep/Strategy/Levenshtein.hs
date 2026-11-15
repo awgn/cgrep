@@ -26,7 +26,7 @@ import CGrep.Common (
     ignoreCase,
  )
 import CGrep.Semantic.ContextFilter (mkContextFilter)
-import CGrep.Distance ((~==))
+import CGrep.Distance (matchEditPattern, mkEditPattern)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
@@ -61,8 +61,11 @@ search lock info filename text patterns _strict = do
 
     -- filter tokens...
 
-    let patterns' = map T.unpack patterns
-    let matches = filter (\t -> any (\p -> p ~== T.unpack (cToken t)) patterns') tokens'
+    let !editPatterns = map mkEditPattern patterns
+    let matches =
+            case editPatterns of
+                [ep] -> filter (matchEditPattern ep . cToken) tokens'
+                eps -> filter (\t -> let !tok = cToken t in any (`matchEditPattern` tok) eps) tokens'
 
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename

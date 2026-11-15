@@ -1,6 +1,14 @@
 module PropertySpec (propertyTests) where
 
 import CGrep.Common (ignoreCase, ignoreCaseRef, sliceToMaxIndex)
+import CGrep.Distance (
+    approxEqRef,
+    distance,
+    distanceRef,
+    matchEditPattern,
+    mkEditPattern,
+    textApproxEq,
+ )
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.Line (buildIndex, getLineByNumber, getLineOffsets, getLineOffsetsRef, totalLines)
@@ -69,6 +77,10 @@ propertyTests =
                 testProperty "ignoreCase fast ASCII+ST engine matches reference T.map toLowerSameWidth" prop_ignoreCaseMatchesReference
             , localOption (QuickCheckTests 1000) $
                 testProperty "textIndices fast memchr+bloom engine matches reference Data.Text.Internal.Search.indices" prop_textIndicesMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "distance unboxed single-row DP matches reference lazy diagonal distanceRef" prop_distanceMatchesReference
+            , localOption (QuickCheckTests 2000) $
+                testProperty "EditPattern Myers 64-bit & Unicode fallback matches reference approxEqRef" prop_editPatternMatchesReference
             , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
             , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
             , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
@@ -404,3 +416,77 @@ prop_textIndicesMatchesReference =
             , "🦀🚀"
             , T.drop 1 "!foo"
             ]
+
+genEditWord :: Gen T.Text
+genEditWord =
+    oneof
+        [ pure ""
+        , pure "a"
+        , pure "ab"
+        , pure "abcd"
+        , pure "abcde"
+        , pure "abcdef"
+        , pure "abcdefg"
+        , pure "abcdefgh"
+        , pure "ZSTD_DCtx"
+        , pure "abc€"
+        , pure "🦀x€"
+        , pure (T.replicate 63 "a" <> "b")
+        , pure (T.replicate 64 "a")
+        , pure (T.replicate 65 "a")
+        , do
+            len <- elements [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 31, 32, 63, 64, 65, 72]
+            cs <- sequence [elements ['a', 'b', 'c', '_', '1', '€', '🦀'] | _ <- [1 .. len]]
+            pure (T.pack cs)
+        ]
+
+genPerturbedWord :: T.Text -> Gen T.Text
+genPerturbedWord base =
+    oneof
+        [ pure base
+        , genEditWord
+        , do
+            -- 1 to 4 random single-character edits around `base` to hit exact threshold boundaries
+            k <- chooseInt (1, 4)
+            let step s = do
+                    let len = T.length s
+                    op <- chooseInt (0, 2)
+                    ch <- elements ['a', 'x', '_', '€', '🦀']
+                    if len == 0 || op == 0
+                        then do
+                            pos <- chooseInt (0, len)
+                            pure (T.take pos s <> T.singleton ch <> T.drop pos s)
+                        else
+                            if op == 1
+                                then do
+                                    pos <- chooseInt (0, len - 1)
+                                    pure (T.take pos s <> T.drop (pos + 1) s)
+                                else do
+                                    pos <- chooseInt (0, len - 1)
+                                    pure (T.take pos s <> T.singleton ch <> T.drop (pos + 1) s)
+            foldr (\_ acc -> acc >>= step) (pure base) ([1 .. k] :: [Int])
+        ]
+
+prop_distanceMatchesReference :: Property
+prop_distanceMatchesReference =
+    forAll genEditWord $ \aTxt ->
+        forAll (genPerturbedWord aTxt) $ \bTxt ->
+            let a = T.unpack aTxt
+                b = T.unpack bTxt
+             in distance a b === distanceRef a b
+
+prop_editPatternMatchesReference :: Property
+prop_editPatternMatchesReference =
+    forAll (elements ["", "pre_", "🦀"]) $ \preA ->
+        forAll (elements ["", "_suf", "€"]) $ \sufA ->
+            forAll (elements ["", "xx", "🦀"]) $ \preB ->
+                forAll (elements ["", "yy", "€"]) $ \sufB ->
+                    forAll genEditWord $ \coreA ->
+                        forAll (genPerturbedWord coreA) $ \coreB ->
+                            let fullA = preA <> coreA <> sufA
+                                fullB = preB <> coreB <> sufB
+                                a = T.take (T.length coreA) (T.drop (T.length preA) fullA)
+                                b = T.take (T.length coreB) (T.drop (T.length preB) fullB)
+                                ep = mkEditPattern a
+                                ref = approxEqRef (T.unpack a) (T.unpack b)
+                             in (matchEditPattern ep b, textApproxEq a b) === (ref, ref)

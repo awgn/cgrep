@@ -27,7 +27,7 @@ import CGrep.Semantic.ContextFilter (
     mkContextFilter,
     (~!),
  )
-import CGrep.Distance ((~==))
+import CGrep.Distance (EditPattern, matchEditPattern, mkEditPattern)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
@@ -107,19 +107,20 @@ search lock info filename text patterns strict = do
                     }
 
         let tokens = parseTokens tfilter (snd <$> info) strict textToParse
+            !editPatterns = if edit_dist opt then map mkEditPattern patterns else []
 
             -- filter tokens and make chunks
 
-            chunks = coerce (filter (tokenPredicate opt patterns) tokens) :: [Chunk]
+            chunks = coerce (filter (tokenPredicate opt patterns editPatterns) tokens) :: [Chunk]
 
         putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
         putMessageLnVerb 2 lock stderr $ "matches   : " <> show chunks
 
         mkMatches lindex filename text'' chunks
 
-tokenPredicate :: Options -> [T.Text] -> Token -> Bool
-tokenPredicate opt patterns token
-    | edit_dist opt = any (\p -> T.unpack p ~== T.unpack tokTxt) patterns
+tokenPredicate :: Options -> [T.Text] -> [EditPattern] -> Token -> Bool
+tokenPredicate opt patterns editPatterns token
+    | edit_dist opt = any (`matchEditPattern` tokTxt) editPatterns
     | word_match opt = tokTxt `elem` patterns
     | prefix_match opt = any (`T.isPrefixOf` tokTxt) patterns
     | suffix_match opt = any (`T.isSuffixOf` tokTxt) patterns
