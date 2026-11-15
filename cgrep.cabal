@@ -254,3 +254,30 @@ test-suite cgrep-test
     -with-rtsopts=-N
     -fwrite-ide-info
     -hiedir=.hie
+
+benchmark cgrep-bench
+  import: common-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: bench
+  main-is: Main.hs
+  other-modules:
+    BenchCorpus
+  build-depends:
+    cgrep,
+    containers,
+    criterion,
+    deepseq,
+    directory,
+    filepath,
+    os-string,
+    text,
+    transformers,
+    vector,
+  ghc-options:
+    -O2
+    -optc-O3
+    -funbox-strict-fields
+    -rtsopts
+    "-with-rtsopts=-T -A64m"
+    -fwrite-ide-info
+    -hiedir=.hie
