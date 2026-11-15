@@ -2,9 +2,19 @@ module PropertySpec (propertyTests) where
 
 import CGrep.Common (ignoreCase, sliceToMaxIndex)
 import CGrep.FileType (FileType (..))
+import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.Line (buildIndex, getLineByNumber, totalLines)
 import CGrep.Parser.Chunk (pattern ChunkOperator)
 import CGrep.Parser.Token (tOffset, tToken, tTyp)
+import CGrep.Semantic.ContextFilter (
+    contextBitComment,
+    endLiteralMarker,
+    mkContextFilter,
+    mkParConfig,
+    runContextFilter,
+    runContextFilterRef,
+    (~!),
+ )
 import CGrep.Semantic.Tests (filterTests)
 import CGrep.Text (textIndices)
 import qualified Data.Set as Set
@@ -24,7 +34,7 @@ import Test.QuickCheck (
  )
 import Test.Tasty (TestTree, localOption, testGroup)
 import Test.Tasty.QuickCheck (QuickCheckTests (..), testProperty)
-import TestHelpers (filterSource, lexSource)
+import TestHelpers (filterSource, lexSource, lookupFTInfo)
 
 propertyTests :: TestTree
 propertyTests =
@@ -32,6 +42,8 @@ propertyTests =
         testGroup
             "Generative QuickCheck property invariants"
             [ testProperty "ContextFilter preserves exact UTF-8 Word8 length and newline count" prop_contextFilterByteLengthAndNewlines
+            , localOption (QuickCheckTests 1000) $
+                testProperty "ContextFilter fast ST byte engine matches reference unfoldr byte-for-byte" prop_contextFilterMatchesReference
             , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
             , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
             , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
@@ -50,11 +62,14 @@ genAdversarialText = do
         elements
             [ ""
             , " "
+            , "\t"
+            , "\0"
             , "\n"
             , "\r\n"
             , "\""
             , "\"\""
             , "\"\"\""
+            , "\"\"\"\""
             , "'"
             , "''"
             , "'''"
@@ -63,14 +78,23 @@ genAdversarialText = do
             , "\\\\"
             , "\\\""
             , "\\'"
+            , "\\€"
             , "\\x41"
             , "'\\x41'"
             , "'\\u{1F980}'"
+            , "'€'"
+            , "'🦀'"
             , "'a"
             , "//"
             , "/*"
             , "*/"
+            , "/+"
+            , "+/"
+            , "{|"
+            , "|}"
             , "#"
+            , "#["
+            , "$'"
             , "###"
             , "r#\""
             , "\"#"
@@ -87,6 +111,9 @@ genAdversarialText = do
             , "="
             , "!="
             , "();{}"
+            , "\x00A0"
+            , "\x3000"
+            , "\x100000"
             , "©"
             , "αβ"
             , "İ"
@@ -100,7 +127,30 @@ genAdversarialText = do
 
 genSampleLang :: Gen FileType
 genSampleLang =
-    elements [C, Cpp, Rust, Python, Go, Haskell, Lua, Coffee, SmallTalk, Toml, Java, Javascript]
+    elements
+        [ C
+        , Cpp
+        , Rust
+        , Python
+        , Go
+        , Haskell
+        , Lua
+        , Coffee
+        , SmallTalk
+        , Toml
+        , Java
+        , Javascript
+        , Bash
+        , PHP
+        , Zig
+        , OCaml
+        , Kotlin
+        , Scala
+        , D
+        , R
+        , Elixir
+        , Ruby
+        ]
 
 genContextOptions :: Gen (Options, Bool)
 genContextOptions = do
@@ -116,8 +166,33 @@ prop_contextFilterByteLengthAndNewlines =
         forAll genContextOptions $ \(opt, useMarkers) ->
             forAll genAdversarialText $ \txt ->
                 let out = filterSource ft opt useMarkers txt
-                 in (TU.lengthWord8 out, T.count "\n" out)
-                        === (TU.lengthWord8 txt, T.count "\n" txt)
+                    nlIn = T.count "\n" txt
+                    nlOut = T.count "\n" out
+                    endMarks = T.count (T.singleton endLiteralMarker) out
+                    -- Zig line-strings (`\\ ... \n`) use `\n` as their closing delimiter,
+                    -- which becomes `endLiteralMarker` (`\x03`, 1 byte) when `useMarkers = True`.
+                    nlOk
+                        | ft == Zig && useMarkers = nlOut <= nlIn && nlOut + endMarks >= nlIn
+                        | otherwise = nlOut == nlIn
+                 in (TU.lengthWord8 out, nlOk) === (TU.lengthWord8 txt, True)
+
+prop_contextFilterMatchesReference :: Property
+prop_contextFilterMatchesReference =
+    forAll genSampleLang $ \ft ->
+        forAll genContextOptions $ \(opt, useMarkers) ->
+            forAll (elements [False, True]) $ \stripComm ->
+                forAll (elements ["", "🦀€//", "/*\"\"\""]) $ \slicePrefix ->
+                    forAll (elements ["", "\"\"\"*/\n'a'", "//\"#"]) $ \sliceSuffix ->
+                        forAll genAdversarialText $ \txtCore ->
+                            let full = slicePrefix <> txtCore <> sliceSuffix
+                                txt = T.take (T.length txtCore) (T.drop (T.length slicePrefix) full)
+                             in case snd <$> lookupFTInfo ft of
+                                    Nothing -> True === True
+                                    Just FileTypeInfo{..} ->
+                                        let cfg = mkParConfig ftComment ftString ftRawString ftChar useMarkers
+                                            baseFilt = mkContextFilter opt
+                                            filt = if stripComm then baseFilt ~! contextBitComment else baseFilt
+                                         in runContextFilter cfg filt txt === runContextFilterRef cfg filt txt
 
 prop_parseTokensValidSlicesAndNoBlankLeaks :: Property
 prop_parseTokensValidSlicesAndNoBlankLeaks =

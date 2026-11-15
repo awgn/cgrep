@@ -1,7 +1,10 @@
 module ContextFilterSpec (contextFilterTests) where
 
 import CGrep.Boundary (Boundary (..), BoundaryGuard (..))
+import CGrep.Common (getTargetContents)
 import CGrep.FileType (FileType (..))
+import CGrep.FileTypeMap (FileTypeInfo (..))
+import CGrep.FileTypeMapTH (fileTypeInfoLookup)
 import CGrep.Parser.Chunk (
     ChunkType,
     pattern ChunkIdentifier,
@@ -11,18 +14,25 @@ import CGrep.Parser.Chunk (
  )
 import CGrep.Parser.Token (tOffset, tToken, tTyp)
 import CGrep.Semantic.ContextFilter (
+    ContextFilter,
     contextBitCode,
     contextBitComment,
     contextBitLiteral,
     contextFilterAll,
+    mkContextFilter,
     mkParConfig,
     runContextFilter,
+    runContextFilterRef,
     (~!),
  )
 import CGrep.Text (textOffsetWord8)
+import Control.Monad (forM_, when)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..), defaultOptions)
+import System.Directory (doesDirectoryExist, listDirectory)
+import System.FilePath ((</>))
+import System.OsPath (unsafeEncodeUtf)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertBool, testCase, (@?=))
 import TestHelpers (filterSource, lexSource, matchLineNums, matchLines, runSearchMem)
@@ -37,6 +47,7 @@ contextFilterTests =
         , contextFlagCombinationTests
         , degenerateBoundaryTests
         , utf8ByteLengthInvarianceTests
+        , corpusReferenceEquivalenceTests
         ]
 
 rawVsLiteralPriorityTests :: TestTree
@@ -308,4 +319,39 @@ utf8ByteLengthInvarianceTests =
             msProd <- runSearchMem defaultOptions{semantic = True, tests = Just False} Rust "a.rs" rsSrc ["check()"]
             matchLineNums msTest @?= [3]
             matchLineNums msProd @?= [1]
+        ]
+
+corpusReferenceEquivalenceTests :: TestTree
+corpusReferenceEquivalenceTests =
+    testGroup
+        "Real-world 31-file corpus byte-for-byte equivalence against reference unfoldr"
+        [ testCase "All 31 open-source corpus files match runContextFilterRef across all context & marker modes" $ do
+            let dir = "bench" </> "corpus"
+            exists <- doesDirectoryExist dir
+            assertBool "bench/corpus directory must exist" exists
+            files <- filter (/= "SOURCES.md") <$> listDirectory dir
+            assertBool "expected at least 31 corpus files" (length files >= 31)
+            let filters :: [(String, ContextFilter)]
+                filters =
+                    [ ("semanticStripComm", contextFilterAll ~! contextBitComment)
+                    , ("codeOnly", mkContextFilter defaultOptions{code = True})
+                    , ("commentOnly", mkContextFilter defaultOptions{comment = True})
+                    , ("literalOnly", mkContextFilter defaultOptions{literal = True})
+                    ]
+            forM_ files $ \fname -> do
+                let relPath = dir </> fname
+                    osp = unsafeEncodeUtf relPath
+                txt <- getTargetContents osp
+                case fileTypeInfoLookup defaultOptions osp of
+                    Nothing -> assertBool ("fileTypeInfoLookup failed for " <> fname) False
+                    Just (_, FileTypeInfo{..}) ->
+                        forM_ ([False, True] :: [Bool]) $ \useMarkers -> do
+                            let cfg = mkParConfig ftComment ftString ftRawString ftChar useMarkers
+                            forM_ filters $ \(label, filt) -> do
+                                let fastOut = runContextFilter cfg filt txt
+                                    refOut = runContextFilterRef cfg filt txt
+                                when (fastOut /= refOut) $
+                                    assertBool
+                                        ("Mismatch in " <> fname <> " (" <> label <> ", markers=" <> show useMarkers <> ")")
+                                        False
         ]
