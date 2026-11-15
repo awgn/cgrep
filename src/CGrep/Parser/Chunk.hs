@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 --
 -- Copyright (c) 2013-2025 Nicola Bonelli <nicola@larthia.com>
@@ -18,9 +19,14 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 module CGrep.Parser.Chunk (
     parseChunks,
+    parseChunksRef,
     Chunk (..),
     cOffset,
     MatchLine (..),
@@ -36,18 +42,25 @@ module CGrep.Parser.Chunk (
 ) where
 
 import CGrep.FileTypeMap (CharSet (..), FileTypeInfo (..), IsCharSet (..))
-
+import CGrep.Parser.Char (isBracket', isCharNumber, isDigit, isSpace)
+import CGrep.Text (iterM, textOffsetWord8)
 import Control.Monad.ST (ST, runST)
+import Data.Foldable (toList)
 import Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
-
 import Data.Sequence ((|>))
 import qualified Data.Sequence as S
 import qualified Data.Text as T
+import qualified Data.Text.Array as A
+import qualified Data.Text.Internal as TI
 import qualified Data.Text.Unsafe as TU
 import Data.Word (Word8)
+import GHC.Exts (Char (C#), Int (I#), chr#, inline)
 
-import CGrep.Parser.Char (isBracket', isCharNumber, isDigit, isSpace)
-import CGrep.Text (iterM, textOffsetWord8)
+unsafeChr8 :: Word8 -> Char
+unsafeChr8 !w =
+    let !(I# i#) = fromIntegral w
+     in C# (chr# i#)
+{-# INLINE unsafeChr8 #-}
 
 newtype ChunkType = ChunkType {_unChunkType :: Word8}
     deriving newtype (Eq, Ord)
@@ -105,16 +118,150 @@ data MatchLine = MatchLine
     }
     deriving stock (Eq, Show)
 
+{-# INLINE parseChunks #-}
+parseChunks :: Maybe FileTypeInfo -> T.Text -> [Chunk]
+parseChunks l txt = case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
+    Just (None, None) -> parseChunksFast @'None @'None txt
+    Just (Alpha_, AlphaNum_') -> parseChunksFast @'Alpha_ @'AlphaNum_' txt
+    Just (Alpha_, AlphaNum_) -> parseChunksFast @'Alpha_ @'AlphaNum_ txt
+    Just (Alpha, AlphaNum_) -> parseChunksFast @'Alpha @'AlphaNum_ txt
+    Just (Alpha_, AlphaNumDash_) -> parseChunksFast @'Alpha_ @'AlphaNumDash_ txt
+    Just (AlphaDash_, AlphaNumDash_) -> parseChunksFast @'AlphaDash_ @'AlphaNumDash_ txt
+    Just (ClojureIdentStart, ClojureIdentCont) -> parseChunksFast @'ClojureIdentStart @'ClojureIdentCont txt
+    Just (CSharpIdentStart, CSharpIdentCont) -> parseChunksFast @'CSharpIdentStart @'CSharpIdentCont txt
+    Just (HtmlIdentStart, HtmlIdentCont) -> parseChunksFast @'HtmlIdentStart @'HtmlIdentCont txt
+    Just (JavaIdentStart, JavaIdentCont) -> parseChunksFast @'JavaIdentStart @'JavaIdentCont txt
+    Just (JuliaIdentStart, JuliaIdentCont) -> parseChunksFast @'JuliaIdentStart @'JuliaIdentCont txt
+    Just (ListIdent, ListIdent) -> parseChunksFast @'ListIdent @'ListIdent txt
+    Just (Unicode_, UnicodeNum_) -> parseChunksFast @'Unicode_ @'UnicodeNum_ txt
+    Just (UnicodeDollar_, UnicodeNumDollar_) -> parseChunksFast @'UnicodeDollar_ @'UnicodeNumDollar_ txt
+    Just (Unicode_, UnicodeNum_') -> parseChunksFast @'Unicode_ @'UnicodeNum_' txt
+    Just (Unicode_, UnicodeNumDollar_) -> parseChunksFast @'Unicode_ @'UnicodeNumDollar_ txt
+    Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunksFast @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
+    Just (AgdaIdent, AgdaIdent) -> parseChunksFast @'AgdaIdent @'AgdaIdent txt
+    Nothing -> parseChunksFast @'None @'None txt
+    charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
+
+parseChunksFast :: forall (cs1 :: CharSet) (csN :: CharSet). (IsCharSet cs1, IsCharSet csN) => T.Text -> [Chunk]
+parseChunksFast txt@(TI.Text arr srcOff byteLen)
+    | byteLen <= 0 = []
+    | otherwise = goSpace srcOff []
+  where
+    !endOff = srcOff + byteLen
+
+    {-# INLINE decodeAt #-}
+    decodeAt :: Int -> (# Char, Int #)
+    decodeAt !ix =
+        let !b0 = A.unsafeIndex arr ix
+         in if b0 < 0x80
+                then (# unsafeChr8 b0, 1 #)
+                else
+                    let TU.Iter !c !d = TU.iter txt (ix - srcOff)
+                     in (# c, d #)
+
+    {-# INLINE mkUnspec #-}
+    mkUnspec :: Int -> Int -> Chunk
+    mkUnspec !beg !end = Chunk ChunkUnspec (TI.Text arr beg (end - beg))
+
+    goSpace :: Int -> [Chunk] -> [Chunk]
+    goSpace !ix !acc
+        | ix >= endOff = reverse acc
+        | otherwise =
+            let !b0 = A.unsafeIndex arr ix
+             in if b0 == 0x20
+                    then goSpace (ix + 1) acc
+                    else
+                        let !(# !x, !delta #) =
+                                if b0 < 0x80
+                                    then (# unsafeChr8 b0, 1 #)
+                                    else
+                                        let TU.Iter !c !d = TU.iter txt (ix - srcOff)
+                                         in (# c, d #)
+                            !nextIx = ix + delta
+                         in if
+                                | isSpace x -> goSpace nextIx acc
+                                | inline (isValidChar @cs1 x) -> goAlpha ix nextIx acc
+                                | isDigit x -> goDigit ix nextIx acc
+                                | isBracket' x ->
+                                    let !c = mkUnspec ix nextIx
+                                     in goSpace nextIx (c : acc)
+                                | otherwise -> goOther ix nextIx acc
+
+    goAlpha :: Int -> Int -> [Chunk] -> [Chunk]
+    goAlpha !tokStart !ix !acc
+        | ix >= endOff =
+            let !c = mkUnspec tokStart endOff
+             in reverse (c : acc)
+        | otherwise =
+            let !(# !x, !delta #) = decodeAt ix
+                !nextIx = ix + delta
+             in if inline (isValidChar @csN x)
+                    then goAlpha tokStart nextIx acc
+                    else
+                        let !c1 = mkUnspec tokStart ix
+                            !acc1 = c1 : acc
+                         in if
+                                | isSpace x -> goSpace nextIx acc1
+                                | isBracket' x ->
+                                    let !c2 = mkUnspec ix nextIx
+                                     in goSpace nextIx (c2 : acc1)
+                                | otherwise -> goOther ix nextIx acc1
+
+    goDigit :: Int -> Int -> [Chunk] -> [Chunk]
+    goDigit !tokStart !ix !acc
+        | ix >= endOff =
+            let !c = mkUnspec tokStart endOff
+             in reverse (c : acc)
+        | otherwise =
+            let !(# !x, !delta #) = decodeAt ix
+                !nextIx = ix + delta
+             in if isCharNumber x
+                    then goDigit tokStart nextIx acc
+                    else
+                        let !c1 = mkUnspec tokStart ix
+                            !acc1 = c1 : acc
+                         in if
+                                | isSpace x -> goSpace nextIx acc1
+                                | inline (isValidChar @cs1 x) -> goAlpha ix nextIx acc1
+                                | isBracket' x ->
+                                    let !c2 = mkUnspec ix nextIx
+                                     in goSpace nextIx (c2 : acc1)
+                                | otherwise -> goOther ix nextIx acc1
+
+    goOther :: Int -> Int -> [Chunk] -> [Chunk]
+    goOther !tokStart !ix !acc
+        | ix >= endOff =
+            let !c = mkUnspec tokStart endOff
+             in reverse (c : acc)
+        | otherwise =
+            let !(# !x, !delta #) = decodeAt ix
+                !nextIx = ix + delta
+             in if
+                    | isSpace x ->
+                        let !c1 = mkUnspec tokStart ix
+                         in goSpace nextIx (c1 : acc)
+                    | inline (isValidChar @cs1 x) ->
+                        let !c1 = mkUnspec tokStart ix
+                         in goAlpha ix nextIx (c1 : acc)
+                    | isDigit x ->
+                        if ix - tokStart == 1 && A.unsafeIndex arr tokStart == 0x2E
+                            then goDigit tokStart nextIx acc
+                            else
+                                let !c1 = mkUnspec tokStart ix
+                                 in goDigit ix nextIx (c1 : acc)
+                    | isBracket' x ->
+                        let !c1 = mkUnspec tokStart ix
+                            !c2 = mkUnspec ix nextIx
+                         in goSpace nextIx (c2 : c1 : acc)
+                    | otherwise -> goOther tokStart nextIx acc
+
+-- ---------------------------------------------------------------------------
+-- Reference STRef + Seq implementation (retained for QuickCheck & corpus
+-- differential testing).
+-- ---------------------------------------------------------------------------
+
 newtype ChunkState = ChunkState {_unChunkState :: Word8}
     deriving newtype (Eq, Ord)
-
-instance Show ChunkState where
-    show StateSpace = "space"
-    show StateAlpha = "alpha"
-    show StateDigit = "digit"
-    show StateBracket = "bracket"
-    show StateOther = "other"
-    {-# INLINE show #-}
 
 pattern StateSpace :: ChunkState
 pattern StateSpace = ChunkState 0
@@ -144,34 +291,31 @@ toChunk text (Just beg) cur =
      in Chunk ChunkUnspec chunk
 {-# INLINE toChunk #-}
 
-{-# COMPLETE StateSpace, StateAlpha, StateDigit, StateBracket, StateOther #-}
-
-{-# INLINE parseChunks #-}
-parseChunks :: Maybe FileTypeInfo -> T.Text -> S.Seq Chunk
-parseChunks l txt = runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
-    Just (None, None) -> parseChunks' @'None @'None txt
-    Just (Alpha_, AlphaNum_') -> parseChunks' @'Alpha_ @'AlphaNum_' txt
-    Just (Alpha_, AlphaNum_) -> parseChunks' @'Alpha_ @'AlphaNum_ txt
-    Just (Alpha, AlphaNum_) -> parseChunks' @'Alpha @'AlphaNum_ txt
-    Just (Alpha_, AlphaNumDash_) -> parseChunks' @'Alpha_ @'AlphaNumDash_ txt
-    Just (AlphaDash_, AlphaNumDash_) -> parseChunks' @'AlphaDash_ @'AlphaNumDash_ txt
-    Just (ClojureIdentStart, ClojureIdentCont) -> parseChunks' @'ClojureIdentStart @'ClojureIdentCont txt
-    Just (CSharpIdentStart, CSharpIdentCont) -> parseChunks' @'CSharpIdentStart @'CSharpIdentCont txt
-    Just (HtmlIdentStart, HtmlIdentCont) -> parseChunks' @'HtmlIdentStart @'HtmlIdentCont txt
-    Just (JavaIdentStart, JavaIdentCont) -> parseChunks' @'JavaIdentStart @'JavaIdentCont txt
-    Just (JuliaIdentStart, JuliaIdentCont) -> parseChunks' @'JuliaIdentStart @'JuliaIdentCont txt
-    Just (ListIdent, ListIdent) -> parseChunks' @'ListIdent @'ListIdent txt
-    Just (Unicode_, UnicodeNum_) -> parseChunks' @'Unicode_ @'UnicodeNum_ txt
-    Just (UnicodeDollar_, UnicodeNumDollar_) -> parseChunks' @'UnicodeDollar_ @'UnicodeNumDollar_ txt
-    Just (Unicode_, UnicodeNum_') -> parseChunks' @'Unicode_ @'UnicodeNum_' txt
-    Just (Unicode_, UnicodeNumDollar_) -> parseChunks' @'Unicode_ @'UnicodeNumDollar_ txt
-    Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunks' @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
-    Just (AgdaIdent, AgdaIdent) -> parseChunks' @'AgdaIdent @'AgdaIdent txt
-    Nothing -> parseChunks' @'None @'None txt
+parseChunksRef :: Maybe FileTypeInfo -> T.Text -> [Chunk]
+parseChunksRef l txt = toList $ runST $ case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
+    Just (None, None) -> parseChunksRef' @'None @'None txt
+    Just (Alpha_, AlphaNum_') -> parseChunksRef' @'Alpha_ @'AlphaNum_' txt
+    Just (Alpha_, AlphaNum_) -> parseChunksRef' @'Alpha_ @'AlphaNum_ txt
+    Just (Alpha, AlphaNum_) -> parseChunksRef' @'Alpha @'AlphaNum_ txt
+    Just (Alpha_, AlphaNumDash_) -> parseChunksRef' @'Alpha_ @'AlphaNumDash_ txt
+    Just (AlphaDash_, AlphaNumDash_) -> parseChunksRef' @'AlphaDash_ @'AlphaNumDash_ txt
+    Just (ClojureIdentStart, ClojureIdentCont) -> parseChunksRef' @'ClojureIdentStart @'ClojureIdentCont txt
+    Just (CSharpIdentStart, CSharpIdentCont) -> parseChunksRef' @'CSharpIdentStart @'CSharpIdentCont txt
+    Just (HtmlIdentStart, HtmlIdentCont) -> parseChunksRef' @'HtmlIdentStart @'HtmlIdentCont txt
+    Just (JavaIdentStart, JavaIdentCont) -> parseChunksRef' @'JavaIdentStart @'JavaIdentCont txt
+    Just (JuliaIdentStart, JuliaIdentCont) -> parseChunksRef' @'JuliaIdentStart @'JuliaIdentCont txt
+    Just (ListIdent, ListIdent) -> parseChunksRef' @'ListIdent @'ListIdent txt
+    Just (Unicode_, UnicodeNum_) -> parseChunksRef' @'Unicode_ @'UnicodeNum_ txt
+    Just (UnicodeDollar_, UnicodeNumDollar_) -> parseChunksRef' @'UnicodeDollar_ @'UnicodeNumDollar_ txt
+    Just (Unicode_, UnicodeNum_') -> parseChunksRef' @'Unicode_ @'UnicodeNum_' txt
+    Just (Unicode_, UnicodeNumDollar_) -> parseChunksRef' @'Unicode_ @'UnicodeNumDollar_ txt
+    Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunksRef' @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
+    Just (AgdaIdent, AgdaIdent) -> parseChunksRef' @'AgdaIdent @'AgdaIdent txt
+    Nothing -> parseChunksRef' @'None @'None txt
     charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
 
-parseChunks' :: forall (cs1 :: CharSet) (csN :: CharSet) s. (IsCharSet cs1, IsCharSet csN) => T.Text -> ST s (S.Seq Chunk)
-parseChunks' txt = do
+parseChunksRef' :: forall (cs1 :: CharSet) (csN :: CharSet) s. (IsCharSet cs1, IsCharSet csN) => T.Text -> ST s (S.Seq Chunk)
+parseChunksRef' txt = do
     stateR <- newSTRef StateSpace
     accR <- newSTRef Nothing
     tokensR <- newSTRef S.empty

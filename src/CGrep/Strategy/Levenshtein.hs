@@ -39,7 +39,6 @@ import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Chunk (cToken, parseChunks)
 
 import Control.Concurrent (MVar)
-import Data.Foldable (Foldable (toList))
 import qualified Data.Text as T
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
@@ -63,7 +62,7 @@ search lock info filename text patterns _strict = do
     -- filter tokens...
 
     let patterns' = map T.unpack patterns
-    let matches = filter (\t -> any (\p -> p ~== T.unpack (cToken t)) patterns') (toList tokens')
+    let matches = filter (\t -> any (\p -> p ~== T.unpack (cToken t)) patterns') tokens'
 
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy  : running edit-distance (Levenshtein) search on " <> show filename

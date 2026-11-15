@@ -22,7 +22,6 @@ import CGrep.Semantic.ContextFilter (mkContextFilter)
 import Config (defaultConfig)
 import Control.Concurrent.MVar (newMVar)
 import Control.Monad.Trans.Reader (runReaderT)
-import Data.Foldable (toList)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Options (Options (..))
@@ -52,7 +51,7 @@ lexSource :: FileType -> Options -> Bool -> T.Text -> [Token]
 lexSource ft opt isStrict txt =
     let info = snd <$> lookupFTInfo ft
         filtered = filterSource ft opt True txt
-     in toList $ parseTokens allTokensFilter info isStrict filtered
+     in parseTokens allTokensFilter info isStrict filtered
 
 runSearchMem :: Options -> FileType -> FilePath -> T.Text -> [T.Text] -> IO [Match]
 runSearchMem opt ft fname txt rawPatterns = do

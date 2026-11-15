@@ -26,8 +26,6 @@ import Control.Concurrent.MVar (MVar, newMVar)
 import Control.DeepSeq (NFData (..))
 import Control.Monad (forM, unless)
 import Control.Monad.Trans.Reader (runReaderT)
-import Data.Foldable (toList)
-import Data.Sequence (Seq)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Options (Options (..), defaultOptions)
@@ -105,13 +103,13 @@ forceTokens :: [Token] -> Int
 forceTokens = foldl' (\ !acc !t -> t `seq` (acc + 1)) 0
 {-# INLINE forceTokens #-}
 
--- | Strictly forces every Chunk in a Seq Chunk and returns count.
-forceChunksSeq :: Seq Chunk -> Int
+-- | Strictly forces every Chunk in a list and returns count.
+forceChunksSeq :: [Chunk] -> Int
 forceChunksSeq = foldl' (\ !acc !c -> c `seq` (acc + 1)) 0
 {-# INLINE forceChunksSeq #-}
 
--- | Strictly forces every Token in a Seq Token and returns count.
-forceTokensSeq :: Seq Token -> Int
+-- | Strictly forces every Token in a list and returns count.
+forceTokensSeq :: [Token] -> Int
 forceTokensSeq = foldl' (\ !acc !t -> t `seq` (acc + 1)) 0
 {-# INLINE forceTokensSeq #-}
 
@@ -200,7 +198,7 @@ loadCorpus = do
             ft = maybe rsExpectedFT fst info
             cf = mkContextFilterFn (Just ft) filt True
             filtered = cf txt
-            toks = toList $ parseTokens allTokensFilter (snd <$> info) False filtered
+            toks = parseTokens allTokensFilter (snd <$> info) False filtered
         pure
             CorpusEntry
                 { ceId = rsId

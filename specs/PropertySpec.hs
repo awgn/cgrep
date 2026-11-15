@@ -4,8 +4,22 @@ import CGrep.Common (ignoreCase, sliceToMaxIndex)
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.Line (buildIndex, getLineByNumber, totalLines)
-import CGrep.Parser.Chunk (pattern ChunkOperator)
-import CGrep.Parser.Token (tOffset, tToken, tTyp)
+import CGrep.Parser.Chunk (
+    cOffset,
+    cToken,
+    cTyp,
+    parseChunks,
+    parseChunksRef,
+    pattern ChunkOperator,
+ )
+import CGrep.Parser.Token (
+    TokenFilter (..),
+    parseTokens,
+    parseTokensRef,
+    tOffset,
+    tToken,
+    tTyp,
+ )
 import CGrep.Semantic.ContextFilter (
     contextBitComment,
     endLiteralMarker,
@@ -13,6 +27,7 @@ import CGrep.Semantic.ContextFilter (
     mkParConfig,
     runContextFilter,
     runContextFilterRef,
+    startLiteralMarker,
     (~!),
  )
 import CGrep.Semantic.Tests (filterTests)
@@ -44,6 +59,10 @@ propertyTests =
             [ testProperty "ContextFilter preserves exact UTF-8 Word8 length and newline count" prop_contextFilterByteLengthAndNewlines
             , localOption (QuickCheckTests 1000) $
                 testProperty "ContextFilter fast ST byte engine matches reference unfoldr byte-for-byte" prop_contextFilterMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "parseTokens fast unboxed lexer matches reference STRef+Seq lexer" prop_parseTokensMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "parseChunks fast unboxed lexer matches reference STRef+Seq lexer" prop_parseChunksMatchesReference
             , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
             , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
             , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
@@ -123,20 +142,31 @@ genAdversarialText = do
             , "ﬀ"
             , "🦀"
             , "🚀"
+            , T.singleton startLiteralMarker
+            , T.singleton endLiteralMarker
+            , T.pack [startLiteralMarker, endLiteralMarker]
+            , T.pack [startLiteralMarker, 'a', '€', endLiteralMarker]
             ]
 
 genSampleLang :: Gen FileType
 genSampleLang =
     elements
-        [ C
+        [ Agda
+        , C
+        , Clojure
         , Cpp
+        , Csharp
         , Rust
         , Python
         , Go
         , Haskell
+        , Html
+        , Julia
+        , Lisp
         , Lua
         , Coffee
         , SmallTalk
+        , Text
         , Toml
         , Java
         , Javascript
@@ -151,6 +181,17 @@ genSampleLang =
         , Elixir
         , Ruby
         ]
+
+genTokenFilter :: Gen TokenFilter
+genTokenFilter =
+    TokenFilter
+        <$> elements [False, True]
+        <*> elements [False, True]
+        <*> elements [False, True]
+        <*> elements [False, True]
+        <*> elements [False, True]
+        <*> elements [False, True]
+        <*> elements [False, True]
 
 genContextOptions :: Gen (Options, Bool)
 genContextOptions = do
@@ -265,3 +306,41 @@ prop_filterTestsDisjoint =
                 prodOffsets = Set.fromList (map tOffset (filterTests osp ft (Just False) toks))
                 testOffsets = Set.fromList (map tOffset (filterTests osp ft (Just True) toks))
              in Set.disjoint prodOffsets testOffsets === True
+
+prop_parseTokensMatchesReference :: Property
+prop_parseTokensMatchesReference =
+    forAll genSampleLang $ \ft ->
+        forAll genTokenFilter $ \tf ->
+            forAll (elements [False, True]) $ \isStrict ->
+                forAll (elements [False, True]) $ \preFilter ->
+                    forAll (elements ["", "🦀€//", "abc = 123\n"]) $ \slicePrefix ->
+                        forAll (elements ["", "\n\"\"\"", " + 42"]) $ \sliceSuffix ->
+                            forAll genAdversarialText $ \rawCore ->
+                                let core =
+                                        if preFilter
+                                            then filterSource ft defaultOptions True rawCore
+                                            else rawCore
+                                    full = slicePrefix <> core <> sliceSuffix
+                                    txt = T.take (T.length core) (T.drop (T.length slicePrefix) full)
+                                    fti = snd <$> lookupFTInfo ft
+                                    tokSig t = (tTyp t, tOffset t, tToken t)
+                                 in map tokSig (parseTokens tf fti isStrict txt)
+                                        === map tokSig (parseTokensRef tf fti isStrict txt)
+
+prop_parseChunksMatchesReference :: Property
+prop_parseChunksMatchesReference =
+    forAll genSampleLang $ \ft ->
+        forAll (elements [False, True]) $ \preFilter ->
+            forAll (elements ["", "🦀€//", "abc = 123\n"]) $ \slicePrefix ->
+                forAll (elements ["", "\n\"\"\"", " + 42"]) $ \sliceSuffix ->
+                    forAll genAdversarialText $ \rawCore ->
+                        let core =
+                                if preFilter
+                                    then filterSource ft defaultOptions False rawCore
+                                    else rawCore
+                            full = slicePrefix <> core <> sliceSuffix
+                            txt = T.take (T.length core) (T.drop (T.length slicePrefix) full)
+                            fti = snd <$> lookupFTInfo ft
+                            chunkSig c = (cTyp c, cOffset c, cToken c)
+                         in map chunkSig (parseChunks fti txt)
+                                === map chunkSig (parseChunksRef fti txt)

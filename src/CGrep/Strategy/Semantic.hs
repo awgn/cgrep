@@ -47,7 +47,6 @@ import CGrep.Text (textContainsOneOf, textIndices)
 import Control.Concurrent (MVar)
 import Control.Monad.Trans.Reader (ask)
 import Data.Coerce (coerce)
-import Data.Foldable (Foldable (toList))
 import Data.Function (on)
 import qualified Data.HashMap.Strict as HM
 import Data.List (sortBy)
@@ -90,7 +89,7 @@ search lock info filename text patterns strict = do
             Just fti -> HM.fromList [(T.toLower k, v) | (k, v) <- HM.toList (ftKeywords fti)]
 
     let patterns' = map (parseTokens pfilter (snd <$> info) strict . patContextFilter) patterns
-        rawAtoms = map (mkAtomsFromTokens . toList) patterns'
+        rawAtoms = map mkAtomsFromTokens patterns'
         patterns''
             | ignore_case opt && not (HM.null lcKeywords) = map (map (reclassifyAtom lcKeywords)) rawAtoms
             | otherwise = rawAtoms
@@ -116,7 +115,7 @@ search lock info filename text patterns strict = do
                 | canSlice = sliceToMaxIndex indices' text''
                 | otherwise = text''
 
-        let tokens = toList $ parseTokens pfilter (snd <$> info) strict textToParse
+        let tokens = parseTokens pfilter (snd <$> info) strict textToParse
         putMessageLnVerb 3 lock stderr $ "indices   : " <> show indices'
 
         -- get matching tokens ...

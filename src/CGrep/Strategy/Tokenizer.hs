@@ -66,7 +66,6 @@ import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
-import Util (mapMaybe')
 
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info filename text patterns strict = do
@@ -111,19 +110,12 @@ search lock info filename text patterns strict = do
 
             -- filter tokens and make chunks
 
-            chunks = mapMaybe' (tokenizerFilter opt patterns) tokens
+            chunks = coerce (filter (tokenPredicate opt patterns) tokens) :: [Chunk]
 
         putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
         putMessageLnVerb 2 lock stderr $ "matches   : " <> show chunks
 
         mkMatches lindex filename text'' chunks
-
-tokenizerFilter :: Options -> [T.Text] -> Token -> Maybe Chunk
-tokenizerFilter opt patterns token
-    | isTokenUnspecified token = Nothing
-    | tokenPredicate opt patterns token = Just $ coerce token
-    | otherwise = Nothing
-{-# INLINE tokenizerFilter #-}
 
 tokenPredicate :: Options -> [T.Text] -> Token -> Bool
 tokenPredicate opt patterns token

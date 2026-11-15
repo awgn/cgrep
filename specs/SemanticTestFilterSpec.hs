@@ -8,7 +8,6 @@ import CGrep.Parser.Chunk (parseChunks)
 import Config (defaultConfig)
 import Control.Monad (forM_, unless)
 import Control.Monad.Trans.Reader (runReaderT)
-import Data.Foldable (toList)
 import Data.List (sort)
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -254,7 +253,7 @@ crossStrategyAndAllLanguagesTests =
             assertBool "expected >= 60 file types" (length allFTs >= 60)
             forM_ allFTs $ \ft -> do
                 let toks = lexSource ft defaultOptions{code = True} False sample
-                    chunks = toList $ parseChunks (snd <$> lookupFTInfo ft) sample
+                    chunks = parseChunks (snd <$> lookupFTInfo ft) sample
                 assertBool (show ft <> " token offsets valid") (all (\_ -> True) toks && length chunks >= 0)
                 ms1 <- runSearchMem defaultOptions{semantic = True, tests = Just False} ft "sample" sample ["target_ident"]
                 ms2 <- runSearchMem defaultOptions{semantic = True, ignore_case = True, tests = Just True} ft "sample" sample ["TARGET_IDENT"]

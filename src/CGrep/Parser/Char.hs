@@ -74,11 +74,22 @@ chr i@(I# i#)
 {-# INLINE chr #-}
 
 isBracket' :: Char -> Bool
-isBracket' c = c `elem` ("[]{}()" :: String)
+isBracket' = \case
+    '(' -> True
+    ')' -> True
+    '[' -> True
+    ']' -> True
+    '{' -> True
+    '}' -> True
+    _ -> False
 {-# INLINE isBracket' #-}
 
 isPunctuation :: Char -> Bool
-isPunctuation c = c `elem` (";,." :: String)
+isPunctuation = \case
+    ';' -> True
+    ',' -> True
+    '.' -> True
+    _ -> False
 {-# INLINE isPunctuation #-}
 
 isDigit :: Char -> Bool
@@ -104,7 +115,7 @@ isHexDigit c =
 {-# INLINE isHexDigit #-}
 
 isCharNumber :: Char -> Bool
-isCharNumber c = isHexDigit c || c `elem` (".xX" :: String)
+isCharNumber c = isHexDigit c || c == '.' || c == 'x' || c == 'X'
 {-# INLINE isCharNumber #-}
 
 isAlphaNum :: Char -> Bool
@@ -184,12 +195,27 @@ isClojureIdentStart :: Char -> Bool
 isClojureIdentStart c
     | ord c <= 32 = False
     | isSpace c = False
-    | isClojureDelimiter c = False
+    | isClojureExcluded c = False
     | isDigit c = False
-    | c `elem` ("#:" :: String) = False
     | otherwise = True
   where
-    isClojureDelimiter x = x `elem` ("()[]{}@;~`'\"\\" :: String)
+    isClojureExcluded = \case
+        '(' -> True
+        ')' -> True
+        '[' -> True
+        ']' -> True
+        '{' -> True
+        '}' -> True
+        '@' -> True
+        ';' -> True
+        '~' -> True
+        '`' -> True
+        '\'' -> True
+        '"' -> True
+        '\\' -> True
+        '#' -> True
+        ':' -> True
+        _ -> False
 {-# INLINE isClojureIdentStart #-}
 
 isClojureIdentCont :: Char -> Bool
@@ -273,7 +299,31 @@ isLispIdent :: Char -> Bool
 isLispIdent c =
     isAsciiLower c
         || isDigit c
-        || c `elem` ("-+*/@$%^&_=<>~!?[]{}" :: String)
+        || isLispSymbol c
+  where
+    isLispSymbol = \case
+        '-' -> True
+        '+' -> True
+        '*' -> True
+        '/' -> True
+        '@' -> True
+        '$' -> True
+        '%' -> True
+        '^' -> True
+        '&' -> True
+        '_' -> True
+        '=' -> True
+        '<' -> True
+        '>' -> True
+        '~' -> True
+        '!' -> True
+        '?' -> True
+        '[' -> True
+        ']' -> True
+        '{' -> True
+        '}' -> True
+        _ -> False
+{-# INLINE isLispIdent #-}
 
 isUnicodeXIDStart_ :: Char -> Bool
 isUnicodeXIDStart_ x = x == '_' || isXIDStart x
@@ -306,5 +356,16 @@ isUnicodeNumXIDCont_ c = c == '_' || isXIDContinue c
 {-# INLINE isUnicodeNumXIDCont_ #-}
 
 isAgdaIdent :: Char -> Bool
-isAgdaIdent c = ord c > 32 && not (isSpace c) && not (c `elem` ("@.(){};_" :: String))
+isAgdaIdent c = ord c > 32 && not (isSpace c) && not (isAgdaExcluded c)
+  where
+    isAgdaExcluded = \case
+        '@' -> True
+        '.' -> True
+        '(' -> True
+        ')' -> True
+        '{' -> True
+        '}' -> True
+        ';' -> True
+        '_' -> True
+        _ -> False
 {-# INLINE isAgdaIdent #-}

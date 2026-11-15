@@ -1,7 +1,8 @@
 module ParserTokenAtomSpec (parserTokenAtomTests) where
 
-import CGrep.Common (sliceToMaxIndex)
+import CGrep.Common (getTargetContents, sliceToMaxIndex)
 import CGrep.FileType (FileType (..))
+import CGrep.FileTypeMapTH (fileTypeInfoLookup, mkContextFilterFn)
 import CGrep.Line (
     buildIndex,
     getLineByNumber,
@@ -17,21 +18,38 @@ import CGrep.Parser.Atom (
 import CGrep.Parser.Chunk (
     Chunk (..),
     ChunkType,
+    cOffset,
     parseChunks,
+    parseChunksRef,
     pattern ChunkBracket,
     pattern ChunkDigit,
     pattern ChunkIdentifier,
     pattern ChunkOperator,
     pattern ChunkString,
  )
-import CGrep.Parser.Token (parseTokens, tOffset, tToken, tTyp)
-import CGrep.Semantic.ContextFilter (endLiteralMarker, startLiteralMarker)
+import CGrep.Parser.Token (
+    TokenFilter (..),
+    parseTokens,
+    parseTokensRef,
+    tOffset,
+    tToken,
+    tTyp,
+ )
+import CGrep.Semantic.ContextFilter (
+    contextBitComment,
+    contextFilterAll,
+    endLiteralMarker,
+    startLiteralMarker,
+    (~!),
+ )
 import CGrep.Text (firstIndex, textIndices)
-import Data.Foldable (toList)
-import qualified Data.Sequence as Seq
+import Control.Monad (forM_, when)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..), defaultOptions)
+import System.Directory (doesDirectoryExist, listDirectory)
+import System.FilePath ((</>))
+import System.OsPath (unsafeEncodeUtf)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertBool, assertFailure, testCase, (@?=))
 import TestHelpers (
@@ -50,17 +68,18 @@ parserTokenAtomTests =
         [ tokenLexerEdgeCases
         , atomMatcherEdgeCases
         , lineAndSliceUtf8EdgeCases
+        , corpusLexerEquivalenceTests
         ]
 
 tokenLexerEdgeCases :: TestTree
 tokenLexerEdgeCases =
     testGroup
         "Token lexer (CGrep.Parser.Token) edge cases"
-        [ testCase "Empty and whitespace-only inputs yield Seq.empty (no phantom -1 token)" $ do
+        [ testCase "Empty and whitespace-only inputs yield [] (no phantom -1 token)" $ do
             let info = snd <$> lookupFTInfo C
-            parseTokens allTokensFilter info False "" @?= Seq.empty
-            parseTokens allTokensFilter info True "" @?= Seq.empty
-            parseTokens allTokensFilter info False "   \n\t  \r\n " @?= Seq.empty
+            parseTokens allTokensFilter info False "" @?= []
+            parseTokens allTokensFilter info True "" @?= []
+            parseTokens allTokensFilter info False "   \n\t  \r\n " @?= []
         , testCase "Empty string literals \"\" and '' produce valid non-negative byte offsets on exact line" $ do
             let src = "int a = 1;\nint b = 2;\nconst char *s = \"\";\n"
                 toks = lexSource C defaultOptions False src
@@ -120,7 +139,7 @@ atomMatcherEdgeCases =
             textIndices ["", "world"] "hello world" @?= [[], [6]]
             firstIndex "" "hello world" @?= Nothing
         , testCase "Empty string semantic pattern (-S '\"\"') matches only empty string literals" $ do
-            let patToks = toList $ parseTokens allTokensFilter (snd <$> lookupFTInfo C) False (T.pack [startLiteralMarker, endLiteralMarker])
+            let patToks = parseTokens allTokensFilter (snd <$> lookupFTInfo C) False (T.pack [startLiteralMarker, endLiteralMarker])
                 atoms = mkAtomsFromTokens patToks
             extractAtomMatchers atoms @?= []
             let src = "a = \"hello\"\nb = \"\"\nc = \"world\"\n"
@@ -180,7 +199,7 @@ atomMatcherEdgeCases =
                     , (ChunkIdentifier, "field")
                     , (ChunkOperator, ";")
                     ]
-            let chunks = toList $ parseChunks (snd <$> lookupFTInfo C) "x = .5 + s.field;"
+            let chunks = parseChunks (snd <$> lookupFTInfo C) "x = .5 + s.field;"
             map cToken chunks @?= ["x", "=", ".5", "+", "s", ".", "field", ";"]
         ]
 
@@ -235,4 +254,45 @@ lineAndSliceUtf8EdgeCases =
             matchLines msInv @?= ["int a = 1; // keep comment", "int c = 3;"]
             msEmptyInv <- runSearchMem defaultOptions{invert_match = True} C "empty.c" "" ["anything"]
             msEmptyInv @?= []
+        ]
+
+corpusLexerEquivalenceTests :: TestTree
+corpusLexerEquivalenceTests =
+    testGroup
+        "Real-world 31-file corpus equivalence for parseTokens and parseChunks"
+        [ testCase "All 31 open-source corpus files match parseTokensRef & parseChunksRef on type, Word8 offset, and slice" $ do
+            let dir = "bench" </> "corpus"
+            exists <- doesDirectoryExist dir
+            assertBool "bench/corpus directory must exist" exists
+            files <- filter (/= "SOURCES.md") <$> listDirectory dir
+            assertBool "expected at least 31 corpus files" (length files >= 31)
+            let identOnlyFilter = TokenFilter True False False False False False False
+                kwStrFilter = TokenFilter False True True True False False False
+                tfilters :: [(String, TokenFilter)]
+                tfilters =
+                    [ ("allTokens", allTokensFilter)
+                    , ("identOnly", identOnlyFilter)
+                    , ("kwAndString", kwStrFilter)
+                    ]
+                tokSig t = (tTyp t, tOffset t, tToken t)
+                chunkSig c = (cTyp c, cOffset c, cToken c)
+            forM_ files $ \fname -> do
+                let relPath = dir </> fname
+                    osp = unsafeEncodeUtf relPath
+                txt <- getTargetContents osp
+                let info = fileTypeInfoLookup defaultOptions osp
+                    fti = snd <$> info
+                    cf = mkContextFilterFn (fst <$> info) (contextFilterAll ~! contextBitComment) True
+                    filtered = cf txt
+                    fastChunks = map chunkSig (parseChunks fti filtered)
+                    refChunks = map chunkSig (parseChunksRef fti filtered)
+                when (fastChunks /= refChunks) $
+                    assertFailure ("parseChunks mismatch in " <> fname)
+                forM_ ([False, True] :: [Bool]) $ \isStrict ->
+                    forM_ tfilters $ \(label, tf) -> do
+                        let fastToks = map tokSig (parseTokens tf fti isStrict filtered)
+                            refToks = map tokSig (parseTokensRef tf fti isStrict filtered)
+                        when (fastToks /= refToks) $
+                            assertFailure
+                                ("parseTokens mismatch in " <> fname <> " (" <> label <> ", strict=" <> show isStrict <> ")")
         ]
