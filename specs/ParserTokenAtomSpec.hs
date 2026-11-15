@@ -1,12 +1,14 @@
 module ParserTokenAtomSpec (parserTokenAtomTests) where
 
-import CGrep.Common (getTargetContents, sliceToMaxIndex)
+import CGrep.Common (getTargetContents, ignoreCase, ignoreCaseRef, sliceToMaxIndex)
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMapTH (fileTypeInfoLookup, mkContextFilterFn)
 import CGrep.Line (
     buildIndex,
     getLineByNumber,
     getLineByOffset',
+    getLineOffsets,
+    getLineOffsetsRef,
     lookupLineAndPosition,
     totalLines,
  )
@@ -42,7 +44,7 @@ import CGrep.Semantic.ContextFilter (
     startLiteralMarker,
     (~!),
  )
-import CGrep.Text (firstIndex, textIndices)
+import CGrep.Text (firstIndex, textIndices, textIndicesRef)
 import Control.Monad (forM_, when)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
@@ -288,6 +290,15 @@ corpusLexerEquivalenceTests =
                     refChunks = map chunkSig (parseChunksRef fti filtered)
                 when (fastChunks /= refChunks) $
                     assertFailure ("parseChunks mismatch in " <> fname)
+                when (getLineOffsets txt /= getLineOffsetsRef txt) $
+                    assertFailure ("getLineOffsets mismatch in " <> fname)
+                let optIC = defaultOptions{ignore_case = True}
+                when (ignoreCase optIC txt /= ignoreCaseRef optIC txt) $
+                    assertFailure ("ignoreCase mismatch in " <> fname)
+                let probeNeedles :: [T.Text]
+                    probeNeedles = ["\n", "a", "if", "return", "==", "__cgrep_absent__"]
+                when (textIndices probeNeedles txt /= textIndicesRef probeNeedles txt) $
+                    assertFailure ("textIndices mismatch in " <> fname)
                 forM_ ([False, True] :: [Bool]) $ \isStrict ->
                     forM_ tfilters $ \(label, tf) -> do
                         let fastToks = map tokSig (parseTokens tf fti isStrict filtered)

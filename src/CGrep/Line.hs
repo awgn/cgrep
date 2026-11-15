@@ -19,29 +19,46 @@
 module CGrep.Line (
     LineIndex,
     buildIndex,
+    buildIndexRef,
+    lineOffsetsOf,
     totalLines,
     lookupLineAndPosition,
     getLineByOffset',
     getLineByNumber,
+    sliceLineAt,
     ------------------------
     getLineOffsets,
+    getLineOffsetsRef,
     getLineByOffset,
     lowerBound,
 ) where
 
 import CGrep.Text (textSlice)
-import Data.Bits
+import Control.Monad.ST (runST)
+import Data.Bits (unsafeShiftL, unsafeShiftR)
 import qualified Data.Text as T
-import qualified Data.Text.Internal.Search as T
+import qualified Data.Text.Array as A
+import qualified Data.Text.Internal as TI
+import Data.Text.Internal.ArrayUtils (memchr)
+import qualified Data.Text.Internal.Search as TIS
 import qualified Data.Text.Unsafe as TU
 import qualified Data.Vector.Unboxed as UV
+import qualified Data.Vector.Unboxed.Mutable as UMV
+import Data.Word (Word8)
 
--- A LineIndex holds the original text and a vector of line start offsets.
+newlineByte :: Word8
+newlineByte = 10
+
+-- A LineIndex holds the original text and a (lazily evaluated) vector of 0-based line start Word8 offsets.
 data LineIndex
     = LineIndex
         T.Text
-        (UV.Vector (Int))
+        (UV.Vector Int)
     deriving stock (Show)
+
+lineOffsetsOf :: LineIndex -> UV.Vector Int
+lineOffsetsOf (LineIndex _ vec) = vec
+{-# INLINE lineOffsetsOf #-}
 
 totalLines :: LineIndex -> Int
 totalLines (LineIndex txt vec)
@@ -57,10 +74,15 @@ getLineByNumber lindex@(LineIndex _ vec) !lineNum
     | otherwise = getLineByOffset' lindex (vec `UV.unsafeIndex` (lineNum - 1))
 {-# INLINE getLineByNumber #-}
 
--- | Build a LineIndex from the given Text.
+-- | Build a LineIndex from the given Text using SIMD memchr directly into an unboxed Vector.
 buildIndex :: T.Text -> LineIndex
-buildIndex txt = LineIndex txt $ UV.fromList $ 0 : (map (+ 1) $ T.indices (T.singleton '\n') txt)
+buildIndex txt = LineIndex txt (getLineOffsets txt)
 {-# INLINE buildIndex #-}
+
+-- | Reference LineIndex builder retained for differential testing.
+buildIndexRef :: T.Text -> LineIndex
+buildIndexRef txt = LineIndex txt (getLineOffsetsRef txt)
+{-# INLINE buildIndexRef #-}
 
 -- | Given a LineIndex and a 0-based offset, return the (1-based) line number and column number.
 lookupLineAndPosition :: LineIndex -> Int -> (# Int, Int #)
@@ -77,12 +99,12 @@ lookupLineAndPosition (LineIndex _ vec) !queryOffset
                         !colNum = (queryOffset - lineStartOffset) + 1 -- 1-based
                      in (# lineNum, colNum #)
 
--- | Given a LineIndex and a 0-based offset, return the line Text.
-getLineByOffset' :: LineIndex -> Int -> T.Text
-getLineByOffset' (LineIndex originalText vec) !offset
+-- | Slice the line containing @relOffset@ from @txt@ in O(log L) using precomputed @vec@ offsets.
+sliceLineAt :: UV.Vector Int -> T.Text -> Int -> T.Text
+sliceLineAt vec txt !relOffset
     | UV.null vec = T.empty
     | otherwise =
-        let !lineIndex = findLineIndex vec offset
+        let !lineIndex = findLineIndex vec relOffset
          in if lineIndex < 0
                 then T.empty
                 else
@@ -90,12 +112,19 @@ getLineByOffset' (LineIndex originalText vec) !offset
                         !numLines = UV.length vec
                      in if lineIndex == numLines - 1
                             then
-                                let !len = TU.lengthWord8 originalText - offsetStart
-                                 in textSlice originalText offsetStart len
+                                let !len = TU.lengthWord8 txt - offsetStart
+                                 in textSlice txt offsetStart len
                             else
                                 let !offsetNext = vec `UV.unsafeIndex` (lineIndex + 1)
                                     !len = offsetNext - offsetStart - 1
-                                 in textSlice originalText offsetStart len
+                                 in textSlice txt offsetStart len
+{-# INLINE sliceLineAt #-}
+
+-- | Given a LineIndex and a 0-based offset, return the line Text.
+getLineByOffset' :: LineIndex -> Int -> T.Text
+getLineByOffset' (LineIndex originalText vec) !offset =
+    sliceLineAt vec originalText offset
+{-# INLINE getLineByOffset' #-}
 
 -- Binary search to find the greatest index i such that vec[i] <= v
 findLineIndex :: UV.Vector Int -> Int -> Int
@@ -110,7 +139,7 @@ findLineIndexGo vec v !left !right
         EQ -> mid
         GT -> findLineIndexGo vec v (mid + 1) right
   where
-    !mid = (left + right) `div` 2
+    !mid = left + ((right - left) `unsafeShiftR` 1)
     !midValue = vec `UV.unsafeIndex` mid
 
 --------------------------------------------------------------------------------------------
@@ -118,8 +147,35 @@ findLineIndexGo vec v !left !right
 --- >>> getLineOffsets "Hello ©\nWorld\nThis is a test\n"
 -- [0,9,15,30]
 getLineOffsets :: T.Text -> UV.Vector Int
-getLineOffsets txt = UV.fromList $ 0 : (map (+ 1) $ T.indices (T.singleton '\n') txt)
-{-# INLINE getLineOffsets #-}
+getLineOffsets (TI.Text (A.ByteArray arr#) srcOff byteLen)
+    | byteLen <= 0 = UV.singleton 0
+    | otherwise = runST $ do
+        let !endOff = srcOff + byteLen
+            !initCap = max 8 ((byteLen `unsafeShiftR` 5) + 4)
+        mvec0 <- UMV.unsafeNew initCap
+        UMV.unsafeWrite mvec0 0 0
+        let loop !scanIx !cnt !cap !mvec
+                | scanIx >= endOff = UV.unsafeFreeze (UMV.unsafeSlice 0 cnt mvec)
+                | otherwise =
+                    case memchr arr# scanIx (endOff - scanIx) newlineByte of
+                        -1 -> UV.unsafeFreeze (UMV.unsafeSlice 0 cnt mvec)
+                        relNl -> do
+                            let !nextLineAbs = scanIx + relNl + 1
+                                !relLineStart = nextLineAbs - srcOff
+                            if cnt < cap
+                                then do
+                                    UMV.unsafeWrite mvec cnt relLineStart
+                                    loop nextLineAbs (cnt + 1) cap mvec
+                                else do
+                                    let !newCap = cap `unsafeShiftL` 1
+                                    mvec' <- UMV.unsafeGrow mvec cap
+                                    UMV.unsafeWrite mvec' cnt relLineStart
+                                    loop nextLineAbs (cnt + 1) newCap mvec'
+        loop srcOff 1 initCap mvec0
+
+getLineOffsetsRef :: T.Text -> UV.Vector Int
+getLineOffsetsRef txt = UV.fromList $ 0 : (map (+ 1) $ TIS.indices (T.singleton '\n') txt)
+{-# INLINE getLineOffsetsRef #-}
 
 getLineByOffset :: Int -> T.Text -> UV.Vector Int -> (# T.Text, Int #)
 getLineByOffset off text vec = (# line, lb #)
@@ -142,5 +198,5 @@ lowerBoundGo vec v !left !right
     | midValue == v = midValue
     | otherwise = lowerBoundGo vec v (mid + 1) right
   where
-    !mid = left + ((right - left) `shiftR` 1)
+    !mid = left + ((right - left) `unsafeShiftR` 1)
     !midValue = vec `UV.unsafeIndex` mid

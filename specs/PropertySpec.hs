@@ -1,9 +1,9 @@
 module PropertySpec (propertyTests) where
 
-import CGrep.Common (ignoreCase, sliceToMaxIndex)
+import CGrep.Common (ignoreCase, ignoreCaseRef, sliceToMaxIndex)
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMap (FileTypeInfo (..))
-import CGrep.Line (buildIndex, getLineByNumber, totalLines)
+import CGrep.Line (buildIndex, getLineByNumber, getLineOffsets, getLineOffsetsRef, totalLines)
 import CGrep.Parser.Chunk (
     cOffset,
     cToken,
@@ -31,7 +31,7 @@ import CGrep.Semantic.ContextFilter (
     (~!),
  )
 import CGrep.Semantic.Tests (filterTests)
-import CGrep.Text (textIndices)
+import CGrep.Text (textIndices, textIndicesRef)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
@@ -63,6 +63,12 @@ propertyTests =
                 testProperty "parseTokens fast unboxed lexer matches reference STRef+Seq lexer" prop_parseTokensMatchesReference
             , localOption (QuickCheckTests 1000) $
                 testProperty "parseChunks fast unboxed lexer matches reference STRef+Seq lexer" prop_parseChunksMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "getLineOffsets SIMD memchr vector matches reference indices+fromList" prop_lineOffsetsMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "ignoreCase fast ASCII+ST engine matches reference T.map toLowerSameWidth" prop_ignoreCaseMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "textIndices fast memchr+bloom engine matches reference Data.Text.Internal.Search.indices" prop_textIndicesMatchesReference
             , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
             , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
             , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
@@ -135,8 +141,12 @@ genAdversarialText = do
             , "\x100000"
             , "©"
             , "αβ"
+            , "ΩΔ"
             , "İ"
             , "K"
+            , "ꙀꙂ"
+            , "\x10400"
+            , "HELLO_World"
             , "€"
             , "日本語"
             , "ﬀ"
@@ -344,3 +354,53 @@ prop_parseChunksMatchesReference =
                             chunkSig c = (cTyp c, cOffset c, cToken c)
                          in map chunkSig (parseChunks fti txt)
                                 === map chunkSig (parseChunksRef fti txt)
+
+prop_lineOffsetsMatchesReference :: Property
+prop_lineOffsetsMatchesReference =
+    forAll (elements ["", "\n", "a\nb\n", "🦀€\n"]) $ \slicePrefix ->
+        forAll (elements ["", "\n", "\nx\ny", "🦀"]) $ \sliceSuffix ->
+            forAll genAdversarialText $ \core ->
+                let full = slicePrefix <> core <> sliceSuffix
+                    txt = T.take (T.length core) (T.drop (T.length slicePrefix) full)
+                 in getLineOffsets txt === getLineOffsetsRef txt
+
+prop_ignoreCaseMatchesReference :: Property
+prop_ignoreCaseMatchesReference =
+    forAll (elements ["", "ABC🦀", "xyz\n"]) $ \slicePrefix ->
+        forAll (elements ["", "DEFΩ", "\n123"]) $ \sliceSuffix ->
+            forAll genAdversarialText $ \core ->
+                let full = slicePrefix <> core <> sliceSuffix
+                    txt = T.take (T.length core) (T.drop (T.length slicePrefix) full)
+                    optIC = defaultOptions{ignore_case = True}
+                 in ignoreCase optIC txt === ignoreCaseRef optIC txt
+
+prop_textIndicesMatchesReference :: Property
+prop_textIndicesMatchesReference =
+    forAll (elements ["", "foo\n", "🦀=="]) $ \slicePrefix ->
+        forAll (elements ["", "==foo", "\n🦀"]) $ \sliceSuffix ->
+            forAll (listOf genNeedle) $ \needles ->
+                forAll genAdversarialText $ \core ->
+                    let full = slicePrefix <> core <> sliceSuffix
+                        txt = T.take (T.length core) (T.drop (T.length slicePrefix) full)
+                     in textIndices needles txt === textIndicesRef needles txt
+  where
+    genNeedle :: Gen T.Text
+    genNeedle =
+        elements
+            [ ""
+            , " "
+            , "\n"
+            , "="
+            , "=="
+            , "!="
+            , "a"
+            , "aa"
+            , "aaa"
+            , "aba"
+            , "foo"
+            , "x_1"
+            , "€"
+            , "🦀"
+            , "🦀🚀"
+            , T.drop 1 "!foo"
+            ]

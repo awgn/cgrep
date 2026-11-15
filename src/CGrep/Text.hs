@@ -19,6 +19,7 @@
 module CGrep.Text (
     iterM,
     textIndices,
+    textIndicesRef,
     textSlice,
     textOffsetWord8,
     textContainsOneOf,
@@ -51,8 +52,12 @@ iterM txt f = go 0 (return ())
 {-# INLINE iterM #-}
 
 textIndices :: [T.Text] -> T.Text -> [[Int]]
-textIndices ps text = (\p -> if T.null p then [] else p `TIS.indices` text) <$> ps
+textIndices ps text = (`indicesFast` text) <$> ps
 {-# INLINE textIndices #-}
+
+textIndicesRef :: [T.Text] -> T.Text -> [[Int]]
+textIndicesRef ps text = (\p -> if T.null p then [] else p `TIS.indices` text) <$> ps
+{-# INLINE textIndicesRef #-}
 
 textContainsOneOf :: [T.Text] -> T.Text -> Bool
 textContainsOneOf [] _ = True
@@ -147,13 +152,71 @@ firstIndex' (TI.Text narr noff nlen) (TI.Text harr@(A.ByteArray harr#) hoff hlen
 {-# INLINE firstIndex' #-}
 
 scanOne :: Word8 -> T.Text -> Maybe Int
-scanOne c (TI.Text harr hoff hlen) = loop 0
-  where
-    loop !i
-        | i >= hlen = Nothing
-        | A.unsafeIndex harr (hoff + i) == c = Just i
-        | otherwise = loop (i + 1)
+scanOne !c (TI.Text (A.ByteArray harr#) hoff hlen)
+    | hlen <= 0 = Nothing
+    | otherwise =
+        case memchr harr# hoff hlen c of
+            -1 -> Nothing
+            rel -> Just rel
 {-# INLINE scanOne #-}
+
+scanAllOne :: Word8 -> T.Text -> [Int]
+scanAllOne !c (TI.Text (A.ByteArray harr#) hoff hlen) = go hoff
+  where
+    !end = hoff + hlen
+    go !cur
+        | cur >= end = []
+        | otherwise =
+            case memchr harr# cur (end - cur) c of
+                -1 -> []
+                rel ->
+                    let !hitAbs = cur + rel
+                     in (hitAbs - hoff) : go (hitAbs + 1)
+{-# INLINE scanAllOne #-}
+
+indicesFast :: T.Text -> T.Text -> [Int]
+indicesFast needle@(TI.Text narr noff nlen)
+    | nlen == 1 = scanAllOne (A.unsafeIndex narr noff)
+    | nlen <= 0 = const []
+    | otherwise = indicesFast' needle
+{-# INLINE indicesFast #-}
+
+indicesFast' :: T.Text -> T.Text -> [Int]
+indicesFast' (TI.Text narr noff nlen) (TI.Text harr@(A.ByteArray harr#) hoff hlen)
+    | hlen < nlen = []
+    | otherwise = loop (hoff + nlen)
+  where
+    !end = hoff + hlen
+    !nlast = nlen - 1
+    !z = nindex nlast
+    nindex k = A.unsafeIndex narr (noff + k)
+    buildTable !i !msk !skp
+        | i >= nlast = (msk .|. swizzle z) :* skp
+        | otherwise = buildTable (i + 1) (msk .|. swizzle c) skp'
+      where
+        !c = nindex i
+        skp'
+            | c == z = nlen - i - 2
+            | otherwise = skp
+    !(mask :* skip) = buildTable 0 0 (nlen - 2)
+
+    swizzle :: Word8 -> Word64
+    swizzle !k = 1 `unsafeShiftL` (word8ToInt k .&. 0x3f)
+
+    loop !i
+        | i > end = []
+        | A.unsafeIndex harr (i - 1) == z =
+            if A.equal narr noff harr (i - nlen) nlen
+                then (i - nlen - hoff) : loop (i + nlen)
+                else loop (i + skip + 1)
+        | i == end = []
+        | mask .&. swizzle (A.unsafeIndex harr i) == 0 =
+            loop (i + nlen + 1)
+        | otherwise =
+            case memchr harr# i (end - i) z of
+                -1 -> []
+                x -> loop (i + x + 1)
+{-# INLINE indicesFast' #-}
 
 word8ToInt :: Word8 -> Int
 word8ToInt = fromIntegral

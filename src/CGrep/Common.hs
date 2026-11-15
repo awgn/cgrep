@@ -21,6 +21,7 @@ module CGrep.Common (
     getTargetName,
     getTargetContents,
     ignoreCase,
+    ignoreCaseRef,
     sliceToMaxIndex,
     trim,
     trimT,
@@ -33,14 +34,18 @@ import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Char (isSpace)
 import CGrep.Parser.Chunk (Chunk)
 import CGrep.Text (charUtf8Length, firstIndex)
-import Data.Char (toLower)
+import Control.Monad.ST (ST, runST)
+import Data.Bits (unsafeShiftR, (.&.), (.|.))
+import Data.Char (ord, toLower)
 import qualified Data.Text as T
+import qualified Data.Text.Array as A
 import qualified Data.Text.IO.Utf8 as TIO
+import qualified Data.Text.Internal as TI
 import qualified Data.Text.Unsafe as TU
+import Options (Options (..))
 import Reader (ReaderIO)
 import System.OsPath
 import qualified System.OsString as OS
-import Options (Options (..))
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -73,9 +78,84 @@ toLowerSameWidth c =
 
 ignoreCase :: Options -> T.Text -> T.Text
 ignoreCase opt
-    | ignore_case opt = T.map toLowerSameWidth
+    | ignore_case opt = ignoreCaseText
     | otherwise = id
 {-# INLINE ignoreCase #-}
+
+ignoreCaseRef :: Options -> T.Text -> T.Text
+ignoreCaseRef opt
+    | ignore_case opt = T.map toLowerSameWidth
+    | otherwise = id
+{-# INLINE ignoreCaseRef #-}
+
+ignoreCaseText :: T.Text -> T.Text
+ignoreCaseText txt@(TI.Text srcArr srcOff byteLen)
+    | byteLen <= 0 = T.empty
+    | otherwise =
+        case findFirstChange srcOff of
+            -1 -> txt
+            firstIx ->
+                let outArr = runST $ do
+                        marr <- A.new byteLen
+                        A.copyI byteLen marr 0 srcArr srcOff
+                        lowerLoop marr firstIx
+                        A.unsafeFreeze marr
+                 in TI.Text outArr 0 byteLen
+  where
+    !endOff = srcOff + byteLen
+
+    findFirstChange :: Int -> Int
+    findFirstChange !ix
+        | ix >= endOff = -1
+        | otherwise =
+            let !b = A.unsafeIndex srcArr ix
+             in if b < 0x80
+                    then
+                        if (b - 0x41) <= 25
+                            then ix
+                            else findFirstChange (ix + 1)
+                    else
+                        let TU.Iter !c !delta = TU.iter txt (ix - srcOff)
+                            !lc = toLower c
+                         in if lc /= c && charUtf8Length lc == delta
+                                then ix
+                                else findFirstChange (ix + delta)
+
+    lowerLoop :: forall s. A.MArray s -> Int -> ST s ()
+    lowerLoop !marr !ix
+        | ix >= endOff = pure ()
+        | otherwise =
+            let !b = A.unsafeIndex srcArr ix
+             in if b < 0x80
+                    then do
+                        if (b - 0x41) <= 25
+                            then A.unsafeWrite marr (ix - srcOff) (b .|. 0x20)
+                            else pure ()
+                        lowerLoop marr (ix + 1)
+                    else do
+                        let !relIx = ix - srcOff
+                            TU.Iter !c !delta = TU.iter txt relIx
+                            !lc = toLower c
+                        if lc /= c && charUtf8Length lc == delta
+                            then writeUtf8Multi marr relIx delta (ord lc)
+                            else pure ()
+                        lowerLoop marr (ix + delta)
+
+    writeUtf8Multi :: forall s. A.MArray s -> Int -> Int -> Int -> ST s ()
+    writeUtf8Multi !marr !dst !delta !cp =
+        case delta of
+            2 -> do
+                A.unsafeWrite marr dst (fromIntegral (0xC0 .|. (cp `unsafeShiftR` 6)))
+                A.unsafeWrite marr (dst + 1) (fromIntegral (0x80 .|. (cp .&. 0x3F)))
+            3 -> do
+                A.unsafeWrite marr dst (fromIntegral (0xE0 .|. (cp `unsafeShiftR` 12)))
+                A.unsafeWrite marr (dst + 1) (fromIntegral (0x80 .|. ((cp `unsafeShiftR` 6) .&. 0x3F)))
+                A.unsafeWrite marr (dst + 2) (fromIntegral (0x80 .|. (cp .&. 0x3F)))
+            _ -> do
+                A.unsafeWrite marr dst (fromIntegral (0xF0 .|. (cp `unsafeShiftR` 18)))
+                A.unsafeWrite marr (dst + 1) (fromIntegral (0x80 .|. ((cp `unsafeShiftR` 12) .&. 0x3F)))
+                A.unsafeWrite marr (dst + 2) (fromIntegral (0x80 .|. ((cp `unsafeShiftR` 6) .&. 0x3F)))
+                A.unsafeWrite marr (dst + 3) (fromIntegral (0x80 .|. (cp .&. 0x3F)))
 
 sliceToMaxIndex
  :: [[Int]] -> T.Text -> T.Text
