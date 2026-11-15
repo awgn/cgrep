@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE KindSignatures #-}
@@ -9,27 +10,27 @@ module CGrep.Semantic.Tests.Common (
     runLangFilter,
     inTestSuiteDir,
     areAdjacentTokens,
+    LineState (..),
+    initialLineState,
+    stepLineState,
+    advanceLineState,
     findOpeningBracketBounded,
     findOpeningBraceBounded,
     findOpeningBraceC,
     findOpeningBrace,
     processInsideBrackets,
     processInsideBraces,
-    extractJavaAnnotation,
-    isJavaTestAnnotation,
-    collectJavaAnnotations,
 ) where
 
 import CGrep.FileType (FileType (..))
 import CGrep.Parser.Token (
     Token,
     isTokenBracket,
-    isTokenIdentifier,
-    isTokenOperator,
     tToken,
  )
-import Data.Char (isAsciiLower)
+import Data.Bits (complement, (.&.))
 import qualified Data.Text as T
+import qualified Data.Text.Array as A
 import qualified Data.Text.Internal as TI
 import System.OsPath (OsPath, osp, splitDirectories, takeFileName)
 
@@ -61,6 +62,62 @@ areAdjacentTokens t1 t2 =
     case (tToken t1, tToken t2) of
         (TI.Text _ off1 len1, TI.Text _ off2 _) -> off1 + len1 == off2
 {-# INLINE areAdjacentTokens #-}
+
+-- | Tracks byte position and leading visual indentation column of the current line
+-- across the token stream in O(fileSize) total work with zero allocation.
+data LineState = LineState
+    { lsPrevEnd :: {-# UNPACK #-} !Int
+    , lsLineIndent :: {-# UNPACK #-} !Int
+    }
+
+initialLineState :: LineState
+initialLineState = LineState (-1) 0
+{-# INLINE initialLineState #-}
+
+-- | Advance 'LineState' to token @t@, returning @(isFirstTokenOnLine, lineIndentCol, nextState)@.
+stepLineState :: LineState -> Token -> (Bool, Int, LineState)
+stepLineState (LineState prevEnd prevIndent) t =
+    case tToken t of
+        TI.Text arr off len
+            | off >= 0 ->
+                let scanFloor = max 0 prevEnd
+                    nlIdx = findNewlineBack arr (off - 1) scanFloor
+                    !nextEnd = max prevEnd (off + len)
+                 in if prevEnd >= 0 && nlIdx < scanFloor
+                        then (False, prevIndent, LineState nextEnd prevIndent)
+                        else
+                            let !lineStart =
+                                    if nlIdx >= 0
+                                        then nlIdx + 1
+                                        else case findNewlineBack arr (off - 1) 0 of
+                                            k | k >= 0 -> k + 1
+                                            _ -> 0
+                                !col = computeVisualCol arr lineStart off 0
+                             in (True, col, LineState nextEnd col)
+        _ -> (False, prevIndent, LineState prevEnd prevIndent)
+  where
+    findNewlineBack :: A.Array -> Int -> Int -> Int
+    findNewlineBack !arr !i !low
+        | i < low = low - 1
+        | A.unsafeIndex arr i == 0x0A = i
+        | otherwise = findNewlineBack arr (i - 1) low
+
+    computeVisualCol :: A.Array -> Int -> Int -> Int -> Int
+    computeVisualCol !arr !j !limit !col
+        | j >= limit = col
+        | otherwise =
+            let !b = A.unsafeIndex arr j
+                !col'
+                    | b == 0x09 = (col + 4) .&. complement 3
+                    | b == 0x02 || b == 0x03 || b == 0x0D = col
+                    | (b .&. 0xC0) == 0x80 = col
+                    | otherwise = col + 1
+             in computeVisualCol arr (j + 1) limit col'
+{-# INLINE stepLineState #-}
+
+advanceLineState :: LineState -> [Token] -> LineState
+advanceLineState = foldl' (\ls tok -> let (_, _, ls') = stepLineState ls tok in ls')
+{-# INLINE advanceLineState #-}
 
 -- | Searches for an opening token (e.g., "{") within a lookahead limit.
 findOpeningBracketBounded :: T.Text -> Int -> [Token] -> Maybe ([Token], [Token])
@@ -151,55 +208,3 @@ processInsideBraces nestingLevel (t : ts)
     | otherwise =
         let (nestedInside, remaining) = processInsideBraces nestingLevel ts
          in (t : nestedInside, remaining)
-
--- | Shared Java/Kotlin annotation extractor (`@Foo.Bar(...)`)
-extractJavaAnnotation :: [Token] -> Maybe ([Token], [Token])
-extractJavaAnnotation (t1 : t2 : ts)
-    | isTokenOperator t1 && tToken t1 == "@" && isTokenIdentifier t2 =
-        let (pathTokens, rest) = collectDotPath ts
-         in case rest of
-                (t3 : ts')
-                    | isTokenBracket t3 && tToken t3 == "(" ->
-                        let (insideTokens, remaining) = processInsideBrackets "(" ")" 1 ts'
-                         in Just (t1 : t2 : pathTokens ++ t3 : insideTokens, remaining)
-                _ -> Just (t1 : t2 : pathTokens, rest)
-  where
-    collectDotPath (d : i : rest)
-        | isTokenOperator d && tToken d == "." && isTokenIdentifier i =
-            let (more, final) = collectDotPath rest
-             in (d : i : more, final)
-    collectDotPath rest = ([], rest)
-extractJavaAnnotation _ = Nothing
-
--- | Checks only the annotation name (excluding arguments inside `(...)`) to avoid
--- false positives when production annotations reference identifiers containing "Test"
--- or start with "Test" as part of a domain word like `@Testimonial`.
-isJavaTestAnnotation :: [Token] -> Bool
-isJavaTestAnnotation tokens =
-    let headerTokens = takeWhile (\t -> not (isTokenBracket t && tToken t == "(")) tokens
-        identTokens = filter isTokenIdentifier headerTokens
-     in any (isJavaTestAttrName . tToken) identTokens
-  where
-    isJavaTestAttrName n =
-        let prefixTestOk = case T.stripPrefix "Test" n of
-                Nothing -> False
-                Just rest -> case T.uncons rest of
-                    Nothing -> True
-                    Just (c, _) -> not (isAsciiLower c)
-         in prefixTestOk
-                || "Test" `T.isSuffixOf` n
-                || "Tests" `T.isSuffixOf` n
-                || "Before" `T.isPrefixOf` n
-                || "After" `T.isPrefixOf` n
-                || n == "Nested"
-                || n == "DataProvider"
-
-collectJavaAnnotations :: [Token] -> ([Token], Bool, [Token])
-collectJavaAnnotations = go [] False
-  where
-    go acc isTest remaining =
-        case extractJavaAnnotation remaining of
-            Just (attrTokens, rest) ->
-                let testAttr = isJavaTestAnnotation attrTokens
-                 in go (acc ++ attrTokens) (isTest || testAttr) rest
-            Nothing -> (acc, isTest, remaining)

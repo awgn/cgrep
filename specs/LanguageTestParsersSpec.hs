@@ -49,6 +49,7 @@ languageTestParsersTests =
         , scalaParserTests
         , swiftParserTests
         , zigParserTests
+        , structuralLexerTests
         ]
 
 bashParserTests :: TestTree
@@ -1508,3 +1509,137 @@ zigParserTests =
             matchLineNums tfProd @?= []
             matchLineNums tfTest @?= [1]
         ]
+
+structuralLexerTests :: TestTree
+structuralLexerTests =
+    testGroup
+        "Structural lexer & FileTypeMap improvements (S1-S10)"
+        [ testCase "S1 JS/TS: single-quoted strings with unbalanced '{' do not corrupt test blocks; .jsx/.mjs/.cjs/.mts/.cts map to Javascript" $ do
+            forM_Ext ["app.jsx", "esm.mjs", "cjs.cjs", "mod.mts", "mod.cts"] Javascript
+            let src =
+                    T.unlines
+                        [ "test('handles single-quoted { braces', () => {" -- 1 (test: '{' inside single-quoted string!)
+                        , "  const raw = 'still inside { string';" -- 2 (test: another '{' inside single-quoted string!)
+                        , "  return cgrep_marker;" -- 3 (test)
+                        , "});" -- 4 (test: closes test block cleanly!)
+                        , "function prodAfterSingleQuotes() {" -- 5 (prod: must NOT be swallowed by unclosed '{'!)
+                        , "  return cgrep_marker;" -- 6 (prod)
+                        , "}" -- 7
+                        ]
+            prodMs <- runSearchMem noTestsOpt Javascript "src/handler.ts" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt Javascript "src/handler.ts" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [6]
+            matchLineNums testMs @?= [3]
+        , testCase "S2 PHP 8: #[Test], #[DataProvider], #[\\PHPUnit\\Framework\\Attributes\\Before] vs # comments and #[Route('/test')]" $ do
+            forM_Ext ["check.phpt"] PHP
+            let src =
+                    T.unlines
+                        [ "<?php" -- 1
+                        , "# hash comment mentioning cgrep_marker" -- 2 (comment: stripped under code = True)
+                        , "class OrderController {" -- 3 (prod class)
+                        , "    #[Route('/api/test')]" -- 4 (prod attribute: 'test' is inside string arg, NOT attr name!)
+                        , "    public function index(): int { return cgrep_marker; }" -- 5 (prod)
+                        , "    #[\\PHPUnit\\Framework\\Attributes\\Before]" -- 6 (test: PHPUnit 10/11 lifecycle attribute)
+                        , "    public function seedFixture(): void { $x = cgrep_marker; }" -- 7 (test)
+                        , "    #[Test]" -- 8 (test: PHPUnit 10/11 #[Test] on method NOT starting with 'test'!)
+                        , "    #[DataProvider('orderCases')]" -- 9 (test)
+                        , "    public function calculates_vat(int $n): void { $y = cgrep_marker; }" -- 10 (test)
+                        , "}" -- 11
+                        ]
+            prodMs <- runSearchMem noTestsOpt{code = True} PHP "src/OrderController.php" src ["cgrep_marker"]
+            testMs <- runSearchMem onlyTestsOpt{code = True} PHP "src/OrderController.php" src ["cgrep_marker"]
+            matchLineNums prodMs @?= [5]
+            matchLineNums testMs @?= [7, 10]
+        , testCase "S3 Scala ('symbol + odd-quote \"\"\"), S4 Python (r\"...\\\"), S5 OCaml ({|...|}), S6 Zig (\\\\), S7 Elixir (\"\"\"), S8 D (/+ +/), S9 R (r\"(...)\")" $ do
+            -- S3: Scala 'symbol literal + triple-quoted string containing a single inner "
+            let scalaSrc =
+                    T.unlines
+                        [ "val sym = 'orderSymbol" -- 1 (prod: Scala symbol literal must NOT open unclosed string!)
+                        , "val doc = \"\"\"5\" inch\"\"\"" -- 2 (prod: odd inner quote inside triple-quoted raw string!)
+                        , "def prodFn(): Int = cgrep_marker" -- 3 (prod)
+                        , "@Test def checkSym(): Unit = { val s = 'testSym; assert(cgrep_marker == 1) }" -- 4 (test)
+                        ]
+            scProd <- runSearchMem noTestsOpt{code = True} Scala "Sym.scala" scalaSrc ["cgrep_marker"]
+            scTest <- runSearchMem onlyTestsOpt{code = True} Scala "Sym.scala" scalaSrc ["cgrep_marker"]
+            matchLineNums scProd @?= [3]
+            matchLineNums scTest @?= [4]
+            -- S4: Python r"C:\dir\" ending with backslash
+            let pySrc =
+                    T.unlines
+                        [ "def test_win_path():" -- 1 (test)
+                        , "    p = r\"C:\\temp\\\"" -- 2 (test: raw double-quoted string ending in backslash!)
+                        , "    q = R'C:\\logs\\'" -- 3 (test: uppercase R raw single-quoted string!)
+                        , "    assert p != q and cgrep_marker" -- 4 (test)
+                        , "def prod_after_raw():" -- 5 (prod: must NOT be swallowed by unclosed quote!)
+                        , "    return cgrep_marker" -- 6 (prod)
+                        ]
+            pyProd <- runSearchMem noTestsOpt{code = True} Python "paths.py" pySrc ["cgrep_marker"]
+            pyTest <- runSearchMem onlyTestsOpt{code = True} Python "paths.py" pySrc ["cgrep_marker"]
+            matchLineNums pyProd @?= [6]
+            matchLineNums pyTest @?= [4]
+            -- S5: OCaml {| ... |} standard quoted raw string with unbalanced "
+            let mlSrc =
+                    T.unlines
+                        [ "let%expect_test \"raw\" =" -- 1 (test)
+                        , "  print_endline {|unclosed \" quote|};" -- 2 (test: {| ... |} raw string)
+                        , "  ignore cgrep_marker" -- 3 (test)
+                        , "let prod_after_expect x = cgrep_marker" -- 4 (prod)
+                        ]
+            mlProd <- runSearchMem noTestsOpt{code = True} OCaml "raw.ml" mlSrc ["cgrep_marker"]
+            mlTest <- runSearchMem onlyTestsOpt{code = True} OCaml "raw.ml" mlSrc ["cgrep_marker"]
+            matchLineNums mlProd @?= [4]
+            matchLineNums mlTest @?= [3]
+            -- S6: Zig \\ multiline string with unbalanced " and }
+            let zigSrc =
+                    T.unlines
+                        [ "test \"zig multiline\" {" -- 1 (test)
+                        , "    const s = \\\\unbalanced \" and } in zig multiline" -- 2 (test)
+                        , "    ;" -- 3 (test)
+                        , "    _ = s;" -- 4 (test)
+                        , "    _ = cgrep_marker;" -- 5 (test: still inside test!)
+                        , "}" -- 6 (test)
+                        , "pub fn prodAfterZigRaw() i32 { return cgrep_marker; }" -- 7 (prod)
+                        ]
+            zgProd <- runSearchMem noTestsOpt{code = True} Zig "src/raw.zig" zigSrc ["cgrep_marker"]
+            zgTest <- runSearchMem onlyTestsOpt{code = True} Zig "src/raw.zig" zigSrc ["cgrep_marker"]
+            matchLineNums zgProd @?= [7]
+            matchLineNums zgTest @?= [5]
+            -- S7: Elixir """ heredoc with odd inner quote
+            let exSrc =
+                    T.unlines
+                        [ "defmodule Calc do" -- 1 (prod)
+                        , "  @doc \"\"\"" -- 2
+                        , "  5\" inch" -- 3 (odd quote inside heredoc!)
+                        , "  \"\"\"" -- 4
+                        , "  def run(), do: cgrep_marker" -- 5 (prod: must NOT be swallowed!)
+                        , "end" -- 6
+                        ]
+            exProd <- runSearchMem noTestsOpt{code = True} Elixir "lib/calc.ex" exSrc ["cgrep_marker"]
+            matchLineNums exProd @?= [5]
+            -- S8: D /+ ... +/ block comment
+            let dSrc =
+                    T.unlines
+                        [ "/+ comment hiding cgrep_marker +/" -- 1 (comment)
+                        , "int realProd() { return cgrep_marker; }" -- 2 (prod)
+                        ]
+            dProd <- runSearchMem noTestsOpt{code = True} D "mod.d" dSrc ["cgrep_marker"]
+            matchLineNums dProd @?= [2]
+            -- S9: R 4.0+ r"(C:\dir\)" raw string
+            let rSrc =
+                    T.unlines
+                        [ "test_that('win path', {" -- 1 (test)
+                        , "  p <- r\"(C:\\temp\\)\"" -- 2 (test: R 4.0+ raw string ending with backslash!)
+                        , "  expect_equal(p, cgrep_marker)" -- 3 (test)
+                        , "})" -- 4
+                        , "prod_fn <- function() cgrep_marker" -- 5 (prod)
+                        ]
+            rProd <- runSearchMem noTestsOpt{code = True} R "R/path.R" rSrc ["cgrep_marker"]
+            rTest <- runSearchMem onlyTestsOpt{code = True} R "R/path.R" rSrc ["cgrep_marker"]
+            matchLineNums rProd @?= [5]
+            matchLineNums rTest @?= [3]
+        ]
+  where
+    forM_Ext [] _ = pure ()
+    forM_Ext (p : ps) expectedFt = do
+        (fst <$> fileTypeLookup defaultOptions (unsafeEncodeUtf p)) @?= Just expectedFt
+        forM_Ext ps expectedFt

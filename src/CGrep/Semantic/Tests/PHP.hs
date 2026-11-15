@@ -45,29 +45,101 @@ isPhpTestFilePath path =
 isPestBlockFunction :: Text -> Bool
 isPestBlockFunction name =
     name
-        `elem` ([ "test"
-                , "it"
-                , "describe"
-                , "arch"
-                , "beforeEach"
-                , "afterEach"
-                , "beforeAll"
-                , "afterAll"
-                ] :: [Text])
+        `elem` ( [ "test"
+                 , "it"
+                 , "describe"
+                 , "arch"
+                 , "beforeEach"
+                 , "afterEach"
+                 , "beforeAll"
+                 , "afterAll"
+                 ] ::
+                    [Text]
+               )
+
+-- | PHP 8 attribute names for PHPUnit 10/11+ (`#[Test]`, `#[DataProvider('...')]`, `#[Before]`, etc.).
+isPhpUnitAttributeName :: Text -> Bool
+isPhpUnitAttributeName name =
+    name
+        `elem` ( [ "Test"
+                 , "TestWith"
+                 , "TestWithJson"
+                 , "DataProvider"
+                 , "DataProviderExternal"
+                 , "Before"
+                 , "BeforeClass"
+                 , "After"
+                 , "AfterClass"
+                 , "PreCondition"
+                 , "PostCondition"
+                 ] ::
+                    [Text]
+               )
+
+-- | Extract a single PHP 8 attribute block `#[Attr1(...), \PHPUnit\Framework\Attributes\Test]`,
+-- inspecting ONLY each attribute's namespace path before `(` so arguments like `#[Route('/api/test')]`
+-- are never misclassified as test attributes.
+extractPhpAttribute :: [Token] -> Maybe ([Token], Bool, [Token])
+extractPhpAttribute (tHash : tOpen : ts)
+    | isTokenOperator tHash && tToken tHash == "#"
+    , isTokenBracket tOpen && tToken tOpen == "["
+    , areAdjacentTokens tHash tOpen =
+        let (inside, remaining) = processInsideBrackets "[" "]" 1 ts
+            inner = dropClosingBracket inside
+            items = splitAttrCommas inner
+            isTest = any isPhpTestAttrItem items
+         in Just (tHash : tOpen : inside, isTest, remaining)
+  where
+    dropClosingBracket [] = []
+    dropClosingBracket [t] | isTokenBracket t && tToken t == "]" = []
+    dropClosingBracket (t : rest) = t : dropClosingBracket rest
+
+    splitAttrCommas = filter (not . null) . finish . go (0 :: Int) [] []
+      where
+        finish (cur, acc) = reverse (reverse cur : acc)
+        go _ cur acc [] = (cur, acc)
+        go depth cur acc (t : rest)
+            | isTokenBracket t && (tToken t == "(" || tToken t == "[" || tToken t == "{") =
+                go (depth + 1) (t : cur) acc rest
+            | isTokenBracket t && (tToken t == ")" || tToken t == "]" || tToken t == "}") =
+                go (max 0 (depth - 1)) (t : cur) acc rest
+            | depth == 0 && tToken t == "," =
+                go 0 [] (reverse cur : acc) rest
+            | otherwise =
+                go depth (t : cur) acc rest
+
+    isPhpTestAttrItem toks =
+        let pathToks = takeWhile (\t -> not (isTokenBracket t && tToken t == "(")) toks
+            identToks = filter isTokenIdentifier pathToks
+         in case reverse identToks of
+                (lastIdent : _) -> isPhpUnitAttributeName (tToken lastIdent)
+                [] -> False
+extractPhpAttribute _ = Nothing
+
+collectPhpAttributes :: [Token] -> ([Token], Bool, [Token])
+collectPhpAttributes = go [] False
+  where
+    go acc isTest remaining =
+        case extractPhpAttribute remaining of
+            Just (attrToks, attrIsTest, rest) ->
+                go (acc ++ attrToks) (isTest || attrIsTest) rest
+            Nothing -> (acc, isTest, remaining)
 
 -- | PHP declaration modifiers that can precede `class` or `function`.
 isPhpModifier :: Token -> Bool
 isPhpModifier t =
     (isTokenKeyword t || isTokenIdentifier t)
         && tToken t
-            `elem` ([ "public"
-                    , "protected"
-                    , "private"
-                    , "static"
-                    , "final"
-                    , "readonly"
-                    , "abstract"
-                    ] :: [Text])
+            `elem` ( [ "public"
+                     , "protected"
+                     , "private"
+                     , "static"
+                     , "final"
+                     , "readonly"
+                     , "abstract"
+                     ] ::
+                        [Text]
+                   )
 
 collectPhpModifiers :: [Token] -> ([Token], [Token])
 collectPhpModifiers (t : ts)
@@ -121,10 +193,7 @@ consumePestChain (tArrow : tMethod : rest)
                  in (tArrow : tMethod : moreChain, final)
 consumePestChain ts = ([], ts)
 
--- | Check if a PHP function/method is a PHPUnit test or lifecycle method.
--- Bare `function test(...)` with parameters (e.g. `RegexRule::test(string $s)`) is rejected
--- so domain validation methods are not misclassified as tests; `testXxx` / `test_xxx` / `test1`
--- and 0-arg `function test()` are accepted.
+-- | Check if a PHP function/method is a PHPUnit test or lifecycle method by name.
 isPhpTestMethod :: Token -> [Token] -> Bool
 isPhpTestMethod nameTok afterName
     | name `elem` (["setUp", "tearDown", "setUpBeforeClass", "tearDownAfterClass"] :: [Text]) = True
@@ -197,7 +266,17 @@ isPestCandidateName :: Text -> Bool
 isPestCandidateName name =
     isPestBlockFunction name || name `elem` (["todo", "dataset", "uses"] :: [Text])
 
--- | Matches a PHP test `class` or `function` (after optional leading modifiers).
+-- | Matches any braced PHP `function` or `class` (used when `#[Test]` / `#[Before]` / etc. is present!).
+matchAnyPhpDecl :: [Token] -> Maybe ([Token], [Token])
+matchAnyPhpDecl (tKw : tName : ts)
+    | (isTokenKeyword tKw || isTokenIdentifier tKw) && (tToken tKw == "function" || tToken tKw == "class")
+    , isTokenIdentifier tName = do
+        (signatureTokens, tokensAfterBrace) <- findOpeningBraceC 200 ts
+        let (bodyTokens, remainingTokens) = processInsideBrackets "{" "}" 1 tokensAfterBrace
+        Just (tKw : tName : signatureTokens ++ bodyTokens, remainingTokens)
+matchAnyPhpDecl _ = Nothing
+
+-- | Matches a PHP test `class` or `function` by naming/inheritance convention.
 matchPhpDeclAfterMods :: [Token] -> Maybe ([Token], [Token])
 matchPhpDeclAfterMods (tKw : tName : ts)
     | (isTokenKeyword tKw || isTokenIdentifier tKw) && tToken tKw == "function"
@@ -225,19 +304,25 @@ processOutsidePHP keepTests False (t1 : t2 : ts)
         if keepTests
             then t1 : t2 : bodyTokens ++ chainTokens ++ processOutsidePHP keepTests False remainingTokens
             else processOutsidePHP keepTests False remainingTokens
--- Pattern 2: Leading modifiers (`final`, `readonly`, `public`, `static`, ...) before `class` or `function`
-processOutsidePHP keepTests _ allToks@(t0 : _)
-    | isPhpModifier t0 =
-        let (modToks, afterMods) = collectPhpModifiers allToks
-         in case matchPhpDeclAfterMods afterMods of
+-- Pattern 2: Leading PHP 8 attributes (`#[...]`) and/or modifiers (`final`, `readonly`, `public`, `static`, ...)
+processOutsidePHP keepTests _ allToks
+    | let (attrToks, hasTestAttr, afterAttrs) = collectPhpAttributes allToks
+    , let (modToks, afterMods) = collectPhpModifiers afterAttrs
+    , not (null attrToks) || not (null modToks) =
+        let prefixToks = attrToks ++ modToks
+            matchedDecl =
+                if hasTestAttr
+                    then matchAnyPhpDecl afterMods
+                    else matchPhpDeclAfterMods afterMods
+         in case matchedDecl of
                 Just (declToks, remainingTokens) ->
                     if keepTests
-                        then modToks ++ declToks ++ processOutsidePHP keepTests False remainingTokens
+                        then prefixToks ++ declToks ++ processOutsidePHP keepTests False remainingTokens
                         else processOutsidePHP keepTests False remainingTokens
                 Nothing ->
                     if keepTests
                         then processOutsidePHP keepTests False afterMods
-                        else modToks ++ processOutsidePHP keepTests False afterMods
+                        else prefixToks ++ processOutsidePHP keepTests False afterMods
 -- Pattern 3: Unmodified `function test*` or `class *Test`
 processOutsidePHP keepTests _ allToks
     | Just (declToks, remainingTokens) <- matchPhpDeclAfterMods allToks =

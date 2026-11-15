@@ -19,11 +19,8 @@ import CGrep.Parser.Token (
     tToken,
  )
 import CGrep.Semantic.Tests.Common
-import Data.Bits (complement, (.&.))
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Array as A
-import qualified Data.Text.Internal as TI
 import System.OsPath (OsPath, osp, splitDirectories, takeExtension, takeFileName)
 import qualified System.OsString as OS
 
@@ -51,56 +48,6 @@ isScalaTestFilePath path =
             True
         | otherwise = hasScalaTestSourceSet (d2 : rest)
     hasScalaTestSourceSet _ = False
-
-data LineState = LineState
-    { lsPrevEnd :: {-# UNPACK #-} !Int
-    , lsLineIndent :: {-# UNPACK #-} !Int
-    }
-
-initialLineState :: LineState
-initialLineState = LineState (-1) 0
-
-stepLineState :: LineState -> Token -> (Bool, Int, LineState)
-stepLineState (LineState prevEnd prevIndent) t =
-    case tToken t of
-        TI.Text arr off len
-            | off >= 0 ->
-                let scanFloor = max 0 prevEnd
-                    nlIdx = findNewlineBack arr (off - 1) scanFloor
-                    !nextEnd = max prevEnd (off + len)
-                 in if prevEnd >= 0 && nlIdx < scanFloor
-                        then (False, prevIndent, LineState nextEnd prevIndent)
-                        else
-                            let !lineStart =
-                                    if nlIdx >= 0
-                                        then nlIdx + 1
-                                        else case findNewlineBack arr (off - 1) 0 of
-                                            k | k >= 0 -> k + 1
-                                            _ -> 0
-                                !col = computeVisualCol arr lineStart off 0
-                             in (True, col, LineState nextEnd col)
-        _ -> (False, prevIndent, LineState prevEnd prevIndent)
-  where
-    findNewlineBack :: A.Array -> Int -> Int -> Int
-    findNewlineBack !arr !i !low
-        | i < low = low - 1
-        | A.unsafeIndex arr i == 0x0A = i
-        | otherwise = findNewlineBack arr (i - 1) low
-
-    computeVisualCol :: A.Array -> Int -> Int -> Int -> Int
-    computeVisualCol !arr !j !limit !col
-        | j >= limit = col
-        | otherwise =
-            let !b = A.unsafeIndex arr j
-                !col'
-                    | b == 0x09 = (col + 4) .&. complement 3
-                    | b == 0x02 || b == 0x03 || b == 0x0D = col
-                    | (b .&. 0xC0) == 0x80 = col
-                    | otherwise = col + 1
-             in computeVisualCol arr (j + 1) limit col'
-
-advanceLineState :: LineState -> [Token] -> LineState
-advanceLineState = foldl' (\ls tok -> let (_, _, ls') = stepLineState ls tok in ls')
 
 -- | Precise JUnit / MUnit / TestNG annotation names in Scala.
 -- Rejects MapStruct `@BeforeMapping`, Spring `@AfterReturning`, and generic `@Validator[Test]`.

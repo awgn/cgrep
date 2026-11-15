@@ -1082,7 +1082,7 @@ fileTypeInfoMap =
                     , FileTypeInfo
                         { ftSelector = [ext ".d", ext ".D", hdr ".di"]
                         , ftKind = KindLanguage
-                        , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
+                        , ftComment = ["/*" ~~ "*/", "/+" ~~ "+/", "//" ~~ "\n"]
                         , ftChar = ["'" ~~ "'"]
                         , ftString = ["\"" ~~ "\""]
                         , ftRawString = ["r\"" ~~ "\"", "`" ~~ "`"]
@@ -1316,7 +1316,7 @@ fileTypeInfoMap =
                         , ftComment = ["#" ~~ "\n"]
                         , ftChar = []
                         , ftString = ["\"" ~~ "\"", "'" ~~ "'"]
-                        , ftRawString = []
+                        , ftRawString = ["\"\"\"" ~~ "\"\"\"", "'''" ~~ "'''"]
                         , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
                         , ftKeywords =
                             types
@@ -2124,11 +2124,11 @@ fileTypeInfoMap =
                 ,
                     ( Javascript
                     , FileTypeInfo
-                        { ftSelector = [ext ".js", ext ".ts", ext ".tsx"]
+                        { ftSelector = [ext ".js", ext ".jsx", ext ".mjs", ext ".cjs", ext ".ts", ext ".tsx", ext ".mts", ext ".cts"]
                         , ftKind = KindLanguage
                         , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
-                        , ftChar = ["'" ~~ "'"]
-                        , ftString = ["\"" ~~ "\""]
+                        , ftChar = []
+                        , ftString = ["\"" ~~ "\"", "'" ~~ "'"]
                         , ftRawString = []
                         , ftIdentCharSet = Just (JavaIdentStart, JavaIdentCont)
                         , ftKeywords =
@@ -2654,7 +2654,7 @@ fileTypeInfoMap =
                         , ftComment = ["(*" ~~ "*)"]
                         , ftChar = ["'" ~~ "'"]
                         , ftString = ["\"" ~~ "\""]
-                        , ftRawString = ["{id|" ~~ "|id}"]
+                        , ftRawString = ["{|" ~~ "|}", "{id|" ~~ "|id}"]
                         , ftIdentCharSet = Just (Alpha_, AlphaNum_')
                         , ftKeywords =
                             types
@@ -2781,9 +2781,9 @@ fileTypeInfoMap =
                 ,
                     ( PHP
                     , FileTypeInfo
-                        { ftSelector = [ext ".php", ext ".php3", ext ".php4", ext ".php5", ext ".phtml"]
+                        { ftSelector = [ext ".php", ext ".php3", ext ".php4", ext ".php5", ext ".phtml", ext ".phpt"]
                         , ftKind = KindScript
-                        , ftComment = ["/*" ~~ "*/", "//" ~~ "\n", "#" ~~ "\n"]
+                        , ftComment = ["/*" ~~ "*/", "//" ~~ "\n", withGuard ("#" ~~ "\n") (GuardNotFollowedBy '[')]
                         , ftChar = ["'" ~~ "'"]
                         , ftString = ["'" ~~ "'", "\"" ~~ "\""]
                         , ftRawString = ["<<END" ~~ "END;", "<<'END'" ~~ "END;"]
@@ -2886,7 +2886,18 @@ fileTypeInfoMap =
                         , ftComment = ["#" ~~ "\n"]
                         , ftChar = []
                         , ftString = ["'" ~~ "'", "\"" ~~ "\""]
-                        , ftRawString = ["\"\"\"" ~~ "\"\"\"", "'''" ~~ "'''", "r'" ~~ "'"]
+                        , ftRawString =
+                            [ "r\"\"\"" ~~ "\"\"\""
+                            , "R\"\"\"" ~~ "\"\"\""
+                            , "r'''" ~~ "'''"
+                            , "R'''" ~~ "'''"
+                            , "\"\"\"" ~~ "\"\"\""
+                            , "'''" ~~ "'''"
+                            , "r'" ~~ "'"
+                            , "R'" ~~ "'"
+                            , "r\"" ~~ "\""
+                            , "R\"" ~~ "\""
+                            ]
                         , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
                         , ftKeywords =
                             reserved
@@ -2992,7 +3003,20 @@ fileTypeInfoMap =
                         , ftComment = ["#" ~~ "\n"]
                         , ftChar = []
                         , ftString = ["\"" ~~ "\"", "'" ~~ "'"]
-                        , ftRawString = []
+                        , ftRawString =
+                            [ "r\"-(" ~~ ")-\""
+                            , "R\"-(" ~~ ")-\""
+                            , "r'-(" ~~ ")-'"
+                            , "R'-(" ~~ ")-'"
+                            , "r\"(" ~~ ")\""
+                            , "R\"(" ~~ ")\""
+                            , "r'(" ~~ ")'"
+                            , "R'(" ~~ ")'"
+                            , "r\"{" ~~ "}\""
+                            , "R\"{" ~~ "}\""
+                            , "r\"[" ~~ "]\""
+                            , "R\"[" ~~ "]\""
+                            ]
                         , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
                         , ftKeywords =
                             reserved
@@ -3025,7 +3049,7 @@ fileTypeInfoMap =
                         { ftSelector = [ext ".rb", ext ".ruby"]
                         , ftKind = KindLanguage
                         , ftComment = ["=begin" ~~ "=end", "#" ~~ "\n"]
-                        , ftChar = ["'" ~~ "'"]
+                        , ftChar = []
                         , ftString = ["'" ~~ "'", "\"" ~~ "\"", "%|" ~~ "|", "%q(" ~~ ")", "%Q(" ~~ ")"]
                         , ftRawString = []
                         , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
@@ -3186,12 +3210,12 @@ fileTypeInfoMap =
                 ,
                     ( Scala
                     , FileTypeInfo
-                        { ftSelector = [ext ".scala"]
+                        { ftSelector = [ext ".scala", ext ".sc"]
                         , ftKind = KindLanguage
                         , ftComment = ["/*" ~~ "*/", "//" ~~ "\n"]
                         , ftChar = ["'" ~~ "'"]
-                        , ftString = ["\"" ~~ "\"", "'" ~~ "'"]
-                        , ftRawString = []
+                        , ftString = ["\"" ~~ "\""]
+                        , ftRawString = ["\"\"\"" ~~ "\"\"\""]
                         , ftIdentCharSet = Just (Unicode_, UnicodeNum_)
                         , ftKeywords =
                             types
@@ -4733,7 +4757,7 @@ fileTypeInfoMap =
                         , ftComment = ["//" ~~ "\n"]
                         , ftChar = ["'" ~~ "'"]
                         , ftString = ["\"" ~~ "\""]
-                        , ftRawString = ["\\" ~~ "\n"]
+                        , ftRawString = ["\\\\" ~~ "\n"]
                         , ftIdentCharSet = Just (Alpha_, AlphaNum_)
                         , ftKeywords =
                             types
