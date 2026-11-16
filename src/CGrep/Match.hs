@@ -31,7 +31,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.Builder.Int as TLB
 import qualified Data.Text.Unsafe as TU
-import System.OsPath
+import System.OsPath (OsPath)
 
 import CGrep.Parser.Chunk (Chunk (..), MatchLine (..), cOffset)
 import CGrep.Text (textOffsetWord8)
@@ -146,10 +146,10 @@ filenameMatch outs = do
 jsonMatch :: [Match] -> ReaderIO TLB.Builder
 jsonMatch [] = pure mempty
 jsonMatch outs@(Match fname _ _ _ : _) = do
-    strname <- liftIO $ decodeUtf fname
+    let strname = OS.toText fname
     pure $
         mconcat . intersperse (TLB.singleton '\n') $
-            [TLB.fromString "{ \"file\":\"" <> TLB.fromString strname <> TLB.fromString "\", \"matches\":["]
+            [TLB.fromString "{ \"file\":\"" <> TLB.fromText strname <> TLB.fromString "\", \"matches\":["]
                 <> [mconcat $ intersperse (TLB.singleton ',') (foldl mkMatch [] outs)]
                 <> [TLB.fromString "]}"]
   where

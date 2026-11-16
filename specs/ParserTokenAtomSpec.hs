@@ -13,7 +13,7 @@ import CGrep.Line (
     lookupLineAndPosition,
     totalLines,
  )
-import CGrep.Match (Match (..))
+import CGrep.Match (Match (..), putMatches)
 import CGrep.Parser.Atom (
     extractAtomMatchers,
     findAllMatches,
@@ -51,13 +51,15 @@ import qualified CGrep.Strategy.Regex as Regex
 import CGrep.Text (firstIndex, textIndices, textIndicesRef)
 import Config (defaultConfig)
 import Control.Concurrent.MVar (newMVar)
+import Control.Exception (bracket)
 import Control.Monad (forM_, when)
 import Control.Monad.Trans.Reader (runReaderT)
+import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..), defaultOptions)
 import Reader (Env (..))
-import System.Directory (doesDirectoryExist, listDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getTemporaryDirectory, listDirectory, removePathForcibly)
 import System.FilePath ((</>))
 import System.OsPath (unsafeEncodeUtf)
 import Test.Tasty (TestTree, testGroup)
@@ -66,8 +68,10 @@ import TestHelpers (
     allTokensFilter,
     lexSource,
     lookupFTInfo,
+    matchChunkTexts,
     matchLineNums,
     matchLines,
+    runSearchFile,
     runSearchMem,
  )
 
@@ -78,6 +82,7 @@ parserTokenAtomTests =
         [ tokenLexerEdgeCases
         , atomMatcherEdgeCases
         , lineAndSliceUtf8EdgeCases
+        , nonUtf8SourceFileTests
         , corpusLexerEquivalenceTests
         ]
 
@@ -264,6 +269,64 @@ lineAndSliceUtf8EdgeCases =
             matchLines msInv @?= ["int a = 1; // keep comment", "int c = 3;"]
             msEmptyInv <- runSearchMem defaultOptions{invert_match = True} C "empty.c" "" ["anything"]
             msEmptyInv @?= []
+        ]
+
+nonUtf8SourceFileTests :: TestTree
+nonUtf8SourceFileTests =
+    testGroup
+        "Non-UTF-8 source file decoding resilience (Latin-1 / CP1252 / GBK bytes)"
+        [ testCase "getTargetContents & semantic/literal/regex/fuzzy searches handle 0xD5, 0xA9, 0xB5 bytes without failing" $ do
+            sysTmp <- getTemporaryDirectory
+            let tmpDir = sysTmp </> "cgrep-non-utf8-spec"
+            bracket (createDirectoryIfMissing True tmpDir >> pure tmpDir) removePathForcibly $ \dir -> do
+                let cppFile = dir </> "micro_thread.cpp"
+                    cFile = dir </> "ncsw_mem.c"
+                    -- Raw GBK lead byte 0xD5 in comment + 0xB5 (µs) + 0xA9 (©) on same line before `main`
+                    cppBytes =
+                        BS.concat
+                            [ "// GBK comment byte: "
+                            , BS.pack [0xD5, 0x50]
+                            , " and delay 10 "
+                            , BS.pack [0xB5]
+                            , "s\n"
+                            , "const char *tag = \"raw "
+                            , BS.pack [0xD5, 0xA9]
+                            , "\";\n"
+                            , "/* Copyright "
+                            , BS.pack [0xA9]
+                            , " 2025 */ int main(int argc, char **argv) { return 0; }\n"
+                            ]
+                    cBytes =
+                        BS.concat
+                            [ "/* Copyright "
+                            , BS.pack [0xA9]
+                            , " Freescale */\n"
+                            , "int helper(void) { return 1; }\n"
+                            , "int main(void) { return helper(); }\n"
+                            ]
+                BS.writeFile cppFile cppBytes
+                BS.writeFile cFile cBytes
+
+                msCppSem <- runSearchFile defaultOptions{semantic = True} cppFile ["main"]
+                matchLineNums msCppSem @?= [3]
+                matchChunkTexts msCppSem @?= [["main"]]
+
+                msCSem <- runSearchFile defaultOptions{semantic = True} cFile ["main"]
+                matchLineNums msCSem @?= [3]
+
+                msCppBm <- runSearchFile defaultOptions{code = True} cppFile ["main"]
+                matchLineNums msCppBm @?= [3]
+
+                msCppRx <- runSearchFile defaultOptions{regex_posix = True, code = True} cppFile ["int[[:space:]]+main"]
+                matchLineNums msCppRx @?= [3]
+
+                msCppLev <- runSearchFile defaultOptions{edit_dist = True, code = True} cppFile ["mian"]
+                matchLineNums msCppLev @?= [3]
+
+                -- Verify colored output rendering (column + byte slicing after U+FFFD replacement) succeeds cleanly
+                let colorOpt = defaultOptions{semantic = True, color = True}
+                rendered <- runReaderT (putMatches msCppSem) (Env defaultConfig colorOpt)
+                assertBool "expected rendered output builder" (rendered /= Nothing)
         ]
 
 corpusLexerEquivalenceTests :: TestTree

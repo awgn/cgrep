@@ -235,6 +235,7 @@ test-suite cgrep-test
     TestHelpers
   build-depends:
     QuickCheck,
+    bytestring,
     cgrep,
     containers,
     directory,

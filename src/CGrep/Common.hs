@@ -38,10 +38,11 @@ import CGrep.Parser.Chunk (Chunk)
 import CGrep.Text (charUtf8Length, firstIndex, isAsciiText, lastIndex, textContainsAsciiCI, textContainsOneOf)
 import Control.Monad.ST (ST, runST)
 import Data.Bits (unsafeShiftR, (.&.), (.|.))
+import qualified Data.ByteString as BS
 import Data.Char (ord, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Array as A
-import qualified Data.Text.IO.Utf8 as TIO
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Internal as TI
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..))
@@ -68,8 +69,8 @@ getTargetName name = name
 {-# INLINE getTargetName #-}
 
 getTargetContents :: OsPath -> IO T.Text
-getTargetContents (OS.null -> True) = TIO.getContents
-getTargetContents xs = decodeUtf xs >>= TIO.readFile
+getTargetContents (OS.null -> True) = TE.decodeUtf8Lenient <$> BS.getContents
+getTargetContents xs = decodeFS xs >>= fmap TE.decodeUtf8Lenient . BS.readFile
 {-# INLINE getTargetContents #-}
 
 toLowerSameWidth :: Char -> Char

@@ -30,7 +30,7 @@ import System.Environment (withArgs)
 import System.Exit (die, exitSuccess)
 import System.IO (stdin, stdout)
 
-import CGrep.Common (trimT)
+import CGrep.Common (getTargetContents, trimT)
 import CGrep.FileType (readKindList, readTypeList)
 import CGrep.FileTypeMapTH (dumpFileTypeInfoMap, fileTypeInfoMap)
 import CGrep.Search (normalizePatterns, startSearch)
@@ -48,7 +48,6 @@ import Reader (Env (..))
 import Control.Applicative (Alternative ((<|>)))
 import Data.Functor (($>))
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 
 import Data.List (union, (\\))
 import qualified OsPath as OS
@@ -112,7 +111,7 @@ main = do
 readPatternsFromFile :: OsPath -> IO [T.Text]
 readPatternsFromFile f
     | OS.null f = return []
-    | otherwise = map trimT . T.lines <$> TIO.readFile (OS.toFilePath f)
+    | otherwise = map trimT . T.lines <$> getTargetContents f
 
 validateOptions :: Options -> Bool -> IO ()
 validateOptions Options{..} isTermIn = do
