@@ -28,7 +28,146 @@ Every stage of CGrep was profiled and re-engineered against a new reproducible `
 
 - **Resilient Non-UTF-8 Source & Path Decoding:** File loading (`getTargetContents`, `--file`, `--json`) now uses `decodeFS` + `decodeUtf8Lenient`, smoothly handling C/C++/kernel/driver trees containing legacy Latin-1 (`©`, `µ`), Windows-1252, or GBK/Shift-JIS bytes without aborting files or misaligning UTF-8 byte offsets.
 - **Deep Overhaul of `--tests-only` (`-T`) / `--no-tests` Across 30 Languages:** Audited and upgraded all 28 semantic test parser modules with path-level test-file recognition (`isTestFile` for Cargo `tests/*.rs`, Maven/Gradle/SBT `src/test/...` & `src/it/...`, `conftest.py`, `__tests__/`, `*.test.*`/`*.spec.*`, `*_test.*`, `runtests.jl`, `.bats`, SwiftPM `Tests/`), expanded framework support, strict unboxed `LineState` tracking (`1.4x–3.4x` faster `filterTests`), and hardened false-positive guards.
-- **Structural Lexer & `FileTypeMap` Fixes:** Added JS/TS single-quoted strings `'...'` and `.jsx`/`.mjs`/`.cjs`/`.mts`/`.cts` extensions, PHP 8 `#[...]` attribute vs `#` comment disambiguation, Scala `'symbol` vs char literal disambiguation and odd-quote `"""` closing quotes, Python backslash-guarded raw strings, OCaml `{|...|}` raw strings, Zig `\\` multiline strings, Elixir `"""`/`'''` heredocs, R `r"(...)"` raw strings, and D `/+ ... +/` block comments.
+- **Structural Lexer & `FileTypeMap` Fixes:** Added JS/TS single-quoted strings `'...'` and `.jsx`/`.mjs`/`.cjs`/`.mts`/`.cts` extensions, PHP 8 `#[...]` attribute vs `#` comment disambiguation, Scala `'symbol` vs char literal disambiguation and odd-quote `"""` closing quotes, Python backslash-guarded raw strings, OCaml `{|...|}` raw strings, Zig `\\` multiline strings, Elixir `"""`/`'''` heredocs, R `r"(...)"` raw strings, D `/+ ... +/` block comments, Unicode word-boundary chunking (`-w`/`-p`/`-s`/`-e`) on plain-text/config formats (`Text`, `Yaml`, `Json`, `Conf`, `Ini`, `Assembly`, `Latex`), and lock-serialized strict UTF-8 `stdout` batch flushing.
+
+---
+
+## Comparative Benchmarks
+
+End-to-end benchmarks measured with `hyperfine 2.0` (`-N --output=pipe`, `LC_ALL=C`) on an **Apple M2 Max** (`8` Performance cores + `4` Efficiency cores, `64 GiB` RAM) over a controlled real-world C systems corpus (**`6,476` `.c` files, `147.3 MB` / `5.15M` LOC** from FreeBSD kernel, DPDK, Nginx, and Redis), enforcing strict file-set parity, match-count parity, and CPU core-count parity (`1-Core` and `8-Core` P-cores) against **`ripgrep` `15.2.0`**, **`ugrep` `7.8.5`**, **GNU `grep` `3.12`**, **Apple BSD `grep` `2.6.0`**, **`ack` `3.10.0`**, and **`ast-grep` `0.51.3`**.
+
+### 1. Base Search (Text & Regex) — Fair `1-Core` & `8-Core`
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│        Tier 1 — Base Search (Text & Regex) — Fair 1-Core Comparison         │
+│  (Apple M2 Max · 6,476 .c files · 147.3 MB / 5.15M LOC · lower is faster)   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1a. Exact Literal ("rte_eth_dev" — 10,250 matches):                        │
+│  ripgrep                    ████▉                                 179.2 ms  │
+│  ugrep                      █████▏                                192.1 ms  │
+│  GNU grep                   ██████▊                               250.7 ms  │
+│  cgrep 10.0                 ██████████▉                           401.1 ms  │
+│  ack                        █████████████████▊                    656.6 ms  │
+│  Apple grep                 ██████████████████████████████████   1261.2 ms  │
+│  cgrep 10.0: 1.6x faster than ack, 3.1x faster than Apple BSD grep          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1b. Whole Word (-w "main" — 2,079 matches):                                │
+│  ugrep                      █████                                 181.5 ms  │
+│  ripgrep                    █████▍                                194.4 ms  │
+│  GNU grep                   █████████▏                            326.5 ms  │
+│  cgrep 10.0                 ████████████                          432.5 ms  │
+│  Apple grep                 ██████████████████████████            932.0 ms  │
+│  ack                        ██████████████████████████████████   1219.5 ms  │
+│  cgrep 10.0: 2.2x faster than Apple BSD grep, 2.8x faster than ack          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1c. Case-Insensitive (-i "mbuf_pool" — 1,024 matches):                     │
+│  ripgrep                    █▊                                    182.4 ms  │
+│  ugrep                      █▊                                    184.5 ms  │
+│  GNU grep                   ██▋                                   280.6 ms  │
+│  cgrep 10.0                 ███▊                                  397.5 ms  │
+│  ack                        ██████▌                               701.8 ms  │
+│  Apple grep                 ██████████████████████████████████   3663.7 ms  │
+│  cgrep 10.0: 1.8x faster than ack, 9.2x faster than Apple BSD grep          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1d. POSIX Extended Regex ('rte_[a-z0-9_]+_init\(' — 715 matches):          │
+│  ripgrep                    ████▏                                 183.0 ms  │
+│  ugrep                      ████▍                                 195.2 ms  │
+│  GNU grep                   ██████▌                               285.2 ms  │
+│  cgrep 10.0                 █████████▋                            423.2 ms  │
+│  ack                        ███████████████▏                      667.4 ms  │
+│  Apple grep                 ██████████████████████████████████   1495.8 ms  │
+│  cgrep 10.0: 1.6x faster than ack, 3.5x faster than Apple BSD grep          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Exact match parity verified across all 6 tools (10250 / 2079 / 1024 / 715).│
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│    Tier 1 — Base Search (Text & Regex) — Fair 8-Core Scaling (8 P-Cores)    │
+│  (Apple M2 Max · 6,476 .c files · 147.3 MB / 5.15M LOC · lower is faster)   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1a. Exact Literal ("rte_eth_dev"):                                         │
+│  ripgrep                    ███████████▊                           61.5 ms  │
+│  ugrep                      ████████████▍                          64.7 ms  │
+│  cgrep 10.0                 ██████████████████████████████████    177.3 ms  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1b. Whole Word (-w "main"):                                                │
+│  ripgrep                    ███████████▎                           60.3 ms  │
+│  ugrep                      ████████████                           64.5 ms  │
+│  cgrep 10.0                 ██████████████████████████████████    182.5 ms  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1c. Case-Insensitive (-i "mbuf_pool"):                                     │
+│  ripgrep                    ███████████                            56.2 ms  │
+│  ugrep                      ████████████▋                          64.6 ms  │
+│  cgrep 10.0                 ██████████████████████████████████    174.0 ms  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1d. POSIX Regex ('rte_[a-z0-9_]+_init\('):                                 │
+│  ripgrep                    ██████████▉                            58.3 ms  │
+│  ugrep                      ████████████▏                          65.1 ms  │
+│  cgrep 10.0                 ██████████████████████████████████    181.8 ms  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GNU grep, Apple grep & ack are single-threaded only (see 1-Core chart).    │
+│  cgrep 10.0 reaches ~810-847 MB/s on 8 cores (~174-182 ms end-to-end).      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2. Tokenizer & Context-Aware Search (`cgrep` vs `ast-grep`)
+
+Blind text greps (`rg`, `ugrep`, `grep`, `ack`) return `2,079` lines on `-w "main"`, of which **`1,376` (`66.2%`) are false positives** inside comments and string literals versus `703` real code occurrences:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│       Tier 2 — Tokenizer & Context-Aware Search — 8-Core (8 P-Cores)        │
+│    (Code / Strings / Comments without false positives · lower is faster)    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  2a. Code-Only Identifier (main — drops 1,376 comment/string FPs):          │
+│  cgrep 10.0 (-c -w)         ████▎                                 271.8 ms  │
+│  cgrep 10.0 (--identifier)  ████▊                                 305.2 ms  │
+│  ast-grep                   ██████████████████████████████████   2170.6 ms  │
+│  Speedup vs ast-grep: 8.0x faster (-c -w) / 7.1x faster (--identifier)      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  2b. String-Literal Only ("error" inside "..." strings only):               │
+│  cgrep 10.0 (-l)            ████▏                                 288.0 ms  │
+│  cgrep 10.0 (--string)      █████                                 353.3 ms  │
+│  ast-grep                   ██████████████████████████████████   2384.8 ms  │
+│  Speedup vs ast-grep: 8.3x faster (-l) / 6.8x faster (--string)             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  2c. Comment Only ("TODO" inside // and /* ... */ comments only):           │
+│  cgrep 10.0 (-m)            ██▋                                   193.0 ms  │
+│  ast-grep                   ██████████████████████████████████   2520.9 ms  │
+│  Speedup vs ast-grep: 13.1x faster on 8 cores (39.5x faster on 1 core!)     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3. Semantic & Structural Search (`cgrep -S` vs `ast-grep`)
+
+Because `cgrep 10.0` combines mandatory pre-decode byte anchors (`RawPrefilter` + `extractAtomAnchors`) with an unboxed `ST` context lexer instead of building a full Tree-sitter CST for every file, semantic search (`-S`) is **`3.9x–5.1x` faster on 8 cores** and **`7.5x–12.6x` faster on 1 core** than `ast-grep`:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│       Tier 3 — Semantic & Structural Search (-S) — 8-Core (8 P-Cores)       │
+│ (cgrep 10.0 token-pattern engine vs ast-grep Tree-sitter · lower is faster) │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  3a. Placeholder Unification ('_1 = _1 + ...' vs '$A = $A + $B'):           │
+│  cgrep 10.0 (-S)            ████████▋                             595.6 ms  │
+│  ast-grep                   ██████████████████████████████████   2343.2 ms  │
+│  Speedup vs ast-grep: 3.9x faster on 8 cores (7.5x faster on 1 core)        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  3b. Variadic Structural Call ('memcpy(...)' vs 'memcpy($$$)'):             │
+│  cgrep 10.0 (-S)            ██████▊                               379.5 ms  │
+│  ast-grep                   ██████████████████████████████████   1922.5 ms  │
+│  Speedup vs ast-grep: 5.1x faster on 8 cores (12.6x faster on 1 core)       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  3c. Null-Check Condition ('if (... == NULL)' vs 'if ($A == NULL)'):        │
+│  cgrep 10.0 (-S)            ████████▏                             519.5 ms  │
+│  ast-grep                   ██████████████████████████████████   2160.7 ms  │
+│  Speedup vs ast-grep: 4.2x faster on 8 cores (8.3x faster on 1 core)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## What's New in Version 9.3.1 (powered by Google Argon 4)
 
