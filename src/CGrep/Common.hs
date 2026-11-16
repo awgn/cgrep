@@ -16,12 +16,23 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE UnboxedTuples #-}
+
 module CGrep.Common (
     runSearch,
     getTargetName,
     getTargetContents,
     getTargetContentsRef,
     RawPrefilter (..),
+    CPrefilter,
+    WorkerBuffer,
+    compileCPrefilter,
+    withWorkerBuffer,
+    readTargetFilteredBuf,
+    scandirBuf,
+    dirInodeBuf,
+    joinPosixPath,
     defaultMmapThreshold,
     mkAsciiRawPrefilter,
     evalRawPrefilterBS,
@@ -47,6 +58,8 @@ import qualified Control.Exception as E
 import Control.Monad.ST (ST, runST)
 import Data.Bits (unsafeShiftL, unsafeShiftR, (.&.), (.|.))
 import qualified Data.ByteString as BS
+import Data.ByteString.Short.Internal (ShortByteString (SBS))
+import qualified Data.ByteString.Short as SBS
 import qualified Data.ByteString.Unsafe as BSU
 import Data.Char (ord, toLower)
 import Data.List (nub)
@@ -57,16 +70,30 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Internal as TI
 import qualified Data.Text.Unsafe as TU
 import Data.Word (Word64, Word8)
-import Foreign.C.Types (CInt (..), CSize (..))
-import Foreign.Ptr (Ptr, castPtr, minusPtr, nullPtr, plusPtr)
-import Foreign.Storable (peek, peekByteOff)
+import Foreign.C.Types (CChar (..), CInt (..), CSize (..))
+import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
+import Foreign.Marshal.Alloc (alloca, free, mallocBytes)
+import Foreign.Marshal.Array (withArray)
+import Foreign.Ptr (FunPtr, Ptr, castPtr, minusPtr, nullPtr, plusPtr)
+import Foreign.Storable (peek, peekByteOff, poke, pokeByteOff)
+import GHC.Exts (
+    Int (I#),
+    Ptr (Ptr),
+    copyAddrToByteArray#,
+    copyByteArrayToAddr#,
+    newByteArray#,
+    unsafeFreezeByteArray#,
+ )
+import GHC.IO (IO (IO))
 import Options (Options (..))
+import qualified OsPath as OSP
 import Reader (ReaderIO)
 import System.IO (IOMode (ReadMode), withBinaryFile)
 import System.IO.MMap (Mode (ReadOnly), mmapWithFilePtr)
 import System.IO.Unsafe (unsafeDupablePerformIO)
 import System.OsPath
 import qualified System.OsString as OS
+import System.OsString.Internal.Types (OsString (OsString), PosixString (PosixString))
 import System.PosixCompat.Files (fileSize, getFileStatus, isRegularFile)
 
 foreign import ccall unsafe "string.h memchr"
@@ -74,6 +101,42 @@ foreign import ccall unsafe "string.h memchr"
 
 foreign import ccall unsafe "string.h memcmp"
     c_memcmp :: Ptr Word8 -> Ptr Word8 -> CSize -> IO CInt
+
+data CGrepPrefilterC
+
+foreign import ccall unsafe "cgrep_pf_create"
+    c_pf_create :: CInt -> CSize -> Ptr Word8 -> Ptr CSize -> IO (Ptr CGrepPrefilterC)
+
+foreign import ccall unsafe "&cgrep_pf_free"
+    c_pf_free_ptr :: FunPtr (Ptr CGrepPrefilterC -> IO ())
+
+#ifndef mingw32_HOST_OS
+foreign import ccall unsafe "cgrep_read_prefilter"
+    c_read_prefilter ::
+        Ptr CChar ->
+        Ptr CGrepPrefilterC ->
+        Ptr Word8 ->
+        CSize ->
+        Ptr CSize ->
+        Ptr CInt ->
+        Ptr (Ptr Word8) ->
+        IO CInt
+
+foreign import ccall unsafe "cgrep_munmap"
+    c_munmap :: Ptr Word8 -> CSize -> IO ()
+
+foreign import ccall unsafe "cgrep_scandir"
+    c_scandir ::
+        Ptr CChar ->
+        CInt ->
+        Ptr Word8 ->
+        CSize ->
+        Ptr CSize ->
+        IO CInt
+
+foreign import ccall unsafe "cgrep_dir_inode"
+    c_dir_inode :: Ptr CChar -> Ptr Word64 -> Ptr Word64 -> IO CInt
+#endif
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -314,6 +377,238 @@ getTargetContentsRef :: OsPath -> IO T.Text
 getTargetContentsRef (OS.null -> True) = TE.decodeUtf8Lenient <$> BS.getContents
 getTargetContentsRef xs = decodeFS xs >>= fmap TE.decodeUtf8Lenient . BS.readFile
 {-# INLINE getTargetContentsRef #-}
+
+newtype CPrefilter = CPrefilter (ForeignPtr CGrepPrefilterC)
+
+compileCPrefilter :: RawPrefilter -> IO CPrefilter
+compileCPrefilter RawAcceptAll = do
+    p <- c_pf_create 0 0 nullPtr nullPtr
+    CPrefilter <$> newForeignPtr c_pf_free_ptr p
+compileCPrefilter RawRejectAll = do
+    p <- c_pf_create 1 0 nullPtr nullPtr
+    CPrefilter <$> newForeignPtr c_pf_free_ptr p
+compileCPrefilter (RawRequireAnyCS ns) = compileNeedlesC 2 ns
+compileCPrefilter (RawRequireAnyCI ns) = compileNeedlesC 3 ns
+
+compileNeedlesC :: CInt -> [BS.ByteString] -> IO CPrefilter
+compileNeedlesC !mode ns = do
+    let !packed = BS.concat ns
+        !lens = map (fromIntegral . BS.length) ns :: [CSize]
+        !cnt = fromIntegral (length ns) :: CSize
+    BSU.unsafeUseAsCStringLen packed $ \(cptr, _) ->
+        withArray lens $ \lenPtr -> do
+            p <- c_pf_create mode cnt (castPtr cptr) lenPtr
+            CPrefilter <$> newForeignPtr c_pf_free_ptr p
+
+data WorkerBuffer = WorkerBuffer
+    { wbScratchPtr :: !(Ptr Word8)
+    , wbScratchCap :: {-# UNPACK #-} !Int
+    , wbPathPtr :: !(Ptr CChar)
+    , wbPathCap :: {-# UNPACK #-} !Int
+    , wbScandirPtr :: !(Ptr Word8)
+    , wbScandirCap :: {-# UNPACK #-} !Int
+    , wbOutSize :: !(Ptr CSize)
+    , wbOutAscii :: !(Ptr CInt)
+    , wbOutMmap :: !(Ptr (Ptr Word8))
+    }
+
+withWorkerBuffer :: (WorkerBuffer -> IO a) -> IO a
+withWorkerBuffer action =
+    let !sCap = defaultMmapThreshold
+        !pCap = 4096
+        !dCap = 131072
+     in E.bracket
+            ( do
+                sPtr <- mallocBytes sCap
+                pPtr <- mallocBytes pCap
+                dPtr <- mallocBytes dCap
+                oSz <- mallocBytes 8
+                oAsc <- mallocBytes 8
+                oMm <- mallocBytes 8
+                pure (WorkerBuffer sPtr sCap pPtr pCap dPtr dCap oSz oAsc oMm)
+            )
+            ( \WorkerBuffer{..} -> do
+                free wbScratchPtr
+                free wbPathPtr
+                free wbScandirPtr
+                free wbOutSize
+                free wbOutAscii
+                free wbOutMmap
+            )
+            action
+
+writeOsPathCString :: OsPath -> Ptr CChar -> Int -> IO Bool
+writeOsPathCString path dst@(Ptr dstAddr#) !cap =
+    let !sbs@(SBS ba#) = OSP.toShortByteString path
+        !len@(I# len#) = SBS.length sbs
+        hasNul !i
+            | i >= len = False
+            | SBS.index sbs i == 0 = True
+            | otherwise = hasNul (i + 1)
+     in if len <= 0 || len >= cap || hasNul 0
+            then pure False
+            else do
+                IO $ \s0 -> (# copyByteArrayToAddr# ba# 0# dstAddr# len# s0, () #)
+                pokeByteOff dst len (0 :: Word8)
+                pure True
+{-# INLINE writeOsPathCString #-}
+
+copyPtrToAsciiText :: Ptr Word8 -> Int -> IO T.Text
+copyPtrToAsciiText !_ 0 = pure T.empty
+copyPtrToAsciiText (Ptr addr#) !sz@(I# sz#) =
+    IO $ \s0 ->
+        case newByteArray# sz# s0 of
+            (# s1, mba# #) ->
+                case copyAddrToByteArray# addr# mba# 0# sz# s1 of
+                    s2 ->
+                        case unsafeFreezeByteArray# mba# s2 of
+                            (# s3, ba# #) -> (# s3, TI.Text (A.ByteArray ba#) 0 sz #)
+{-# INLINE copyPtrToAsciiText #-}
+
+decodePtrBuf :: Ptr Word8 -> Int -> CInt -> IO T.Text
+decodePtrBuf !ptr !sz !isAsc
+    | sz <= 0 = pure T.empty
+    | isAsc /= 0 = copyPtrToAsciiText ptr sz
+    | otherwise = do
+        bs <- BSU.unsafePackCStringLen (castPtr ptr, sz)
+        let !txt = TE.decodeUtf8Lenient bs
+        pure txt
+{-# INLINE decodePtrBuf #-}
+
+readTargetFilteredBuf :: WorkerBuffer -> CPrefilter -> RawPrefilter -> OsPath -> IO (Maybe T.Text)
+readTargetFilteredBuf !_ !_ RawRejectAll _ = pure Nothing
+#ifdef mingw32_HOST_OS
+readTargetFilteredBuf _ _ prefilt path = readTargetFiltered prefilt path
+#else
+readTargetFilteredBuf WorkerBuffer{..} (CPrefilter pfFPtr) prefilt path
+    | OS.null path = readTargetFiltered prefilt path
+    | otherwise = do
+        okPath <- writeOsPathCString path wbPathPtr wbPathCap
+        if not okPath
+            then readTargetFiltered prefilt path
+            else withForeignPtr pfFPtr $ \pfPtr -> do
+                poke wbOutMmap nullPtr
+                rc <-
+                    c_read_prefilter
+                        wbPathPtr
+                        pfPtr
+                        wbScratchPtr
+                        (fromIntegral wbScratchCap)
+                        wbOutSize
+                        wbOutAscii
+                        wbOutMmap
+                case rc of
+                    0 -> pure Nothing
+                    1 -> do
+                        !sz <- fromIntegral <$> peek wbOutSize
+                        !isAsc <- peek wbOutAscii
+                        Just <$> decodePtrBuf wbScratchPtr sz isAsc
+                    2 -> do
+                        !szC <- peek wbOutSize
+                        let !sz = fromIntegral szC :: Int
+                        !isAsc <- peek wbOutAscii
+                        !mptr <- peek wbOutMmap
+                        Just <$> E.finally (decodePtrBuf mptr sz isAsc) (c_munmap mptr szC)
+                    _ -> readTargetFiltered prefilt path
+#endif
+
+ptrToOsPath :: Ptr Word8 -> Int -> IO OsPath
+ptrToOsPath !_ 0 = pure mempty
+ptrToOsPath (Ptr addr#) !(I# sz#) =
+    IO $ \s0 ->
+        case newByteArray# sz# s0 of
+            (# s1, mba# #) ->
+                case copyAddrToByteArray# addr# mba# 0# sz# s1 of
+                    s2 ->
+                        case unsafeFreezeByteArray# mba# s2 of
+                            (# s3, ba# #) -> (# s3, OsString (PosixString (SBS ba#)) #)
+{-# INLINE ptrToOsPath #-}
+
+slashSBS :: ShortByteString
+slashSBS = SBS.singleton 0x2F
+{-# NOINLINE slashSBS #-}
+
+joinPosixPath :: OsPath -> OsPath -> OsPath
+joinPosixPath dirPath baseName
+    | OS.null dirPath = baseName
+    | OS.null baseName = dirPath
+    | otherwise =
+        let sbsDir = OSP.toShortByteString dirPath
+            sbsBase = OSP.toShortByteString baseName
+            !dLen = SBS.length sbsDir
+         in if SBS.index sbsDir (dLen - 1) == 0x2F
+                then OsString (PosixString (sbsDir <> sbsBase))
+                else OsString (PosixString (sbsDir <> slashSBS <> sbsBase))
+{-# INLINE joinPosixPath #-}
+
+-- | Fast POSIX directory scan returning @Just ([(subdirName, isSymlinkDir)], [regFileName])@,
+-- or @Nothing@ if fallback to @System.Directory.OsPath@ is required.
+scandirBuf :: WorkerBuffer -> Bool -> OsPath -> IO (Maybe ([(OsPath, Bool)], [OsPath]))
+#ifdef mingw32_HOST_OS
+scandirBuf _ _ _ = pure Nothing
+#else
+scandirBuf WorkerBuffer{..} !followSymlinks dirPath = do
+    okPath <- writeOsPathCString dirPath wbPathPtr wbPathCap
+    if not okPath
+        then pure Nothing
+        else do
+            let !fFlag = if followSymlinks then 1 else 0
+            rc <- c_scandir wbPathPtr fFlag wbScandirPtr (fromIntegral wbScandirCap) wbOutSize
+            if
+                | rc == 0 -> do
+                    !used <- fromIntegral <$> peek wbOutSize
+                    Just <$> unpackScandir wbScandirPtr used
+                | rc == (-2) -> do
+                    let !bigCap = 2 * 1024 * 1024
+                    E.bracket (mallocBytes bigCap) free $ \bigPtr -> do
+                        rc2 <- c_scandir wbPathPtr fFlag bigPtr (fromIntegral bigCap) wbOutSize
+                        if rc2 == 0
+                            then do
+                                !used <- fromIntegral <$> peek wbOutSize
+                                Just <$> unpackScandir bigPtr used
+                            else pure Nothing
+                | otherwise -> pure (Just ([], []))
+  where
+    unpackScandir :: Ptr Word8 -> Int -> IO ([(OsPath, Bool)], [OsPath])
+    unpackScandir !buf !totalBytes = go 0 [] []
+      where
+        go !off dirsAcc filesAcc
+            | off + 3 > totalBytes = pure (reverse dirsAcc, reverse filesAcc)
+            | otherwise = do
+                !kind <- peekW8 buf off
+                !lo <- peekW8 buf (off + 1)
+                !hi <- peekW8 buf (off + 2)
+                let !nlen = fromIntegral lo + (fromIntegral hi `unsafeShiftL` 8)
+                    !nextOff = off + 3 + nlen
+                if nextOff > totalBytes
+                    then pure (reverse dirsAcc, reverse filesAcc)
+                    else do
+                        !nm <- ptrToOsPath (buf `plusPtr` (off + 3)) nlen
+                        case kind of
+                            1 -> go nextOff dirsAcc (nm : filesAcc)
+                            2 -> go nextOff ((nm, False) : dirsAcc) filesAcc
+                            3 -> go nextOff ((nm, True) : dirsAcc) filesAcc
+                            _ -> go nextOff dirsAcc filesAcc
+#endif
+
+dirInodeBuf :: WorkerBuffer -> OsPath -> IO (Maybe (Word64, Word64))
+#ifdef mingw32_HOST_OS
+dirInodeBuf _ _ = pure Nothing
+#else
+dirInodeBuf WorkerBuffer{..} dirPath = do
+    okPath <- writeOsPathCString dirPath wbPathPtr wbPathCap
+    if not okPath
+        then pure Nothing
+        else alloca $ \pDev ->
+            alloca $ \pIno -> do
+                rc <- c_dir_inode wbPathPtr pDev pIno
+                if rc == 0
+                    then do
+                        !d <- peek pDev
+                        !i <- peek pIno
+                        pure (Just (d, i))
+                    else pure Nothing
+#endif
 
 toLowerSameWidth :: Char -> Char
 toLowerSameWidth c =

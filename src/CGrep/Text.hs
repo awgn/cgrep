@@ -16,12 +16,19 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UnliftedFFITypes #-}
+
 module CGrep.Text (
     iterM,
     isAsciiText,
     textIndices,
     textIndicesRef,
     indicesFast,
+    indicesFastAsciiCI,
+    countNewlinesBetween,
+    sliceLineRangeAt,
     textSlice,
     textOffsetWord8,
     textContainsOneOf,
@@ -47,7 +54,15 @@ import Data.Text.Internal.ArrayUtils (memchr)
 import qualified Data.Text.Internal.Search as TIS
 import qualified Data.Text.Unsafe as TU
 import Data.Word (Word64)
+import Foreign.C.Types (CPtrdiff (..), CSize (..))
+import GHC.Exts (ByteArray#)
 import GHC.Word (Word8)
+
+foreign import ccall unsafe "cgrep_count_newlines"
+    c_count_newlines :: ByteArray# -> CSize -> CSize -> CSize
+
+foreign import ccall unsafe "cgrep_find_ascii_ci"
+    c_find_ascii_ci :: ByteArray# -> CSize -> CSize -> CSize -> ByteArray# -> CSize -> CSize -> CPtrdiff
 
 iterM :: (Monad m) => T.Text -> ((# Char, Int, Int #) -> m ()) -> m ()
 iterM txt f = go 0 (return ())
@@ -399,3 +414,61 @@ lastIndex (TI.Text narr noff nlen) (TI.Text harr hoff hlen)
                 | otherwise = goN (i - 1)
          in goN (hoff + hlen - nlen)
 {-# INLINE lastIndex #-}
+
+-- | Zero-allocation non-overlapping ASCII case-insensitive substring search for a
+-- pre-lowercased ASCII @needle@ directly on @haystack@ (avoiding @ignoreCase@ full-file copy).
+indicesFastAsciiCI :: T.Text -> T.Text -> [Int]
+indicesFastAsciiCI (TI.Text (A.ByteArray narr#) noff nlen) (TI.Text (A.ByteArray harr#) hoff hlen)
+    | nlen <= 0 || nlen > hlen = []
+    | otherwise = go 0
+  where
+    !limit = hlen - nlen
+    go !relStart
+        | relStart > limit = []
+        | otherwise =
+            case c_find_ascii_ci
+                harr#
+                (fromIntegral hoff)
+                (fromIntegral hlen)
+                (fromIntegral relStart)
+                narr#
+                (fromIntegral noff)
+                (fromIntegral nlen) of
+                -1 -> []
+                hitRel ->
+                    let !h = fromIntegral hitRel :: Int
+                     in h : go (h + nlen)
+{-# INLINE indicesFastAsciiCI #-}
+
+-- | Vectorized count of @'\n'@ bytes in @txt@ over relative byte range @[relStart .. relEnd)@.
+countNewlinesBetween :: T.Text -> Int -> Int -> Int
+countNewlinesBetween (TI.Text (A.ByteArray arr#) baseOff totalLen) !relStart !relEnd =
+    let !s = max 0 relStart
+        !e = min totalLen relEnd
+     in if e <= s
+            then 0
+            else fromIntegral (c_count_newlines arr# (fromIntegral (baseOff + s)) (fromIntegral (e - s)))
+{-# INLINE countNewlinesBetween #-}
+
+-- | Find the 0-based relative @[lineStart .. lineEnd)@ byte bounds of the line containing
+-- @relOff@ in @txt@ without building a @LineIndex@ vector.
+sliceLineRangeAt :: T.Text -> Int -> (# Int, Int #)
+sliceLineRangeAt (TI.Text arr@(A.ByteArray arr#) baseOff totalLen) !relOff
+    | totalLen <= 0 = (# 0, 0 #)
+    | otherwise =
+        let !clamped = max 0 (min totalLen relOff)
+            -- Note: if relOff points directly at a '\n' byte, that byte belongs to the line ending at relOff.
+            !ls = findStart (baseOff + clamped - 1)
+            !le =
+                if clamped >= totalLen
+                    then totalLen
+                    else case memchr arr# (baseOff + clamped) (totalLen - clamped) (0x0A :: Word8) of
+                        -1 -> totalLen
+                        d -> clamped + d
+         in (# ls, le #)
+  where
+    findStart !ix
+        | ix < baseOff = 0
+        | A.unsafeIndex arr ix == 0x0A = (ix + 1) - baseOff
+        | otherwise = findStart (ix - 1)
+{-# INLINE sliceLineRangeAt #-}

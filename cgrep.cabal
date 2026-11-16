@@ -192,6 +192,12 @@ library
      build-depends: regex-pcre-text
   }
 
+  c-sources:
+    cbits/cgrep_io.c
+
+  cc-options:
+    -O3
+
   ghc-options:
     -O2
     -optc-O3
@@ -219,7 +225,7 @@ executable cgrep
     -hiedir=.hie
     -threaded
     -rtsopts
-    "-with-rtsopts=-N -H16m -A64m -qa"
+    "-with-rtsopts=-N -A8m -n2m -qg"
 
 test-suite cgrep-test
   import: common-options

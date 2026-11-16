@@ -27,6 +27,7 @@ module CGrep.FileTypeMapTH (
     mkContextFilterFn,
     fileTypeLookup,
     fileTypeInfoLookup,
+    fileTypeLookupBase,
     dumpFileTypeInfoMap,
 ) where
 
@@ -44,8 +45,11 @@ import Language.Haskell.TH.Syntax (lift)
 import Options (Options (Options, code_only, force_type, hdr_only, keyword))
 import qualified System.OsPath as OS
 
+import qualified Data.ByteString.Short as SBS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
+import qualified OsPath as OSP
+import System.OsString.Internal.Types (OsString (OsString), PosixString (PosixString))
 
 import CGrep.FileKind
 import CGrep.FileType (FileSelector (..), FileType (..), ext, hdr, name)
@@ -4943,3 +4947,51 @@ forcedType Options{..}
     | otherwise = Nothing
   where
     m = unMap fileTypeMap
+
+fileTypeFullMap :: Map.Map FileSelector (FileType, FileKind, FileTypeInfo)
+fileTypeFullMap =
+    Map.fromList $
+        concatMap
+            (\(typ, fti@FileTypeInfo{..}) -> map (,(typ, ftKind, fti)) ftSelector)
+            (Map.toList (unMapInfo fileTypeInfoMap))
+{-# NOINLINE fileTypeFullMap #-}
+
+fastBaseExt :: OS.OsPath -> OS.OsPath
+fastBaseExt base =
+    let sbs = OSP.toShortByteString base
+        !len = SBS.length sbs
+        findDot !i
+            | i <= 0 = -1
+            | SBS.index sbs i == 0x2E = i
+            | otherwise = findDot (i - 1)
+     in case findDot (len - 1) of
+            -1 -> mempty
+            dotIx -> OsString (PosixString (SBS.drop dotIx sbs))
+{-# INLINE fastBaseExt #-}
+
+-- | Combined single-pass @(FileType, FileKind, FileTypeInfo)@ lookup.
+-- When @isBareName@ is @True@, @f@ is already a directory-free entry name.
+fileTypeLookupBase :: Options -> Bool -> OS.OsPath -> Maybe (FileType, FileKind, FileTypeInfo)
+fileTypeLookupBase opts !isBareName f =
+    forcedFull <|> lookupByNameAndExt
+  where
+    forcedFull = case force_type opts of
+        Just typ -> Map.lookup (ext typ) fileTypeFullMap <|> Map.lookup (name typ) fileTypeFullMap
+        Nothing -> Nothing
+    !baseName = if isBareName then f else OS.takeFileName f
+    !e = fastBaseExt baseName
+    lookupByNameAndExt =
+        case (code_only opts, hdr_only opts) of
+            (False, False) ->
+                Map.lookup (Name baseName) fileTypeFullMap
+                    <|> Map.lookup (Ext e) fileTypeFullMap
+                    <|> Map.lookup (Hdr e) fileTypeFullMap
+            (True, False) ->
+                Map.lookup (Name baseName) fileTypeFullMap
+                    <|> Map.lookup (Ext e) fileTypeFullMap
+            (False, True) ->
+                Map.lookup (Name baseName) fileTypeFullMap
+                    <|> Map.lookup (Hdr e) fileTypeFullMap
+            (True, True) ->
+                errorWithoutStackTrace "CGrep: code-only and hdr-only are mutually exclusive!"
+{-# INLINE fileTypeLookupBase #-}

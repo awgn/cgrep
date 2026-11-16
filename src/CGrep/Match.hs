@@ -20,21 +20,27 @@
 module CGrep.Match (
     Match (..),
     mkMatches,
+    mkMatchesDirect,
     putMatches,
+    putMatchesBSB,
     prettyFileName,
     prettyBold,
 ) where
 
 import CGrep.Line (LineIndex, getLineByNumber, getLineByOffset', lookupLineAndPosition, totalLines)
+import qualified Data.ByteString.Builder as BSB
+import qualified Data.ByteString.Short as SBS
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 import qualified Data.Text.Lazy.Builder.Int as TLB
+import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Data.Text.Unsafe as TU
 import System.OsPath (OsPath)
 
 import CGrep.Parser.Chunk (Chunk (..), MatchLine (..), cOffset)
-import CGrep.Text (textOffsetWord8)
+import CGrep.Text (countNewlinesBetween, sliceLineRangeAt, textOffsetWord8, textSlice)
 import Config
 import Control.Monad.Reader
 import Data.Function (on)
@@ -99,6 +105,127 @@ invertLines n xs = filter (\(MatchLine i _) -> i `notElem` idx) $ take n [MatchL
   where
     idx = mlOffset <$> xs
 {-# INLINE invertLines #-}
+
+-- | Build @[Match]@ for non-inverted searches directly from @originalText@ without allocating
+-- a full-file @LineIndex@ (@UV.Vector Int@). Walks sorted chunk offsets forward once, counting
+-- @'\n'@ via vectorized C @cgrep_count_newlines@ only up to the last match in the file.
+mkMatchesDirect :: OsPath -> T.Text -> [Chunk] -> [Match]
+mkMatchesDirect _ _ [] = []
+mkMatchesDirect filepath originalText chunks@(c0 : rest)
+    | isMono chunks =
+        let !off0 = cOffset c0
+            !(# ls0, le0 #) = sliceLineRangeAt originalText off0
+            !lineNum0 = 1 + countNewlinesBetween originalText 0 ls0
+         in goMono lineNum0 ls0 le0 [Chunk (cTyp c0) (cToken c0)] rest
+    | otherwise =
+        let indexed = zip [0 :: Int ..] chunks
+            sorted = sortBy (compare `on` (cOffset . snd)) indexed
+         in case sorted of
+                [] -> []
+                ((i0, s0) : sRest) ->
+                    let !off0 = cOffset s0
+                        !(# ls0, le0 #) = sliceLineRangeAt originalText off0
+                        !lineNum0 = 1 + countNewlinesBetween originalText 0 ls0
+                     in goIndexed lineNum0 ls0 le0 [(i0, Chunk (cTyp s0) (cToken s0))] sRest
+  where
+    isMono [] = True
+    isMono [_] = True
+    isMono (a : bs@(b : _)) = cOffset a <= cOffset b && isMono bs
+
+    goMono :: Int -> Int -> Int -> [Chunk] -> [Chunk] -> [Match]
+    goMono !lineNum !ls !le acc [] =
+        let !lineTxt = textSlice originalText ls (le - ls)
+         in [Match filepath lineNum lineTxt (reverse acc)]
+    goMono !lineNum !ls !le acc (c : cs) =
+        let !off = cOffset c
+            !c' = Chunk (cTyp c) (cToken c)
+         in if off <= le
+                then goMono lineNum ls le (c' : acc) cs
+                else
+                    let !lineTxt = textSlice originalText ls (le - ls)
+                        !doneMatch = Match filepath lineNum lineTxt (reverse acc)
+                        !(# lsNext, leNext #) = sliceLineRangeAt originalText off
+                        !lineNumNext = lineNum + 1 + countNewlinesBetween originalText (le + 1) lsNext
+                     in doneMatch : goMono lineNumNext lsNext leNext [c'] cs
+
+    finishIndexed :: [(Int, Chunk)] -> [Chunk]
+    finishIndexed [(_, c)] = [c]
+    finishIndexed pairs = map snd $ sortBy (compare `on` fst) (reverse pairs)
+
+    goIndexed :: Int -> Int -> Int -> [(Int, Chunk)] -> [(Int, Chunk)] -> [Match]
+    goIndexed !lineNum !ls !le acc [] =
+        let !lineTxt = textSlice originalText ls (le - ls)
+         in [Match filepath lineNum lineTxt (finishIndexed acc)]
+    goIndexed !lineNum !ls !le acc ((ix, c) : cs) =
+        let !off = cOffset c
+            !ic = (ix, Chunk (cTyp c) (cToken c))
+         in if off <= le
+                then goIndexed lineNum ls le (ic : acc) cs
+                else
+                    let !lineTxt = textSlice originalText ls (le - ls)
+                        !doneMatch = Match filepath lineNum lineTxt (finishIndexed acc)
+                        !(# lsNext, leNext #) = sliceLineRangeAt originalText off
+                        !lineNumNext = lineNum + 1 + countNewlinesBetween originalText (le + 1) lsNext
+                     in doneMatch : goIndexed lineNumNext lsNext leNext [ic] cs
+
+-- | Single-pass UTF-8 @BSB.Builder@ output formatter for the common non-ANSI / piped grep path,
+-- encoding @filepath@ once per file rather than once per match line.
+putMatchesBSB :: [Match] -> ReaderIO (Maybe BSB.Builder)
+putMatchesBSB [] = pure Nothing
+putMatchesBSB ms@(Match fp0 _ _ _ : _) = do
+    Env{..} <- ask
+    let useColor = color opt && not (no_color opt)
+    if
+        | null_output opt -> pure Nothing
+        | not useColor && not (json opt) && not (filename_only opt) && not (count opt) && not (only_matching opt) -> do
+            let !sbs = OS.toShortByteString fp0
+                !fileBSB =
+                    if isAsciiSBS sbs
+                        then BSB.shortByteString sbs
+                        else TE.encodeUtf8Builder (OS.toText fp0)
+                !wantFile = not (no_filename opt)
+                !wantNums = not (no_numbers opt)
+                !wantCol = wantNums && not (no_column opt)
+                !wantShow = show_match opt
+                formatOne :: Match -> BSB.Builder
+                formatOne (Match _ lineNum lineTxt cs) =
+                    (if wantFile then fileBSB <> BSB.char7 ':' else mempty)
+                        <> ( if wantNums
+                                then
+                                    BSB.intDec lineNum
+                                        <> ( case cs of
+                                                (t : _) | wantCol ->
+                                                    BSB.char7 ':'
+                                                        <> BSB.intDec (bytesToCharOffset lineTxt (cOffset t - textOffsetWord8 lineTxt) + 1)
+                                                _ -> mempty
+                                           )
+                                        <> BSB.char7 ':'
+                                else mempty
+                           )
+                        <> ( if wantShow
+                                then
+                                    TE.encodeUtf8Builder bold
+                                        <> mconcat (map (TE.encodeUtf8Builder . cToken) cs)
+                                        <> TE.encodeUtf8Builder reset
+                                        <> BSB.char7 ':'
+                                else mempty
+                           )
+                        <> TE.encodeUtf8Builder lineTxt
+                go [] = mempty
+                go [x] = formatOne x
+                go (x : xs) = formatOne x <> BSB.char7 '\n' <> go xs
+            pure $! Just (go ms)
+        | otherwise ->
+            fmap (BSB.lazyByteString . TLE.encodeUtf8 . TLB.toLazyText) <$> putMatches ms
+  where
+    isAsciiSBS :: SBS.ShortByteString -> Bool
+    isAsciiSBS sbs =
+        let !n = SBS.length sbs
+            chk !i
+                | i >= n = True
+                | SBS.index sbs i < 0x80 = chk (i + 1)
+                | otherwise = False
+         in chk 0
 
 putMatches :: [Match] -> ReaderIO (Maybe TLB.Builder)
 putMatches [] = pure Nothing

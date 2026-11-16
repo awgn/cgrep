@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
 --
 -- Copyright (c) 2013-2025 Nicola Bonelli <nicola@larthia.com>
 --
@@ -17,7 +19,6 @@
 -- You should have received a copy of the GNU General Public License
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
--- nc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -32,15 +33,22 @@ module CGrep.Search (
 where
 
 import CGrep.Common (
+    CPrefilter,
     RawPrefilter (..),
+    WorkerBuffer,
+    compileCPrefilter,
+    dirInodeBuf,
     getTargetName,
     ignoreCase,
+    joinPosixPath,
     mkAsciiRawPrefilter,
-    readTargetFiltered,
+    readTargetFilteredBuf,
+    scandirBuf,
     takeN,
+    withWorkerBuffer,
  )
 import CGrep.FileKind (FileKind)
-import CGrep.FileType (FileType)
+import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMap (
     FileTypeInfo,
     FileTypeInfoMap (..),
@@ -48,13 +56,13 @@ import CGrep.FileTypeMap (
 import CGrep.FileTypeMapTH (
     fileTypeInfoLookup,
     fileTypeInfoMap,
-    fileTypeLookup,
+    fileTypeLookupBase,
     mkContextFilterFn,
  )
 import CGrep.Match (
     Match (..),
     prettyFileName,
-    putMatches,
+    putMatchesBSB,
  )
 import CGrep.Parser.Atom (extractAtomAnchors, mkAtomsFromTokens)
 import CGrep.Parser.Token (TokenFilter (..), parseTokens)
@@ -67,7 +75,7 @@ import CGrep.Semantic.ContextFilter (
  )
 import qualified CGrep.Strategy.BoyerMoore as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein as Levenshtein
-import CGrep.Strategy.Regex (extractPosixLinePrefilter)
+import CGrep.Strategy.Regex (extractPosixLinePrefilter, mkRegexSearcher)
 import qualified CGrep.Strategy.Regex as Regex
 import qualified CGrep.Strategy.Semantic as Semantic
 import qualified CGrep.Strategy.Tokenizer as Tokenizer
@@ -83,22 +91,25 @@ import Config (
     ),
  )
 
+import Control.Applicative ((<|>))
 import Control.Arrow (Arrow ((&&&)))
-import Control.Concurrent (forkIO)
-import Control.Concurrent.Async (asyncOn, forConcurrently_, wait)
-import Control.Exception as E (SomeException, catch)
-import Control.Monad (forM, forM_, forever, replicateM_, unless, void, when)
+import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent.Async (asyncOn, wait)
+import Control.Concurrent.Extra (newMVar, withMVar)
+import Control.Exception as E (SomeException, catch, onException)
+import Control.Monad (forM, unless, void, when)
 import Control.Monad.Extra (partitionM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Except (runExceptT, throwE)
 import Control.Monad.Trans.Reader (
     ReaderT (runReaderT),
     ask,
  )
+import Data.Atomics.Counter (incrCounter, newCounter, readCounter)
 import qualified Data.Bifunctor
+import Data.Bits (unsafeShiftL, (.&.), (.|.))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Builder as BSB
 import qualified Data.ByteString.Lazy as LBS
-import Data.Functor as F (unzip)
 import qualified Data.HashSet as S
 import Data.IORef (
     IORef,
@@ -107,41 +118,33 @@ import Data.IORef (
     readIORef,
  )
 import Data.List (maximumBy)
+import Data.List.Extra (notNull)
 import Data.List.Split (chunksOf)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, fromJust, fromMaybe)
+import Data.Maybe (catMaybes, fromJust, mapMaybe)
 import Data.Ord (comparing)
-import Data.Tuple.Extra ()
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import Data.Word (Word64, Word8)
 import GHC.Conc (getNumCapabilities)
+import GHC.Exts (Int (I#), dataToTag#)
 import Options (Options (..))
+import qualified OsPath as OS
 import PutMessage (putMessageLn)
 import Reader (
     Env (..),
     ReaderIO,
  )
-import System.Directory.OsPath (doesDirectoryExist, getDirectoryContents, makeAbsolute)
+import System.Clock (Clock (Monotonic), diffTimeSpec, getTime, toNanoSecs)
+import System.Directory.OsPath (doesDirectoryExist, getDirectoryContents)
 import System.Environment (lookupEnv)
 import System.IO (
     stderr,
     stdin,
     stdout,
  )
-
-import Control.Applicative ((<|>))
-import Control.Concurrent (MVar)
-import Control.Concurrent.Classy (newBoundedChan, readBoundedChan)
-import Control.Concurrent.Classy.BoundedChan (writeBoundedChan)
-import Control.Concurrent.Extra (newMVar, withMVar)
-import Data.Atomics.Counter (incrCounter, newCounter, readCounter)
-import Data.List.Extra (notNull)
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Builder as TLB
-import qualified Data.Text.Lazy.Encoding as TLE
-import qualified OsPath as OS
-import System.Clock
-import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
-import System.OsString as OS (isPrefixOf, isSuffixOf)
+import System.OsPath (OsPath, osp, unsafeEncodeUtf, (</>))
+import System.OsString as OS (isSuffixOf)
 import System.Process (runProcess, waitForProcess)
 
 data SearcherKind
@@ -170,7 +173,7 @@ instance Searcher 'Regex where
     run = Regex.search
 
 getSearcher :: Env -> (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match])
-getSearcher Env{..} = do
+getSearcher Env{..} =
     if
         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) && edit_dist opt -> run @Levenshtein
         | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) -> run @BoyerMoore
@@ -179,41 +182,205 @@ getSearcher Env{..} = do
         | isRegexp opt -> run @Regex
         | otherwise -> undefined
 
-data RecursiveContext = RecursiveContext
-    { rcFileTypes :: [FileType]
-    , rcFileKinds :: [FileKind]
-    , rcPrunableDirs :: [OsPath]
-    , rcParallel :: Bool
+getSearcherForPatterns :: Env -> [T.Text] -> (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> Bool -> ReaderIO [Match])
+getSearcherForPatterns env@Env{..} patterns
+    | isRegexp opt = mkRegexSearcher env patterns
+    | otherwise =
+        let base = getSearcher env
+         in \lock info fname txt str -> base lock info fname txt patterns str
+
+-- ---------------------------------------------------------------------------
+-- O(1) bitmasks for FileType (65 constructors) and FileKind (6 constructors)
+-- ---------------------------------------------------------------------------
+
+fileTypeTag :: FileType -> Int
+fileTypeTag !ft = I# (dataToTag# ft)
+{-# INLINE fileTypeTag #-}
+
+data FileTypeMask = FileTypeMask !Bool !Word64 !Word64
+
+mkFileTypeMask :: [FileType] -> FileTypeMask
+mkFileTypeMask [] = FileTypeMask True 0 0
+mkFileTypeMask ts =
+    let step (!lo, !hi) ft =
+            let !ix = fileTypeTag ft
+             in if ix < 64
+                    then (lo .|. (1 `unsafeShiftL` ix), hi)
+                    else (lo, hi .|. (1 `unsafeShiftL` (ix - 64)))
+        (!l, !h) = foldl' step (0, 0) ts
+     in FileTypeMask False l h
+
+testFileTypeMask :: FileTypeMask -> FileType -> Bool
+testFileTypeMask (FileTypeMask True _ _) _ = True
+testFileTypeMask (FileTypeMask False lo hi) ft =
+    let !ix = fileTypeTag ft
+     in if ix < 64
+            then (lo .&. (1 `unsafeShiftL` ix)) /= 0
+            else (hi .&. (1 `unsafeShiftL` (ix - 64))) /= 0
+{-# INLINE testFileTypeMask #-}
+
+data FileKindMask = FileKindMask !Bool !Word8
+
+mkFileKindMask :: [FileKind] -> FileKindMask
+mkFileKindMask [] = FileKindMask True 0
+mkFileKindMask ks =
+    FileKindMask False (foldl' (\acc k -> acc .|. (1 `unsafeShiftL` fromEnum k)) 0 ks)
+
+testFileKindMask :: FileKindMask -> FileKind -> Bool
+testFileKindMask (FileKindMask True _) _ = True
+testFileKindMask (FileKindMask False m) fk =
+    (m .&. (1 `unsafeShiftL` fromEnum fk)) /= 0
+{-# INLINE testFileKindMask #-}
+
+matchFileEntry :: Options -> FileTypeMask -> FileKindMask -> Bool -> OsPath -> Maybe (FileType, FileTypeInfo)
+matchFileEntry opt ftMask fkMask !isBare name =
+    case fileTypeLookupBase opt isBare name of
+        Nothing -> Nothing
+        Just (ft, fk, fti)
+            | testFileTypeMask ftMask ft && testFileKindMask fkMask fk -> Just (ft, fti)
+            | otherwise -> Nothing
+{-# INLINE matchFileEntry #-}
+
+-- ---------------------------------------------------------------------------
+-- Parallel work-stealing directory + file batch queue
+-- ---------------------------------------------------------------------------
+
+type FileTask = (OsPath, Maybe (FileType, FileTypeInfo))
+
+data WorkItem
+    = WorkDir !OsPath !Bool
+    | WorkFiles ![FileTask]
+    | WorkWait
+    | WorkDone
+
+data WorkState = WorkState
+    { wsDirs :: ![(OsPath, Bool)]
+    , wsFiles :: ![[FileTask]]
+    , wsFileBatches :: !Int
+    , wsActiveDirs :: !Int
+    , wsWaiters :: ![MVar ()]
     }
 
-withRecursiveContents ::
-    RecursiveContext ->
+batchChunkSize :: Int
+batchChunkSize = 32
+
+claimWork :: IORef WorkState -> MVar () -> IO WorkItem
+claimWork wsRef myWake = do
+    item <- atomicModifyIORef' wsRef $ \ws@WorkState{..} ->
+        if
+            | wsFileBatches >= 8, (b : bs) <- wsFiles ->
+                (ws{wsFiles = bs, wsFileBatches = wsFileBatches - 1}, WorkFiles b)
+            | (d, isSym) : ds <- wsDirs ->
+                (ws{wsDirs = ds}, WorkDir d isSym)
+            | (b : bs) <- wsFiles ->
+                (ws{wsFiles = bs, wsFileBatches = wsFileBatches - 1}, WorkFiles b)
+            | wsActiveDirs == 0 ->
+                (ws, WorkDone)
+            | otherwise ->
+                (ws{wsWaiters = myWake : wsWaiters}, WorkWait)
+    case item of
+        WorkWait -> do
+            takeMVar myWake
+            claimWork wsRef myWake
+        other -> pure other
+
+completeDirWork :: IORef WorkState -> [(OsPath, Bool)] -> [[FileTask]] -> IO ()
+completeDirWork wsRef newDirs newBatches = do
+    let !nBatches = length newBatches
+        !nDirs = length newDirs
+        !addedUnits = nDirs + nBatches
+    toWake <- atomicModifyIORef' wsRef $ \WorkState{..} ->
+        let !active' = wsActiveDirs - 1 + nDirs
+            !dirs' = newDirs <> wsDirs
+            !files' = newBatches <> wsFiles
+            !fCnt' = wsFileBatches + nBatches
+            (!wakeNow, !stayAsleep)
+                | active' == 0 && fCnt' == 0 = (wsWaiters, [])
+                | addedUnits > 0 = splitAt addedUnits wsWaiters
+                | otherwise = ([], wsWaiters)
+         in ( WorkState
+                { wsDirs = dirs'
+                , wsFiles = files'
+                , wsFileBatches = fCnt'
+                , wsActiveDirs = active'
+                , wsWaiters = stayAsleep
+                }
+            , wakeNow
+            )
+    mapM_ (\w -> putMVar w ()) toWake
+
+scanOneDirectory ::
+    WorkerBuffer ->
     Options ->
+    FileTypeMask ->
+    FileKindMask ->
+    [OsPath] ->
+    IORef (S.HashSet (Word64, Word64)) ->
     OsPath ->
-    S.HashSet OsPath ->
-    ([OsPath] -> IO ()) ->
-    IO ()
-withRecursiveContents ctx@RecursiveContext{..} opt dir visited action = do
-    xs <- getDirectoryContents dir
-    (dirs, files) <- partitionM (\p -> doesDirectoryExist (dir </> p)) xs
+    Bool ->
+    IO ([(OsPath, Bool)], [[FileTask]], Int)
+scanOneDirectory wb opt ftMask fkMask prunableDirs visitedInodes dirPath isSymDir = do
+    proceed <-
+        if follow opt && isSymDir
+            then do
+                mIno <- dirInodeBuf wb dirPath
+                case mIno of
+                    Nothing -> pure True
+                    Just ino ->
+                        atomicModifyIORef' visitedInodes $ \s ->
+                            if ino `S.member` s
+                                then (s, False)
+                                else (S.insert ino s, True)
+            else pure True
+    if not proceed
+        then pure ([], [], 0)
+        else do
+            mFast <- scandirBuf wb (follow opt) dirPath
+            case mFast of
+                Just (rawDirs, rawFiles) -> do
+                    let !matchedFiles =
+                            mapMaybe
+                                ( \nm ->
+                                    case matchFileEntry opt ftMask fkMask True nm of
+                                        Nothing -> Nothing
+                                        Just info ->
+                                            let !full = joinPosixPath dirPath nm
+                                             in Just (full, Just info)
+                                )
+                                rawFiles
+                        !goodDirs =
+                            if null prunableDirs
+                                then map (\(nm, sym) -> (joinPosixPath dirPath nm, sym)) rawDirs
+                                else
+                                    filter
+                                        (\(fullD, _) -> not (isPrunableDir fullD prunableDirs))
+                                        (map (\(nm, sym) -> (joinPosixPath dirPath nm, sym)) rawDirs)
+                        !batches = chunksOf batchChunkSize matchedFiles
+                    pure (goodDirs, batches, length matchedFiles)
+                Nothing -> do
+                    -- Portable fallback (Windows or ultra-long path >= 4096 bytes)
+                    xs <- E.catch (getDirectoryContents dirPath) (\(_ :: SomeException) -> pure [])
+                    let nonDots = filter (not . isDot) xs
+                    (dirs, files) <- partitionM (\p -> doesDirectoryExist (dirPath </> p)) nonDots
+                    let !matchedFiles =
+                            mapMaybe
+                                ( \nm ->
+                                    case matchFileEntry opt ftMask fkMask True nm of
+                                        Nothing -> Nothing
+                                        Just info -> Just (dirPath </> nm, Just info)
+                                )
+                                files
+                        !goodDirs =
+                            [ (dFull, True)
+                            | d <- dirs
+                            , let dFull = dirPath </> d
+                            , null prunableDirs || not (isPrunableDir dFull prunableDirs)
+                            ]
+                    pure (goodDirs, chunksOf batchChunkSize matchedFiles, length matchedFiles)
 
-    -- filter the list of files
-    let files' :: [OsPath] = (dir </>) <$> filter (\f -> fileFilter opt rcFileTypes rcFileKinds f) files
-    let dirs' :: [OsPath] = (dir </>) <$> filter (\d -> not $ isDot d) dirs
-
-    -- run IO action
-    mapM_ action (chunksOf 16 files')
-
-    foreach <-
-        if rcParallel
-            then pure (forConcurrently_ @[])
-            else pure forM_
-
-    foreach dirs' $ \dirPath -> do
-        unless (isPrunableDir dirPath rcPrunableDirs) $
-            -- this is a good directory, unless already visited...
-            makeAbsolute dirPath >>= \cpath -> do
-                unless (cpath `S.member` visited) $ withRecursiveContents ctx opt dirPath (S.insert cpath visited) action
+-- ---------------------------------------------------------------------------
+-- Main parallel search orchestrator
+-- ---------------------------------------------------------------------------
 
 startSearch :: [OsPath] -> [T.Text] -> [FileType] -> [FileKind] -> Bool -> ReaderIO ()
 startSearch paths patterns fTypes fKinds isTermIn = do
@@ -229,121 +396,126 @@ startSearch paths patterns fTypes fKinds isTermIn = do
 
     let Config{..} = conf
         Options{..} = opt
+        !ftMask = mkFileTypeMask fTypes
+        !fkMask = mkFileKindMask fKinds
+        !prunableDirs = mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir)
 
     numCaps <- liftIO getNumCapabilities
-
-    let multiplier = 4
-    let totalJobs = multiplier * fromMaybe (max (numCaps - 1) 1) jobs
-
-    -- create channels ...
-    fileCh <- liftIO $ newBoundedChan 65536
-
-    -- recursively traverse the filesystem ...
-    _ <- liftIO . forkIO $ do
-        if recursive || follow
-            then forM_ (if null paths then [unsafeEncodeUtf "."] else paths) $ \path ->
-                doesDirectoryExist path >>= \case
-                    True ->
-                        withRecursiveContents
-                            RecursiveContext
-                                { rcFileTypes = fTypes
-                                , rcFileKinds = fKinds
-                                , rcPrunableDirs = (mkPrunableDirName <$> (unsafeEncodeUtf <$> configPruneDirs) <> (unsafeEncodeUtf <$> prune_dir))
-                                , rcParallel = True
-                                }
-                            opt
-                            path
-                            (S.singleton path)
-                            ( \paths' -> do
-                                when (notNull paths') $
-                                    -- putMessageLn @T.Text lock stderr $ "Discovered empty directory!"
-                                    incrCounter (length paths') totalFiles >> writeBoundedChan fileCh paths'
-                            )
-                    _ -> incrCounter 1 totalFiles >> writeBoundedChan fileCh [path]
-            else
-                forM_
-                    ( if null paths && not isTermIn
-                        then [(unsafeEncodeUtf "", 0 :: Int)]
-                        else paths `zip` [0 ..]
-                    )
-                    (\(p, _idx) -> incrCounter 1 totalFiles >> writeBoundedChan fileCh [p])
-
-        when verbose $
-            putMessageLn @T.Text lock stderr $
-                "File discovery completed..."
-
-        replicateM_ totalJobs $ writeBoundedChan fileCh []
-
-    -- launch the worker threads...
-    matchingFiles :: IORef (S.HashSet (OsPath, Int)) <- liftIO $ newIORef S.empty
+    let !totalWorkers = max 1 numCaps
 
     let env = Env conf opt
-        runSearch = getSearcher env
-        !lookupPrefilter = buildRawPrefilterLookup env patterns
+        !runSearch = getSearcherForPatterns env patterns
+    !lookupPrefilter <- liftIO $ buildCPrefilterLookup env patterns
 
-    workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
-        let processor = 1 + idx `div` multiplier
-        liftIO . asyncOn processor $ void . runExceptT $ do
-            forever $ do
-                paths' <- liftIO $ readBoundedChan fileCh
-                case paths' of
-                    [] -> pure ()
-                    fs' -> do
-                        out <-
-                            liftIO $
-                                runReaderT
-                                    ( catMaybes
-                                        <$> forM
-                                            fs'
-                                            ( \f ->
-                                                liftIO $
-                                                    E.catch
-                                                        ( runReaderT
-                                                            ( do
-                                                                let info = fileTypeInfoLookup opt f
-                                                                    !prefilt = lookupPrefilter info
-                                                                mText <- liftIO $ readTargetFiltered prefilt f
-                                                                case mText of
-                                                                    Nothing -> pure Nothing
-                                                                    Just text -> do
-                                                                        !matches <- take max_count <$> runSearch lock info (getTargetName f) text patterns strict
+    visitedInodes <- liftIO $ newIORef S.empty
 
-                                                                        when (vim || editor) $
-                                                                            liftIO $
-                                                                                mapM_
-                                                                                    ( \m ->
-                                                                                        atomicModifyIORef'
-                                                                                            matchingFiles
-                                                                                            (\s -> (S.insert ((mFilePath &&& mLineNumb) m) s, ()))
-                                                                                    )
-                                                                                    matches
-                                                                        -- putMessage @T.Text lock stderr $ "."
-                                                                        _ <- liftIO $ incrCounter (length matches) totalMatches
-                                                                        when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
-                                                                        putMatches matches
+    initState <- liftIO $ do
+        if recursive || follow
+            then do
+                let roots = if null paths then [unsafeEncodeUtf "."] else paths
+                (dirs, files) <- partitionM doesDirectoryExist roots
+                let explicitTasks = map (\p -> (p, fileTypeInfoLookup opt p)) files
+                when (notNull explicitTasks) $
+                    void $ incrCounter (length explicitTasks) totalFiles
+                let !batches = chunksOf batchChunkSize explicitTasks
+                    !rootDirPairs = map (,True) dirs
+                pure
+                    WorkState
+                        { wsDirs = rootDirPairs
+                        , wsFiles = batches
+                        , wsFileBatches = length batches
+                        , wsActiveDirs = length rootDirPairs
+                        , wsWaiters = []
+                        }
+            else do
+                let rawTargets =
+                        if null paths && not isTermIn
+                            then [unsafeEncodeUtf ""]
+                            else paths
+                    explicitTasks = map (\p -> (p, fileTypeInfoLookup opt p)) rawTargets
+                when (notNull explicitTasks) $
+                    void $ incrCounter (length explicitTasks) totalFiles
+                let !batches = chunksOf 16 explicitTasks
+                pure
+                    WorkState
+                        { wsDirs = []
+                        , wsFiles = batches
+                        , wsFileBatches = length batches
+                        , wsActiveDirs = 0
+                        , wsWaiters = []
+                        }
+
+    wsRef <- liftIO $ newIORef initState
+    matchingFiles :: IORef (S.HashSet (OsPath, Int)) <- liftIO $ newIORef S.empty
+
+    workers <- forM ([0 .. totalWorkers - 1] :: [Int]) $ \idx -> do
+        liftIO . asyncOn idx $
+            withWorkerBuffer $ \wb -> do
+                myWake <- newEmptyMVar
+                let workerLoop = do
+                        item <- claimWork wsRef myWake
+                        case item of
+                            WorkWait -> workerLoop
+                            WorkDone ->
+                                when verbose $
+                                    putMessageLn lock stderr $
+                                        "worker_" <> T.pack (show idx) <> " terminated!"
+                            WorkDir dirPath isSymDir -> do
+                                (newDirs, newBatches, nFiles) <-
+                                    scanOneDirectory wb opt ftMask fkMask prunableDirs visitedInodes dirPath isSymDir
+                                        `E.onException` completeDirWork wsRef [] []
+                                when (nFiles > 0) $
+                                    void $ incrCounter nFiles totalFiles
+                                completeDirWork wsRef newDirs newBatches
+                                workerLoop
+                            WorkFiles fs' -> do
+                                outBuilders <-
+                                    runReaderT
+                                        ( catMaybes
+                                            <$> forM
+                                                fs'
+                                                ( \(f, mInfo) ->
+                                                    liftIO $
+                                                        E.catch
+                                                            ( runReaderT
+                                                                ( do
+                                                                    let (!rawPf, !cPf) = lookupPrefilter mInfo
+                                                                    mText <- liftIO $ readTargetFilteredBuf wb cPf rawPf f
+                                                                    case mText of
+                                                                        Nothing -> pure Nothing
+                                                                        Just text -> do
+                                                                            !matches <- take max_count <$> runSearch lock mInfo (getTargetName f) text strict
+                                                                            when (vim || editor) $
+                                                                                liftIO $
+                                                                                    mapM_
+                                                                                        ( \m ->
+                                                                                            atomicModifyIORef'
+                                                                                                matchingFiles
+                                                                                                (\s -> (S.insert ((mFilePath &&& mLineNumb) m) s, ()))
+                                                                                        )
+                                                                                        matches
+                                                                            when (notNull matches) $ do
+                                                                                _ <- liftIO $ incrCounter (length matches) totalMatches
+                                                                                void $ liftIO $ incrCounter 1 totalMatchingFiles
+                                                                            putMatchesBSB matches
+                                                                )
+                                                                env
                                                             )
-                                                            env
-                                                        )
-                                                        ( \e -> do
-                                                            let msg = show (e :: SomeException)
-                                                            putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
-                                                            return Nothing
-                                                        )
-                                            )
-                                    )
-                                    env
-                        unless (null out) $
-                            liftIO $ do
-                                let !dump = TLB.toLazyText (mconcat ((<> TLB.singleton '\n') <$> out))
-                                    !bs = LBS.toStrict (TLE.encodeUtf8 dump)
-                                withMVar outLock (\_ -> BS.hPut stdout bs)
-                when (null paths') $ do
-                    when verbose $
-                        putMessageLn lock stderr $
-                            "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " terminated!"
-                    throwE ()
+                                                            ( \e -> do
+                                                                let msg = show (e :: SomeException)
+                                                                putMessageLn lock stderr (prettyFileName conf opt (getTargetName f) <> ": error: " <> TL.pack (takeN 120 msg))
+                                                                return Nothing
+                                                            )
+                                                )
+                                        )
+                                        env
+                                unless (null outBuilders) $ do
+                                    let !combined = mconcat (map (<> BSB.char7 '\n') outBuilders)
+                                        !bs = LBS.toStrict (BSB.toLazyByteString combined)
+                                    withMVar outLock (\_ -> BS.hPut stdout bs)
+                                workerLoop
+                workerLoop
 
-    -- wait workers to complete the job
     liftIO $ do
         mapM_ wait workers
         when verbose $ putMessageLn @T.Text lock stderr $ "All workers terminated!"
@@ -351,9 +523,9 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     endTime <- liftIO $ getTime Monotonic
     when stats $ liftIO $ do
         let diffTime = fromIntegral (toNanoSecs (diffTimeSpec endTime startTime)) / 1_000_000_000 :: Double
-        total <- (readCounter totalFiles)
-        matches <- (readCounter totalMatches)
-        mfiles <- (readCounter totalMatchingFiles)
+        total <- readCounter totalFiles
+        matches <- readCounter totalMatches
+        mfiles <- readCounter totalMatchingFiles
         putMessageLn @T.Text lock stderr $ "\nTotal matches " <> T.pack (show matches)
         putMessageLn @T.Text lock stderr $ "Matching files " <> T.pack (show mfiles)
         putMessageLn @T.Text lock stderr $ "Total files searched " <> T.pack (show total)
@@ -387,27 +559,6 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                 (Just stderr)
                 >>= waitForProcess
 
-fileFilter :: Options -> [FileType] -> [FileKind] -> OsPath -> Bool
-fileFilter opt fTypes fKinds filename = (fileFilterTypes typ) && (fileFilterKinds kin)
-  where
-    (typ, kin) = F.unzip $ fileTypeLookup opt filename
-    fileFilterTypes = maybe False (liftA2 (||) (const $ null fTypes) (`elem` fTypes))
-    fileFilterKinds = maybe False (liftA2 (||) (const $ null fKinds) (`elem` fKinds))
-
-_isNotTestFile :: OsPath -> Bool
-_isNotTestFile f =
-    let fs =
-            [ ([osp|_test|] `OS.isSuffixOf`)
-            , ([osp|-test|] `OS.isSuffixOf`)
-            , ([osp|test-|] `OS.isPrefixOf`)
-            , ([osp|test_|] `OS.isPrefixOf`)
-            , ([osp|test|] ==)
-            ] ::
-                [OsString -> Bool]
-        basename = takeBaseName f
-     in not $ any ($ basename) fs
-{-# INLINE _isNotTestFile #-}
-
 isDot :: OsPath -> Bool
 isDot p = p == [osp|.|] || p == [osp|..|]
 {-# INLINE isDot #-}
@@ -423,14 +574,6 @@ mkPrunableDirName xs
     | unsafeEncodeUtf "/" `OS.isSuffixOf` xs = xs
     | otherwise = xs <> unsafeEncodeUtf "/"
 {-# INLINE mkPrunableDirName #-}
-
--- (.!.) :: V.Vector a -> Int -> a
--- v .!. i = v ! (i `mod` V.length v)
--- {-# INLINE (.!.) #-}
-
--- hasFileType :: OsPath -> Options -> [FileType] -> Bool
--- hasFileType path opt xs = isJust $ fileTypeLookup opt path >>= (\(typ, _) -> typ `elemIndex` xs)
--- {-# INLINE hasFileType #-}
 
 hasTokenizerOpt :: Options -> Bool
 hasTokenizerOpt Options{..} =
@@ -454,6 +597,30 @@ normalizePatterns :: Options -> [T.Text] -> [T.Text]
 normalizePatterns opt@Options{..}
     | (not . isRegexp) opt && semantic = id
     | otherwise = map (ignoreCase opt)
+
+buildCPrefilterLookup :: Env -> [T.Text] -> IO (Maybe (FileType, FileTypeInfo) -> (RawPrefilter, CPrefilter))
+buildCPrefilterLookup env@(Env _ opt) patterns
+    | (not . isRegexp) opt && semantic opt && not (invert_match opt || debug opt > 0 || edit_dist opt) && notNull patterns = do
+        let rawLookup = buildRawPrefilterLookup env patterns
+            FileTypeInfoMap ftMap = fileTypeInfoMap
+            !rawNothing = rawLookup Nothing
+        !cNothing <- compileCPrefilter rawNothing
+        byFt <-
+            Map.traverseWithKey
+                ( \ft fti -> do
+                    let !rpf = rawLookup (Just (ft, fti))
+                    !cpf <- compileCPrefilter rpf
+                    pure (rpf, cpf)
+                )
+                ftMap
+        pure $ \case
+            Nothing -> (rawNothing, cNothing)
+            Just (ft, _) -> Map.findWithDefault (rawNothing, cNothing) ft byFt
+    | otherwise = do
+        let !rpf = buildRawPrefilterLookup env patterns Nothing
+        !cpf <- compileCPrefilter rpf
+        let !pair = (rpf, cpf)
+        pure (const pair)
 
 -- | Precompute a sound raw-@ByteString@ pre-filter lookup function once per search
 -- (before spawning worker threads) for the already-normalized @patterns@ list.

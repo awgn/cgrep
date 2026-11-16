@@ -15,25 +15,32 @@
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 --
 
+{-# LANGUAGE UnboxedTuples #-}
+
 module CGrep.Strategy.BoyerMoore (search) where
 
 import Control.Monad.Trans.Reader (ask)
-
--- expandMultiline,
 
 import CGrep.Common (ignoreCase)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (mkContextFilterFn)
-import CGrep.Line (buildIndex, lineOffsetsOf, sliceLineAt)
-import CGrep.Match (Match, mkMatches)
+import CGrep.Line (buildIndex)
+import CGrep.Match (Match, mkMatches, mkMatchesDirect)
 import CGrep.Parser.Chunk
 import CGrep.Semantic.ContextFilter (isContextFilterAll, mkContextFilter)
-import CGrep.Text (textContainsOneOf, textIndices, textOffsetWord8, textSlice)
+import CGrep.Text (
+    indicesFastAsciiCI,
+    isAsciiText,
+    sliceLineRangeAt,
+    textContainsOneOf,
+    textIndices,
+    textOffsetWord8,
+    textSlice,
+ )
 import Control.Concurrent (MVar)
 import qualified Data.Text as T
 import qualified Data.Text.Unsafe as TU
-import qualified Data.Vector.Unboxed as UV
 import Options (Options (..))
 import PutMessage (putMessageLnVerb)
 import Reader (Env (..), ReaderIO)
@@ -43,11 +50,15 @@ import System.OsPath (OsPath)
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info filename text patterns _strict = do
     Env{..} <- ask
-    let lindex = buildIndex text
-        filt = mkContextFilter opt
+    let filt = mkContextFilter opt
         !hasContextFilter = not (isContextFilterAll filt)
+        !useDirectAsciiCI =
+            not hasContextFilter
+                && ignore_case opt
+                && not (show_match opt)
+                && all isAsciiText patterns
         !contextFilter = mkContextFilterFn (fst <$> info) filt False
-        text' = ignoreCase opt text
+        text' = if useDirectAsciiCI then text else ignoreCase opt text
         text''
             | hasContextFilter = ignoreCase opt (contextFilter text)
             | otherwise = text'
@@ -55,10 +66,19 @@ search lock info filename text patterns _strict = do
     putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"
     putMessageLnVerb 1 lock stderr $ "strategy  : running Boyer-Moore search on " <> show filename
 
+    let emitMatches :: [Chunk] -> ReaderIO [Match]
+        emitMatches cs
+            | not (invert_match opt) && textOffsetWord8 text == 0 =
+                pure $! mkMatchesDirect filename text cs
+            | otherwise =
+                mkMatches (buildIndex text) filename text'' cs
+
     if hasContextFilter && not (textContainsOneOf patterns text')
-        then mkMatches lindex filename T.empty ([] :: [Chunk])
+        then emitMatches []
         else do
-            let indices = textIndices patterns text''
+            let indices
+                    | useDirectAsciiCI = (`indicesFastAsciiCI` text) <$> patterns
+                    | otherwise = textIndices patterns text''
                 !chunks =
                     concat $
                         zipWith
@@ -70,30 +90,30 @@ search lock info filename text patterns _strict = do
                             indices
 
             if null chunks
-                then mkMatches lindex filename T.empty ([] :: [Chunk])
+                then emitMatches []
                 else do
                     let !chunks' =
                             if word_match opt || prefix_match opt || suffix_match opt
                                 then
-                                    let !loff = lineOffsetsOf lindex
-                                        !baseOff = textOffsetWord8 text''
-                                     in filter (filterChunk opt loff baseOff (snd <$> info) text'') chunks
+                                    let !baseOff = textOffsetWord8 text''
+                                     in filter (filterChunk opt baseOff (snd <$> info) text'') chunks
                                 else chunks
 
                     putMessageLnVerb 2 lock stderr $ "matches   : " <> show chunks'
-                    putMessageLnVerb 2 lock stderr $ "lindex    : " <> show lindex
-                    mkMatches lindex filename text'' chunks'
+                    emitMatches chunks'
 
-filterChunk :: Options -> UV.Vector Int -> Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
-filterChunk opts loff !baseOff info text chunk
+filterChunk :: Options -> Int -> Maybe FileTypeInfo -> T.Text -> Chunk -> Bool
+filterChunk opts !baseOff info text chunk
     | word_match opts =
         let !off = cOffset chunk
-            !line' = sliceLineAt loff text (off - baseOff)
+            !(# ls, le #) = sliceLineRangeAt text (off - baseOff)
+            !line' = textSlice text ls (le - ls)
             !cs = parseChunks info line'
          in any (\chunk' -> cOffset chunk' == off && cToken chunk' == cToken chunk) cs
     | prefix_match opts =
         let !off = cOffset chunk
-            !line' = sliceLineAt loff text (off - baseOff)
+            !(# ls, le #) = sliceLineRangeAt text (off - baseOff)
+            !line' = textSlice text ls (le - ls)
             !cs = parseChunks info line'
          in any
                 ( \chunk' ->
@@ -103,7 +123,8 @@ filterChunk opts loff !baseOff info text chunk
                 cs
     | suffix_match opts =
         let !off = cOffset chunk
-            !line' = sliceLineAt loff text (off - baseOff)
+            !(# ls, le #) = sliceLineRangeAt text (off - baseOff)
+            !line' = textSlice text ls (le - ls)
             !cs = parseChunks info line'
             !tokLen = TU.lengthWord8 (cToken chunk)
          in any

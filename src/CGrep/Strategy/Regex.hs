@@ -19,6 +19,7 @@
 module CGrep.Strategy.Regex (
     search,
     searchRef,
+    mkRegexSearcher,
     extractPosixLinePrefilter,
 ) where
 
@@ -49,11 +50,12 @@ import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo (..))
 import CGrep.FileTypeMapTH (mkContextFilterFn)
 import CGrep.Line (buildIndex)
-import CGrep.Match (Match, mkMatches)
+import CGrep.Match (Match, mkMatches, mkMatchesDirect)
 import CGrep.Parser.Chunk
 import CGrep.Semantic.ContextFilter (mkContextFilter)
-import CGrep.Text (firstIndex, indicesFast)
+import CGrep.Text (firstIndex, indicesFast, textOffsetWord8)
 
+import Options (Options (invert_match))
 #ifdef ENABLE_PCRE
 import Options (Options (regex_pcre))
 #endif
@@ -68,45 +70,72 @@ import Reader (Env (..), ReaderIO)
 import System.IO (stderr)
 import System.OsPath (OsPath)
 
+data CompiledPosixRegex = CompiledPosixRegex
+    { cprRegex :: !TDFA.Regex
+    , cprPrefilter :: !(Maybe [[T.Text]])
+    }
+
+compilePosixPattern :: T.Text -> CompiledPosixRegex
+compilePosixPattern pat =
+    let !rx = makeRegex pat
+        !pf = extractPosixLinePrefilter pat
+     in CompiledPosixRegex rx pf
+
+mkRegexSearcher :: Env -> [T.Text] -> (MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> Bool -> ReaderIO [Match])
+mkRegexSearcher (Env _ opt0) patterns =
+#ifdef ENABLE_PCRE
+    if regex_pcre opt0
+        then \lock info filename text _strict -> search lock info filename text patterns _strict
+        else
+            let !compiled = map compilePosixPattern patterns
+             in \lock info filename text _strict -> searchPosixCompiled compiled lock info filename text
+#else
+    let !compiled = if null patterns && invert_match opt0 then [] else map compilePosixPattern patterns
+     in \lock info filename text _strict -> searchPosixCompiled compiled lock info filename text
+#endif
+
 search :: MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> [T.Text] -> Bool -> ReaderIO [Match]
 search lock info filename text patterns _strict = do
-    Env{..} <- ask
-    let lindex = buildIndex text
-
-    let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
-    let text' = ignoreCase opt . contextFilter $ text
-
 #ifdef ENABLE_PCRE
-    let tokens
-            | regex_pcre opt =
-                map (\(str, (_, _)) -> Chunk ChunkUnspec str) $
-                    concatMap elems $
-                        patterns >>= (\p -> elems (getAllTextMatches $ text' Text.Regex.PCRE.=~ p :: Array Int (MatchText T.Text)))
-            | otherwise =
-                concatMap (runPosixPattern text') patterns
+    Env{..} <- ask
+    if regex_pcre opt
+        then do
+            let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
+                text' = ignoreCase opt . contextFilter $ text
+                tokens =
+                    map (\(str, (_, _)) -> Chunk ChunkUnspec str) $
+                        concatMap elems $
+                            patterns >>= (\p -> elems (getAllTextMatches $ text' Text.Regex.PCRE.=~ p :: Array Int (MatchText T.Text)))
+            if not (invert_match opt) && textOffsetWord8 text == 0
+                then pure $! mkMatchesDirect filename text tokens
+                else mkMatches (buildIndex text) filename text' tokens
+        else searchPosixCompiled (map compilePosixPattern patterns) lock info filename text
 #else
-    let tokens = concatMap (runPosixPattern text') patterns
+    searchPosixCompiled (map compilePosixPattern patterns) lock info filename text
 #endif
+
+searchPosixCompiled :: [CompiledPosixRegex] -> MVar () -> Maybe (FileType, FileTypeInfo) -> OsPath -> T.Text -> ReaderIO [Match]
+searchPosixCompiled compiled lock info filename text = do
+    Env{..} <- ask
+    let !contextFilter = mkContextFilterFn (fst <$> info) (mkContextFilter opt) False
+        text' = ignoreCase opt . contextFilter $ text
+        tokens = concatMap (runCompiledPosix text') compiled
 
     putMessageLnVerb 3 lock stderr $ "---\n" <> text' <> "\n---"
-#ifdef ENABLE_PCRE
-    putMessageLnVerb 1 lock stderr $ "strategy  : running regex " <> (if regex_pcre opt then "(pcre)" else "(posix)") <> " search on " <> show filename
-#else
     putMessageLnVerb 1 lock stderr $ "strategy  : running regex (posix) search on " <> show filename
-#endif
     putMessageLnVerb 2 lock stderr $ "tokens    : " <> show tokens
 
-    mkMatches lindex filename text' tokens
+    if not (invert_match opt) && textOffsetWord8 text == 0
+        then pure $! mkMatchesDirect filename text tokens
+        else mkMatches (buildIndex text) filename text' tokens
 
-runPosixPattern :: T.Text -> T.Text -> [Chunk]
-runPosixPattern text'@(TI.Text arr baseOff _) pat =
-    let rx :: TDFA.Regex
-        rx = makeRegex pat
-        toChunks :: MatchText T.Text -> [Chunk]
+runCompiledPosix :: T.Text -> CompiledPosixRegex -> [Chunk]
+runCompiledPosix text'@(TI.Text arr baseOff _) CompiledPosixRegex{..} =
+    let toChunks :: MatchText T.Text -> [Chunk]
         toChunks mt = [Chunk ChunkUnspec str | (str, _) <- elems mt]
-     in case extractPosixLinePrefilter pat of
+     in case cprPrefilter of
             Nothing ->
-                concatMap toChunks (matchAllText rx text')
+                concatMap toChunks (matchAllText cprRegex text')
             Just disjuncts ->
                 case findCandidateLines text' disjuncts of
                     [] -> []
@@ -114,7 +143,7 @@ runPosixPattern text'@(TI.Text arr baseOff _) pat =
                         concatMap
                             ( \(!ls, !le) ->
                                 let !lineSlice = TI.Text arr (baseOff + ls) (le - ls)
-                                 in concatMap toChunks (matchAllText rx lineSlice)
+                                 in concatMap toChunks (matchAllText cprRegex lineSlice)
                             )
                             linesList
 
