@@ -25,28 +25,49 @@
 module CGrep.Search (
     startSearch,
     getSearcher,
+    buildRawPrefilterLookup,
     normalizePatterns,
     isRegexp,
 )
 where
 
-import CGrep.Common (getTargetContents, getTargetName, ignoreCase, takeN)
+import CGrep.Common (
+    RawPrefilter (..),
+    getTargetName,
+    ignoreCase,
+    mkAsciiRawPrefilter,
+    readTargetFiltered,
+    takeN,
+ )
 import CGrep.FileKind (FileKind)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (
     FileTypeInfo,
+    FileTypeInfoMap (..),
  )
 import CGrep.FileTypeMapTH (
     fileTypeInfoLookup,
+    fileTypeInfoMap,
     fileTypeLookup,
+    mkContextFilterFn,
  )
 import CGrep.Match (
     Match (..),
     prettyFileName,
     putMatches,
  )
+import CGrep.Parser.Atom (extractAtomAnchors, mkAtomsFromTokens)
+import CGrep.Parser.Token (TokenFilter (..), parseTokens)
+import CGrep.Semantic.ContextFilter (
+    contextBitComment,
+    contextFilterAll,
+    isContextFilterAll,
+    mkContextFilter,
+    (~!),
+ )
 import qualified CGrep.Strategy.BoyerMoore as BoyerMoore
 import qualified CGrep.Strategy.Levenshtein as Levenshtein
+import CGrep.Strategy.Regex (extractPosixLinePrefilter)
 import qualified CGrep.Strategy.Regex as Regex
 import qualified CGrep.Strategy.Semantic as Semantic
 import qualified CGrep.Strategy.Tokenizer as Tokenizer
@@ -84,8 +105,11 @@ import Data.IORef (
     newIORef,
     readIORef,
  )
+import Data.List (maximumBy)
 import Data.List.Split (chunksOf)
+import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromJust, fromMaybe)
+import Data.Ord (comparing)
 import Data.Tuple.Extra ()
 import GHC.Conc (getNumCapabilities)
 import Options (Options (..))
@@ -253,6 +277,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
 
     let env = Env conf opt
         runSearch = getSearcher env
+        !lookupPrefilter = buildRawPrefilterLookup env patterns
 
     workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
         let processor = 1 + idx `div` multiplier
@@ -277,16 +302,21 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                                     E.catch
                                                         ( runReaderT
                                                             ( do
-                                                                text <- liftIO $ getTargetContents f
-                                                                !matches <- take max_count <$> runSearch lock (fileTypeInfoLookup opt f) (getTargetName f) text patterns strict
+                                                                let info = fileTypeInfoLookup opt f
+                                                                    !prefilt = lookupPrefilter info
+                                                                mText <- liftIO $ readTargetFiltered prefilt f
+                                                                case mText of
+                                                                    Nothing -> pure Nothing
+                                                                    Just text -> do
+                                                                        !matches <- take max_count <$> runSearch lock info (getTargetName f) text patterns strict
 
-                                                                when (vim || editor) $
-                                                                    liftIO $
-                                                                        mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
-                                                                -- putMessage @T.Text lock stderr $ "."
-                                                                _ <- liftIO $ incrCounter (length matches) totalMatches
-                                                                when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
-                                                                putMatches matches
+                                                                        when (vim || editor) $
+                                                                            liftIO $
+                                                                                mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
+                                                                        -- putMessage @T.Text lock stderr $ "."
+                                                                        _ <- liftIO $ incrCounter (length matches) totalMatches
+                                                                        when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
+                                                                        putMatches matches
                                                             )
                                                             env
                                                         )
@@ -423,3 +453,76 @@ normalizePatterns :: Options -> [T.Text] -> [T.Text]
 normalizePatterns opt@Options{..}
     | (not . isRegexp) opt && semantic = id
     | otherwise = map (ignoreCase opt)
+
+-- | Precompute a sound raw-@ByteString@ pre-filter lookup function once per search
+-- (before spawning worker threads) for the already-normalized @patterns@ list.
+buildRawPrefilterLookup :: Env -> [T.Text] -> (Maybe (FileType, FileTypeInfo) -> RawPrefilter)
+buildRawPrefilterLookup (Env _ opt) patterns
+    | invert_match opt || debug opt > 0 || edit_dist opt =
+        const RawAcceptAll
+    | (not . isRegexp) opt && not (hasTokenizerOpt opt) && not (semantic opt) =
+        let nonEmpty = filter (not . T.null) patterns
+            !hasCF = not (isContextFilterAll (mkContextFilter opt))
+            !pf
+                | null nonEmpty = RawRejectAll
+                | otherwise = mkAsciiRawPrefilter hasCF (ignore_case opt) nonEmpty
+         in const pf
+    | (not . isRegexp) opt && semantic opt =
+        if null patterns
+            then const RawRejectAll
+            else
+                let FileTypeInfoMap ftMap = fileTypeInfoMap
+                    pfilter = TokenFilter True True True True True True True
+                    patFilt = contextFilterAll ~! contextBitComment
+                    computeSem :: Maybe (FileType, FileTypeInfo) -> RawPrefilter
+                    computeSem mInfo =
+                        let patCF = mkContextFilterFn (fst <$> mInfo) patFilt True
+                            toksPerPat = map (parseTokens pfilter (snd <$> mInfo) (strict opt) . patCF) patterns
+                            atomsPerPat = map mkAtomsFromTokens toksPerPat
+                            anchorsPerPat = map extractAtomAnchors atomsPerPat
+                         in if all (not . null) anchorsPerPat
+                                then
+                                    let normAnchors = map (ignoreCase opt) (concat anchorsPerPat)
+                                     in mkAsciiRawPrefilter False (ignore_case opt) normAnchors
+                                else RawAcceptAll
+                    nothingPrefilt = computeSem Nothing
+                    byFt = Map.mapWithKey (\ft fti -> computeSem (Just (ft, fti))) ftMap
+                 in \case
+                        Nothing -> nothingPrefilt
+                        Just (ft, fti) -> Map.findWithDefault (computeSem (Just (ft, fti))) ft byFt
+    | (not . isRegexp) opt =
+        if null patterns
+            then const RawAcceptAll
+            else
+                let nonEmpty = filter (not . T.null) patterns
+                    !pf
+                        | null nonEmpty = RawRejectAll
+                        | otherwise = mkAsciiRawPrefilter False (ignore_case opt) nonEmpty
+                 in const pf
+    | otherwise =
+#ifdef ENABLE_PCRE
+        if regex_pcre opt
+            then const RawAcceptAll
+            else posixRegexPrefilter
+#else
+        posixRegexPrefilter
+#endif
+  where
+    posixRegexPrefilter :: Maybe (FileType, FileTypeInfo) -> RawPrefilter
+    posixRegexPrefilter
+        | null patterns = const RawRejectAll
+        | otherwise =
+            let !hasCF = not (isContextFilterAll (mkContextFilter opt))
+                !pf = case traverse extractPosixLinePrefilter patterns of
+                    Just allDisjs ->
+                        let anchors =
+                                [ maximumBy (comparing T.length) conj
+                                | disjs <- allDisjs
+                                , conj <- disjs
+                                , not (null conj)
+                                ]
+                         in if null anchors
+                                then RawAcceptAll
+                                else mkAsciiRawPrefilter hasCF (ignore_case opt) anchors
+                    Nothing -> RawAcceptAll
+             in const pf

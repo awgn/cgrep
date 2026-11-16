@@ -20,6 +20,13 @@ module CGrep.Common (
     runSearch,
     getTargetName,
     getTargetContents,
+    getTargetContentsRef,
+    RawPrefilter (..),
+    defaultMmapThreshold,
+    mkAsciiRawPrefilter,
+    evalRawPrefilterBS,
+    readTargetFiltered,
+    readTargetFilteredWith,
     ignoreCase,
     ignoreCaseRef,
     textContainsOneOfOpt,
@@ -36,19 +43,37 @@ import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Char (isSpace)
 import CGrep.Parser.Chunk (Chunk)
 import CGrep.Text (charUtf8Length, firstIndex, isAsciiText, lastIndex, textContainsAsciiCI, textContainsOneOf)
+import qualified Control.Exception as E
 import Control.Monad.ST (ST, runST)
-import Data.Bits (unsafeShiftR, (.&.), (.|.))
+import Data.Bits (unsafeShiftL, unsafeShiftR, (.&.), (.|.))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Unsafe as BSU
 import Data.Char (ord, toLower)
+import Data.List (nub)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.Array as A
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Internal as TI
 import qualified Data.Text.Unsafe as TU
+import Data.Word (Word64, Word8)
+import Foreign.C.Types (CInt (..), CSize (..))
+import Foreign.Ptr (Ptr, castPtr, minusPtr, nullPtr, plusPtr)
+import Foreign.Storable (peek, peekByteOff)
 import Options (Options (..))
 import Reader (ReaderIO)
+import System.IO (IOMode (ReadMode), withBinaryFile)
+import System.IO.MMap (Mode (ReadOnly), mmapWithFilePtr)
+import System.IO.Unsafe (unsafeDupablePerformIO)
 import System.OsPath
 import qualified System.OsString as OS
+import System.PosixCompat.Files (fileSize, getFileStatus, isRegularFile)
+
+foreign import ccall unsafe "string.h memchr"
+    c_memchr :: Ptr Word8 -> CInt -> CSize -> IO (Ptr Word8)
+
+foreign import ccall unsafe "string.h memcmp"
+    c_memcmp :: Ptr Word8 -> Ptr Word8 -> CSize -> IO CInt
 
 takeN :: Int -> String -> String
 takeN n xs
@@ -68,10 +93,227 @@ getTargetName (OS.null -> True) = unsafeEncodeUtf "<STDIN>"
 getTargetName name = name
 {-# INLINE getTargetName #-}
 
+-- | Files at or above this size (64 KiB) are mapped read-only via @mmapWithFilePtr@
+-- rather than read into a pinned heap @ByteString@, avoiding GHC large-object heap
+-- allocations and kernel-to-user @memcpy@ on non-matching files while avoiding VM
+-- map lock / TLB shootdown contention on small files.
+defaultMmapThreshold :: Int
+defaultMmapThreshold = 64 * 1024
+
+-- | Sound pre-decode raw byte filter evaluated directly on @mmap@ pages or raw @ByteString@
+-- buffers before @decodeUtf8Lenient@.
+data RawPrefilter
+    = RawAcceptAll
+    | RawRejectAll
+    | RawRequireAnyCS ![BS.ByteString]
+    | RawRequireAnyCI ![BS.ByteString]
+    deriving stock (Eq, Show)
+
+mkAsciiRawPrefilter :: Bool -> Bool -> [T.Text] -> RawPrefilter
+mkAsciiRawPrefilter !forbidSpace !ic needles
+    | null needles = RawAcceptAll
+    | any T.null needles = RawAcceptAll
+    | not (all isAsciiText needles) = RawAcceptAll
+    | forbidSpace && any (T.elem ' ') needles = RawAcceptAll
+    | ic = RawRequireAnyCI (nub (map (TE.encodeUtf8 . T.toLower) needles))
+    | otherwise = RawRequireAnyCS (nub (map TE.encodeUtf8 needles))
+
+evalRawPrefilterBS :: RawPrefilter -> BS.ByteString -> Bool
+evalRawPrefilterBS RawAcceptAll _ = True
+evalRawPrefilterBS RawRejectAll _ = False
+evalRawPrefilterBS pf bs =
+    unsafeDupablePerformIO $
+        BSU.unsafeUseAsCStringLen bs $ \(ptr, len) ->
+            evalRawPrefilterPtr pf (castPtr ptr) len
+{-# INLINE evalRawPrefilterBS #-}
+
+evalRawPrefilterPtr :: RawPrefilter -> Ptr Word8 -> Int -> IO Bool
+evalRawPrefilterPtr RawAcceptAll !_ !_ = pure True
+evalRawPrefilterPtr RawRejectAll !_ !_ = pure False
+evalRawPrefilterPtr (RawRequireAnyCS ns) !hptr !hlen = go ns
+  where
+    go [] = pure False
+    go (n : rest) = do
+        ok <- rawMemContainsCS hptr hlen n
+        if ok then pure True else go rest
+evalRawPrefilterPtr (RawRequireAnyCI ns) !hptr !hlen = go ns
+  where
+    go [] = pure False
+    go (n : rest) = do
+        ok <- rawMemContainsCI hptr hlen n
+        if ok then pure True else go rest
+
+peekW8 :: Ptr Word8 -> Int -> IO Word8
+peekW8 = peekByteOff
+{-# INLINE peekW8 #-}
+
+rawMemContainsCS :: Ptr Word8 -> Int -> BS.ByteString -> IO Bool
+rawMemContainsCS !hptr !hlen needle =
+    BSU.unsafeUseAsCStringLen needle $ \(nptr0, nlen) ->
+        if nlen <= 0 || nlen > hlen
+            then pure False
+            else do
+                let !nptr = castPtr nptr0 :: Ptr Word8
+                !b0 <- peek nptr
+                if nlen == 1
+                    then do
+                        hit <- c_memchr hptr (fromIntegral b0) (fromIntegral hlen)
+                        pure (hit /= nullPtr)
+                    else do
+                        !bLast <- peekW8 nptr (nlen - 1)
+                        let !endStart = hptr `plusPtr` (hlen - nlen)
+                            scan !cur =
+                                let !remStarts = (endStart `minusPtr` cur) + 1
+                                 in if remStarts <= 0
+                                        then pure False
+                                        else do
+                                            hit <- c_memchr cur (fromIntegral b0) (fromIntegral remStarts)
+                                            if hit == nullPtr
+                                                then pure False
+                                                else do
+                                                    !candLast <- peekW8 hit (nlen - 1)
+                                                    if candLast /= bLast
+                                                        then scan (hit `plusPtr` 1)
+                                                        else
+                                                            if nlen == 2
+                                                                then pure True
+                                                                else do
+                                                                    cmp <-
+                                                                        c_memcmp
+                                                                            (hit `plusPtr` 1)
+                                                                            (nptr `plusPtr` 1)
+                                                                            (fromIntegral (nlen - 2))
+                                                                    if cmp == 0
+                                                                        then pure True
+                                                                        else scan (hit `plusPtr` 1)
+                        scan hptr
+
+rawMemContainsCI :: Ptr Word8 -> Int -> BS.ByteString -> IO Bool
+rawMemContainsCI !hptr !hlen needle =
+    BSU.unsafeUseAsCStringLen needle $ \(nptr0, nlen) ->
+        if nlen <= 0 || nlen > hlen
+            then pure False
+            else do
+                let !nptr = castPtr nptr0 :: Ptr Word8
+                if nlen == 1
+                    then do
+                        !b0 <- peek nptr
+                        p1 <- c_memchr hptr (fromIntegral b0) (fromIntegral hlen)
+                        if p1 /= nullPtr
+                            then pure True
+                            else
+                                if b0 >= 0x61 && b0 <= 0x7A
+                                    then do
+                                        p2 <- c_memchr hptr (fromIntegral (b0 - 0x20)) (fromIntegral hlen)
+                                        pure (p2 /= nullPtr)
+                                    else pure False
+                    else do
+                        let !nlast = nlen - 1
+                            asciiLowerW8 :: Word8 -> Word8
+                            asciiLowerW8 !w = if w - 0x41 <= 25 then w .|. 0x20 else w
+                            swzCI :: Word8 -> Word64
+                            swzCI !w = 1 `unsafeShiftL` (fromIntegral (asciiLowerW8 w) .&. 0x3F)
+                        !z <- peekByteOff nptr nlast
+                        let buildTbl :: Int -> Word64 -> Int -> IO (Word64, Int)
+                            buildTbl !i !msk !skp
+                                | i >= nlast = pure (msk .|. swzCI z, skp)
+                                | otherwise = do
+                                    !c <- peekByteOff nptr i
+                                    let !skp' = if c == z then nlen - i - 2 else skp
+                                    buildTbl (i + 1) (msk .|. swzCI c) skp'
+                        (!mask, !skip) <- buildTbl 0 0 (nlen - 2)
+                        let eqSliceCI :: Int -> Int -> IO Bool
+                            eqSliceCI !hOff !k
+                                | k >= nlen = pure True
+                                | otherwise = do
+                                    !pByte <- peekByteOff nptr k
+                                    !hByte <- peekByteOff hptr (hOff + k)
+                                    if pByte == asciiLowerW8 hByte
+                                        then eqSliceCI hOff (k + 1)
+                                        else pure False
+                            loop :: Int -> IO Bool
+                            loop !i
+                                | i > hlen = pure False
+                                | otherwise = do
+                                    !lastCand <- peekByteOff hptr (i - 1)
+                                    if asciiLowerW8 lastCand == z
+                                        then do
+                                            matched <- eqSliceCI (i - nlen) 0
+                                            if matched
+                                                then pure True
+                                                else loop (i + skip + 1)
+                                        else
+                                            if i == hlen
+                                                then pure False
+                                                else do
+                                                    !nextByte <- peekByteOff hptr i
+                                                    if mask .&. swzCI nextByte == 0
+                                                        then loop (i + nlen + 1)
+                                                        else
+                                                            if z < 0x61 || z > 0x7A
+                                                                then do
+                                                                    hit <-
+                                                                        c_memchr
+                                                                            (hptr `plusPtr` i)
+                                                                            (fromIntegral z)
+                                                                            (fromIntegral (hlen - i))
+                                                                    if hit == nullPtr
+                                                                        then pure False
+                                                                        else loop ((hit `minusPtr` hptr) + 1)
+                                                                else loop (i + 1)
+                        loop nlen
+
+decodeIfEligible :: RawPrefilter -> BS.ByteString -> Maybe T.Text
+decodeIfEligible prefilt bs
+    | evalRawPrefilterBS prefilt bs =
+        let !txt = TE.decodeUtf8Lenient bs
+         in Just txt
+    | otherwise = Nothing
+{-# INLINE decodeIfEligible #-}
+
+readTargetFiltered :: RawPrefilter -> OsPath -> IO (Maybe T.Text)
+readTargetFiltered = readTargetFilteredWith defaultMmapThreshold
+{-# INLINE readTargetFiltered #-}
+
+readTargetFilteredWith :: Int -> RawPrefilter -> OsPath -> IO (Maybe T.Text)
+readTargetFilteredWith !_ RawRejectAll _ = pure Nothing
+readTargetFilteredWith !mmapThresh prefilt path
+    | OS.null path = decodeIfEligible prefilt <$> BS.getContents
+    | otherwise = do
+        fp <- decodeFS path
+        st <- getFileStatus fp
+        if not (isRegularFile st)
+            then decodeIfEligible prefilt <$> BS.readFile fp
+            else
+                let !sz = fromIntegral (fileSize st) :: Int
+                 in if
+                        | sz <= 0 -> pure $! decodeIfEligible prefilt BS.empty
+                        | sz < mmapThresh -> do
+                            bs <- withBinaryFile fp ReadMode (`BS.hGet` sz)
+                            pure $! decodeIfEligible prefilt bs
+                        | otherwise ->
+                            E.catch
+                                ( mmapWithFilePtr fp ReadOnly (Just (0, sz)) $ \(ptr, mappedSz) -> do
+                                    let !wptr = castPtr ptr :: Ptr Word8
+                                    ok <- evalRawPrefilterPtr prefilt wptr mappedSz
+                                    if not ok
+                                        then pure Nothing
+                                        else do
+                                            bs <- BSU.unsafePackCStringLen (castPtr ptr, mappedSz)
+                                            let !txt = TE.decodeUtf8Lenient bs
+                                            pure (Just txt)
+                                )
+                                (\(_ :: E.IOException) -> decodeIfEligible prefilt <$> BS.readFile fp)
+
 getTargetContents :: OsPath -> IO T.Text
-getTargetContents (OS.null -> True) = TE.decodeUtf8Lenient <$> BS.getContents
-getTargetContents xs = decodeFS xs >>= fmap TE.decodeUtf8Lenient . BS.readFile
+getTargetContents xs = fromMaybe T.empty <$> readTargetFiltered RawAcceptAll xs
 {-# INLINE getTargetContents #-}
+
+-- | Reference file reader (@BS.readFile@ + @TE.decodeUtf8Lenient@) retained for differential tests & benchmarks.
+getTargetContentsRef :: OsPath -> IO T.Text
+getTargetContentsRef (OS.null -> True) = TE.decodeUtf8Lenient <$> BS.getContents
+getTargetContentsRef xs = decodeFS xs >>= fmap TE.decodeUtf8Lenient . BS.readFile
+{-# INLINE getTargetContentsRef #-}
 
 toLowerSameWidth :: Char -> Char
 toLowerSameWidth c =

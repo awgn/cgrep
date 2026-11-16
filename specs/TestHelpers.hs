@@ -10,14 +10,14 @@ module TestHelpers (
     matchChunkTexts,
 ) where
 
-import CGrep.Common (getTargetContents, getTargetName)
+import CGrep.Common (getTargetName, readTargetFiltered)
 import CGrep.FileType (FileType)
 import CGrep.FileTypeMap (FileTypeInfo, FileTypeInfoMap (..))
 import CGrep.FileTypeMapTH (fileTypeInfoLookup, fileTypeInfoMap, mkContextFilterFn)
 import CGrep.Match (Match (..))
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token (Token, TokenFilter (..), parseTokens)
-import CGrep.Search (getSearcher, normalizePatterns)
+import CGrep.Search (buildRawPrefilterLookup, getSearcher, normalizePatterns)
 import CGrep.Semantic.ContextFilter (mkContextFilter)
 import Config (defaultConfig)
 import Control.Concurrent.MVar (newMVar)
@@ -68,11 +68,14 @@ runSearchFile opt fp rawPatterns = do
     lock <- newMVar ()
     let env = Env defaultConfig opt
         osp = unsafeEncodeUtf fp
-    txt <- getTargetContents osp
-    let info = fileTypeInfoLookup opt osp
+        info = fileTypeInfoLookup opt osp
         patterns = normalizePatterns opt rawPatterns
+        prefilt = buildRawPrefilterLookup env patterns info
         searcher = getSearcher env
-    runReaderT (searcher lock info (getTargetName osp) txt patterns (strict opt)) env
+    mTxt <- readTargetFiltered prefilt osp
+    case mTxt of
+        Nothing -> pure []
+        Just txt -> runReaderT (searcher lock info (getTargetName osp) txt patterns (strict opt)) env
 
 matchLineNums :: [Match] -> [Int]
 matchLineNums = map mLineNumb

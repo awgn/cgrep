@@ -39,6 +39,7 @@ import CGrep.Line (buildIndex)
 import CGrep.Match (Match, mkMatches)
 import CGrep.Parser.Atom (
     Atom (Exact, Not, Or),
+    extractAtomAnchors,
     extractAtomMatchers,
     findAllMatches,
     mkAtomsFromTokens,
@@ -108,9 +109,14 @@ search lock info filename text patterns strict = do
                         else map (map (reclassifyAtom lcKeywords)) rawAtoms
             | otherwise = rawAtoms
 
-    let matchers = concatMap extractAtomMatchers patterns''
+    let anchorsPerPat = map extractAtomAnchors patterns''
+        anchors
+            | null patterns'' = []
+            | all (not . null) anchorsPerPat = concat anchorsPerPat
+            | otherwise = []
+        matchers = concatMap extractAtomMatchers patterns''
 
-    let !eligibleForSearch = edit_dist opt || textContainsOneOfOpt opt matchers text
+    let !eligibleForSearch = not (null patterns'') && (edit_dist opt || textContainsOneOfOpt opt anchors text)
 
     runSearch lindex filename eligibleForSearch $ do
         putMessageLnVerb 3 lock stderr $ "---\n" <> text'' <> "\n---"

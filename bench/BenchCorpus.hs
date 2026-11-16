@@ -10,16 +10,20 @@ module BenchCorpus (
     forceTokensSeq,
     runEntrySearch,
     runCorpusSearch,
+    runCorpusReadDecodeRef,
+    runCorpusReadDecodeFast,
+    runCorpusDiskSearchRef,
+    runCorpusDiskSearchFast,
 ) where
 
-import CGrep.Common (getTargetContents)
+import CGrep.Common (getTargetContents, getTargetContentsRef, readTargetFiltered)
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMap (FileTypeInfo)
 import CGrep.FileTypeMapTH (fileTypeInfoLookup, mkContextFilterFn)
 import CGrep.Match (Match (..))
 import CGrep.Parser.Chunk (Chunk (..))
 import CGrep.Parser.Token (Token, TokenFilter (..), parseTokens)
-import CGrep.Search (getSearcher, normalizePatterns)
+import CGrep.Search (buildRawPrefilterLookup, getSearcher, normalizePatterns)
 import CGrep.Semantic.ContextFilter (contextBitComment, contextFilterAll, (~!))
 import Config (defaultConfig)
 import Control.Concurrent.MVar (MVar, newMVar)
@@ -131,6 +135,53 @@ runCorpusSearch Corpus{..} opt mkPats = do
             let pats = normalizePatterns opt (mkPats e)
             matches <- runReaderT (searcher cLock ceInfo ceOsPath ceText pats (strict opt)) env
             pure $! acc + forceMatches matches
+    V.foldM' step 0 cEntries
+
+runCorpusReadDecodeRef :: Corpus -> IO Int
+runCorpusReadDecodeRef Corpus{..} =
+    V.foldM'
+        ( \ !acc CorpusEntry{..} -> do
+            !txt <- getTargetContentsRef ceOsPath
+            pure $! acc + (if T.null txt then 0 else 1)
+        )
+        0
+        cEntries
+
+runCorpusReadDecodeFast :: Corpus -> IO Int
+runCorpusReadDecodeFast Corpus{..} =
+    V.foldM'
+        ( \ !acc CorpusEntry{..} -> do
+            !txt <- getTargetContents ceOsPath
+            pure $! acc + (if T.null txt then 0 else 1)
+        )
+        0
+        cEntries
+
+runCorpusDiskSearchRef :: Corpus -> Options -> [T.Text] -> IO Int
+runCorpusDiskSearchRef Corpus{..} opt rawPatterns = do
+    let env = Env defaultConfig opt
+        pats = normalizePatterns opt rawPatterns
+        searcher = getSearcher env
+        step !acc CorpusEntry{..} = do
+            !txt <- getTargetContentsRef ceOsPath
+            matches <- runReaderT (searcher cLock ceInfo ceOsPath txt pats (strict opt)) env
+            pure $! acc + forceMatches matches
+    V.foldM' step 0 cEntries
+
+runCorpusDiskSearchFast :: Corpus -> Options -> [T.Text] -> IO Int
+runCorpusDiskSearchFast Corpus{..} opt rawPatterns = do
+    let env = Env defaultConfig opt
+        pats = normalizePatterns opt rawPatterns
+        !lookupPrefilter = buildRawPrefilterLookup env pats
+        searcher = getSearcher env
+        step !acc CorpusEntry{..} = do
+            let !pf = lookupPrefilter ceInfo
+            mTxt <- readTargetFiltered pf ceOsPath
+            case mTxt of
+                Nothing -> pure acc
+                Just txt -> do
+                    matches <- runReaderT (searcher cLock ceInfo ceOsPath txt pats (strict opt)) env
+                    pure $! acc + forceMatches matches
     V.foldM' step 0 cEntries
 
 data RawSpec = RawSpec

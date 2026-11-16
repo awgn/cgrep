@@ -21,6 +21,7 @@ module CGrep.Parser.Atom (
     mkAtomFromToken,
     mkAtomsFromTokens,
     extractAtomMatchers,
+    extractAtomAnchors,
     findAllMatches,
     findAllMatchesRef,
     wildCardMap,
@@ -31,7 +32,7 @@ import qualified Data.Map.Strict as M
 
 import CGrep.Common (trimT)
 import CGrep.Distance (EditPattern, matchEditPattern, mkEditPattern, textApproxEq)
-import CGrep.Parser.Char (isDigit)
+import CGrep.Parser.Char (isAlphaNum, isDigit)
 import CGrep.Parser.Chunk (Chunk (..), ChunkType, pattern ChunkString)
 import CGrep.Text (
     isAsciiText,
@@ -42,8 +43,9 @@ import CGrep.Text (
     textIsSuffixOfCI,
  )
 
-import Data.List (tails)
+import Data.List (maximumBy, tails)
 import Data.Maybe (isNothing, mapMaybe)
+import Data.Ord (comparing)
 
 import Options (
     Options (edit_dist, ignore_case, prefix_match, suffix_match, word_match),
@@ -88,38 +90,58 @@ wildCardMap =
 isCombinatorKeyword :: T.Text -> Bool
 isCombinatorKeyword txt = txt == "NOT" || txt == "OR"
 
--- | Extracts literal text matchers from a pattern for shallow file pre-filtering (`textContainsOneOf`).
+-- | Extracts literal text matchers from a pattern for line-slicing (@sliceToLastMatch@).
 -- Note: `Not` atoms are excluded so negated tokens are not required to exist in the file.
 -- `Or` atoms contribute matchers only if both branches are `Exact` (when there are no other
 -- mandatory `Exact` tokens in the pattern).
 extractAtomMatchers :: [Atom] -> [T.Text]
 extractAtomMatchers atoms =
-    let mandatory = mapMaybe exactText atoms
+    let mandatory = mapMaybe exactAtomText atoms
      in if not (null mandatory)
             then mandatory
-            else concatMap orTexts atoms
+            else concatMap orAtomTexts atoms
+
+-- | Extracts the single most selective sound disjunctive requirement @[T.Text]@ for file
+-- eligibility pre-filtering (@eligibleForSearch@ / @RawPrefilter@).
+-- Every @Exact@ atom in @atoms@ is a mandatory requirement (the file MUST contain ALL of them),
+-- so requiring the single highest-selectivity @Exact@ token (preferring identifier/word characters
+-- over punctuation like @"("@ or @"*"@, and longer byte length) avoids false-positive wakeups
+-- on ubiquitous operators/brackets while remaining 100% sound.
+extractAtomAnchors :: [Atom] -> [T.Text]
+extractAtomAnchors atoms =
+    let candidates =
+            [[t] | t <- mapMaybe exactAtomText atoms]
+                ++ filter (not . null) (map orAtomTexts atoms)
+     in case candidates of
+            [] -> []
+            cs -> maximumBy (comparing groupScore) cs
   where
-    exactText :: Atom -> Maybe T.Text
-    exactText (Exact (T.Token (Chunk ChunkString xs))) =
-        let s = (unquoteT . trimT) xs
-         in if T.null s then Nothing else Just s
-    exactText (Exact t) =
-        let s = T.tToken t
-         in if T.null s then Nothing else Just s
-    exactText _ = Nothing
+    anchorScore :: T.Text -> (Bool, Int)
+    anchorScore t = (T.any (\c -> isAlphaNum c || c == '_') t, T.length t)
 
-    orTexts :: Atom -> [T.Text]
-    orTexts (Or a b) =
-        let la = orBranchTexts a
-            lb = orBranchTexts b
-         in if not (null la) && not (null lb) then la ++ lb else []
-    orTexts _ = []
+    groupScore :: [T.Text] -> ((Bool, Int), Int)
+    groupScore g = (minimum (map anchorScore g), negate (length g))
 
-    orBranchTexts :: Atom -> [T.Text]
-    orBranchTexts (Or a b) = orBranchTexts a ++ orBranchTexts b
-    orBranchTexts a = case exactText a of
+exactAtomText :: Atom -> Maybe T.Text
+exactAtomText (Exact (T.Token (Chunk ChunkString xs))) =
+    let s = (unquoteT . trimT) xs
+     in if T.null s then Nothing else Just s
+exactAtomText (Exact t) =
+    let s = T.tToken t
+     in if T.null s then Nothing else Just s
+exactAtomText _ = Nothing
+
+orAtomTexts :: Atom -> [T.Text]
+orAtomTexts (Or a b) =
+    let la = orBranchTexts a
+        lb = orBranchTexts b
+     in if not (null la) && not (null lb) then la ++ lb else []
+  where
+    orBranchTexts (Or x y) = orBranchTexts x ++ orBranchTexts y
+    orBranchTexts x = case exactAtomText x of
         Just txt -> [txt]
         Nothing -> []
+orAtomTexts _ = []
 
 -- | Converts a sequence of pattern tokens into semantic Atoms, recognizing:
 -- * `...` as `Ellipsis`

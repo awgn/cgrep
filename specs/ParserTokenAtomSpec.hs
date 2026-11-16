@@ -1,9 +1,19 @@
 module ParserTokenAtomSpec (parserTokenAtomTests) where
 
-import CGrep.Common (getTargetContents, ignoreCase, ignoreCaseRef, sliceToMaxIndex)
+import CGrep.Common (
+    RawPrefilter (..),
+    getTargetContents,
+    getTargetContentsRef,
+    ignoreCase,
+    ignoreCaseRef,
+    readTargetFiltered,
+    readTargetFilteredWith,
+    sliceToMaxIndex,
+ )
 import CGrep.Distance (approxEqRef, matchEditPattern, mkEditPattern)
 import CGrep.FileType (FileType (..))
 import CGrep.FileTypeMapTH (fileTypeInfoLookup, mkContextFilterFn)
+import CGrep.Search (buildRawPrefilterLookup, getSearcher, normalizePatterns)
 import CGrep.Line (
     buildIndex,
     getLineByNumber,
@@ -323,6 +333,19 @@ nonUtf8SourceFileTests =
                 msCppLev <- runSearchFile defaultOptions{edit_dist = True, code = True} cppFile ["mian"]
                 matchLineNums msCppLev @?= [3]
 
+                -- Verify forced mmap (threshold = 1 byte) + RawPrefilter on non-UTF-8 & empty files
+                mHitMmap <- readTargetFilteredWith 1 (RawRequireAnyCS ["main"]) (unsafeEncodeUtf cppFile)
+                mMissMmap <- readTargetFilteredWith 1 (RawRequireAnyCS ["__absent__"]) (unsafeEncodeUtf cppFile)
+                assertBool "forced mmap hit must return Just" (mHitMmap /= Nothing)
+                mMissMmap @?= Nothing
+
+                let emptyFile = dir </> "empty.c"
+                BS.writeFile emptyFile BS.empty
+                emptyTxt <- getTargetContents (unsafeEncodeUtf emptyFile)
+                emptyTxt @?= ""
+                emptyMiss <- readTargetFilteredWith 1 (RawRequireAnyCS ["main"]) (unsafeEncodeUtf emptyFile)
+                emptyMiss @?= Nothing
+
                 -- Verify colored output rendering (column + byte slicing after U+FFFD replacement) succeeds cleanly
                 let colorOpt = defaultOptions{semantic = True, color = True}
                 rendered <- runReaderT (putMatches msCppSem) (Env defaultConfig colorOpt)
@@ -353,6 +376,9 @@ corpusLexerEquivalenceTests =
                 let relPath = dir </> fname
                     osp = unsafeEncodeUtf relPath
                 txt <- getTargetContents osp
+                refTxt <- getTargetContentsRef osp
+                when (txt /= refTxt) $
+                    assertFailure ("getTargetContents (adaptive mmap) /= getTargetContentsRef in " <> fname)
                 let info = fileTypeInfoLookup defaultOptions osp
                     fti = snd <$> info
                     cf = mkContextFilterFn (fst <$> info) (contextFilterAll ~! contextBitComment) True
@@ -410,4 +436,26 @@ corpusLexerEquivalenceTests =
                 refRx <- runReaderT (Regex.searchRef lock info osp txt rxProbes False) rxEnv
                 when (map matchSig fastRx /= map matchSig refRx) $
                     assertFailure ("Regex.search mismatch in " <> fname)
+                -- Verify end-to-end buildRawPrefilterLookup + readTargetFiltered matches reference search across modes
+                forM_
+                    ( [ (defaultOptions, ["return"])
+                      , (defaultOptions{ignore_case = True}, ["RETURN"])
+                      , (defaultOptions{semantic = True}, ["return ANY"])
+                      , (defaultOptions{identifier = True, word_match = True}, ["options"])
+                      , (defaultOptions{regex_posix = True, code = True}, ["return[[:space:]]+[A-Za-z0-9_]+"])
+                      ] ::
+                        [(Options, [T.Text])]
+                    )
+                    $ \(modeOpt, rawPats) -> do
+                        let mEnv = Env defaultConfig modeOpt
+                            normPats = normalizePatterns modeOpt rawPats
+                            pf = buildRawPrefilterLookup mEnv normPats info
+                            srch = getSearcher mEnv
+                        mFastTxt <- readTargetFiltered pf osp
+                        fastDiskMs <- case mFastTxt of
+                            Nothing -> pure []
+                            Just t -> runReaderT (srch lock info osp t normPats (strict modeOpt)) mEnv
+                        refDiskMs <- runReaderT (srch lock info osp refTxt normPats (strict modeOpt)) mEnv
+                        when (map matchSig fastDiskMs /= map matchSig refDiskMs) $
+                            assertFailure ("readTargetFiltered disk pipeline mismatch in " <> fname <> " for " <> show rawPats)
         ]

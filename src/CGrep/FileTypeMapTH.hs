@@ -4884,15 +4884,30 @@ fileTypeInfoMap =
                     )
                 ]
      )
+{-# NOINLINE fileTypeInfoMap #-}
+
+filterFnsMarkers :: Map.Map FileType FilterFunction
+filterFnsMarkers =
+    Map.map
+        (\FileTypeInfo{..} -> let !cfg = mkParConfig ftComment ftString ftRawString ftChar True in runContextFilter cfg)
+        (unMapInfo fileTypeInfoMap)
+{-# NOINLINE filterFnsMarkers #-}
+
+filterFnsPlain :: Map.Map FileType FilterFunction
+filterFnsPlain =
+    Map.map
+        (\FileTypeInfo{..} -> let !cfg = mkParConfig ftComment ftString ftRawString ftChar False in runContextFilter cfg)
+        (unMapInfo fileTypeInfoMap)
+{-# NOINLINE filterFnsPlain #-}
 
 mkContextFilterFn :: Maybe FileType -> ContextFilter -> Bool -> (T.Text -> T.Text)
 mkContextFilterFn _ (isContextFilterAll -> True) False = id
 mkContextFilterFn Nothing _ _ = id
-mkContextFilterFn (Just ftype) filt useMarkers
-    | Just fun <- parFunc = fun filt
-    | otherwise = id
-  where
-    parFunc = mkFilterFunction useMarkers =<< Map.lookup ftype (unMapInfo fileTypeInfoMap)
+mkContextFilterFn (Just ftype) filt useMarkers =
+    let m = if useMarkers then filterFnsMarkers else filterFnsPlain
+     in case Map.lookup ftype m of
+            Just fun -> fun filt
+            Nothing -> id
 
 fileTypeLookup :: Options -> OS.OsPath -> Maybe (FileType, FileKind)
 fileTypeLookup opts f = forcedType opts <|> lookupFileType f (code_only opts) (hdr_only opts)
@@ -4928,9 +4943,3 @@ forcedType Options{..}
     | otherwise = Nothing
   where
     m = unMap fileTypeMap
-
-mkFilterFunction :: Bool -> FileTypeInfo -> Maybe FilterFunction
-mkFilterFunction useMarkers FileTypeInfo{..} =
-    Just $
-        runContextFilter (mkParConfig ftComment ftString ftRawString ftChar useMarkers)
-{-# INLINE mkFilterFunction #-}

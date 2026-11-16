@@ -1,8 +1,10 @@
 module PropertySpec (propertyTests) where
 
 import CGrep.Common (
+    evalRawPrefilterBS,
     ignoreCase,
     ignoreCaseRef,
+    mkAsciiRawPrefilter,
     sliceToLastMatch,
     sliceToMaxIndex,
     textContainsOneOfOpt,
@@ -75,6 +77,7 @@ import Control.Concurrent.MVar (newMVar)
 import Control.Monad.Trans.Reader (runReaderT)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Unsafe as TU
 import Options (Options (..), defaultOptions)
 import Reader (Env (..))
@@ -122,6 +125,8 @@ propertyTests =
                 testProperty "Atom.findAllMatches compiled matcher matches reference tails+Map findAllMatchesRef" prop_findAllMatchesMatchesReference
             , localOption (QuickCheckTests 1000) $
                 testProperty "Regex.search line-prefiltered POSIX engine matches reference full-text TDFA searchRef" prop_regexMatchesReference
+            , localOption (QuickCheckTests 1000) $
+                testProperty "RawPrefilter (memchr CS & bloom CI) on raw UTF-8 ByteString matches textContainsOneOfOpt" prop_rawPrefilterMatchesTextContains
             , testProperty "parseTokens produces in-bounds valid UTF-8 slices and zero blanked-char operators" prop_parseTokensValidSlicesAndNoBlankLeaks
             , testProperty "ignoreCase preserves exact UTF-8 Word8 length across arbitrary Unicode" prop_ignoreCasePreservesByteLength
             , testProperty "LineIndex totalLines and getLineByNumber reconstruct lines accurately" prop_lineIndexRoundTrip
@@ -738,3 +743,48 @@ prop_regexMatchesReference =
                     , ""
                     ]
         pure (T.intercalate "\n" ls)
+
+prop_rawPrefilterMatchesTextContains :: Property
+prop_rawPrefilterMatchesTextContains =
+    forAll (elements [False, True]) $ \ic ->
+        forAll (elements [False, True]) $ \forbidSp ->
+            forAll (listOf genRawNeedle) $ \rawNeedles ->
+                forAll genAdversarialText $ \txt ->
+                    let nonEmpty = filter (not . T.null) rawNeedles
+                        opt = defaultOptions{ignore_case = ic}
+                        normNeedles = map (ignoreCase opt) nonEmpty
+                        pf = mkAsciiRawPrefilter forbidSp ic normNeedles
+                        bs = TE.encodeUtf8 txt
+                        fastOk = evalRawPrefilterBS pf bs
+                        refOk
+                            | null nonEmpty = True
+                            | otherwise = textContainsOneOfOpt opt nonEmpty txt
+                        -- `RawPrefilter` is a sound over-approximation: whenever `refOk` is True,
+                        -- `fastOk` MUST be True; when all needles are ASCII (and space-free if `forbidSp`),
+                        -- `fastOk` must equal `refOk` exactly!
+                        exactCase =
+                            not (null nonEmpty)
+                                && all isAsciiText normNeedles
+                                && (not forbidSp || not (any (T.elem ' ') normNeedles))
+                     in if exactCase
+                            then fastOk === refOk
+                            else (not refOk || fastOk) === True
+  where
+    genRawNeedle :: Gen T.Text
+    genRawNeedle =
+        elements
+            [ ""
+            , "a"
+            , "Z"
+            , "foo"
+            , "FOO"
+            , "x_1"
+            , "_1"
+            , "a1b1"
+            , "int x"
+            , "=="
+            , "K"
+            , "İ"
+            , "€"
+            , "🦀"
+            ]

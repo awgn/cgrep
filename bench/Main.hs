@@ -9,6 +9,10 @@ import BenchCorpus (
     forceTokens,
     forceTokensSeq,
     loadCorpus,
+    runCorpusDiskSearchFast,
+    runCorpusDiskSearchRef,
+    runCorpusReadDecodeFast,
+    runCorpusReadDecodeRef,
     runCorpusSearch,
     runEntrySearch,
  )
@@ -37,6 +41,7 @@ main =
                 "cgrep"
                 [ stageBenchmarks corpus
                 , corpusBenchmarks corpus
+                , ioBenchmarks corpus
                 , perLanguageBenchmarks corpus
                 ]
         ]
@@ -137,6 +142,59 @@ corpusBenchmarks corpus =
             "Levenshtein"
             [ bench "editDist" $
                 nfIO $ runCorpusSearch corpus optEditDist (\e -> [cePrimaryIdent e])
+            ]
+        ]
+
+-- | Disk-to-Match I/O benchmarks comparing reference @BS.readFile@ + @decodeUtf8Lenient@
+-- against adaptive @mmap@ (>= 64 KiB) + raw-@ByteString@ pre-filtering across all 31 corpus files.
+ioBenchmarks :: Corpus -> Benchmark
+ioBenchmarks corpus =
+    bgroup
+        "IO"
+        [ bgroup
+            "ReadDecode"
+            [ bench "ref-readFile" $ nfIO (runCorpusReadDecodeRef corpus)
+            , bench "fast-mmapAdaptive" $ nfIO (runCorpusReadDecodeFast corpus)
+            ]
+        , bgroup
+            "BoyerMoore-miss"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus defaultOptions ["__cgrep_absent_symbol_991__"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus defaultOptions ["__cgrep_absent_symbol_991__"])
+            ]
+        , bgroup
+            "BoyerMoore-selective"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus defaultOptions ["ZSTD_DCtx"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus defaultOptions ["ZSTD_DCtx"])
+            ]
+        , bgroup
+            "BoyerMoore-ignoreCase"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus optIgnoreCase ["zstd_dctx"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus optIgnoreCase ["zstd_dctx"])
+            ]
+        , bgroup
+            "Semantic-miss"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus optSemantic ["__cgrep_absent_symbol_991__ ( ... )"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus optSemantic ["__cgrep_absent_symbol_991__ ( ... )"])
+            ]
+        , bgroup
+            "Semantic-selective"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus optSemantic ["ZSTD_DCtx * ANY"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus optSemantic ["ZSTD_DCtx * ANY"])
+            ]
+        , bgroup
+            "Semantic-ignoreCase"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus optSemanticIgnoreCase ["zstd_dctx * ANY"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus optSemanticIgnoreCase ["zstd_dctx * ANY"])
+            ]
+        , bgroup
+            "Tokenizer-selective"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus optTokIdent ["ZSTD_DCtx"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus optTokIdent ["ZSTD_DCtx"])
+            ]
+        , bgroup
+            "Regex-selective"
+            [ bench "ref" $ nfIO (runCorpusDiskSearchRef corpus optRegex ["ZSTD_decompress[A-Za-z0-9_]*"])
+            , bench "fast" $ nfIO (runCorpusDiskSearchFast corpus optRegex ["ZSTD_decompress[A-Za-z0-9_]*"])
             ]
         ]
 
