@@ -263,6 +263,23 @@ lineAndSliceUtf8EdgeCases =
             ms <- runSearchMem opt C "utf8.c" src ["target"]
             matchLineNums ms @?= [2]
             matchLines ms @?= ["int my_target = 1; // αβγ"]
+        , testCase "BoyerMoore word_match (-w) splits words cleanly in ftIdentCharSet = Nothing formats (Text, Yaml, Conf, Assembly)" $ do
+            let optW = defaultOptions{word_match = True}
+                txtSrc = "in init/main.c.\ndomain mainly\ncompatible = \"ti,keystone,main-pll-clock\";\n"
+                mdSrc = "where the `main()` function runs\nmainly ignored\n"
+                yamlSrc = "- ti,am654-navss-main-udmap\n- domain-udmap\n"
+                confSrc = "#access_log logs/access.log main;\ndomain;\n"
+                asmSrc = ".asciz \"main() returned\"\n.asciz \"domain\"\n"
+            msTxt <- runSearchMem optW Text "changes.txt" txtSrc ["main"]
+            msMd <- runSearchMem optW Text "README.md" mdSrc ["main"]
+            msYaml <- runSearchMem optW Yaml "k3.yaml" yamlSrc ["main"]
+            msConf <- runSearchMem optW Conf "nginx.conf" confSrc ["main"]
+            msAsm <- runSearchMem optW Assembly "locore.S" asmSrc ["main"]
+            matchLineNums msTxt @?= [1, 3]
+            matchLineNums msMd @?= [1]
+            matchLineNums msYaml @?= [1]
+            matchLineNums msConf @?= [1]
+            matchLineNums msAsm @?= [1]
         , testCase "totalLines, getLineByNumber, and invert_match (-v) handle empty, trailing-newline, and UTF-8 files accurately" $ do
             totalLines (buildIndex "") @?= 0
             totalLines (buildIndex "only_one") @?= 1

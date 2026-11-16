@@ -139,7 +139,7 @@ parseChunks l txt = case l >>= \FileTypeInfo{..} -> ftIdentCharSet of
     Just (Unicode_, UnicodeNumDollar_) -> parseChunksFast @'Unicode_ @'UnicodeNumDollar_ txt
     Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunksFast @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
     Just (AgdaIdent, AgdaIdent) -> parseChunksFast @'AgdaIdent @'AgdaIdent txt
-    Nothing -> parseChunksFast @'None @'None txt
+    Nothing -> parseChunksFast @'Unicode_ @'UnicodeNum_ txt
     charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
 
 parseChunksFast :: forall (cs1 :: CharSet) (csN :: CharSet). (IsCharSet cs1, IsCharSet csN) => T.Text -> [Chunk]
@@ -311,7 +311,7 @@ parseChunksRef l txt = toList $ runST $ case l >>= \FileTypeInfo{..} -> ftIdentC
     Just (Unicode_, UnicodeNumDollar_) -> parseChunksRef' @'Unicode_ @'UnicodeNumDollar_ txt
     Just (UnicodeXIDStart_, UnicodeNumXIDCont_) -> parseChunksRef' @'UnicodeXIDStart_ @'UnicodeNumXIDCont_ txt
     Just (AgdaIdent, AgdaIdent) -> parseChunksRef' @'AgdaIdent @'AgdaIdent txt
-    Nothing -> parseChunksRef' @'None @'None txt
+    Nothing -> parseChunksRef' @'Unicode_ @'UnicodeNum_ txt
     charsets -> error $ "CGrep: unsupported CharSet combination: " <> show charsets
 
 parseChunksRef' :: forall (cs1 :: CharSet) (csN :: CharSet) s. (IsCharSet cs1, IsCharSet csN) => T.Text -> ST s (S.Seq Chunk)

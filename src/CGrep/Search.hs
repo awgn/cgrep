@@ -85,7 +85,7 @@ import Config (
 
 import Control.Arrow (Arrow ((&&&)))
 import Control.Concurrent (forkIO)
-import Control.Concurrent.Async (Async, async, asyncOn, forConcurrently_, wait)
+import Control.Concurrent.Async (asyncOn, forConcurrently_, wait)
 import Control.Exception as E (SomeException, catch)
 import Control.Monad (forM, forM_, forever, replicateM_, unless, void, when)
 import Control.Monad.Extra (partitionM)
@@ -96,12 +96,13 @@ import Control.Monad.Trans.Reader (
     ask,
  )
 import qualified Data.Bifunctor
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import Data.Functor as F (unzip)
 import qualified Data.HashSet as S
 import Data.IORef (
     IORef,
-    modifyIORef,
-    modifyIORef',
+    atomicModifyIORef',
     newIORef,
     readIORef,
  )
@@ -130,13 +131,13 @@ import Control.Applicative ((<|>))
 import Control.Concurrent (MVar)
 import Control.Concurrent.Classy (newBoundedChan, readBoundedChan)
 import Control.Concurrent.Classy.BoundedChan (writeBoundedChan)
-import Control.Concurrent.Extra (newMVar)
+import Control.Concurrent.Extra (newMVar, withMVar)
 import Data.Atomics.Counter (incrCounter, newCounter, readCounter)
 import Data.List.Extra (notNull)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
-import qualified Data.Text.Lazy.IO as LTIO
+import qualified Data.Text.Lazy.Encoding as TLE
 import qualified OsPath as OS
 import System.Clock
 import System.OsPath (OsPath, OsString, osp, takeBaseName, unsafeEncodeUtf, (</>))
@@ -224,6 +225,7 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     totalMatches <- liftIO $ newCounter 0
 
     lock <- liftIO $ newMVar ()
+    outLock <- liftIO $ newMVar ()
 
     let Config{..} = conf
         Options{..} = opt
@@ -282,14 +284,10 @@ startSearch paths patterns fTypes fKinds isTermIn = do
     workers <- forM ([0 .. totalJobs - 1] :: [Int]) $ \idx -> do
         let processor = 1 + idx `div` multiplier
         liftIO . asyncOn processor $ void . runExceptT $ do
-            asRef <- liftIO $ newIORef ([] :: [Async ()])
             forever $ do
                 paths' <- liftIO $ readBoundedChan fileCh
                 case paths' of
-                    [] -> liftIO $ do
-                        -- when verbose $
-                        --    putMessageLn @T.Text lock stderr $ "worker_" <> T.pack (show idx) <> "@" <> T.pack (show processor) <> " received termination signal!"
-                        readIORef asRef >>= mapM_ wait
+                    [] -> pure ()
                     fs' -> do
                         out <-
                             liftIO $
@@ -312,7 +310,13 @@ startSearch paths patterns fTypes fKinds isTermIn = do
 
                                                                         when (vim || editor) $
                                                                             liftIO $
-                                                                                mapM_ (modifyIORef matchingFiles . S.insert . (mFilePath &&& mLineNumb)) matches
+                                                                                mapM_
+                                                                                    ( \m ->
+                                                                                        atomicModifyIORef'
+                                                                                            matchingFiles
+                                                                                            (\s -> (S.insert ((mFilePath &&& mLineNumb) m) s, ()))
+                                                                                    )
+                                                                                    matches
                                                                         -- putMessage @T.Text lock stderr $ "."
                                                                         _ <- liftIO $ incrCounter (length matches) totalMatches
                                                                         when (notNull matches) $ void $ liftIO $ incrCounter 1 totalMatchingFiles
@@ -329,13 +333,10 @@ startSearch paths patterns fTypes fKinds isTermIn = do
                                     )
                                     env
                         unless (null out) $
-                            liftIO $
-                                async
-                                    ( do
-                                        let !dump = TLB.toLazyText (mconcat ((<> TLB.singleton '\n') <$> out))
-                                        LTIO.hPutStr stdout dump
-                                    )
-                                    >>= \a -> modifyIORef' asRef (a :)
+                            liftIO $ do
+                                let !dump = TLB.toLazyText (mconcat ((<> TLB.singleton '\n') <$> out))
+                                    !bs = LBS.toStrict (TLE.encodeUtf8 dump)
+                                withMVar outLock (\_ -> BS.hPut stdout bs)
                 when (null paths') $ do
                     when verbose $
                         putMessageLn lock stderr $
