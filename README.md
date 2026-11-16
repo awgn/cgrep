@@ -11,24 +11,10 @@ CGrep extends the capabilities of traditional grep by understanding the structur
 
 ## What's New in Version 10.0.0
 
-Version 10.0 is a major architectural release combining a ground-up performance overhaul across every stage of the engine, adaptive `mmap` I/O with pre-decode raw-byte filtering, resilient non-UTF-8 source handling, structural lexer improvements, and a deep accuracy upgrade of `--tests-only` / `--no-tests` across 30 languages.
-
-### 🚀 Where the Performance Improvements Went (2x–39x Faster, up to 89x Less Memory)
-
-Every stage of CGrep was profiled and re-engineered against a new reproducible `criterion` benchmark suite (`bench/`, backed by 31 real-world open-source files totaling **2.74 MB / 80,849 lines**) and verified with differential QuickCheck property suites:
-
-- **Context Filter (`7.0x–7.7x` faster, `79x` less heap — `369 MiB -> 4.7 MiB`):** Replaced character-by-character `Text.unfoldr` with an in-place `ST` `MArray` byte engine that preserves exact UTF-8 byte offsets, a 128-bit ASCII delimiter bitmask, vectorized C `memchr` scanning inside comments and raw strings, and CAF-memoized `ParConfig` tables per language.
-- **Unboxed Token & Chunk Lexers (`2.9x–3.4x` faster stage, `5.3x–5.4x` faster end-to-end Tokenizer, up to `58x` less heap):** Replaced per-character `STRef` boxes and `Data.Sequence` finger-trees with unboxed mutually recursive loops directly over `Data.Text.Array`, `memchr` string-literal scanning, early `TokenFilter` pruning before token allocation, zero-cost `coerce` conversions, and $O(1)$ branch-table character predicates.
-- **LineIndex, Boyer-Moore & Case-Insensitive Search (`7.0x` faster `-i`, `5.5x` faster `-c`, `3.2x` faster `-w`, `3.1x` faster `LineIndex`):** Built `LineIndex` directly into an unboxed `Vector Int` via SIMD `memchr`, replaced per-call skip-table heap allocations with register-resident 64-bit bloom-mask + `memchr` substring search, added a zero-copy / ASCII byte-level fast path for `ignoreCase`, and replaced forward index lists with backwards `sliceToLastMatch`.
-- **Fuzzy / Edit-Distance Search (`39.0x` faster — `938 ms -> 24.1 ms`, `89x` less heap — `4.74 GiB -> 54.5 MiB`):** Replaced `[Char]` unpacking and lazy mutually-recursive diagonal DP with a precompiled `EditPattern`, $O(1)$ exact length-window pruning, and zero-allocation **64-bit Myers bit-parallel DP** in CPU registers (with early row termination) for ASCII tokens plus an unboxed single-row `ST` DP fallback for Unicode and long patterns.
-- **Semantic, Combinator & POSIX Regex Engines (`4.5x–5.4x` faster `-S` with `11x–15.5x` less heap; `5.8x` faster `-G` with `7.4x` less heap):** Added `CompiledAtom` / `SliceMatcher` compilation with specialized allocation-free loops, zero-allocation ASCII case-insensitive/infix comparators, high-selectivity mandatory anchor extraction (`extractAtomAnchors` — avoiding false wakeups on punctuation like `(` or `*` in patterns such as `fn(...)`), and a sound POSIX ERE DNF required-literal extractor (`extractPosixLinePrefilter`) that runs `TDFA` only on candidate lines.
-- **Zero-Stat C Directory Scanner, Work-Stealing & Pre-Decode SIMD I/O (`1.6x–21x` faster disk searches, `~10x` lower RSS):** Uses a POSIX C `readdir` `d_type` scanner (`cbits/cgrep_io.c`) with parallel work-stealing across capabilities, single-lookup `open` + `fstat` into per-worker `64 KiB` scratch buffers (`mmap` `>= 64 KiB`), NEON/SIMD C prefiltering (`0` GHC heap bytes allocated on non-matching files), `LineIndex`-free forward match resolution (`mkMatchesDirect`), single-pass `ByteString.Builder` output, and L2-cache-tuned GHC RTS (`-A8m -n2m -qg`). All C fast paths are optional and can be toggled at compile time via the `enable_cbits` Cabal flag (`-f-enable_cbits` for a 100% pure-Haskell build).
-
-### 🛡️ Language Lexer, Encoding Resilience & Test-Filtering Upgrades
-
-- **Resilient Non-UTF-8 Source & Path Decoding:** File loading (`getTargetContents`, `--file`, `--json`) now uses `decodeFS` + `decodeUtf8Lenient`, smoothly handling C/C++/kernel/driver trees containing legacy Latin-1 (`©`, `µ`), Windows-1252, or GBK/Shift-JIS bytes without aborting files or misaligning UTF-8 byte offsets.
-- **Deep Overhaul of `--tests-only` (`-T`) / `--no-tests` Across 30 Languages:** Audited and upgraded all 28 semantic test parser modules with path-level test-file recognition (`isTestFile` for Cargo `tests/*.rs`, Maven/Gradle/SBT `src/test/...` & `src/it/...`, `conftest.py`, `__tests__/`, `*.test.*`/`*.spec.*`, `*_test.*`, `runtests.jl`, `.bats`, SwiftPM `Tests/`), expanded framework support, strict unboxed `LineState` tracking (`1.4x–3.4x` faster `filterTests`), and hardened false-positive guards.
-- **Structural Lexer & `FileTypeMap` Fixes:** Added JS/TS single-quoted strings `'...'` and `.jsx`/`.mjs`/`.cjs`/`.mts`/`.cts` extensions, PHP 8 `#[...]` attribute vs `#` comment disambiguation, Scala `'symbol` vs char literal disambiguation and odd-quote `"""` closing quotes, Python backslash-guarded raw strings, OCaml `{|...|}` raw strings, Zig `\\` multiline strings, Elixir `"""`/`'''` heredocs, R `r"(...)"` raw strings, D `/+ ... +/` block comments, Unicode word-boundary chunking (`-w`/`-p`/`-s`/`-e`) on plain-text/config formats (`Text`, `Yaml`, `Json`, `Conf`, `Ini`, `Assembly`, `Latex`), and lock-serialized strict UTF-8 `stdout` batch flushing.
+- **Major Speed & Memory Overhaul** - `2x–7x` faster text, regex, token, and semantic (`-S`) searches, up to `39x` faster fuzzy matching (`-e`), and ~`10x` lower memory usage on large codebases.
+- **Faster Recursive Directory Scanning** - Redesigned multi-core file discovery and disk I/O (`cbits` enabled by default; optional 100% pure-Haskell build via `-f-enable_cbits`).
+- **Smarter Test Filtering (`-T` / `--no-tests`)** - Upgraded across 30 languages with automatic test-path conventions (`tests/`, `__tests__/`, `src/test/`, `*_test.*`, `*.spec.*`) and expanded framework support.
+- **Better Encoding & Language Support** - Smoothly handles legacy non-UTF-8 source files, improves string/comment lexing across JS/TS (`.jsx`, `.mjs`, `.cjs`, `.mts`, `.cts`), PHP 8, Scala, Python, OCaml, Zig, Elixir, R, and D, and fixes word matching (`-w`) on plain-text/config files.
 
 ---
 
@@ -123,7 +109,7 @@ Blind text greps (`rg`, `ugrep`, `grep`, `ack`) return `2,079` lines on `-w "mai
 
 ### 3. Semantic & Structural Search (`cgrep -S` vs `ast-grep` — `4 Cores`)
 
-Because `cgrep 10.0` combines mandatory pre-decode byte anchors (`RawPrefilter` + `extractAtomAnchors`) with an unboxed `ST` context lexer instead of building a full Tree-sitter CST for every file, semantic search (`-S`) is **`6.4x–11.6x` faster** (`6.1x–10.5x` in pure Haskell) than `ast-grep` at 4 cores while using less memory:
+Because `cgrep 10.0` prefilters files and matches directly over token streams instead of building a full Tree-sitter syntax tree for every file, semantic search (`-S`) is **`6.4x–11.6x` faster** (`6.1x–10.5x` in pure Haskell) than `ast-grep` at 4 cores while using less memory:
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
