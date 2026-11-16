@@ -11,11 +11,16 @@ maintainer: Nicola Bonelli <nicola@larthia.com>
 category: Utils
 build-type: Simple
 stability: Experimental
-extra-source-files: README.md
+extra-source-files: README.md, cbits/cgrep_io.c
 
 flag enable_pcre {
     Description: "Use PCRE regex engine (default: disabled)"
     Default: False
+}
+
+flag enable_cbits {
+    Description: "Use C SIMD/POSIX fast paths for I/O, scandir, and prefiltering (default: enabled)"
+    Default: True
 }
 
 common common-options
@@ -75,6 +80,9 @@ common common-options
 
   if flag (enable_pcre)
     cpp-options: -DENABLE_PCRE
+
+  if flag (enable_cbits)
+    cpp-options: -DENABLE_CBITS
 
   default-language: Haskell2010
 
@@ -192,11 +200,13 @@ library
      build-depends: regex-pcre-text
   }
 
-  c-sources:
-    cbits/cgrep_io.c
+  if flag (enable_cbits) {
+    c-sources:
+      cbits/cgrep_io.c
 
-  cc-options:
-    -O3
+    cc-options:
+      -O3
+  }
 
   ghc-options:
     -O2

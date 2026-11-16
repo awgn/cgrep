@@ -58,7 +58,6 @@ import qualified Control.Exception as E
 import Control.Monad.ST (ST, runST)
 import Data.Bits (unsafeShiftL, unsafeShiftR, (.&.), (.|.))
 import qualified Data.ByteString as BS
-import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import qualified Data.ByteString.Short as SBS
 import qualified Data.ByteString.Unsafe as BSU
 import Data.Char (ord, toLower)
@@ -70,11 +69,23 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Internal as TI
 import qualified Data.Text.Unsafe as TU
 import Data.Word (Word64, Word8)
+import Foreign.Ptr (castPtr)
+import Options (Options (..))
+import qualified OsPath as OSP
+import Reader (ReaderIO)
+import System.IO (IOMode (ReadMode), withBinaryFile)
+import System.IO.MMap (Mode (ReadOnly), mmapWithFilePtr)
+import System.OsPath
+import qualified System.OsString as OS
+import System.OsString.Internal.Types (OsString (OsString), PosixString (PosixString))
+
+#ifdef ENABLE_CBITS
+import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import Foreign.C.Types (CChar (..), CInt (..), CSize (..))
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
 import Foreign.Marshal.Alloc (alloca, free, mallocBytes)
 import Foreign.Marshal.Array (withArray)
-import Foreign.Ptr (FunPtr, Ptr, castPtr, minusPtr, nullPtr, plusPtr)
+import Foreign.Ptr (FunPtr, Ptr, minusPtr, nullPtr, plusPtr)
 import Foreign.Storable (peek, peekByteOff, poke, pokeByteOff)
 import GHC.Exts (
     Int (I#),
@@ -85,17 +96,14 @@ import GHC.Exts (
     unsafeFreezeByteArray#,
  )
 import GHC.IO (IO (IO))
-import Options (Options (..))
-import qualified OsPath as OSP
-import Reader (ReaderIO)
-import System.IO (IOMode (ReadMode), withBinaryFile)
-import System.IO.MMap (Mode (ReadOnly), mmapWithFilePtr)
 import System.IO.Unsafe (unsafeDupablePerformIO)
-import System.OsPath
-import qualified System.OsString as OS
-import System.OsString.Internal.Types (OsString (OsString), PosixString (PosixString))
 import System.PosixCompat.Files (fileSize, getFileStatus, isRegularFile)
+#else
+import Data.ByteString.Short (ShortByteString)
+import System.PosixCompat.Files (deviceID, fileID, fileSize, getFileStatus, isRegularFile)
+#endif
 
+#ifdef ENABLE_CBITS
 foreign import ccall unsafe "string.h memchr"
     c_memchr :: Ptr Word8 -> CInt -> CSize -> IO (Ptr Word8)
 
@@ -136,6 +144,7 @@ foreign import ccall unsafe "cgrep_scandir"
 
 foreign import ccall unsafe "cgrep_dir_inode"
     c_dir_inode :: Ptr CChar -> Ptr Word64 -> Ptr Word64 -> IO CInt
+#endif
 #endif
 
 takeN :: Int -> String -> String
@@ -181,6 +190,7 @@ mkAsciiRawPrefilter !forbidSpace !ic needles
     | ic = RawRequireAnyCI (nub (map (TE.encodeUtf8 . T.toLower) needles))
     | otherwise = RawRequireAnyCS (nub (map TE.encodeUtf8 needles))
 
+#ifdef ENABLE_CBITS
 evalRawPrefilterBS :: RawPrefilter -> BS.ByteString -> Bool
 evalRawPrefilterBS RawAcceptAll _ = True
 evalRawPrefilterBS RawRejectAll _ = False
@@ -325,6 +335,81 @@ rawMemContainsCI !hptr !hlen needle =
                                                                         else loop ((hit `minusPtr` hptr) + 1)
                                                                 else loop (i + 1)
                         loop nlen
+#else
+evalRawPrefilterBS :: RawPrefilter -> BS.ByteString -> Bool
+evalRawPrefilterBS RawAcceptAll !_ = True
+evalRawPrefilterBS RawRejectAll !_ = False
+evalRawPrefilterBS (RawRequireAnyCS ns) !bs = any (bsContainsCS bs) ns
+evalRawPrefilterBS (RawRequireAnyCI ns) !bs = any (bsContainsCI bs) ns
+{-# INLINE evalRawPrefilterBS #-}
+
+bsContainsCS :: BS.ByteString -> BS.ByteString -> Bool
+bsContainsCS !hay !needle
+    | nlen <= 0 = False
+    | nlen > hlen = False
+    | nlen == 1 = BS.elem (BSU.unsafeHead needle) hay
+    | otherwise =
+        let !b0 = BSU.unsafeHead needle
+            !bLast = BSU.unsafeIndex needle (nlen - 1)
+            !maxStart = hlen - nlen
+            scan !pos
+                | pos > maxStart = False
+                | otherwise =
+                    case BS.elemIndex b0 (BSU.unsafeTake (maxStart - pos + 1) (BSU.unsafeDrop pos hay)) of
+                        Nothing -> False
+                        Just rel ->
+                            let !hit = pos + rel
+                             in ( BSU.unsafeIndex hay (hit + nlen - 1) == bLast
+                                    && BSU.unsafeTake nlen (BSU.unsafeDrop hit hay) == needle
+                                )
+                                    || scan (hit + 1)
+         in scan 0
+  where
+    !hlen = BS.length hay
+    !nlen = BS.length needle
+
+bsContainsCI :: BS.ByteString -> BS.ByteString -> Bool
+bsContainsCI !hay !needle
+    | nlen <= 0 || nlen > hlen = False
+    | nlen == 1 =
+        let !b0 = BSU.unsafeHead needle
+         in BS.elem b0 hay || (b0 >= 0x61 && b0 <= 0x7A && BS.elem (b0 - 0x20) hay)
+    | otherwise =
+        let !nlast = nlen - 1
+            asciiLowerW8 :: Word8 -> Word8
+            asciiLowerW8 !w = if w - 0x41 <= 25 then w .|. 0x20 else w
+            swzCI :: Word8 -> Word64
+            swzCI !w = 1 `unsafeShiftL` (fromIntegral (asciiLowerW8 w) .&. 0x3F)
+            !z = BSU.unsafeIndex needle nlast
+            buildTbl :: Int -> Word64 -> Int -> (Word64, Int)
+            buildTbl !i !msk !skp
+                | i >= nlast = (msk .|. swzCI z, skp)
+                | otherwise =
+                    let !c = BSU.unsafeIndex needle i
+                        !skp' = if c == z then nlen - i - 2 else skp
+                     in buildTbl (i + 1) (msk .|. swzCI c) skp'
+            (!mask, !skip) = buildTbl 0 0 (nlen - 2)
+            eqSliceCI !hOff !k
+                | k >= nlen = True
+                | BSU.unsafeIndex needle k == asciiLowerW8 (BSU.unsafeIndex hay (hOff + k)) = eqSliceCI hOff (k + 1)
+                | otherwise = False
+            loop !i
+                | i > hlen = False
+                | asciiLowerW8 (BSU.unsafeIndex hay (i - 1)) == z =
+                    eqSliceCI (i - nlen) 0 || loop (i + skip + 1)
+                | i == hlen = False
+                | mask .&. swzCI (BSU.unsafeIndex hay i) == 0 =
+                    loop (i + nlen + 1)
+                | z < 0x61 || z > 0x7A =
+                    case BS.elemIndex z (BSU.unsafeDrop i hay) of
+                        Nothing -> False
+                        Just rel -> loop (i + rel + 1)
+                | otherwise = loop (i + 1)
+         in loop nlen
+  where
+    !hlen = BS.length hay
+    !nlen = BS.length needle
+#endif
 
 decodeIfEligible :: RawPrefilter -> BS.ByteString -> Maybe T.Text
 decodeIfEligible prefilt bs
@@ -357,6 +442,7 @@ readTargetFilteredWith !mmapThresh prefilt path
                         | otherwise ->
                             E.catch
                                 ( mmapWithFilePtr fp ReadOnly (Just (0, sz)) $ \(ptr, mappedSz) -> do
+#ifdef ENABLE_CBITS
                                     let !wptr = castPtr ptr :: Ptr Word8
                                     ok <- evalRawPrefilterPtr prefilt wptr mappedSz
                                     if not ok
@@ -365,6 +451,10 @@ readTargetFilteredWith !mmapThresh prefilt path
                                             bs <- BSU.unsafePackCStringLen (castPtr ptr, mappedSz)
                                             let !txt = TE.decodeUtf8Lenient bs
                                             pure (Just txt)
+#else
+                                    bs <- BSU.unsafePackCStringLen (castPtr ptr, mappedSz)
+                                    pure $! decodeIfEligible prefilt bs
+#endif
                                 )
                                 (\(_ :: E.IOException) -> decodeIfEligible prefilt <$> BS.readFile fp)
 
@@ -378,6 +468,24 @@ getTargetContentsRef (OS.null -> True) = TE.decodeUtf8Lenient <$> BS.getContents
 getTargetContentsRef xs = decodeFS xs >>= fmap TE.decodeUtf8Lenient . BS.readFile
 {-# INLINE getTargetContentsRef #-}
 
+slashSBS :: ShortByteString
+slashSBS = SBS.singleton 0x2F
+{-# NOINLINE slashSBS #-}
+
+joinPosixPath :: OsPath -> OsPath -> OsPath
+joinPosixPath dirPath baseName
+    | OS.null dirPath = baseName
+    | OS.null baseName = dirPath
+    | otherwise =
+        let sbsDir = OSP.toShortByteString dirPath
+            sbsBase = OSP.toShortByteString baseName
+            !dLen = SBS.length sbsDir
+         in if SBS.index sbsDir (dLen - 1) == 0x2F
+                then OsString (PosixString (sbsDir <> sbsBase))
+                else OsString (PosixString (sbsDir <> slashSBS <> sbsBase))
+{-# INLINE joinPosixPath #-}
+
+#ifdef ENABLE_CBITS
 newtype CPrefilter = CPrefilter (ForeignPtr CGrepPrefilterC)
 
 compileCPrefilter :: RawPrefilter -> IO CPrefilter
@@ -524,23 +632,6 @@ ptrToOsPath (Ptr addr#) !(I# sz#) =
                             (# s3, ba# #) -> (# s3, OsString (PosixString (SBS ba#)) #)
 {-# INLINE ptrToOsPath #-}
 
-slashSBS :: ShortByteString
-slashSBS = SBS.singleton 0x2F
-{-# NOINLINE slashSBS #-}
-
-joinPosixPath :: OsPath -> OsPath -> OsPath
-joinPosixPath dirPath baseName
-    | OS.null dirPath = baseName
-    | OS.null baseName = dirPath
-    | otherwise =
-        let sbsDir = OSP.toShortByteString dirPath
-            sbsBase = OSP.toShortByteString baseName
-            !dLen = SBS.length sbsDir
-         in if SBS.index sbsDir (dLen - 1) == 0x2F
-                then OsString (PosixString (sbsDir <> sbsBase))
-                else OsString (PosixString (sbsDir <> slashSBS <> sbsBase))
-{-# INLINE joinPosixPath #-}
-
 -- | Fast POSIX directory scan returning @Just ([(subdirName, isSymlinkDir)], [regFileName])@,
 -- or @Nothing@ if fallback to @System.Directory.OsPath@ is required.
 scandirBuf :: WorkerBuffer -> Bool -> OsPath -> IO (Maybe ([(OsPath, Bool)], [OsPath]))
@@ -608,6 +699,37 @@ dirInodeBuf WorkerBuffer{..} dirPath = do
                         !i <- peek pIno
                         pure (Just (d, i))
                     else pure Nothing
+#endif
+#else
+data CPrefilter = CPrefilter
+
+compileCPrefilter :: RawPrefilter -> IO CPrefilter
+compileCPrefilter !_ = pure CPrefilter
+{-# INLINE compileCPrefilter #-}
+
+data WorkerBuffer = WorkerBuffer
+
+withWorkerBuffer :: (WorkerBuffer -> IO a) -> IO a
+withWorkerBuffer action = action WorkerBuffer
+{-# INLINE withWorkerBuffer #-}
+
+readTargetFilteredBuf :: WorkerBuffer -> CPrefilter -> RawPrefilter -> OsPath -> IO (Maybe T.Text)
+readTargetFilteredBuf !_ !_ = readTargetFiltered
+{-# INLINE readTargetFilteredBuf #-}
+
+scandirBuf :: WorkerBuffer -> Bool -> OsPath -> IO (Maybe ([(OsPath, Bool)], [OsPath]))
+scandirBuf !_ !_ !_ = pure Nothing
+{-# INLINE scandirBuf #-}
+
+dirInodeBuf :: WorkerBuffer -> OsPath -> IO (Maybe (Word64, Word64))
+dirInodeBuf !_ dirPath =
+    E.catch
+        ( do
+            fp <- decodeFS dirPath
+            st <- getFileStatus fp
+            pure (Just (fromIntegral (deviceID st), fromIntegral (fileID st)))
+        )
+        (\(_ :: E.IOException) -> pure Nothing)
 #endif
 
 toLowerSameWidth :: Char -> Char

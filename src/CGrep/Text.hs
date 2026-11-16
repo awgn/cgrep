@@ -54,15 +54,17 @@ import Data.Text.Internal.ArrayUtils (memchr)
 import qualified Data.Text.Internal.Search as TIS
 import qualified Data.Text.Unsafe as TU
 import Data.Word (Word64)
+import GHC.Word (Word8)
+#ifdef ENABLE_CBITS
 import Foreign.C.Types (CPtrdiff (..), CSize (..))
 import GHC.Exts (ByteArray#)
-import GHC.Word (Word8)
 
 foreign import ccall unsafe "cgrep_count_newlines"
     c_count_newlines :: ByteArray# -> CSize -> CSize -> CSize
 
 foreign import ccall unsafe "cgrep_find_ascii_ci"
     c_find_ascii_ci :: ByteArray# -> CSize -> CSize -> CSize -> ByteArray# -> CSize -> CSize -> CPtrdiff
+#endif
 
 iterM :: (Monad m) => T.Text -> ((# Char, Int, Int #) -> m ()) -> m ()
 iterM txt f = go 0 (return ())
@@ -418,6 +420,7 @@ lastIndex (TI.Text narr noff nlen) (TI.Text harr hoff hlen)
 -- | Zero-allocation non-overlapping ASCII case-insensitive substring search for a
 -- pre-lowercased ASCII @needle@ directly on @haystack@ (avoiding @ignoreCase@ full-file copy).
 indicesFastAsciiCI :: T.Text -> T.Text -> [Int]
+#ifdef ENABLE_CBITS
 indicesFastAsciiCI (TI.Text (A.ByteArray narr#) noff nlen) (TI.Text (A.ByteArray harr#) hoff hlen)
     | nlen <= 0 || nlen > hlen = []
     | otherwise = go 0
@@ -438,6 +441,46 @@ indicesFastAsciiCI (TI.Text (A.ByteArray narr#) noff nlen) (TI.Text (A.ByteArray
                 hitRel ->
                     let !h = fromIntegral hitRel :: Int
                      in h : go (h + nlen)
+#else
+indicesFastAsciiCI (TI.Text parr poff plen) (TI.Text harr@(A.ByteArray harr#) hoff hlen)
+    | plen <= 0 || plen > hlen = []
+    | plen == 1 =
+        let !b0 = A.unsafeIndex parr poff
+            !end = hoff + hlen
+            go1 !cur
+                | cur >= end = []
+                | asciiLowerByte (A.unsafeIndex harr cur) == b0 = (cur - hoff) : go1 (cur + 1)
+                | otherwise = go1 (cur + 1)
+         in go1 hoff
+    | otherwise =
+        let !end = hoff + hlen
+            !plast = plen - 1
+            !z = A.unsafeIndex parr (poff + plast)
+            buildTbl !i !msk !skp
+                | i >= plast = (msk .|. swzCI z) :* skp
+                | otherwise =
+                    let !c = A.unsafeIndex parr (poff + i)
+                        !skp' = if c == z then plen - i - 2 else skp
+                     in buildTbl (i + 1) (msk .|. swzCI c) skp'
+            !(mask :* skip) = buildTbl 0 0 (plen - 2)
+            swzCI :: Word8 -> Word64
+            swzCI !k = 1 `unsafeShiftL` (word8ToInt (asciiLowerByte k) .&. 0x3f)
+            loop !i
+                | i > end = []
+                | asciiLowerByte (A.unsafeIndex harr (i - 1)) == z =
+                    if eqAsciiLowerSlice parr poff harr (i - plen) plen
+                        then (i - plen - hoff) : loop (i + plen)
+                        else loop (i + skip + 1)
+                | i == end = []
+                | mask .&. swzCI (A.unsafeIndex harr i) == 0 =
+                    loop (i + plen + 1)
+                | z < 0x61 || z > 0x7A =
+                    case memchr harr# i (end - i) z of
+                        -1 -> []
+                        rel -> loop (i + rel + 1)
+                | otherwise = loop (i + 1)
+         in loop (hoff + plen)
+#endif
 {-# INLINE indicesFastAsciiCI #-}
 
 -- | Vectorized count of @'\n'@ bytes in @txt@ over relative byte range @[relStart .. relEnd)@.
@@ -447,7 +490,18 @@ countNewlinesBetween (TI.Text (A.ByteArray arr#) baseOff totalLen) !relStart !re
         !e = min totalLen relEnd
      in if e <= s
             then 0
+#ifdef ENABLE_CBITS
             else fromIntegral (c_count_newlines arr# (fromIntegral (baseOff + s)) (fromIntegral (e - s)))
+#else
+            else goNl (baseOff + s) (baseOff + e) 0
+  where
+    goNl !cur !endAbs !acc
+        | cur >= endAbs = acc
+        | otherwise =
+            case memchr arr# cur (endAbs - cur) (0x0A :: Word8) of
+                -1 -> acc
+                rel -> goNl (cur + rel + 1) endAbs (acc + 1)
+#endif
 {-# INLINE countNewlinesBetween #-}
 
 -- | Find the 0-based relative @[lineStart .. lineEnd)@ byte bounds of the line containing

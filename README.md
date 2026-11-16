@@ -22,7 +22,7 @@ Every stage of CGrep was profiled and re-engineered against a new reproducible `
 - **LineIndex, Boyer-Moore & Case-Insensitive Search (`7.0x` faster `-i`, `5.5x` faster `-c`, `3.2x` faster `-w`, `3.1x` faster `LineIndex`):** Built `LineIndex` directly into an unboxed `Vector Int` via SIMD `memchr`, replaced per-call skip-table heap allocations with register-resident 64-bit bloom-mask + `memchr` substring search, added a zero-copy / ASCII byte-level fast path for `ignoreCase`, and replaced forward index lists with backwards `sliceToLastMatch`.
 - **Fuzzy / Edit-Distance Search (`39.0x` faster — `938 ms -> 24.1 ms`, `89x` less heap — `4.74 GiB -> 54.5 MiB`):** Replaced `[Char]` unpacking and lazy mutually-recursive diagonal DP with a precompiled `EditPattern`, $O(1)$ exact length-window pruning, and zero-allocation **64-bit Myers bit-parallel DP** in CPU registers (with early row termination) for ASCII tokens plus an unboxed single-row `ST` DP fallback for Unicode and long patterns.
 - **Semantic, Combinator & POSIX Regex Engines (`4.5x–5.4x` faster `-S` with `11x–15.5x` less heap; `5.8x` faster `-G` with `7.4x` less heap):** Added `CompiledAtom` / `SliceMatcher` compilation with specialized allocation-free loops, zero-allocation ASCII case-insensitive/infix comparators, high-selectivity mandatory anchor extraction (`extractAtomAnchors` — avoiding false wakeups on punctuation like `(` or `*` in patterns such as `fn(...)`), and a sound POSIX ERE DNF required-literal extractor (`extractPosixLinePrefilter`) that runs `TDFA` only on candidate lines.
-- **Zero-Stat C Directory Scanner, Work-Stealing & Pre-Decode SIMD I/O (`1.6x–21x` faster disk searches, `~10x` lower RSS):** Uses a POSIX C `readdir` `d_type` scanner (`cbits/cgrep_io.c`) with parallel work-stealing across capabilities, single-lookup `open` + `fstat` into per-worker `64 KiB` scratch buffers (`mmap` `>= 64 KiB`), NEON/SIMD C prefiltering (`0` GHC heap bytes allocated on non-matching files), `LineIndex`-free forward match resolution (`mkMatchesDirect`), single-pass `ByteString.Builder` output, and L2-cache-tuned GHC RTS (`-A8m -n2m -qg`).
+- **Zero-Stat C Directory Scanner, Work-Stealing & Pre-Decode SIMD I/O (`1.6x–21x` faster disk searches, `~10x` lower RSS):** Uses a POSIX C `readdir` `d_type` scanner (`cbits/cgrep_io.c`) with parallel work-stealing across capabilities, single-lookup `open` + `fstat` into per-worker `64 KiB` scratch buffers (`mmap` `>= 64 KiB`), NEON/SIMD C prefiltering (`0` GHC heap bytes allocated on non-matching files), `LineIndex`-free forward match resolution (`mkMatchesDirect`), single-pass `ByteString.Builder` output, and L2-cache-tuned GHC RTS (`-A8m -n2m -qg`). All C fast paths are optional and can be toggled at compile time via the `enable_cbits` Cabal flag (`-f-enable_cbits` for a 100% pure-Haskell build).
 
 ### 🛡️ Language Lexer, Encoding Resilience & Test-Filtering Upgrades
 
@@ -34,7 +34,7 @@ Every stage of CGrep was profiled and re-engineered against a new reproducible `
 
 ## Comparative Benchmarks
 
-End-to-end benchmarks measured with `hyperfine 2.0` (`-N --output=pipe`, `LC_ALL=C`) on an **Apple M2 Max** (`64 GiB` RAM) over a controlled real-world C systems corpus (**`6,476` `.c` files, `147.3 MB` / `5.15M` LOC** from FreeBSD kernel, DPDK, Nginx, and Redis), enforcing strict file-set parity, match-count parity, and **4-Core** parity (`-j 4` / `-J4`) across **`cgrep` `10.0.0`**, **`ripgrep` `15.2.0`**, **`ugrep` `7.8.5`**, and **`ast-grep` `0.51.3`**, alongside single-threaded **GNU `grep` `3.12`¹**, **`ack` `3.10.0`¹**, and **Apple BSD `grep` `2.6.0`¹**.
+End-to-end benchmarks measured with `hyperfine 2.0` (`-N --output=pipe`, `LC_ALL=C`) on an **Apple M2 Max** (`64 GiB` RAM) over a controlled real-world C systems corpus (**`6,476` `.c` files, `147.3 MB` / `5.15M` LOC** from FreeBSD kernel, DPDK, Nginx, and Redis), enforcing strict file-set parity, match-count parity, and **4-Core** parity (`-j 4` / `-J4`) across **`cgrep` `10.0.0`** (both default `cbits` and **100% pure Haskell** built with `-f-enable_cbits`), **`ripgrep` `15.2.0`**, **`ugrep` `7.8.5`**, and **`ast-grep` `0.51.3`**, alongside single-threaded **GNU `grep` `3.12`¹**, **`ack` `3.10.0`¹**, and **Apple BSD `grep` `2.6.0`¹**.
 
 ### 1. Base Search (Text & Regex) — `4 Cores` (`¹` = single-threaded)
 
@@ -47,40 +47,44 @@ End-to-end benchmarks measured with `hyperfine 2.0` (`-N --output=pipe`, `LC_ALL
 │  ripgrep                    █▉                                     68.3 ms  │
 │  ugrep                      █▉                                     70.2 ms  │
 │  cgrep 10.0                 ██▋                                    95.5 ms  │
+│  cgrep 10.0 (pure HS)       ███▋                                  131.3 ms  │
 │  GNU grep¹                  ███████▏                              262.1 ms  │
 │  ack¹                       █████████████████▌                    646.3 ms  │
 │  Apple grep¹                ██████████████████████████████████   1252.9 ms  │
-│  cgrep 10.0: 2.7x faster than GNU grep¹, 6.8x ack¹, 13.1x Apple grep¹       │
+│  cbits is 1.38x faster than pure HS; 2.7x faster than GNU grep¹             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  1b. Whole Word (-w "main" — 2,079 matches):                                │
 │  ugrep                      █▉                                     67.6 ms  │
 │  ripgrep                    ██▏                                    73.9 ms  │
 │  cgrep 10.0                 ██▊                                    97.3 ms  │
+│  cgrep 10.0 (pure HS)       ███▉                                  135.6 ms  │
 │  GNU grep¹                  █████████▌                            332.6 ms  │
 │  Apple grep¹                ██████████████████████████▋           936.1 ms  │
 │  ack¹                       ██████████████████████████████████   1196.6 ms  │
-│  cgrep 10.0: 3.4x faster than GNU grep¹, 9.6x Apple grep¹, 12.3x ack¹       │
+│  cbits is 1.39x faster than pure HS; 3.4x faster than GNU grep¹             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  1c. Case-Insensitive (-i "mbuf_pool" — 1,024 matches):                     │
 │  ugrep                      ▋                                      67.9 ms  │
 │  ripgrep                    ▋                                      68.1 ms  │
 │  cgrep 10.0                 █                                     103.2 ms  │
+│  cgrep 10.0 (pure HS)       █▎                                    136.3 ms  │
 │  GNU grep¹                  ██▊                                   283.2 ms  │
 │  ack¹                       ██████▋                               692.7 ms  │
 │  Apple grep¹                ██████████████████████████████████   3561.1 ms  │
-│  cgrep 10.0: 2.7x faster than GNU grep¹, 6.7x ack¹, 34.5x Apple grep¹       │
+│  cbits is 1.32x faster than pure HS; 2.7x GNU grep¹ / 34.5x Apple grep¹     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  1d. POSIX Extended Regex ('rte_[a-z0-9_]+_init\(' — 715 matches):          │
 │  ugrep                      █▋                                     69.9 ms  │
 │  ripgrep                    █▊                                     74.7 ms  │
 │  cgrep 10.0                 ██▌                                   109.9 ms  │
+│  cgrep 10.0 (pure HS)       ███▏                                  135.2 ms  │
 │  GNU grep¹                  ██████▋                               291.5 ms  │
 │  ack¹                       ██████████████▊                       646.6 ms  │
 │  Apple grep¹                ██████████████████████████████████   1491.2 ms  │
-│  cgrep 10.0: 2.7x faster than GNU grep¹, 5.9x ack¹, 13.6x Apple grep¹       │
+│  cbits is 1.23x faster than pure HS; 2.7x GNU grep¹ / 13.6x Apple grep¹     │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│  cgrep 10.0 (pure HS) = compiled with -f-enable_cbits (100% pure Haskell).  │
 │  ¹ GNU grep, ack and Apple BSD grep are single-threaded by design.          │
-│  100% match-count parity verified across all 6 tools (10250/2079/1024/715). │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -96,25 +100,30 @@ Blind text greps (`rg`, `ugrep`, `grep`, `ack`) return `2,079` lines on `-w "mai
 │  2a. Code-Only Identifier (main — drops 1,376 comment/string FPs):          │
 │  cgrep 10.0 (-c -w)         █▋                                    160.3 ms  │
 │  cgrep 10.0 (--identifier)  █▉                                    196.7 ms  │
+│  cgrep 10 (-c -w, pure HS)  █▉                                    197.4 ms  │
+│  cgrep 10 (--id, pure HS)   ██▎                                   234.2 ms  │
 │  ast-grep                   ██████████████████████████████████   3481.7 ms  │
-│  Speedup vs ast-grep: 21.7x (-c -w) / 17.7x (--identifier)                  │
+│  Speedup vs ast-grep: 21.7x (cbits) / 17.6x (pure HS) on -c -w              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  2b. String-Literal Only ("error" inside "..." strings only):               │
 │  cgrep 10.0 (-l)            █▌                                    189.7 ms  │
+│  cgrep 10 (-l, pure HS)     █▊                                    231.7 ms  │
 │  cgrep 10.0 (--string)      ██                                    255.8 ms  │
+│  cgrep 10 (--str, pure HS)  ██▎                                   290.3 ms  │
 │  ast-grep                   ██████████████████████████████████   4461.4 ms  │
-│  Speedup vs ast-grep: 23.5x (-l) / 17.4x (--string)                         │
+│  Speedup vs ast-grep: 23.5x (cbits) / 19.3x (pure HS) on -l                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  2c. Comment Only ("TODO" inside // and /* ... */ comments only):           │
 │  cgrep 10.0 (-m)            ▊                                     102.1 ms  │
+│  cgrep 10 (-m, pure HS)     █                                     135.0 ms  │
 │  ast-grep                   ██████████████████████████████████   4456.8 ms  │
-│  Speedup vs ast-grep: 43.6x faster                                          │
+│  Speedup vs ast-grep: 43.6x (cbits) / 33.0x (pure HS)                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3. Semantic & Structural Search (`cgrep -S` vs `ast-grep` — `4 Cores`)
 
-Because `cgrep 10.0` combines mandatory pre-decode byte anchors (`RawPrefilter` + `extractAtomAnchors`) with an unboxed `ST` context lexer instead of building a full Tree-sitter CST for every file, semantic search (`-S`) is **`6.4x–11.6x` faster** than `ast-grep` at 4 cores while using less memory:
+Because `cgrep 10.0` combines mandatory pre-decode byte anchors (`RawPrefilter` + `extractAtomAnchors`) with an unboxed `ST` context lexer instead of building a full Tree-sitter CST for every file, semantic search (`-S`) is **`6.4x–11.6x` faster** (`6.1x–10.5x` in pure Haskell) than `ast-grep` at 4 cores while using less memory:
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -123,18 +132,21 @@ Because `cgrep 10.0` combines mandatory pre-decode byte anchors (`RawPrefilter` 
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  3a. Placeholder Unification ('_1 = _1 + ...' vs '$A = $A + $B'):           │
 │  cgrep 10.0 (-S)            █████▍                                575.1 ms  │
+│  cgrep 10 (-S, pure HS)     █████▋                                603.6 ms  │
 │  ast-grep                   ██████████████████████████████████   3656.0 ms  │
-│  Speedup vs ast-grep: 6.4x faster                                           │
+│  Speedup vs ast-grep: 6.4x (cbits) / 6.1x (pure HS)                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  3b. Variadic Structural Call ('memcpy(...)' vs 'memcpy($$$)'):             │
 │  cgrep 10.0 (-S)            ██▉                                   297.4 ms  │
+│  cgrep 10 (-S, pure HS)     ███▎                                  327.5 ms  │
 │  ast-grep                   ██████████████████████████████████   3450.7 ms  │
-│  Speedup vs ast-grep: 11.6x faster                                          │
+│  Speedup vs ast-grep: 11.6x (cbits) / 10.5x (pure HS)                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  3c. Null-Check Condition ('if (... == NULL)' vs 'if ($A == NULL)'):        │
 │  cgrep 10.0 (-S)            ████▌                                 493.3 ms  │
+│  cgrep 10 (-S, pure HS)     ████▉                                 535.3 ms  │
 │  ast-grep                   ██████████████████████████████████   3759.6 ms  │
-│  Speedup vs ast-grep: 7.6x faster                                           │
+│  Speedup vs ast-grep: 7.6x (cbits) / 7.0x (pure HS)                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -195,6 +207,14 @@ or using stack:
 ```bash
 stack build
 stack install
+```
+
+To compile a **100% pure-Haskell** binary without the optional C/POSIX/SIMD fast paths (`cbits/cgrep_io.c`), disable the `enable_cbits` Cabal flag:
+
+```bash
+cabal install -f-enable_cbits
+# or with stack:
+stack build --flag cgrep:-enable_cbits
 ```
 
 ---
